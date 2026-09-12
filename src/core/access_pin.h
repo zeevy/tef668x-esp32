@@ -45,6 +45,9 @@ extern "C" {
  *
  * The caller uses this to decide whether to warn. It is not a security check,
  * because the default PIN still works.
+ *
+ * @param pin  The PIN the radio is using.
+ * @return true when it is still ACCESS_PIN_DEFAULT.
  */
 bool accessPinIsDefault(uint32_t pin);
 
@@ -71,12 +74,16 @@ bool accessPinParse(const char *text, uint32_t *out);
  * Zero initialised is a valid unlocked gate.
  */
 typedef struct {
-  uint8_t wrong;          /**< Wrong attempts since the last success or unlock. */
+  uint8_t wrong; /**< Wrong attempts since the last success or unlock. */
   uint32_t lockedUntilMs; /**< Millisecond count the lock expires at. */
   bool locked;            /**< Whether lockedUntilMs means anything yet. */
 } AccessPinGate;
 
-/** Put a gate back to unlocked with no wrong attempts. */
+/**
+ * Put a gate back to unlocked with no wrong attempts.
+ *
+ * @param gate  The gate to clear.
+ */
 void accessPinGateReset(AccessPinGate *gate);
 
 /**
@@ -87,12 +94,15 @@ void accessPinGateReset(AccessPinGate *gate);
  *
  * @param gate   The gate.
  * @param nowMs  Milliseconds since boot.
+ * @return true while the gate is refusing attempts.
  */
 bool accessPinGateLocked(const AccessPinGate *gate, uint32_t nowMs);
 
 /**
  * How long the caller has to wait before the gate takes attempts again.
  *
+ * @param gate   The gate.
+ * @param nowMs  Milliseconds since boot.
  * @return Milliseconds left, or 0 when the gate is not locked.
  */
 uint32_t accessPinGateRetryAfterMs(const AccessPinGate *gate, uint32_t nowMs);

@@ -19,3 +19,4 @@
 *.elf
 *.map
 captures/
+build/

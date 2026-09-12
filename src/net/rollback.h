@@ -36,13 +36,25 @@ void rollbackBegin(void);
  */
 void rollbackTick(bool healthy);
 
-/** True when this image is still on trial and has not been marked good. */
+/**
+ * Whether this image is still on trial.
+ *
+ * @return true until the self check passes and the image is marked good.
+ */
 bool rollbackPending(void);
 
-/** The partition this image is running from, such as "app0". */
+/**
+ * Which slot this image booted from.
+ *
+ * @return The partition label, such as "app0". Never NULL.
+ */
 const char *rollbackRunningPartition(void);
 
-/** Text for the web page: what state the image is in. */
+/**
+ * The image state in words, for the serial banner and the web page.
+ *
+ * @return A short phrase. Never NULL.
+ */
 const char *rollbackStateText(void);
 
 #endif /* NET_ROLLBACK_H */

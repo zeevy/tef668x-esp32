@@ -129,6 +129,34 @@ static void an_empty_blob_falls_back_to_defaults(void) {
   TEST_ASSERT_TRUE(settingsValid(&read));
 }
 
+static void settings_valid_rejects_a_version_it_does_not_know(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.version = 0;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.version = SETTINGS_VERSION + 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void an_unterminated_passphrase_is_rejected(void) {
+  /* The SSID and the passphrase are checked separately, so both need a test
+   * or half the check can rot unnoticed. */
+  Settings s;
+  settingsDefaults(&s);
+  memset(s.wifiPass, 'P', SETTINGS_PASS_LEN);
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void setting_wifi_with_no_ssid_is_refused(void) {
+  Settings s;
+  settingsDefaults(&s);
+  settingsSetWifi(&s, "Keep", "ThisOne");
+  TEST_ASSERT_FALSE(settingsSetWifi(&s, NULL, "anything"));
+  TEST_ASSERT_EQUAL_STRING("Keep", s.wifiSsid);
+  TEST_ASSERT_EQUAL_STRING("ThisOne", s.wifiPass);
+}
+
 static void an_unterminated_string_is_rejected(void) {
   Settings written;
   settingsDefaults(&written);
@@ -218,6 +246,9 @@ int main(int, char **) {
   RUN_TEST(a_truncated_blob_is_rejected_rather_than_half_read);
   RUN_TEST(a_blob_longer_than_the_struct_is_rejected);
   RUN_TEST(an_empty_blob_falls_back_to_defaults);
+  RUN_TEST(settings_valid_rejects_a_version_it_does_not_know);
+  RUN_TEST(an_unterminated_passphrase_is_rejected);
+  RUN_TEST(setting_wifi_with_no_ssid_is_refused);
   RUN_TEST(an_unterminated_string_is_rejected);
   RUN_TEST(a_pin_outside_six_digits_is_rejected);
   RUN_TEST(the_longest_allowed_ssid_and_passphrase_fit);

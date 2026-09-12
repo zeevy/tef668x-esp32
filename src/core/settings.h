@@ -36,14 +36,19 @@ extern "C" {
  *       field breaks every radio already in the field.
  */
 typedef struct {
-  uint16_t version;              /**< SETTINGS_VERSION this was written by. */
-  uint16_t size;                 /**< sizeof(Settings) when written. */
+  uint16_t version; /**< SETTINGS_VERSION this was written by. */
+  uint16_t size;    /**< sizeof(Settings) when written. */
   char wifiSsid[SETTINGS_SSID_LEN]; /**< Empty means no credentials yet. */
-  char wifiPass[SETTINGS_PASS_LEN]; /**< Empty is allowed, for an open network. */
-  uint32_t accessPin;            /**< 0 means use the MAC derived default. */
+  char wifiPass
+      [SETTINGS_PASS_LEN]; /**< Empty is allowed, for an open network. */
+  uint32_t accessPin;      /**< 0 means use the MAC derived default. */
 } Settings;
 
-/** Fill a struct with the values a radio leaves the factory with. */
+/**
+ * Fill a struct with the values a radio leaves the factory with.
+ *
+ * @param s  Receives the defaults.
+ */
 void settingsDefaults(Settings *s);
 
 /**
@@ -51,6 +56,9 @@ void settingsDefaults(Settings *s);
  *
  * Catches a version this firmware does not know and strings with no
  * terminator, which is what a truncated or corrupt NVS blob looks like.
+ *
+ * @param s  The settings to check.
+ * @return true when every field is inside its bounds.
  */
 bool settingsValid(const Settings *s);
 
@@ -68,12 +76,20 @@ bool settingsValid(const Settings *s);
  */
 bool settingsFromBlob(const void *blob, size_t len, Settings *out);
 
-/** True when the radio has an SSID to try. */
+/**
+ * True when the radio has an SSID to try.
+ *
+ * @param s  The settings to look at.
+ * @return true when an SSID is stored.
+ */
 bool settingsHasWifi(const Settings *s);
 
 /**
  * Copy an SSID and passphrase in, with bounds checking.
  *
+ * @param s     The settings to write into.
+ * @param ssid  The network name. NULL is refused and returns false.
+ * @param pass  The passphrase, or NULL and empty for an open network.
  * @return false when either string is too long to store, in which case
  *         nothing is changed.
  */

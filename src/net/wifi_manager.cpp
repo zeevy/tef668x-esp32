@@ -108,8 +108,9 @@ void wifiLoop(void) {
         sDropCount++;
         return;
       }
-      Serial.println(F("[wifi] lost the network, falling back to the access "
-                       "point"));
+      Serial.println(
+          F("[wifi] lost the network, falling back to the access "
+            "point"));
       sDropCount = 0;
       startAccessPoint();
     } else {

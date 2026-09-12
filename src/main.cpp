@@ -18,9 +18,9 @@
 #include "board/board.h"
 #include "core/access_pin.h"
 #include "core/settings.h"
+#include "core/version.h"
 #include "drivers/device_id.h"
 #include "drivers/settings_nvs.h"
-#include "core/version.h"
 #include "net/boot_watchdog.h"
 #include "net/ota_service.h"
 #include "net/rollback.h"
@@ -49,35 +49,40 @@ static void printBanner(void) {
                 rollbackStateText());
   Serial.printf("  mac            %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],
                 mac[1], mac[2], mac[3], mac[4], mac[5]);
-  Serial.printf("  access pin     %s%s\n", pin,
-                accessPinIsDefault(gAccessPin) ? "   <- still the default"
-                                               : "");
+  Serial.printf(
+      "  access pin     %s%s\n", pin,
+      accessPinIsDefault(gAccessPin) ? "   <- still the default" : "");
   if (accessPinIsDefault(gAccessPin)) {
     Serial.println();
     Serial.println(F("  WARNING: this radio is on the default access PIN."));
-    Serial.println(F("  Anyone who can reach it on the network can change its"));
-    Serial.println(F("  settings and replace its firmware. Set your own PIN on"));
+    Serial.println(
+        F("  Anyone who can reach it on the network can change its"));
+    Serial.println(
+        F("  settings and replace its firmware. Set your own PIN on"));
     Serial.println(F("  the web page to stop that."));
   }
 
   if (wifiState() == WIFI_STATE_ACCESS_POINT) {
     Serial.printf("  access point   %s, open\n", wifiNetworkName());
     Serial.printf("  setup page     http://%s/\n", wifiAddress());
-    Serial.println(F("  no network yet. Join that access point and set the "
-                     "Wi-Fi details."));
+    Serial.println(
+        F("  no network yet. Join that access point and set the "
+          "Wi-Fi details."));
   } else {
     Serial.printf("  network        %s\n", wifiNetworkName());
     Serial.printf("  address        http://%s/\n", wifiAddress());
     Serial.printf("  mdns           http://%s.local/\n", BOARD_HOSTNAME);
     Serial.println();
-    Serial.printf("  flash it again with:\n"
-                  "    pio run -e ats125 -t upload --upload-port %s\n",
-                  wifiAddress());
+    Serial.printf(
+        "  flash it again with:\n"
+        "    pio run -e ats125 -t upload --upload-port %s\n",
+        wifiAddress());
     Serial.printf("    the uploader asks for --auth=%s\n", pin);
   }
   Serial.println();
 }
 
+/** Bring the radio up. Runs once, and everything here has to finish. */
 void setup() {
   /* First of all, so an image that hangs anywhere below still restarts and
    * gets rolled back instead of needing the cable. */
@@ -114,6 +119,7 @@ void setup() {
   bootWatchdogDisarm();
 }
 
+/** Service the network, the updater and the self check. Runs forever. */
 void loop() {
   wifiLoop();
   otaLoop();

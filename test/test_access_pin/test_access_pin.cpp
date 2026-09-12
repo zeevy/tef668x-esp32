@@ -109,7 +109,8 @@ static void the_lock_is_exactly_one_minute(void) {
   TEST_ASSERT_TRUE(accessPinGateLocked(&gate, now + ACCESS_PIN_LOCKOUT_MS - 1));
   /* On the boundary, open. */
   TEST_ASSERT_FALSE(accessPinGateLocked(&gate, now + ACCESS_PIN_LOCKOUT_MS));
-  TEST_ASSERT_FALSE(accessPinGateLocked(&gate, now + ACCESS_PIN_LOCKOUT_MS + 1));
+  TEST_ASSERT_FALSE(
+      accessPinGateLocked(&gate, now + ACCESS_PIN_LOCKOUT_MS + 1));
 }
 
 static void hammering_a_locked_gate_does_not_extend_the_lock(void) {
@@ -133,8 +134,8 @@ static void the_gate_opens_again_after_the_lock_runs_out(void) {
   for (int i = 0; i < ACCESS_PIN_MAX_ATTEMPTS; i++) {
     accessPinGateCheck(&gate, 123456, 111111, now);
   }
-  TEST_ASSERT_TRUE(accessPinGateCheck(&gate, 123456, 123456,
-                                      now + ACCESS_PIN_LOCKOUT_MS));
+  TEST_ASSERT_TRUE(
+      accessPinGateCheck(&gate, 123456, 123456, now + ACCESS_PIN_LOCKOUT_MS));
 }
 
 static void the_gate_still_works_across_the_millisecond_wrap(void) {
@@ -166,8 +167,8 @@ static void the_retry_wait_counts_down(void) {
                            accessPinGateRetryAfterMs(&gate, now));
   TEST_ASSERT_EQUAL_UINT32(ACCESS_PIN_LOCKOUT_MS - 5000,
                            accessPinGateRetryAfterMs(&gate, now + 5000));
-  TEST_ASSERT_EQUAL_UINT32(0, accessPinGateRetryAfterMs(
-                                  &gate, now + ACCESS_PIN_LOCKOUT_MS));
+  TEST_ASSERT_EQUAL_UINT32(
+      0, accessPinGateRetryAfterMs(&gate, now + ACCESS_PIN_LOCKOUT_MS));
 }
 
 int main(int, char **) {

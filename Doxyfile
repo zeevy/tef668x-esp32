@@ -1,0 +1,43 @@
+# Doxygen for tef668x-esp32.
+#
+# This is a gate, not a documentation site. The point is that a public function
+# or a header with no doc comment fails the build, which is why
+# WARN_AS_ERROR is on and EXTRACT_ALL is off.
+#
+#   doxygen Doxyfile
+
+PROJECT_NAME           = "tef668x-esp32"
+PROJECT_BRIEF          = "Firmware for TEF668x radios, starting with the ATS-125"
+OUTPUT_DIRECTORY       = build/doc
+
+INPUT                  = src
+RECURSIVE              = YES
+FILE_PATTERNS          = *.c *.cpp *.h
+EXCLUDE_PATTERNS       = */.pio/*
+
+# The layers are C and C++ mixed, and the C headers use extern "C" guards.
+OPTIMIZE_OUTPUT_FOR_C  = NO
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = NO
+EXTRACT_PRIVATE        = NO
+
+# The gate itself. Anything public without a comment is a warning, and a
+# warning ends the run with a non zero exit.
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = YES
+WARN_NO_PARAMDOC       = YES
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+QUIET                  = YES
+
+# The board header is selected by a build flag, so tell doxygen which one to
+# follow rather than letting it trip over the #error in board.h.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+PREDEFINED             = BOARD_ATS125=1 __cplusplus
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HAVE_DOT               = NO

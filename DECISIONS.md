@@ -642,6 +642,58 @@ Ship the six, and add another only when someone asks for it.
 Both settings are in the struct, so both come to the web interface for free, and
 both go into the settings backup.
 
+### The radio is driven by an HTTP API, and the screen is one of its callers
+
+Every command the radio can carry out is reachable over HTTP. The menu on the
+screen does not talk to the radio task directly. It builds the same command any
+other caller would and puts it on the same queue.
+
+**This is a testing decision before it is a feature.** CI cannot turn an
+encoder, and it cannot hear audio. Without an API, checking that a band edge
+wraps correctly on real hardware needs a person standing at the radio. With one,
+it is a script. What is left for a person is only what a person has to see or
+hear: the display, the audio and the touch panel. Everything else moves off the
+manual checklist.
+
+| | |
+|---|---|
+| `GET /api/state` | The whole state snapshot as JSON. The same snapshot the screen reads |
+| `POST /api/tune` | Frequency, or a step up and down |
+| `POST /api/band` | Band, and bandwidth |
+| `POST /api/volume` | Volume, mute, AGC target and boost |
+| `GET, POST /api/memory` | The channel list, and one channel |
+| `GET, POST /api/settings` | The settings struct, straight from and to JSON. **Behind the PIN in both directions**, see below |
+| `POST /api/scan` | Start a band scan, and read the result |
+
+**One rule holds it together: if the screen can do it, the API can do it.** A
+control that exists only as a knob cannot be tested from anywhere else, and that
+is the exact gap this decision closes. A pull request that adds a control
+without adding its endpoint has not finished.
+
+**One schema, not two.** The API returns the same JSON the telemetry sender
+publishes. A capture from `tools/telemetry.py` and a `GET /api/state` describe
+the state the same way, so a test fixture recorded from one works against the
+other.
+
+**Reads are open, writes need the access PIN.** Same rule as the rest of the web
+interface, for the same reason: the radio stays a glanceable page on a phone,
+and nothing changes without the PIN.
+
+**With one exception: `/api/settings` needs the PIN to read as well.** The
+settings struct holds the Wi-Fi passphrase and the access PIN itself, so an open
+read would hand both to anyone on the network. That would also contradict the
+access PIN decision above, which lists only the dashboard, the live telemetry
+and the memory channels as open to view. If a read only view of the settings is
+ever wanted, it returns a redacted copy with those two fields removed, and it
+says in the response which fields were removed.
+
+**Errors say what was wrong.** A refused command returns a status code and a
+plain reason. Never a bare 500, and never a 200 with the command quietly
+dropped, because a test that cannot tell those apart is worse than no test.
+
+This arrives in phase 2 with the tuner. Read endpoints land as soon as there is
+state to read, and each write endpoint lands with the control it drives.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

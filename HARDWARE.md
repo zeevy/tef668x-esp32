@@ -1,8 +1,14 @@
 # ATS-125 hardware notes
 
-Everything known about the target board. Facts in here were read off the chip or
-taken from the working PE5PVB firmware source, not guessed. Anything unconfirmed
-is marked as open.
+Everything known about the target board. Facts in here come from one of three
+places, and each section says which: read off the chip with a tool, read off the
+PE5PVB firmware source that runs on this radio, or taken from the seller's
+product listing. Nothing here is guessed. Anything unconfirmed is marked as
+open.
+
+The listing is the weakest of the three, because it is a manufacturer claim
+rather than a measurement, and it already disagrees with this unit in one place.
+It is kept in its own section at the bottom for that reason.
 
 ## Chip
 
@@ -182,9 +188,88 @@ and publish a capability set, so a board with a TEF6687 or TEF6689 gets those
 features and the UI simply does not offer them on a TEF6686. That is the same
 pattern as the board headers: detect what is there, do not hard code it.
 
+## Vendor specification
+
+From the seller's product listing, supplied 12 September 2026. **These are
+manufacturer claims, not measurements, and not read off this board.** They are
+kept separate from everything above for that reason. Where a claim disagrees
+with what was read off this unit, the reading wins and the disagreement is
+noted.
+
+| | Claimed |
+|---|---|
+| Main chip | ESP32-WROOM-32U |
+| Bluetooth | A separate JIELI transceiver chip, not the ESP32 radio |
+| Screen | 2.4 inch IPS LCD, 320x240, resistive touch |
+| Audio | TI TPA6211A1 amplifier, 40mm full range speaker |
+| Battery | 3.7V, 2500mAh lithium polymer |
+| Antenna | 820mm telescopic, plus a 3.5mm external antenna port |
+| USB | Type-C, with a CH340 USB to serial chip |
+| Size, weight | 120 x 63 x 25 mm excluding the antenna, about 350g |
+| Case | Aluminium alloy |
+
+### Two claims that matter and disagree with this unit
+
+**The USB serial chip.** The listing says CH340. This unit has an FT232R: the
+port is `/dev/cu.usbserial-A5069RR4`, and that name shape is FTDI. A CH340
+appears as `/dev/cu.wchusbserial...`. The listing also says the software version
+varies between batches, so the serial chip plainly varies too.
+
+This matters because the CH340 is commonly wired for auto reset and the FT232R
+on this unit is not. A CH340 batch may not need the BOOT and RESET dance at all.
+Nothing in the firmware should assume either way, and `docs/test-checklist.md`
+should say the button step is for this batch.
+
+**Bluetooth is a separate chip.** The JIELI part does both directions: the radio
+as a Bluetooth speaker, and radio audio out to Bluetooth headphones. That
+explains the second u.FL connector marked `BT ANT1` next to the speaker.
+
+The consequence for power management is that `btStop()` turns off the ESP32's
+own radio and does nothing at all to the JIELI. Any battery saving claimed for
+Bluetooth has to be measured with the JIELI in the picture.
+
+**Open: how the JIELI chip is controlled.** Probably a UART or a few GPIOs, but
+nothing in the PE5PVB source refers to it, so it may be wired straight to the
+buttons and never touched by the ESP32.
+
+### Band ranges and default steps
+
+From the same listing. These line up with what the PE5PVB firmware does, so they
+are a reasonable starting point for the band plan, but each edge still gets a
+test and each one is confirmed against the tuner before it is trusted.
+
+| Band | Range | Step |
+|---|---|---|
+| FM | 65 to 108 MHz | 50, 100 or 200 kHz, default 100 kHz |
+| FM, OIRT | 65 to 74 MHz | 30 kHz |
+| SW | 1700 to 27000 kHz | 5 kHz |
+| MW, 9 kHz regions | 522 to 1791 kHz | 9 kHz |
+| MW, 10 kHz regions | 520 to 1720 kHz | 10 kHz |
+| LW | 144 to 513 kHz | 9 kHz |
+
+The listing also gives four FM sub ranges that the old firmware offers as
+choices: 76 to 95, 76 to 108, 87 to 108 and 87.5 to 108 MHz. These are regional
+band plans rather than different hardware.
+
+### Claimed sensitivity and selectivity
+
+Useful only as a sanity check on measured values. Nothing in the firmware sets a
+threshold from this table.
+
+| Band | Sensitivity, telescopic antenna | Selectivity |
+|---|---|---|
+| FM | 0.5 uV or better at S/N 30 dB | 60 dB or better at ±150 kHz |
+| SW | 10 uV or better at S/N 20 dB | 60 dB or better, BW 3 kHz at ±5 kHz |
+| MW | 10 uV or better at S/N 20 dB | 60 dB or better, BW 3 kHz at ±9 kHz |
+| LW | 10 uV or better at S/N 20 dB | 60 dB or better, BW 3 kHz at ±9 kHz |
+
 ## Open items
 
 1. Whether pin 19 is really both the standby LED and SPI MISO, or whether one of
    the two sources is wrong.
+2. How the JIELI Bluetooth chip is controlled, and whether the ESP32 talks to it
+   at all.
+3. Which USB serial chip other batches carry, and whether those are wired for
+   auto reset.
 4. Whether the air band converter board is fitted. Nothing in the photos looks
    like one, which supports the theory that it is absent.

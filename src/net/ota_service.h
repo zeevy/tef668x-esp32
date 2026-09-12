@@ -21,7 +21,11 @@ void otaBegin(const char *password);
 /** Service the listener. Call from the main loop. */
 void otaLoop(void);
 
-/** True while an image is being written, so nothing else reboots the radio. */
+/**
+ * True while an image is being written, so nothing else reboots the radio.
+ *
+ * @return true between the start and the end of a transfer.
+ */
 bool otaInProgress(void);
 
 #endif /* NET_OTA_SERVICE_H */

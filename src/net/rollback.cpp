@@ -74,8 +74,9 @@ void rollbackTick(bool healthy) {
   }
 
   if (now - sStartedMs >= ROLLBACK_VERIFY_TIMEOUT_MS) {
-    Serial.println("[rollback] self check did not pass in time, going back to "
-                   "the previous image");
+    Serial.println(
+        "[rollback] self check did not pass in time, going back to "
+        "the previous image");
     Serial.flush();
     /* Reboot without marking the image good. The bootloader sees an image
      * still in pending verify and boots the other slot instead. */

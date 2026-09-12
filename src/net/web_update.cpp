@@ -6,8 +6,8 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
-#include "drivers/settings_nvs.h"
 #include "core/version.h"
+#include "drivers/settings_nvs.h"
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
 
@@ -52,12 +52,24 @@ static String escapeHtml(const char *raw) {
   String out;
   for (const char *p = raw; *p != '\0'; p++) {
     switch (*p) {
-      case '&': out += F("&amp;"); break;
-      case '<': out += F("&lt;"); break;
-      case '>': out += F("&gt;"); break;
-      case '"': out += F("&quot;"); break;
-      case '\'': out += F("&#39;"); break;
-      default: out += *p; break;
+      case '&':
+        out += F("&amp;");
+        break;
+      case '<':
+        out += F("&lt;");
+        break;
+      case '>':
+        out += F("&gt;");
+        break;
+      case '"':
+        out += F("&quot;");
+        break;
+      case '\'':
+        out += F("&#39;");
+        break;
+      default:
+        out += *p;
+        break;
     }
   }
   return out;
@@ -158,43 +170,45 @@ static bool requireAuth(bool allowInSetupMode) {
 static String pageHead(const char *title) {
   String out;
   out.reserve(1500);
-  out += F("<!doctype html><html lang=en data-bs-theme=dark><head>"
-           "<meta charset=utf-8>"
-           "<meta name=viewport content='width=device-width,initial-scale=1'>"
-           "<title>");
+  out +=
+      F("<!doctype html><html lang=en data-bs-theme=dark><head>"
+        "<meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<title>");
   out += title;
-  out += F("</title>"
-           "<link rel=stylesheet crossorigin=anonymous "
-           "href='https://cdn.jsdelivr.net/npm/bootstrap@" BOOTSTRAP_VERSION
-           "/dist/css/bootstrap.min.css'>"
-           "<style>"
-           /* Enough on its own when the CDN cannot be reached. */
-           "body{background:#0b0f13;color:#e6e6e6;"
-           "font:15px/1.5 system-ui,sans-serif;margin:0;padding:16px}"
-           ".wrap{max-width:680px;margin:0 auto}"
-           "h1{font-size:22px}h2{font-size:16px;color:#ffb200;margin-top:26px}"
-           "table{width:100%;border-collapse:collapse}"
-           "td{padding:7px 0;border-bottom:1px solid #24313d}"
-           "input,button{font:inherit}"
-           /* Bootstrap is themed to match the radio rather than the other
+  out +=
+      F("</title>"
+        "<link rel=stylesheet crossorigin=anonymous "
+        "href='https://cdn.jsdelivr.net/npm/bootstrap@" BOOTSTRAP_VERSION
+        "/dist/css/bootstrap.min.css'>"
+        "<style>"
+        /* Enough on its own when the CDN cannot be reached. */
+        "body{background:#0b0f13;color:#e6e6e6;"
+        "font:15px/1.5 system-ui,sans-serif;margin:0;padding:16px}"
+        ".wrap{max-width:680px;margin:0 auto}"
+        "h1{font-size:22px}h2{font-size:16px;color:#ffb200;margin-top:26px}"
+        "table{width:100%;border-collapse:collapse}"
+        "td{padding:7px 0;border-bottom:1px solid #24313d}"
+        "input,button{font:inherit}"
+        /* Bootstrap is themed to match the radio rather than the other
             * way round, so the two look the same either side of a CDN
             * failure. */
-           ":root{--bs-body-bg:#0b0f13;--bs-body-color:#e6e6e6;"
-           "--bs-border-color:#24313d;--bs-primary:#ffb200;"
-           "--bs-link-color:#4ac2ee;--bs-link-hover-color:#7bd4f3}"
-           ".card{background:#121a22;border-color:#24313d}"
-           ".btn-primary{--bs-btn-bg:#ffb200;--bs-btn-border-color:#ffb200;"
-           "--bs-btn-color:#0b0f13;--bs-btn-hover-bg:#ffc340;"
-           "--bs-btn-hover-border-color:#ffc340;--bs-btn-hover-color:#0b0f13;"
-           "--bs-btn-active-bg:#e6a000;--bs-btn-active-border-color:#e6a000}"
-           ".form-control{background:#121a22;border-color:#24313d;"
-           "color:#e6e6e6}"
-           ".form-control:focus{background:#121a22;color:#e6e6e6;"
-           "border-color:#ffb200;box-shadow:none}"
-           ".table{--bs-table-color:#e6e6e6;--bs-table-bg:transparent;"
-           "--bs-table-border-color:#24313d}"
-           "h2{font-size:16px;color:#ffb200;letter-spacing:.02em}"
-           "</style></head><body><div class='wrap container-sm py-3'>");
+        ":root{--bs-body-bg:#0b0f13;--bs-body-color:#e6e6e6;"
+        "--bs-border-color:#24313d;--bs-primary:#ffb200;"
+        "--bs-link-color:#4ac2ee;--bs-link-hover-color:#7bd4f3}"
+        ".card{background:#121a22;border-color:#24313d}"
+        ".btn-primary{--bs-btn-bg:#ffb200;--bs-btn-border-color:#ffb200;"
+        "--bs-btn-color:#0b0f13;--bs-btn-hover-bg:#ffc340;"
+        "--bs-btn-hover-border-color:#ffc340;--bs-btn-hover-color:#0b0f13;"
+        "--bs-btn-active-bg:#e6a000;--bs-btn-active-border-color:#e6a000}"
+        ".form-control{background:#121a22;border-color:#24313d;"
+        "color:#e6e6e6}"
+        ".form-control:focus{background:#121a22;color:#e6e6e6;"
+        "border-color:#ffb200;box-shadow:none}"
+        ".table{--bs-table-color:#e6e6e6;--bs-table-bg:transparent;"
+        "--bs-table-border-color:#24313d}"
+        "h2{font-size:16px;color:#ffb200;letter-spacing:.02em}"
+        "</style></head><body><div class='wrap container-sm py-3'>");
   return out;
 }
 
@@ -211,19 +225,21 @@ static void handleRoot(void) {
   (void)pin; /* Never sent to the browser. It is read off the radio. */
 
   String out = pageHead("TEF668X");
-  out += F("<h1 class='h4 mb-0' style='letter-spacing:.04em'>TEF668X</h1>"
-           "<p class='text-secondary small mb-3' "
-           "style='letter-spacing:.04em'>");
+  out +=
+      F("<h1 class='h4 mb-0' style='letter-spacing:.04em'>TEF668X</h1>"
+        "<p class='text-secondary small mb-3' "
+        "style='letter-spacing:.04em'>");
   out += F(BOARD_NAME_DISPLAY " &middot; V" FIRMWARE_VERSION);
   out += F("</p>");
 
   if (accessPinIsDefault(sAccessPin)) {
-    out += F("<div class='alert alert-danger py-2 px-3 small' role=alert "
-             "style='background:#3a1410;border:1px solid #7a2a1e;"
-             "color:#ffb4a2'><strong>This radio is on the default access PIN, "
-             "000000.</strong> Anyone who can reach it on the network can "
-             "change its settings and replace its firmware. Set your own PIN "
-             "below.</div>");
+    out +=
+        F("<div class='alert alert-danger py-2 px-3 small' role=alert "
+          "style='background:#3a1410;border:1px solid #7a2a1e;"
+          "color:#ffb4a2'><strong>This radio is on the default access PIN, "
+          "000000.</strong> Anyone who can reach it on the network can "
+          "change its settings and replace its firmware. Set your own PIN "
+          "below.</div>");
   }
 
   out += F("<h2>Status</h2><table class='table table-sm align-middle'>");
@@ -245,57 +261,73 @@ static void handleRoot(void) {
   out += F("</table>");
 
   if (inSetupMode()) {
-    out += F("<h2>Wi-Fi</h2>"
-             "<p class='text-secondary small'>The radio could not join a network, so it is "
-             "serving this page on its own. Enter the details and it will "
-             "try again.</p>"
-             "<form method=post action='/wifi'>"
-             "<label class='form-label small text-secondary'>Network name</label>"
-             "<input class=form-control name=ssid maxlength=32 required>"
-             "<label class='form-label small text-secondary'>Passphrase, leave empty for an open network</label>"
-             "<input class=form-control name=pass type=password maxlength=64>"
-             "<button class='btn btn-primary mt-3' type=submit>Save and join</button></form>");
+    out +=
+        F("<h2>Wi-Fi</h2>"
+          "<p class='text-secondary small'>The radio could not join a network, "
+          "so it is "
+          "serving this page on its own. Enter the details and it will "
+          "try again.</p>"
+          "<form method=post action='/wifi'>"
+          "<label class='form-label small text-secondary'>Network name</label>"
+          "<input class=form-control name=ssid maxlength=32 required>"
+          "<label class='form-label small text-secondary'>Passphrase, leave "
+          "empty for an open network</label>"
+          "<input class=form-control name=pass type=password maxlength=64>"
+          "<button class='btn btn-primary mt-3' type=submit>Save and "
+          "join</button></form>");
   }
 
   if (signedIn()) {
     if (!inSetupMode()) {
-      out += F("<h2>Wi-Fi</h2>"
-               "<form method=post action='/wifi'>"
-               "<label class='form-label small text-secondary'>Network name</label>"
-               "<input class=form-control name=ssid maxlength=32 required value='");
+      out += F(
+          "<h2>Wi-Fi</h2>"
+          "<form method=post action='/wifi'>"
+          "<label class='form-label small text-secondary'>Network name</label>"
+          "<input class=form-control name=ssid maxlength=32 required value='");
       out += escapeHtml(sSettings->wifiSsid);
-      out += F("'><label class='form-label small text-secondary mt-2'>Passphrase, leave empty for an open network</label>"
-               "<input class=form-control name=pass type=password maxlength=64>"
-               "<button class='btn btn-primary mt-3' type=submit>Save and join</button></form>");
+      out +=
+          F("'><label class='form-label small text-secondary mt-2'>Passphrase, "
+            "leave empty for an open network</label>"
+            "<input class=form-control name=pass type=password maxlength=64>"
+            "<button class='btn btn-primary mt-3' type=submit>Save and "
+            "join</button></form>");
     }
-    out += F("<h2>Firmware</h2>"
-             "<p class='text-secondary small'>Pick the .bin from "
-             ".pio/build/ats125/firmware.bin. The radio reboots into it and "
-             "puts the old one back on its own if it does not come up.</p>"
-             "<form method=post action='/update' enctype='multipart/form-data'>"
-             "<input class=form-control type=file name=firmware accept='.bin' "
-             "required>"
-             "<button class='btn btn-primary mt-3' type=submit>Upload and reboot</button></form>"
-             "<h2>Access PIN</h2>"
-             "<p class='text-secondary small'>Six digits. Changing it takes effect at once and "
-             "signs every browser out, this one included.</p>"
-             "<form method=post action='/setpin'>"
-             "<label class='form-label small text-secondary'>New PIN</label>"
-             "<input class=form-control name=pin inputmode=numeric "
-             "pattern='[0-9]{6}' maxlength=6 required>"
-             "<button class='btn btn-primary mt-3' type=submit>Change PIN</button></form>"
-             "<h2>Reboot</h2>"
-             "<form method=post action='/reboot'>"
-             "<button class='btn btn-outline-secondary mt-2' type=submit>Reboot now</button></form>");
+    out +=
+        F("<h2>Firmware</h2>"
+          "<p class='text-secondary small'>Pick the .bin from "
+          ".pio/build/ats125/firmware.bin. The radio reboots into it and "
+          "puts the old one back on its own if it does not come up.</p>"
+          "<form method=post action='/update' enctype='multipart/form-data'>"
+          "<input class=form-control type=file name=firmware accept='.bin' "
+          "required>"
+          "<button class='btn btn-primary mt-3' type=submit>Upload and "
+          "reboot</button></form>"
+          "<h2>Access PIN</h2>"
+          "<p class='text-secondary small'>Six digits. Changing it takes "
+          "effect at once and "
+          "signs every browser out, this one included.</p>"
+          "<form method=post action='/setpin'>"
+          "<label class='form-label small text-secondary'>New PIN</label>"
+          "<input class=form-control name=pin inputmode=numeric "
+          "pattern='[0-9]{6}' maxlength=6 required>"
+          "<button class='btn btn-primary mt-3' type=submit>Change "
+          "PIN</button></form>"
+          "<h2>Reboot</h2>"
+          "<form method=post action='/reboot'>"
+          "<button class='btn btn-outline-secondary mt-2' type=submit>Reboot "
+          "now</button></form>");
   } else {
-    out += F("<h2>Access PIN</h2>"
-             "<p class='text-secondary small'>Six digits. A new radio is on 000000. Five wrong "
-             "tries locks this for a minute.</p>"
-             "<form method=post action='/auth'>"
-             "<label class='form-label small text-secondary'>PIN</label>"
-             "<input class=form-control name=pin inputmode=numeric "
-             "pattern='[0-9]{6}' maxlength=6 required>"
-             "<button class='btn btn-primary mt-3' type=submit>Unlock</button></form>");
+    out +=
+        F("<h2>Access PIN</h2>"
+          "<p class='text-secondary small'>Six digits. A new radio is on "
+          "000000. Five wrong "
+          "tries locks this for a minute.</p>"
+          "<form method=post action='/auth'>"
+          "<label class='form-label small text-secondary'>PIN</label>"
+          "<input class=form-control name=pin inputmode=numeric "
+          "pattern='[0-9]{6}' maxlength=6 required>"
+          "<button class='btn btn-primary mt-3' "
+          "type=submit>Unlock</button></form>");
   }
 
   out += pageTail();

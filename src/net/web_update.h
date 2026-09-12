@@ -32,10 +32,18 @@ void webBegin(Settings *settings, uint32_t accessPin);
 /** Answer any waiting request. Call from the main loop. */
 void webLoop(void);
 
-/** True once the server has answered at least one request. */
+/**
+ * Whether anything has talked to the server yet.
+ *
+ * @return true once at least one request has been answered.
+ */
 bool webHasServed(void);
 
-/** How many requests have been answered since boot. */
+/**
+ * How much the server has done since boot.
+ *
+ * @return The number of requests answered.
+ */
 uint32_t webRequestCount(void);
 
 #endif /* NET_WEB_UPDATE_H */

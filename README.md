@@ -121,9 +121,21 @@ release BOOT. Everything after that goes over Wi-Fi.
 
 ## Contributing
 
-`master` is released code. Work happens on `dev`, or on a `feature/` or `fix/`
-branch cut from it, and comes back by pull request. CI has to be green before a
-merge.
+`master` is released code. Work happens on `dev`. Everything is checked by one
+command:
+
+```bash
+tools/check.sh
+```
+
+That builds, runs the unit tests, checks coverage on `core/` against a floor,
+runs static analysis, checks formatting and doc comments, and prints the image
+size. CI runs the same script, so a green run locally means the same thing.
+
+[RULES.md](RULES.md) has the way of working, [DECISIONS.md](DECISIONS.md) has
+what was settled about the radio and why, and
+[docs/test-checklist.md](docs/test-checklist.md) has the manual checks CI cannot
+do.
 
 ## Licence
 

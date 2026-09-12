@@ -18,8 +18,8 @@ void otaBegin(const char *password) {
   ArduinoOTA.onStart([]() {
     sInProgress = true;
     sLastPercent = -1;
-    const char *what = ArduinoOTA.getCommand() == U_FLASH ? "firmware"
-                                                          : "filesystem";
+    const char *what =
+        ArduinoOTA.getCommand() == U_FLASH ? "firmware" : "filesystem";
     Serial.printf("[ota] update started, writing the %s\n", what);
   });
 
@@ -43,12 +43,23 @@ void otaBegin(const char *password) {
     sInProgress = false;
     const char *reason = "unknown";
     switch (error) {
-      case OTA_AUTH_ERROR: reason = "wrong password"; break;
-      case OTA_BEGIN_ERROR: reason = "could not start, image too big"; break;
-      case OTA_CONNECT_ERROR: reason = "connection failed"; break;
-      case OTA_RECEIVE_ERROR: reason = "transfer failed"; break;
-      case OTA_END_ERROR: reason = "image did not finish"; break;
-      default: break;
+      case OTA_AUTH_ERROR:
+        reason = "wrong password";
+        break;
+      case OTA_BEGIN_ERROR:
+        reason = "could not start, image too big";
+        break;
+      case OTA_CONNECT_ERROR:
+        reason = "connection failed";
+        break;
+      case OTA_RECEIVE_ERROR:
+        reason = "transfer failed";
+        break;
+      case OTA_END_ERROR:
+        reason = "image did not finish";
+        break;
+      default:
+        break;
     }
     Serial.printf("[ota] update failed: %s\n", reason);
   });

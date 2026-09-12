@@ -57,9 +57,14 @@ fails the build, and a pull request that lowers coverage on `core/` fails.
 - Band plan for FM, OIRT, LW, MW and SW.
 - Encoder, buttons and keypad drivers.
 - Tune, change band, change bandwidth, set volume.
+- **The HTTP control API.** `GET /api/state` plus a write endpoint for every
+  control that exists by the end of this phase. This is what lets the rest of
+  the build be checked from a script instead of by hand, so it goes in with the
+  tuner rather than after it.
 - Plain text on the display. No LVGL yet, no menu.
 
-Done when: it tunes a station and plays audio, driven from the encoder.
+Done when: it tunes a station and plays audio from the encoder, and the same
+tune can be driven from `curl` with nobody standing at the radio.
 
 ## Phase 3: core logic, all tested on a PC
 
@@ -95,10 +100,12 @@ and again with it turned on.
 
 - Web server with Bootstrap served from the filesystem, so it works in AP mode
   with no internet.
-- Access PIN on writes, derived from the MAC, rate limited.
+- Access PIN on writes, rate limited. Default 000000, with a warning until it
+  is changed.
 - Settings pages generated from the settings struct.
 - Memory channel editor with CSV import and export.
-- Telemetry over UDP, plus `tools/telemetry.py`.
+- Telemetry over UDP, plus `tools/telemetry.py`, sharing the state schema
+  with `GET /api/state`.
 - Live dashboard over a websocket.
 - Diagnostics page.
 - Settings backup and restore.

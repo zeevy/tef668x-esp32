@@ -1,0 +1,170 @@
+# Gates for every push and every pull request.
+#
+# This runs tools/check.sh, the same script that runs on a development machine,
+# so a green run here means what a green run there means.
+#
+# What this cannot do: the display, the tuner over I2C, touch and audio need a
+# radio. Those stay in docs/test-checklist.md and a person ticks them off.
+#
+# Actions are on their latest major version tag. A major tag moves as the
+# action is patched, which is what keeps fixes coming without editing this file.
+# The job that holds a write token never checks out the branch it reports on,
+# which is what limits what a moved tag could reach.
+
+name: checks
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+
+# Read only by default. The one job that has to write says so itself, and that
+# job never checks out the code it is reporting on.
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: build, test and check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Cache the PlatformIO toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      # Pinned exactly, never a range. clang-format in particular: Ubuntu ships
+      # 18 and macOS ships 21, and a formatter that disagrees between the two
+      # makes the format gate worse than useless.
+      - name: Install the tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
+          sudo apt-get update
+          sudo apt-get install -y doxygen
+
+      - name: Run every gate
+        run: tools/check.sh
+
+      - name: Keep the doc build
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: doxygen-html
+          path: build/doc/html
+          retention-days: 7
+
+  measure:
+    name: measure the image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Cache the PlatformIO toolchain
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install platformio==6.2.0
+
+      # Building runs the extra_scripts from platformio.ini, which is code from
+      # the branch being tested. This job holds no write permission for exactly
+      # that reason. The numbers go out as a file and a separate job posts them.
+      - name: Build and measure
+        run: |
+          pio run -e ats125 2>&1 | grep -E 'RAM:|Flash:' > size.txt
+          cat size.txt
+          echo "${{ github.event.number }}" > pr.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: size-report
+          path: |
+            size.txt
+            pr.txt
+          retention-days: 1
+
+  report:
+    name: size report
+    runs-on: ubuntu-latest
+    needs: measure
+    if: github.event_name == 'pull_request'
+    # A job level permissions block replaces the workflow level one rather than
+    # merging with it, so every scope this job needs is listed here. Leave one
+    # out and it becomes none, not read.
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+
+    steps:
+      # No checkout. This job must never run code from the branch it reports on.
+      - uses: actions/download-artifact@v8
+        with:
+          name: size-report
+
+      - name: Say what it costs
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            // Read from a file rather than interpolating ${{ }} into this
+            // script. Anything that reaches the build log would otherwise run
+            // as code in a job that can write to the pull request.
+            const report = fs.readFileSync('size.txt', 'utf8').trim();
+            const body = [
+              '### Size on `ats125`',
+              '',
+              '```',
+              report,
+              '```',
+              '',
+              'One application slot is 3MB. The other 3MB holds the image this one replaces.',
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const mine = comments.find(c =>
+              c.user.type === 'Bot' && c.body.startsWith('### Size on'));
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: mine.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

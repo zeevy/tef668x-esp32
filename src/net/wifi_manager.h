@@ -29,9 +29,9 @@
 
 /** Where the radio's network connection has got to. */
 typedef enum {
-  WIFI_STATE_OFFLINE,    /**< Nothing running yet. */
-  WIFI_STATE_JOINING,    /**< Trying the stored credentials. */
-  WIFI_STATE_ONLINE,     /**< Joined, with an IP address. */
+  WIFI_STATE_OFFLINE,     /**< Nothing running yet. */
+  WIFI_STATE_JOINING,     /**< Trying the stored credentials. */
+  WIFI_STATE_ONLINE,      /**< Joined, with an IP address. */
   WIFI_STATE_ACCESS_POINT /**< Serving its own network so it can be fixed. */
 } WifiState;
 
@@ -48,16 +48,32 @@ void wifiBegin(const Settings *settings);
 /** Keep the connection going. Call from the main loop. */
 void wifiLoop(void);
 
-/** Where the connection has got to. */
+/**
+ * Where the connection has got to.
+ *
+ * @return The current state.
+ */
 WifiState wifiState(void);
 
-/** True when the radio has an address something can connect to. */
+/**
+ * Whether anything can reach the radio right now.
+ *
+ * @return true when it is on a network or serving its own access point.
+ */
 bool wifiReachable(void);
 
-/** The radio's address as text, either on the network or on its own AP. */
+/**
+ * The radio's address as text, on the network or on its own access point.
+ *
+ * @return A dotted quad. Never NULL.
+ */
 const char *wifiAddress(void);
 
-/** The network the radio is on, or the AP it is serving. */
+/**
+ * The network the radio is on, or the access point it is serving.
+ *
+ * @return The name. Never NULL.
+ */
 const char *wifiNetworkName(void);
 
 /**
