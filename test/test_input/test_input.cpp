@@ -334,6 +334,86 @@ static void a_null_button_does_not_crash(void) {
   accelerationDefaults(NULL);
 }
 
+/* -------------------------------------------------------------------- pot */
+
+static void the_bottom_of_the_travel_is_silent(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(0, NULL));
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(cfg.rawMute, NULL));
+  /* One count above the mute zone is already audible, not still silent. */
+  TEST_ASSERT_NOT_EQUAL_INT8(cfg.dbMute,
+                             potVolumeDb((uint16_t)(cfg.rawMute + 1), NULL));
+}
+
+static void the_top_of_the_travel_is_the_loudest(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(cfg.rawMax, NULL));
+  /* Past the end of the travel, which a real pot reaches, stays at the top
+   * rather than running past it. */
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(4095, NULL));
+}
+
+static void the_usable_travel_is_not_the_whole_range_the_chip_has(void) {
+  /* The point of the narrow span. Just above the mute zone must be quiet but
+   * audible, not the -60 dB the chip can do, or the bottom half of the knob
+   * would do nothing anyone can hear. */
+  PotConfig cfg;
+  potDefaults(&cfg);
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMin, potVolumeDb(cfg.rawMin, NULL));
+  TEST_ASSERT_TRUE(cfg.dbMin > cfg.dbMute);
+}
+
+static void the_middle_of_the_travel_is_the_middle_of_the_span(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  uint16_t middle = (uint16_t)((cfg.rawMin + cfg.rawMax) / 2);
+  int8_t want = (int8_t)((cfg.dbMin + cfg.dbMax) / 2);
+  int8_t got = potVolumeDb(middle, NULL);
+  /* Within a dB, because the division truncates. */
+  TEST_ASSERT_INT8_WITHIN(1, want, got);
+}
+
+static void the_volume_only_ever_goes_up_as_the_knob_does(void) {
+  int8_t last = -127;
+  for (uint16_t raw = 0; raw < 4095; raw = (uint16_t)(raw + 37)) {
+    int8_t db = potVolumeDb(raw, NULL);
+    TEST_ASSERT_TRUE(db >= last);
+    last = db;
+  }
+}
+
+static void a_reading_that_only_jitters_is_ignored(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  TEST_ASSERT_FALSE(potMoved(2000, 2000, NULL));
+  TEST_ASSERT_FALSE(potMoved(2000, (uint16_t)(2000 + cfg.deadband - 1), NULL));
+  TEST_ASSERT_FALSE(potMoved(2000, (uint16_t)(2000 - cfg.deadband + 1), NULL));
+  /* Exactly the deadband counts as movement, in both directions. */
+  TEST_ASSERT_TRUE(potMoved(2000, (uint16_t)(2000 + cfg.deadband), NULL));
+  TEST_ASSERT_TRUE(potMoved(2000, (uint16_t)(2000 - cfg.deadband), NULL));
+}
+
+static void a_pot_wired_the_other_way_does_not_divide_by_zero(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  cfg.rawMax = cfg.rawMin;
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(2000, &cfg));
+}
+
+static void a_null_pot_config_uses_the_defaults(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  potDefaults(NULL); /* Must not crash. */
+  /* Compared against the defaults, not against itself, which is what this
+   * asserted at first and so could never fail. */
+  for (uint16_t raw = 0; raw < 4095; raw = (uint16_t)(raw + 401)) {
+    TEST_ASSERT_EQUAL_INT8(potVolumeDb(raw, &cfg), potVolumeDb(raw, NULL));
+  }
+  TEST_ASSERT_EQUAL_INT(potMoved(1000, 1030, &cfg), potMoved(1000, 1030, NULL));
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -367,6 +447,15 @@ int main(void) {
   RUN_TEST(a_button_survives_the_millisecond_wrap);
   RUN_TEST(event_names_are_never_null);
   RUN_TEST(a_null_button_does_not_crash);
+
+  RUN_TEST(the_bottom_of_the_travel_is_silent);
+  RUN_TEST(the_top_of_the_travel_is_the_loudest);
+  RUN_TEST(the_usable_travel_is_not_the_whole_range_the_chip_has);
+  RUN_TEST(the_middle_of_the_travel_is_the_middle_of_the_span);
+  RUN_TEST(the_volume_only_ever_goes_up_as_the_knob_does);
+  RUN_TEST(a_reading_that_only_jitters_is_ignored);
+  RUN_TEST(a_pot_wired_the_other_way_does_not_divide_by_zero);
+  RUN_TEST(a_null_pot_config_uses_the_defaults);
 
   return UNITY_END();
 }

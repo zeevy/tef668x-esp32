@@ -4,6 +4,7 @@
  */
 #include "input_task.h"
 
+#include "drivers/analog.h"
 #include "drivers/encoder.h"
 #include "drivers/keypad.h"
 #include "radio_task.h"
@@ -46,7 +47,19 @@ static uint32_t sTypedMs = 0;
  */
 #define BUTTON_SETTLE_MS 300
 
+/**
+ * How often the volume pot is read, in milliseconds.
+ *
+ * The same rate the working firmware uses. Faster buys nothing: a hand cannot
+ * turn a knob faster than this and the converter needs averaging anyway.
+ */
+#define POT_POLL_MS 50
+
 static InputStatus sStatus;
+
+/** The last pot reading acted on, and whether there is one yet. */
+static uint16_t sPot = 0;
+static bool sPotKnown = false;
 
 /** Remember what just happened, for the diagnostic page. */
 static void note(const char *what) {
@@ -91,7 +104,26 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   clearTyped();
 
   encoderBegin(kind, direction);
+  analogBegin();
   sStatus.keypadPresent = keypadBegin();
+
+  /* Read the pot once and send the volume it is pointing at, so the radio
+   * starts where the knob says rather than at whatever the defaults say and
+   * then jumping the first time it is touched.
+   *
+   * Sending it is the part that is easy to leave out. Recording the reading
+   * without sending it looks right, and the radio then sits at the default
+   * volume until the knob moves far enough to pass the deadband. */
+  sPot = potRead();
+  sPotKnown = true;
+  sStatus.pot = sPot;
+  sStatus.potDb = potVolumeDb(sPot, NULL);
+
+  RadioCommand volume = {};
+  volume.kind = RADIO_SET_VOLUME;
+  volume.volumeDb = sStatus.potDb;
+  send(&volume);
+
   return sStatus.keypadPresent;
 }
 
@@ -374,10 +406,42 @@ static void pollKeypad(uint32_t nowMs) {
   note(text);
 }
 
+/** The volume knob. */
+static void pollPot(uint32_t nowMs) {
+  static uint32_t lastPollMs = 0;
+  if ((uint32_t)(nowMs - lastPollMs) < POT_POLL_MS) {
+    return;
+  }
+  lastPollMs = nowMs;
+
+  uint16_t raw = potRead();
+  sStatus.pot = raw;
+  if (sPotKnown && !potMoved(sPot, raw, NULL)) {
+    return;
+  }
+  sPot = raw;
+  sPotKnown = true;
+
+  int8_t db = potVolumeDb(raw, NULL);
+  if (db == sStatus.potDb) {
+    /* The reading moved but not far enough to be a different volume. */
+    return;
+  }
+  sStatus.potDb = db;
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_VOLUME;
+  cmd.volumeDb = db;
+  /* Not settled. The knob can be turned faster than the radio can answer, and
+   * waiting for each step would make it feel stiff. The last one sent wins. */
+  send(&cmd);
+}
+
 void inputPoll(void) {
   uint32_t nowMs = millis();
   pollEncoder(nowMs);
   pollButtons(nowMs);
+  pollPot(nowMs);
   pollKeypad(nowMs);
 }
 

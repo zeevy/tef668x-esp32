@@ -89,36 +89,82 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
 }
 
 /**
- * Tell the tuner what the settings now say.
+ * Tell the tuner what the settings now say, and only what changed.
  *
- * Order matters. Mute first when muting, so nothing bursts out while the
- * frequency moves, and unmute last for the same reason.
+ * Order matters on a retune. Mute first so nothing bursts out while the
+ * frequency moves, and unmute last.
+ *
+ * Only on a retune. A volume change that mutes and unmutes around itself
+ * chops the audio, and the volume knob sends one of those every fiftieth of
+ * a second while it is being turned. That is what it sounded like: the sound
+ * breaking up while the knob moved.
+ *
+ * @param from  What the tuner was last told, or NULL to send everything.
+ * @param to    What it should be set to.
  */
-static Tef668xError pushToTuner(const RadioSettings *s) {
-  Tef668xError err = tef668xSetMute(true);
-  if (err != TEF668X_OK) {
-    return err;
+static Tef668xError pushToTuner(const RadioSettings *from,
+                                const RadioSettings *to) {
+  RadioPush push = radioPushNeeded(from, to);
+  Tef668xError err = TEF668X_OK;
+  bool fm = bandModulation(to->band) == MODULATION_FM;
+
+  if (push.retune) {
+    /* The mute failing is not a reason to stop. It is a reason to carry on to
+     * the unmute at the bottom, because a chip that may or may not be muted
+     * and is never told otherwise is the permanent silence this whole comment
+     * block exists to prevent. Returning here was exactly that: the next
+     * attempt mutes, fails at the same place, and never unmutes. */
+    err = tef668xSetMute(true);
+
+    Tef668xError tuned =
+        fm ? tef668xTuneFm(to->freqKHz) : tef668xTuneAm(to->freqKHz);
+    if (err == TEF668X_OK) {
+      err = tuned;
+    }
+    if (tuned == TEF668X_OK && push.bandwidth) {
+      Tef668xError width = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
+                              : tef668xSetAmBandwidth(to->bandwidthKHz);
+      if (err == TEF668X_OK) {
+        err = width;
+      }
+    }
+    if (push.volume) {
+      Tef668xError gain = tef668xSetVolume(to->volumeDb);
+      if (err == TEF668X_OK) {
+        err = gain;
+      }
+    }
+
+    /* The mute always comes off, even when something above failed.
+     *
+     * Returning early after the mute leaves the radio silent with no way
+     * back: the next attempt mutes again, fails at the same place, and never
+     * reaches the unmute. A radio that is wrong is recoverable. A radio that
+     * is silent looks broken. So the unmute happens on every path, and the
+     * first real error is what gets reported. */
+    Tef668xError unmute = tef668xSetMute(to->muted);
+    return err != TEF668X_OK ? err : unmute;
   }
 
-  bool fm = bandModulation(s->band) == MODULATION_FM;
-  if ((err = fm ? tef668xTuneFm(s->freqKHz) : tef668xTuneAm(s->freqKHz)) ==
-      TEF668X_OK) {
-    err = fm ? tef668xSetFmBandwidth(s->bandwidthKHz)
-             : tef668xSetAmBandwidth(s->bandwidthKHz);
+  /* Nothing moved the dial, so nothing is muted around these. */
+  if (push.bandwidth) {
+    err = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
+             : tef668xSetAmBandwidth(to->bandwidthKHz);
+    if (err != TEF668X_OK) {
+      return err;
+    }
   }
-  if (err == TEF668X_OK) {
-    err = tef668xSetVolume(s->volumeDb);
+  if (push.volume) {
+    if ((err = tef668xSetVolume(to->volumeDb)) != TEF668X_OK) {
+      return err;
+    }
   }
-
-  /* The mute always comes off, even when something above failed.
-   *
-   * Returning early after the mute leaves the radio silent with no way back:
-   * the next attempt mutes again, fails at the same place, and never reaches
-   * the unmute. A radio that is wrong is recoverable. A radio that is silent
-   * looks broken. So the unmute happens on every path, and the first real
-   * error is what gets reported. */
-  Tef668xError unmute = tef668xSetMute(s->muted);
-  return err != TEF668X_OK ? err : unmute;
+  if (push.mute) {
+    if ((err = tef668xSetMute(to->muted)) != TEF668X_OK) {
+      return err;
+    }
+  }
+  return TEF668X_OK;
 }
 
 /** The radio task. Owns the tuner for the life of the radio. */
@@ -135,7 +181,8 @@ static void radioTask(void *arg) {
     settings.bandwidthKHz = 4;
   }
 
-  Tef668xError lastError = pushToTuner(&settings);
+  /* Nothing has been sent to the tuner yet, so everything is. */
+  Tef668xError lastError = pushToTuner(NULL, &settings);
   bool pushFailed = lastError != TEF668X_OK;
   Tef668xQuality quality;
   memset(&quality, 0, sizeof(quality));
@@ -199,7 +246,9 @@ static void radioTask(void *arg) {
      * radioNeedsRetune can see, so the radio cannot be recovered by
      * repeating the command. */
     if ((changed && radioNeedsRetune(&settings, &wanted)) || pushFailed) {
-      lastError = pushToTuner(&wanted);
+      /* After a failure the tuner's state is not known, so everything goes
+       * again rather than only what the settings say moved. */
+      lastError = pushToTuner(pushFailed ? NULL : &settings, &wanted);
       pushFailed = lastError != TEF668X_OK;
     }
     settings = wanted;

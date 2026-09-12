@@ -741,6 +741,8 @@ static void appendRadioState(String &out) {
  * | `last` | The last event in words, such as "BAND long" |
  * | `lastMs` | When that was, ms since boot. 0 for never |
  * | `typed` | Digits keyed and not yet entered |
+ * | `pot` | The volume knob, 0 to 4095 |
+ * | `potDb` | The volume that reading was turned into, in dB |
  *
  * @param out  The reply being built.
  */
@@ -761,6 +763,10 @@ static void appendInputState(String &out) {
   out += jsonEscape(in.typed);
   out += F("\",\"lines\":");
   out += String(in.linesOk ? in.lines : 0xFFFF);
+  out += F(",\"pot\":");
+  out += String(in.pot);
+  out += F(",\"potDb\":");
+  out += String(in.potDb);
   out += F("}");
 }
 

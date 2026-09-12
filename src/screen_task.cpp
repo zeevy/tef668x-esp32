@@ -6,6 +6,7 @@
 
 #include "board/board.h"
 #include "core/version.h"
+#include "drivers/analog.h"
 #include "radio_task.h"
 #include "ui/screen.h"
 
@@ -71,4 +72,9 @@ void screenTaskPoll(void) {
       snap.lastError != TEF668X_OK ? tef668xErrorText(snap.lastError) : NULL;
 
   screenShow(&state);
+
+  /* The needle shows what the screen shows. Driven from here rather than from
+   * its own place because it is the same job: telling the person holding the
+   * radio what the radio is receiving. */
+  smeterShow(snap.qualityValid ? snap.quality.levelDbuVTenths : 0);
 }

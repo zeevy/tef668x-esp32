@@ -276,13 +276,35 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
   }
 }
 
-bool radioNeedsRetune(const RadioSettings *a, const RadioSettings *b) {
-  if (a == NULL || b == NULL) {
-    return true;
+RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
+  RadioPush push;
+  push.retune = true;
+  push.bandwidth = true;
+  push.volume = true;
+  push.mute = true;
+  if (from == NULL || to == NULL) {
+    return push;
   }
+
+  push.retune = from->band != to->band || from->freqKHz != to->freqKHz;
+  /* A band change chooses a new bandwidth for the new band, so the width goes
+   * with a retune whether or not the number happens to differ. */
+  push.bandwidth = push.retune || from->bandwidthKHz != to->bandwidthKHz;
+  /* The volume goes again when the band changes from FM to AM or back.
+   *
+   * Not because the number moved. Crossing between the two sides makes the
+   * driver put the chip into its active mode again, and whether that resets
+   * the output gain is not something the datasheet settles. Re-sending it
+   * costs one write on a band change and removes the question. */
+  bool sideChanged = bandModulation(from->band) != bandModulation(to->band);
+  push.volume = sideChanged || from->volumeDb != to->volumeDb;
+  push.mute = from->muted != to->muted;
+  return push;
+}
+
+bool radioNeedsRetune(const RadioSettings *a, const RadioSettings *b) {
   /* The step size and the tuning mode never reach the chip. They decide what
    * the next command will be, not what the tuner is doing now. */
-  return a->band != b->band || a->freqKHz != b->freqKHz ||
-         a->bandwidthKHz != b->bandwidthKHz || a->volumeDb != b->volumeDb ||
-         a->muted != b->muted;
+  RadioPush push = radioPushNeeded(a, b);
+  return push.retune || push.bandwidth || push.volume || push.mute;
 }

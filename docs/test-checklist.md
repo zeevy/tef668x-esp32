@@ -260,6 +260,18 @@ fails in a way that still looks like a working screen. Check all four.
 
 Not written yet, so do not look for them: touch, RTC, battery reading, telemetry, RDS, memory channels, the volume AGC, and seek in Auto mode. Selecting Auto is possible, but the knob still steps manually there. That is issue 15.
 
+### The volume knob
+
+| # | Do this | Expect |
+|---|---|---|
+| 133 | Turn the knob from one end to the other | The volume follows all the way. At the very bottom it goes silent, and just above that it is quiet but audible |
+| 134 | Listen while turning it | The sound stays continuous. Breaking up means the tuner is being muted and retuned for a volume change, which it must not be |
+| 135 | Leave the knob alone for a minute and watch `potDb` in `/api/state` | It does not move. The converter jitters by a few counts and acting on that would send a volume command for ever |
+| 136 | Set the knob about a third up, then restart the radio | It comes up at that volume, not at full and then jumping when the knob is first touched |
+| 137 | Change the volume over HTTP, then turn the knob | The knob wins, which is what a physical control has to do |
+
+There is no analogue S-meter on this unit, so there is nothing to watch on pin 27. The pin is driven anyway.
+
 ### Reception and audio
 
 | # | Do this | Expect |

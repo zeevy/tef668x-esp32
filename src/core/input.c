@@ -123,6 +123,61 @@ uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
   return 1;
 }
 
+/* -------------------------------------------------------------------- pot */
+
+void potDefaults(PotConfig *out) {
+  if (out == NULL) {
+    return;
+  }
+  out->rawMute = 100;
+  out->rawMin = 120;
+  out->rawMax = 4000;
+  out->dbMute = -60;
+  out->dbMin = -30;
+  out->dbMax = 0;
+  out->deadband = 25;
+}
+
+int8_t potVolumeDb(uint16_t raw, const PotConfig *cfg) {
+  PotConfig defaults;
+  if (cfg == NULL) {
+    potDefaults(&defaults);
+    cfg = &defaults;
+  }
+
+  if (raw <= cfg->rawMute) {
+    return cfg->dbMute;
+  }
+  if (raw < cfg->rawMin) {
+    raw = cfg->rawMin;
+  }
+  if (raw > cfg->rawMax) {
+    raw = cfg->rawMax;
+  }
+  if (cfg->rawMax <= cfg->rawMin) {
+    return cfg->dbMax;
+  }
+
+  /* Widened to 32 bits before the multiplication. The travel is nearly four
+   * thousand counts and the span is tens of dB, so the product does not fit
+   * in sixteen bits. */
+  int32_t span = (int32_t)cfg->dbMax - cfg->dbMin;
+  int32_t along = (int32_t)raw - cfg->rawMin;
+  int32_t width = (int32_t)cfg->rawMax - cfg->rawMin;
+  return (int8_t)(cfg->dbMin + (along * span) / width);
+}
+
+bool potMoved(uint16_t previous, uint16_t now, const PotConfig *cfg) {
+  PotConfig defaults;
+  if (cfg == NULL) {
+    potDefaults(&defaults);
+    cfg = &defaults;
+  }
+  uint16_t apart =
+      now > previous ? (uint16_t)(now - previous) : (uint16_t)(previous - now);
+  return apart >= cfg->deadband;
+}
+
 /* ----------------------------------------------------------------- button */
 
 void buttonDefaults(ButtonConfig *out) {

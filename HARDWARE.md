@@ -61,7 +61,7 @@ From the defines at the top of `TEF6686_ESP32.ino` in the PE5PVB firmware.
 | 26 | MODE button |
 | 2 | Backlight PWM |
 | 19 | Standby LED |
-| 27 | Analog S-meter PWM |
+| 27 | Analog S-meter PWM. **No meter is fitted on this unit**, checked by looking at it on 12 September 2026. The pin is still driven, because the pin map comes from a firmware that runs on boards in this family that do have one |
 | 33 | Touch controller interrupt |
 | 14 | Keypad interrupt from the I/O expander |
 | 15 | Tuner crystal sense, ADC. Read on 2026-09-12 |

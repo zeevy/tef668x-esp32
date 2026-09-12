@@ -125,6 +125,57 @@ typedef struct {
 uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
                           uint32_t nowMs);
 
+/* -------------------------------------------------------------------- pot */
+
+/** How the pot's travel maps to volume. */
+typedef struct {
+  uint16_t rawMute;  /**< At or below this the pot is off. */
+  uint16_t rawMin;   /**< Start of the usable travel. */
+  uint16_t rawMax;   /**< End of it. */
+  int8_t dbMute;     /**< What "off" means, in dB. */
+  int8_t dbMin;      /**< The quiet end. */
+  int8_t dbMax;      /**< The loud end. */
+  uint16_t deadband; /**< Raw counts it must move before anything changes. */
+} PotConfig;
+
+/**
+ * The pot settings this radio ships with.
+ *
+ * From the working PE5PVB firmware, which drives the same 10k linear pot on
+ * the same ADC pin. The narrow span is the part worth understanding: the
+ * usable travel covers -30 dB to 0 dB, not the -60 dB the chip can do.
+ * Spreading the full range across the knob puts everything below the halfway
+ * point under what can be heard, so half the travel would do nothing.
+ *
+ * The bottom of the travel is a separate mute zone rather than the quiet end
+ * of the span, so the knob can actually turn the radio off.
+ *
+ * @param out  Receives the defaults.
+ */
+void potDefaults(PotConfig *out);
+
+/**
+ * Turn a pot reading into a volume.
+ *
+ * @param raw  The averaged ADC reading.
+ * @param cfg  The mapping. NULL means the defaults.
+ * @return The volume in dB.
+ */
+int8_t potVolumeDb(uint16_t raw, const PotConfig *cfg);
+
+/**
+ * Whether the pot has moved far enough to act on.
+ *
+ * An ADC reading jitters by a few counts with nothing touching it, and acting
+ * on that would send a volume command several times a second for ever.
+ *
+ * @param previous  The last reading acted on.
+ * @param now       The reading now.
+ * @param cfg       The mapping. NULL means the defaults.
+ * @return true when the change is real.
+ */
+bool potMoved(uint16_t previous, uint16_t now, const PotConfig *cfg);
+
 /* ----------------------------------------------------------------- button */
 
 /** What a button did. */

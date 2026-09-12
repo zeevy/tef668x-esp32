@@ -547,6 +547,98 @@ static void changing_band_never_leaves_a_bandwidth_the_band_refuses(void) {
   }
 }
 
+/* ------------------------------------------- only send what actually moved */
+
+static void turning_the_volume_does_not_move_the_dial(void) {
+  /* The one that matters. A volume change that counts as a retune makes the
+   * task mute and unmute around it, and the knob sends one of those every
+   * fiftieth of a second while it is turned. That is audible as the sound
+   * breaking up. */
+  RadioSettings before = r;
+  r.volumeDb = -12;
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_FALSE(push.retune);
+  TEST_ASSERT_FALSE(push.bandwidth);
+  TEST_ASSERT_FALSE(push.mute);
+  TEST_ASSERT_TRUE(push.volume);
+}
+
+static void moving_the_dial_is_a_retune(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 102800});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.retune);
+  /* And the width goes with it, because a band can change under a tune. */
+  TEST_ASSERT_TRUE(push.bandwidth);
+}
+
+static void crossing_between_fm_and_am_sends_the_volume_again(void) {
+  /* Not because the number moved. Crossing sides makes the driver put the
+   * chip back into its active mode, and whether that resets the gain is not
+   * settled. Sending it again is one write and removes the question. */
+  RadioSettings before = r;
+  TEST_ASSERT_EQUAL_INT(BAND_FM, before.band);
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_INT8(before.volumeDb, r.volumeDb);
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.volume);
+
+  /* Moving between two AM bands does not cross sides, so it does not. */
+  RadioSettings onMw = r;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  push = radioPushNeeded(&onMw, &r);
+  TEST_ASSERT_TRUE(push.retune);
+  TEST_ASSERT_FALSE(push.volume);
+}
+
+static void changing_band_carries_the_bandwidth_with_it(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.retune);
+  TEST_ASSERT_TRUE(push.bandwidth);
+}
+
+static void muting_only_sets_the_mute(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_TOGGLE_MUTE});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.mute);
+  TEST_ASSERT_FALSE(push.retune);
+  TEST_ASSERT_FALSE(push.volume);
+}
+
+static void changing_the_bandwidth_alone_does_not_retune(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 110});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.bandwidth);
+  TEST_ASSERT_FALSE(push.retune);
+}
+
+static void the_step_size_and_the_mode_never_reach_the_tuner(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_SET_STEP, .stepKHz = 50});
+  apply(
+      (RadioCommand){.kind = RADIO_SET_TUNE_MODE, .tuneMode = TUNE_MODE_AUTO});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_FALSE(push.retune);
+  TEST_ASSERT_FALSE(push.bandwidth);
+  TEST_ASSERT_FALSE(push.volume);
+  TEST_ASSERT_FALSE(push.mute);
+  TEST_ASSERT_FALSE(radioNeedsRetune(&before, &r));
+}
+
+static void nothing_known_means_send_everything(void) {
+  /* The first push after start up, and any push after a failure, when what
+   * the tuner is set to is not known. */
+  RadioPush push = radioPushNeeded(NULL, &r);
+  TEST_ASSERT_TRUE(push.retune);
+  TEST_ASSERT_TRUE(push.bandwidth);
+  TEST_ASSERT_TRUE(push.volume);
+  TEST_ASSERT_TRUE(push.mute);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -586,6 +678,15 @@ int main(int, char **) {
   RUN_TEST(cycling_the_mode_always_moves);
   RUN_TEST(toggling_mute_turns_it_over_each_time);
   RUN_TEST(changing_band_never_leaves_a_bandwidth_the_band_refuses);
+
+  RUN_TEST(turning_the_volume_does_not_move_the_dial);
+  RUN_TEST(moving_the_dial_is_a_retune);
+  RUN_TEST(crossing_between_fm_and_am_sends_the_volume_again);
+  RUN_TEST(changing_band_carries_the_bandwidth_with_it);
+  RUN_TEST(muting_only_sets_the_mute);
+  RUN_TEST(changing_the_bandwidth_alone_does_not_retune);
+  RUN_TEST(the_step_size_and_the_mode_never_reach_the_tuner);
+  RUN_TEST(nothing_known_means_send_everything);
 
   return UNITY_END();
 }

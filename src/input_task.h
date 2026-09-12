@@ -37,6 +37,8 @@ typedef struct {
                                     *   "BAND long". */
   uint32_t lastEventMs; /**< When that was, ms since boot. 0 for never. */
   char typed[INPUT_DIGITS_MAX + 1]; /**< Digits keyed and not yet entered. */
+  uint16_t pot;                     /**< The volume pot, 0 to 4095. */
+  int8_t potDb;                     /**< What that was turned into, in dB. */
   uint16_t lines;   /**< The keypad's sixteen lines. A 0 bit is a key held. */
   uint16_t linesOk; /**< Non zero once the lines have been read at all. */
 } InputStatus;

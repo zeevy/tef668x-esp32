@@ -180,6 +180,29 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan);
 RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
                       const RadioCommand *command);
 
+/** Which parts of the tuner have to be told about a change. */
+typedef struct {
+  bool retune;    /**< The frequency or the band moved. */
+  bool bandwidth; /**< The filter width has to be set. */
+  bool volume;    /**< The output gain has to be set. */
+  bool mute;      /**< The mute has to be set. */
+} RadioPush;
+
+/**
+ * Work out what actually has to be sent to the tuner.
+ *
+ * The point of this is what it leaves out. Moving the dial has to mute the
+ * audio first, or the tuner bursts noise while the PLL moves. Turning the
+ * volume knob does not, and doing it anyway chops the sound every time the
+ * knob moves a step, which is exactly what a volume control must not do.
+ *
+ * @param from   What the tuner was last told. NULL means it was told nothing,
+ *               so everything is sent.
+ * @param to     What it should be set to.
+ * @return Which parts to send. All false means there is nothing to do.
+ */
+RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to);
+
 /**
  * Whether two settings differ in a way the tuner has to be told about.
  *
