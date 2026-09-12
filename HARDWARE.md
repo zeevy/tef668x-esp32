@@ -352,6 +352,25 @@ threshold from this table.
 | MW | 10 uV or better at S/N 20 dB | 60 dB or better, BW 3 kHz at ±9 kHz |
 | LW | 10 uV or better at S/N 20 dB | 60 dB or better, BW 3 kHz at ±9 kHz |
 
+### The reported signal level is offset by 7 dB
+
+The working PE5PVB firmware writes a level offset of -70, meaning -7.0 dB, to
+both the FM and AM sides on every start. Its own offset setting defaults to 0
+and it still writes that -70, so it is a calibration of what the chip reports
+rather than a preference.
+
+Everything that firmware measures is therefore on a scale 7 dB below the
+chip's raw reading. That includes every threshold in it, and the captures in
+`test/fixtures/agc/`, which were taken from this radio while it was running.
+
+This firmware writes the same -70, so that those numbers keep their meaning.
+Whether -7.0 dB is right in absolute terms is not known and cannot be settled
+without a signal generator. What is known is that two scales is how a
+threshold ends up 7 dB out.
+
+Signal figures recorded in this repository before 12 September 2026 are on the
+raw scale and are about 7 dB higher than the radio now reports.
+
 ## Open items
 
 1. ~~Whether pin 19 is really both the standby LED and SPI MISO.~~ **Closed, by

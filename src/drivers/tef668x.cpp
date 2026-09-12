@@ -32,6 +32,25 @@ typedef enum {
 #define CMD_GET_QUALITY_STATUS 128 /**< Level, noise, offset, modulation. */
 #define CMD_GET_SIGNAL_STATUS 133  /**< Carries the stereo pilot flag. */
 
+/* Reception and audio shaping. Every one of these is written by the working
+ * PE5PVB firmware on every start, and none of them was written here until
+ * issue 16. The numbers are its numbers, checked against its source. */
+#define CMD_SET_RFAGC 11         /**< Where the RF gain starts backing off. */
+#define CMD_SET_ANTENNA 12       /**< AM RF attenuation. */
+#define CMD_SET_COCHANNEL 14     /**< AM co-channel rejection. */
+#define CMD_SET_NOISE_BLANKER 23 /**< Impulse noise blanker. */
+#define CMD_SET_NOISE_BLANKER_AUDIO 24 /**< Its audio side. AM only. */
+#define CMD_SET_DEEMPHASIS 31          /**< FM de-emphasis time constant. */
+#define CMD_SET_LEVEL_OFFSET 39  /**< Calibration of the reported level. */
+#define CMD_SET_SOFTMUTE_MAX 45  /**< How far soft mute may pull the audio. */
+#define CMD_SET_HIGHCUT_LEVEL 52 /**< Treble roll off against level. */
+#define CMD_SET_HIGHCUT_NOISE 53 /**< Against noise. */
+#define CMD_SET_HIGHCUT_MPH 54   /**< Against multipath. */
+#define CMD_SET_HIGHCUT_MAX 55   /**< The highest frequency it may pass. */
+#define CMD_SET_STEREO_LEVEL 62  /**< Stereo blend against level. */
+#define CMD_SET_STEREO_NOISE 63  /**< Against noise. */
+#define CMD_SET_STEREO_MPH 64    /**< Against multipath. */
+
 #define CMD_AUDIO_SET_VOLUME 10 /**< Output gain, in tenths of a dB. */
 #define CMD_AUDIO_SET_MUTE 11   /**< Mute or unmute the output. */
 
@@ -485,6 +504,180 @@ static Tef668xError bringUpWithPatch(const Tef668xPatch *patch) {
   return TEF668X_OK;
 }
 
+/**
+ * Tell the tuner how to receive and how to sound.
+ *
+ * None of this was sent at all until issue 16. The chip was left on whatever
+ * it powers up with after the patch, which is why medium wave was hissy on a
+ * station reading a strong 41 dBuV. Measured on 738 kHz before and after:
+ * ultrasonic noise fell from 1025 to 138, and it went from hissy to clear.
+ *
+ * The AM half is what did that. The FM writes below are all the reference
+ * firmware's defaults, and most of those defaults are "off", so they change
+ * little on their own. They are here so the chip is in a known state rather
+ * than an unknown one, which is the point: the previous behaviour was not
+ * "the defaults", it was whatever the patch happened to leave behind.
+ *
+ * Every value here is the one the working PE5PVB firmware writes, read out of
+ * its source rather than guessed: `TEF6686_ESP32.ino` lines 976 to 996 for the
+ * calls, its factory defaults around lines 4950 to 5025 for the values, and
+ * `src/Tuner_Drv_Lithio.cpp` for how each one goes on the wire. That firmware
+ * has been listened to on this radio for a long time, which is the only
+ * evidence available for numbers like these. CLAUDE.md forbids guessed
+ * thresholds and these are thresholds.
+ *
+ * These are fixed defaults. They become settings in issue 14.
+ */
+static Tef668xError applyReceptionDefaults(void) {
+  Tef668xError err;
+  /* Sized to what command() accepts rather than to what this function happens
+   * to pass, so adding a longer command here cannot read past the end. */
+  uint16_t args[6];
+
+  /* Level offset, and read the note before changing it.
+   *
+   * The old firmware's offset setting defaults to 0 and it still writes -70,
+   * which is -7.0 dB. That is not a preference, it is a calibration of what
+   * the chip reports, and everything downstream of it is on that scale: every
+   * threshold in that firmware, and the captures in test/fixtures/agc/ which
+   * were taken from this radio while it was running.
+   *
+   * So this writes -70 as well. Not because -7.0 dB is known to be right in
+   * absolute terms, which cannot be established without a signal generator,
+   * but because half the numbers this project will rely on are already on
+   * that scale and two scales is how thresholds end up 7 dB out. */
+  args[0] = (uint16_t)(int16_t)-70;
+  if ((err = command(MODULE_FM, CMD_SET_LEVEL_OFFSET, args, 1)) != TEF668X_OK) {
+    return err;
+  }
+  if ((err = command(MODULE_AM, CMD_SET_LEVEL_OFFSET, args, 1)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* FM de-emphasis. 500 is 50 us, which is the standard everywhere except the
+   * Americas, where it is 75 us and this value would be 750. Wrong either way
+   * is not subtle: everything sounds dull or everything sounds shrill. */
+  args[0] = 500;
+  if ((err = command(MODULE_FM, CMD_SET_DEEMPHASIS, args, 1)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* Where the RF gain starts to back off, in tenths of a dBuV. */
+  args[0] = 920;
+  args[1] = 0;
+  if ((err = command(MODULE_FM, CMD_SET_RFAGC, args, 2)) != TEF668X_OK) {
+    return err;
+  }
+  args[0] = 1000;
+  if ((err = command(MODULE_AM, CMD_SET_RFAGC, args, 1)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* Soft mute pulls the audio down as the signal falls. Off on FM, on for AM,
+   * which is where it earns its keep. The second word is fixed in the old
+   * firmware at 200 for FM and 250 for AM. */
+  args[0] = 0;
+  args[1] = 200;
+  if ((err = command(MODULE_FM, CMD_SET_SOFTMUTE_MAX, args, 2)) != TEF668X_OK) {
+    return err;
+  }
+  args[0] = 1;
+  args[1] = 250;
+  if ((err = command(MODULE_AM, CMD_SET_SOFTMUTE_MAX, args, 2)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* Noise blankers, both off by default. Mode 0 with a start of 1000 is how
+   * the reference firmware spells off. The AM side takes two writes, not one.
+   *
+   * The second AM write always carries 1000, whatever the first one carries.
+   * That is not obvious from these two lines looking alike: when the blanker
+   * becomes a setting and the first write takes the real start, the second
+   * still has to send 1000. */
+  args[0] = 0;
+  args[1] = 1000;
+  if ((err = command(MODULE_FM, CMD_SET_NOISE_BLANKER, args, 2)) !=
+      TEF668X_OK) {
+    return err;
+  }
+  if ((err = command(MODULE_AM, CMD_SET_NOISE_BLANKER, args, 2)) !=
+      TEF668X_OK) {
+    return err;
+  }
+  if ((err = command(MODULE_AM, CMD_SET_NOISE_BLANKER_AUDIO, args, 2)) !=
+      TEF668X_OK) {
+    return err;
+  }
+
+  /* AM co-channel rejection, on, starting at 100.0 dBuV with a count of 3.
+   *
+   * This one and the attenuation below are the two the reference firmware
+   * re-sends on every change to an AM band, not just at start up. Written
+   * once here. That is the same thing only while they are fixed defaults, so
+   * it has to be revisited in issue 14 when they become settings. */
+  args[0] = 1;
+  args[1] = 2;
+  args[2] = 1000;
+  args[3] = 3;
+  if ((err = command(MODULE_AM, CMD_SET_COCHANNEL, args, 4)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* No AM RF attenuation. */
+  args[0] = 0;
+  if ((err = command(MODULE_AM, CMD_SET_ANTENNA, args, 1)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* Stereo blend against level, noise and multipath. Three writes.
+   *
+   * Mode 0 is off. In the reference firmware mode 3 is on and mode 0 is off,
+   * and its blend setting defaults to 0, so this turns the blend off, exactly
+   * as it ships. It does not make a weak station go to mono, which is what a
+   * comment here claimed until the review checked it against the source. The
+   * start and slope words are written anyway, so turning it on later is a
+   * change of mode and nothing else. */
+  args[0] = 0;
+  args[1] = 0;
+  args[2] = 60;
+  if ((err = command(MODULE_FM, CMD_SET_STEREO_LEVEL, args, 3)) != TEF668X_OK) {
+    return err;
+  }
+  args[1] = 240;
+  args[2] = 200;
+  if ((err = command(MODULE_FM, CMD_SET_STEREO_NOISE, args, 3)) != TEF668X_OK) {
+    return err;
+  }
+  if ((err = command(MODULE_FM, CMD_SET_STEREO_MPH, args, 3)) != TEF668X_OK) {
+    return err;
+  }
+
+  /* Treble roll off against level, noise and multipath. Same again: mode 0 is
+   * off, and the reference firmware ships with it off.
+   *
+   * The write after these three is the one that does something. It sets the
+   * ceiling on what the audio may pass at 7 kHz, and mode 1 there is on. */
+  args[0] = 0;
+  args[1] = 0;
+  args[2] = 300;
+  if ((err = command(MODULE_FM, CMD_SET_HIGHCUT_LEVEL, args, 3)) !=
+      TEF668X_OK) {
+    return err;
+  }
+  args[1] = 360;
+  args[2] = 300;
+  if ((err = command(MODULE_FM, CMD_SET_HIGHCUT_NOISE, args, 3)) !=
+      TEF668X_OK) {
+    return err;
+  }
+  if ((err = command(MODULE_FM, CMD_SET_HIGHCUT_MPH, args, 3)) != TEF668X_OK) {
+    return err;
+  }
+  args[0] = 1;
+  args[1] = 7000;
+  return command(MODULE_FM, CMD_SET_HIGHCUT_MAX, args, 2);
+}
+
 Tef668xError tef668xBegin(void) {
   /* Forget anything a previous call worked out. Without this a second call
    * that fails part way leaves the old capability set in place, and the web
@@ -586,6 +779,21 @@ Tef668xError tef668xBegin(void) {
   /* Now make it receive. Without this every reading comes back invalid. */
   if ((err = tef668xSetActive(true)) != TEF668X_OK) {
     return err;
+  }
+
+  /* And tell it how to receive. Skipped at first, which left the chip on its
+   * power up defaults and medium wave hissing on a strong station.
+   *
+   * A failure here is reported and not fatal. Everything above this point is
+   * something the tuner cannot work without, and it has all succeeded: the
+   * patch went in, the init table went in, and the chip is active. These are
+   * quality writes. Losing one makes the radio sound wrong, and refusing to
+   * start would turn that into no radio at all, which is worse and is not
+   * what the caller can do anything about. */
+  Tef668xError quality = applyReceptionDefaults();
+  if (quality != TEF668X_OK) {
+    Serial.printf("[tuner] reception defaults failed: %s\n",
+                  tef668xErrorText(quality));
   }
 
   uint16_t device = 0;

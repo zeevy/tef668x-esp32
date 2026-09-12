@@ -260,6 +260,24 @@ fails in a way that still looks like a working screen. Check all four.
 
 Not written yet, so do not look for them: touch, RTC, battery reading, telemetry, RDS, memory channels, the volume AGC, and seek in Auto mode. Selecting Auto is possible, but the knob still steps manually there. That is issue 15.
 
+### Reception and audio
+
+| # | Do this | Expect |
+|---|---|---|
+| 129 | Listen to a medium wave station | Comfortable at volume 0. Hiss over the top of a strong station means the tuner is back on its power up defaults |
+| 130 | Watch `usn` on a medium wave station | Low hundreds. Around a thousand on a station reading 25 dBuV or better means the AM settings did not reach the chip |
+| 131 | Listen to FM | Not dull and not shrill. Both are what a wrong de-emphasis sounds like, and 50 us is right everywhere except the Americas |
+| 132 | Tune away from any station on FM | It goes to mono and the treble rolls off rather than hissing in stereo |
+
+Measured on 738 kHz on 12 September 2026, before and after the tuner was told how to receive:
+
+| | Before | After |
+|---|---|---|
+| Ultrasonic noise | 1025 | 138 |
+| Sounded | hissy | clear |
+
+**The level scale changed with it.** The tuner is now told to report levels 7.0 dB lower, which is what the old firmware does, so that its thresholds and the captures in `test/fixtures/agc/` mean the same thing here. Signal figures written down before that change are on the old scale. The RF gain point moved at the same time, so the two do not simply cancel.
+
 ### Known stations, for testing
 
 Taken off air from this radio. Signal alone does not say whether something is a station: ultrasonic noise `usn` is the better test, low for a station and in the thousands for noise.
