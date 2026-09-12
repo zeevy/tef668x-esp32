@@ -645,6 +645,70 @@ static void asking_past_the_end_of_the_list_gives_nothing(void) {
   TEST_ASSERT_EQUAL_UINT16(0, bandBandwidthNext(BAND_COUNT, 100));
 }
 
+/* ------------------------------------------------------- nearest channel */
+
+static void a_frequency_on_the_grid_does_not_move(void) {
+  BandPlanConfig c;
+  bandPlanDefaults(&c); /* 9 kHz medium wave. */
+  TEST_ASSERT_EQUAL_UINT32(738, bandNearestChannel(BAND_MW, &c, 738, 9));
+  TEST_ASSERT_EQUAL_UINT32(522, bandNearestChannel(BAND_MW, &c, 522, 9));
+}
+
+static void a_frequency_between_channels_goes_to_the_nearer_one(void) {
+  /* The case this exists for. 738 is a real channel at 9 kHz and is not one
+   * at 10 kHz, and it is inside the band either way, so nothing else in this
+   * file notices. */
+  BandPlanConfig c;
+  bandPlanDefaults(&c);
+  c.mwSpacing = MW_SPACING_10K;
+  TEST_ASSERT_EQUAL_UINT32(740, bandNearestChannel(BAND_MW, &c, 738, 10));
+  TEST_ASSERT_EQUAL_UINT32(730, bandNearestChannel(BAND_MW, &c, 732, 10));
+  TEST_ASSERT_EQUAL_UINT32(740, bandNearestChannel(BAND_MW, &c, 739, 10));
+}
+
+static void exactly_half_way_goes_up(void) {
+  /* Arbitrary, but it has to be decided somewhere and written down. */
+  BandPlanConfig c;
+  bandPlanDefaults(&c);
+  c.mwSpacing = MW_SPACING_10K;
+  TEST_ASSERT_EQUAL_UINT32(730, bandNearestChannel(BAND_MW, &c, 725, 10));
+}
+
+static void it_never_leaves_the_band(void) {
+  BandPlanConfig c;
+  bandPlanDefaults(&c);
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_MW, &c, &lo, &hi));
+
+  TEST_ASSERT_EQUAL_UINT32(lo, bandNearestChannel(BAND_MW, &c, lo - 100, 9));
+  TEST_ASSERT_EQUAL_UINT32(lo, bandNearestChannel(BAND_MW, &c, 0, 9));
+  uint32_t top = bandTopChannel(BAND_MW, &c, 9);
+  TEST_ASSERT_EQUAL_UINT32(top, bandNearestChannel(BAND_MW, &c, hi, 9));
+  TEST_ASSERT_EQUAL_UINT32(top, bandNearestChannel(BAND_MW, &c, hi + 5000, 9));
+  TEST_ASSERT_TRUE(top <= hi);
+}
+
+static void the_answer_is_always_on_the_grid(void) {
+  BandPlanConfig c;
+  bandPlanDefaults(&c);
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_FM, &c, &lo, &hi));
+  for (uint32_t f = lo; f <= hi; f += 37) {
+    uint32_t got = bandNearestChannel(BAND_FM, &c, f, 100);
+    TEST_ASSERT_EQUAL_UINT32(0, (got - lo) % 100);
+    TEST_ASSERT_TRUE(got >= lo && got <= hi);
+  }
+}
+
+static void a_step_the_band_does_not_offer_changes_nothing(void) {
+  BandPlanConfig c;
+  bandPlanDefaults(&c);
+  TEST_ASSERT_EQUAL_UINT32(738, bandNearestChannel(BAND_MW, &c, 738, 7));
+  TEST_ASSERT_EQUAL_UINT32(738, bandNearestChannel(BAND_COUNT, &c, 738, 9));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(the_defaults_are_the_ones_most_radios_ship_with);
@@ -703,6 +767,13 @@ int main(int, char **) {
   RUN_TEST(the_bandwidth_button_walks_the_list_and_wraps);
   RUN_TEST(a_bandwidth_not_in_the_list_starts_again_at_the_front);
   RUN_TEST(asking_past_the_end_of_the_list_gives_nothing);
+
+  RUN_TEST(a_frequency_on_the_grid_does_not_move);
+  RUN_TEST(a_frequency_between_channels_goes_to_the_nearer_one);
+  RUN_TEST(exactly_half_way_goes_up);
+  RUN_TEST(it_never_leaves_the_band);
+  RUN_TEST(the_answer_is_always_on_the_grid);
+  RUN_TEST(a_step_the_band_does_not_offer_changes_nothing);
 
   return UNITY_END();
 }

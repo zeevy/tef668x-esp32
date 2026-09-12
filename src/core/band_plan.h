@@ -187,6 +187,29 @@ bool bandContains(BandId band, const BandPlanConfig *config, uint32_t freqKHz);
 uint32_t bandClamp(BandId band, const BandPlanConfig *config, uint32_t freqKHz);
 
 /**
+ * The channel nearest a frequency, on this band's grid.
+ *
+ * Being inside a band and being on one of its channels are two different
+ * questions, and most of this file only asks the first. They come apart when
+ * the grid moves under a frequency that was stored earlier: 738 kHz is a real
+ * medium wave channel at 9 kHz spacing and is not one at 10 kHz, but it is
+ * inside the band either way. A radio that comes up there is slightly off
+ * every station until somebody moves it, with nothing to say why.
+ *
+ * A frequency exactly between two channels goes up, which is arbitrary but
+ * has to be decided somewhere.
+ *
+ * @param band     Which band.
+ * @param config   The regional choices. NULL for the defaults.
+ * @param freqKHz  The frequency to snap.
+ * @param stepKHz  The channel spacing to snap onto.
+ * @return The nearest channel, or freqKHz unchanged when the band or the step
+ *         is not one this radio has.
+ */
+uint32_t bandNearestChannel(BandId band, const BandPlanConfig *config,
+                            uint32_t freqKHz, uint16_t stepKHz);
+
+/**
  * The next channel up, wrapping round to the bottom at the top edge.
  *
  * The channel grid starts at the band's low edge, so a frequency that is not

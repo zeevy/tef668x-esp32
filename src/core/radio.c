@@ -147,7 +147,18 @@ void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
   if (settings->startFreqKHz != 0) {
     RadioCommand tune = {};
     tune.kind = RADIO_TUNE;
-    tune.freqKHz = settings->startFreqKHz;
+    /* Onto a channel, not merely inside the band. The two come apart when the
+     * grid moves under a frequency stored earlier: 738 kHz is a real medium
+     * wave channel at 9 kHz spacing and is not one at 10 kHz, and it is
+     * inside the band either way. Coming up between channels is slightly off
+     * every station until somebody moves it. */
+    BandId band = out->band;
+    if (bandForFrequency(plan, settings->startFreqKHz, &band)) {
+      tune.freqKHz = bandNearestChannel(band, plan, settings->startFreqKHz,
+                                        bandDefaultStep(band, plan));
+    } else {
+      tune.freqKHz = settings->startFreqKHz;
+    }
     /* The frequency decides the band when the two disagree, because
      * radioApply moves to whichever band holds it. They are stored together
      * so they normally agree, and when a region change breaks that the

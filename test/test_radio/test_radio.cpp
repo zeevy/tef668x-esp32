@@ -1006,6 +1006,32 @@ static void a_stored_frequency_picks_its_own_band(void) {
   TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
 }
 
+static void a_stored_frequency_comes_up_on_a_channel(void) {
+  /* What the radio actually did, check 185 on 13 September 2026: 738 kHz was
+   * saved on the 9 kHz grid, the spacing was changed to 10 kHz, and it came
+   * back up on 738, which is not a channel there. Being inside the band and
+   * being on one of its channels are different questions and only the first
+   * was asked. */
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_MW;
+  st.startFreqKHz = 738;
+  st.mwSpacing = (uint8_t)MW_SPACING_10K;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+  TEST_ASSERT_EQUAL_UINT32(740, r.freqKHz);
+
+  /* And on the grid it was stored for, it does not move. */
+  st.mwSpacing = (uint8_t)MW_SPACING_9K;
+  radioPlanFromSettings(&st, &plan);
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+}
+
 static void the_fm_features_come_from_the_settings(void) {
   Settings st;
   settingsDefaults(&st);
@@ -1279,6 +1305,7 @@ int main(int, char **) {
   RUN_TEST(the_radio_starts_on_the_stored_band_and_frequency);
   RUN_TEST(a_stored_frequency_in_no_band_falls_back);
   RUN_TEST(a_stored_frequency_picks_its_own_band);
+  RUN_TEST(a_stored_frequency_comes_up_on_a_channel);
   RUN_TEST(the_fm_features_come_from_the_settings);
   RUN_TEST(the_stored_am_width_only_applies_on_am);
   RUN_TEST(no_settings_gives_the_radio_defaults);

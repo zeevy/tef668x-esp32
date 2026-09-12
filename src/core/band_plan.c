@@ -224,6 +224,29 @@ uint32_t bandTopChannel(BandId band, const BandPlanConfig *config,
   return lo + ((hi - lo) / stepKHz) * stepKHz;
 }
 
+uint32_t bandNearestChannel(BandId band, const BandPlanConfig *config,
+                            uint32_t freqKHz, uint16_t stepKHz) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  if (!bandStepAllowed(band, config, stepKHz) ||
+      !bandLimits(band, config, &lo, &hi)) {
+    return freqKHz;
+  }
+  if (freqKHz <= lo) {
+    return lo;
+  }
+  uint32_t top = lo + ((hi - lo) / stepKHz) * stepKHz;
+  if (freqKHz >= top) {
+    return top;
+  }
+  /* The grid starts at the low edge. Half a step is added before dividing so
+   * that the division rounds to the nearest channel rather than always down,
+   * which on a 10 kHz grid would turn 739 into 730 rather than 740. */
+  uint32_t offset = freqKHz - lo;
+  uint32_t channel = lo + ((offset + stepKHz / 2) / stepKHz) * stepKHz;
+  return channel > top ? top : channel;
+}
+
 uint32_t bandStepUp(BandId band, const BandPlanConfig *config, uint32_t freqKHz,
                     uint16_t stepKHz) {
   uint32_t lo = 0;

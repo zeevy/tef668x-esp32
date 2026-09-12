@@ -355,6 +355,7 @@ Everything the radio is set to now lives in one place. `POST /api/save` writes i
 | 183 | `POST /api/save` while on an AM band at 6 kHz, then power cycle | It comes up on that AM band at 6 kHz |
 | 184 | `POST /api/settings -d 'spacing=1'` | Accepted, and the reply says it needs a reboot |
 | 185 | Reboot, then step across medium wave | 10 kHz steps. Before the reboot it is still 9 |
+| 185a | With 738 kHz saved, change the spacing to 10 kHz and reboot | It comes up on 740, a real channel, not on 738. Being inside the band and being on one of its channels are different questions |
 | 186 | `POST /api/settings -d 'region=1'` then reboot on FM | The band is 76 to 95 MHz. Stepping past 95.00 wraps round to 76.00 and back the other way, which is what bandStepUp is documented to do |
 | 187 | With region 1 stored and a station at 102.8 saved, reboot | It comes up somewhere inside 76 to 95, not on a frequency the band no longer has |
 | 188 | `POST /api/settings -d 'direction=1'` then reboot | The tuning knob counts the other way |
