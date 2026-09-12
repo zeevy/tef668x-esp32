@@ -533,8 +533,8 @@ The splash carries information, not decoration. With OTA in use the most
 valuable thing it can say is which firmware is actually running.
 
 ```
-        ((( TEF668X )))
-         V1.0.0 . ATS125
+    /(( TEF668X ))\
+    \(( V1.0.0 . ATS125 ))/
 
     TEF6686 LITHIO . PATCH V102
 
@@ -546,15 +546,22 @@ valuable thing it can say is which firmware is actually running.
     Settings       ok
 ```
 
-**The logo is drawn, not stored.** Three concentric arcs spreading from a point,
-drawn with LVGL arc primitives. No bitmap, so it costs no flash, scales to any
-size and stays sharp. The name is set in type between two mirrored copies of the
-arcs, both spreading outwards. Name, version and tuner line are all upper case
+**The logo is drawn, not stored.** A rounded rectangle encloses the whole
+lockup. Its two end caps are the outer arc of each side, joined across the top
+and bottom, so the outer ring is one closed shape. Inside it sit two smaller
+arcs and a dot on each side, spreading outwards, with the name in type between
+them. All of it is LVGL arc and rectangle primitives, so it costs no flash,
+scales to any size and stays sharp. Name, version and tuner line are upper case
 and centred.
 
-**The animation is the progress indicator.** The arcs light one at a time as the
-self test passes each stage. On a failure the arcs stop and the failing line
-turns red. Nothing on this screen exists only to look busy.
+**Each self test line ends in a tick, not the word ok.** The tick is a two
+segment path, drawn the same way. A failed line turns the tick into a cross in
+the warn colour.
+
+**The animation is the progress indicator.** The inner arcs light one at a time
+as the self test passes each stage, then the outer ring, and a bar under the
+test list fills with them. On a failure everything stops and the failing line
+turns to the warn colour. Nothing on this screen exists only to look busy.
 
 **No author name or callsign on it**, at least for now.
 
