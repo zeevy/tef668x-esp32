@@ -1054,6 +1054,17 @@ Tef668xError tef668xSetBandwidthExtension(bool wide) {
   return command(MODULE_FM, CMD_SET_BANDWIDTH_OPTIONS, args, 1);
 }
 
+Tef668xError tef668xSetDeemphasis(uint16_t microseconds) {
+  /* The chip takes tenths of a microsecond, so 50 us is 500. Only the two
+   * real standards and off are accepted: anything else is a number somebody
+   * guessed, and the chip would take it and quietly sound wrong. */
+  if (microseconds != 0 && microseconds != 50 && microseconds != 75) {
+    return TEF668X_ERR_RANGE;
+  }
+  uint16_t args[1] = {(uint16_t)(microseconds * 10)};
+  return command(MODULE_FM, CMD_SET_DEEMPHASIS, args, 1);
+}
+
 Tef668xError tef668xSetMono(bool mono) {
   /* Mode 2 forces mono and mode 0 allows stereo. The second word is 400 in
    * both cases in the reference firmware. */

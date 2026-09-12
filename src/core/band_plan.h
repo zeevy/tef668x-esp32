@@ -304,6 +304,22 @@ size_t bandBandwidthCount(BandId band);
 uint16_t bandBandwidthAt(BandId band, size_t index);
 
 /**
+ * Whether a band offers this bandwidth.
+ *
+ * The filter is built from what the silicon can do, so the two lists are not
+ * round numbers and they do not overlap: the AM widths are 3 to 8 kHz and the
+ * FM ones 56 to 311. A width from the wrong list is not a near miss. Asking
+ * the FM side for 4 pins its filter at 4.0 kHz, which is narrower than a
+ * station, and the radio then reports no stereo pilot and no signal and looks
+ * exactly like one with no aerial.
+ *
+ * @param band  Which band.
+ * @param khz   The width being asked for.
+ * @return true when that band offers it.
+ */
+bool bandBandwidthAllowed(BandId band, uint16_t khz);
+
+/**
  * The next bandwidth after this one, wrapping at the end.
  *
  * For the BW button, which walks the list. A current value that is not in the

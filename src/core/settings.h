@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 1
+#define SETTINGS_VERSION 2
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -42,6 +42,57 @@ typedef struct {
   char wifiPass
       [SETTINGS_PASS_LEN]; /**< Empty is allowed, for an open network. */
   uint32_t accessPin;      /**< 0 means use the MAC derived default. */
+
+  /* --- Added in version 2. Everything below here defaults on an older blob.
+   *
+   * Grouped the way a person thinks about them: the ones that describe where
+   * the radio is, then the FM side, then the AM side. The struct order is
+   * append only whatever the grouping, because reordering breaks every radio
+   * already in the field.
+   * ------------------------------------------------------------------- */
+
+  /* Where the radio is and how it is built. */
+  uint8_t fmRegion;    /**< Which FM band plan. See FmRegion in band_plan.h. */
+  uint8_t mwSpacing;   /**< Medium wave channel spacing. See MwSpacing. */
+  uint8_t encoderKind; /**< Which encoder is fitted. See EncoderKind. */
+  uint8_t encoderDirection; /**< Which way round. See EncoderDirection. */
+
+  /** What decides whether the audio is open. See SquelchMode. */
+  uint8_t squelchMode;
+
+  /**
+   * The volume to come up at when the knob is not the volume control.
+   *
+   * There is one knob, and in manual squelch it is the squelch. So in that
+   * one mode nothing on the radio says how loud to be, and reading the knob
+   * would come up at whatever the threshold happens to map to, which is full
+   * volume at one end and silence at the other, with nothing to correct it.
+   *
+   * In every other mode the knob wins and this is not read. That is why a
+   * volume is stored at all, given that a stored volume arguing with the
+   * knob is exactly what decision 27 refuses.
+   */
+  int8_t startVolumeDb;
+
+  /* Where it comes up. The band and the frequency it was last left on, so it
+   * returns to the station rather than to a frequency written into the
+   * firmware. */
+  uint8_t startBand;     /**< See BandId. */
+  uint32_t startFreqKHz; /**< 0 means the bottom of that band. */
+
+  /* The FM side. */
+  uint8_t fmMultipathSuppression; /**< iMS. 0 or 1. */
+  uint8_t fmEqualizer;            /**< EQ. 0 or 1. */
+  uint8_t fmForcedMono;           /**< Refuse stereo on purpose. 0 or 1. */
+  uint8_t fmHighCutStart;         /**< Roll treble off below this, dBuV. */
+  uint8_t fmStereoBlendStart;     /**< Blend to mono below this, dBuV. */
+  uint8_t fmStHiBlendStart;       /**< Do both below this, dBuV. */
+  uint8_t fmNoiseBlankerStart;    /**< Per cent. 0, or 50 to 150. */
+  uint16_t fmDeemphasisUs;        /**< 50 here, 75 in the Americas, 0 off. */
+
+  /* The AM side. */
+  uint8_t amNoiseBlankerStart; /**< Per cent. 0, or 50 to 150. */
+  uint8_t amBandwidthKHz;      /**< The width an AM band starts on. */
 } Settings;
 
 /**

@@ -96,6 +96,10 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan) {
   settings->volumeDb = 0;
   settings->muted = false;
   settings->tuneMode = TUNE_MODE_MANUAL;
+  /* 50 us, which is right everywhere except the Americas. The driver writes
+   * the same figure in its start up defaults, so a radio that is never told
+   * otherwise sounds right rather than dull. */
+  settings->deemphasisUs = 50;
 }
 
 /*
@@ -106,6 +110,100 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan) {
  * keep up to date. Doxygen on the CI machine also treats a doc block with no
  * @param as an error, which is how this gate went red after passing locally.
  */
+void radioPlanFromSettings(const Settings *settings, BandPlanConfig *out) {
+  if (out == NULL) {
+    return;
+  }
+  bandPlanDefaults(out);
+  if (settings == NULL) {
+    return;
+  }
+  if (settings->fmRegion < FM_REGION_COUNT) {
+    out->fmRegion = (FmRegion)settings->fmRegion;
+  }
+  if (settings->mwSpacing <= (uint8_t)MW_SPACING_10K) {
+    out->mwSpacing = (MwSpacing)settings->mwSpacing;
+  }
+}
+
+void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
+                       RadioSettings *out) {
+  if (out == NULL || plan == NULL) {
+    return;
+  }
+  radioDefaults(out, plan);
+  if (settings == NULL) {
+    return;
+  }
+
+  /* The band first, then the frequency inside it, so the frequency is judged
+   * against the band it belongs to. */
+  if (settings->startBand < BAND_COUNT) {
+    RadioCommand band = {};
+    band.kind = RADIO_SET_BAND;
+    band.band = (BandId)settings->startBand;
+    radioApply(out, plan, &band);
+  }
+  if (settings->startFreqKHz != 0) {
+    RadioCommand tune = {};
+    tune.kind = RADIO_TUNE;
+    tune.freqKHz = settings->startFreqKHz;
+    /* The frequency decides the band when the two disagree, because
+     * radioApply moves to whichever band holds it. They are stored together
+     * so they normally agree, and when a region change breaks that the
+     * frequency is the more exact of the two. A frequency in no band at all
+     * is refused and the band's own starting point is what is left. */
+    radioApply(out, plan, &tune);
+  }
+
+  out->multipathSuppression = settings->fmMultipathSuppression != 0;
+  out->equalizer = settings->fmEqualizer != 0;
+  out->forcedMono = settings->fmForcedMono != 0;
+  out->highCutStart = settings->fmHighCutStart;
+  out->stereoBlendStart = settings->fmStereoBlendStart;
+  out->stHiBlendStart = settings->fmStHiBlendStart;
+  out->fmNoiseBlankerStart = settings->fmNoiseBlankerStart;
+  out->amNoiseBlankerStart = settings->amNoiseBlankerStart;
+  out->deemphasisUs = settings->fmDeemphasisUs;
+
+  /* The AM width only applies where AM applies. On FM the automatic setting
+   * is what the band wants and settleAfterBandChange has already chosen it. */
+  if (bandModulation(out->band) != MODULATION_FM) {
+    out->bandwidthKHz = settings->amBandwidthKHz;
+  }
+}
+
+void radioToSettings(const RadioSettings *radio, Settings *settings) {
+  if (radio == NULL || settings == NULL) {
+    return;
+  }
+  settings->startBand = (uint8_t)radio->band;
+  settings->startFreqKHz = radio->freqKHz;
+  /* Kept for the one mode where the knob is not the volume. Clamped to what
+   * the knob itself can ask for, because that is the range it is compared
+   * against when the mode changes back. */
+  settings->startVolumeDb = radio->volumeDb > 0 ? 0
+                            : radio->volumeDb < RADIO_VOLUME_MIN
+                                ? RADIO_VOLUME_MIN
+                                : radio->volumeDb;
+  settings->fmMultipathSuppression = radio->multipathSuppression ? 1 : 0;
+  settings->fmEqualizer = radio->equalizer ? 1 : 0;
+  settings->fmForcedMono = radio->forcedMono ? 1 : 0;
+  settings->fmHighCutStart = radio->highCutStart;
+  settings->fmStereoBlendStart = radio->stereoBlendStart;
+  settings->fmStHiBlendStart = radio->stHiBlendStart;
+  settings->fmNoiseBlankerStart = radio->fmNoiseBlankerStart;
+  settings->amNoiseBlankerStart = radio->amNoiseBlankerStart;
+  settings->fmDeemphasisUs = radio->deemphasisUs;
+  /* The AM width, only when it was read off an AM band. On FM the width is
+   * the tuner's own choice and 0 means adaptive, which is not a width any AM
+   * band would take. */
+  if (bandModulation(radio->band) != MODULATION_FM &&
+      radio->bandwidthKHz != 0) {
+    settings->amBandwidthKHz = (uint8_t)radio->bandwidthKHz;
+  }
+}
+
 bool radioTuneModeAllowed(TuneMode mode, BandId band) {
   if (mode >= TUNE_MODE_COUNT) {
     return false;
@@ -210,13 +308,15 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       return RADIO_OK;
 
     case RADIO_SET_BANDWIDTH:
-      /* Only FM has an automatic setting, so zero means something different
-       * on the two sides and is refused where it means nothing. */
-      if (command->bandwidthKHz == 0 &&
-          bandModulation(settings->band) != MODULATION_FM) {
-        return RADIO_ERR_BANDWIDTH;
-      }
-      if (command->bandwidthKHz > 6000) {
+      /* It has to be one the band actually offers. A width from the other
+       * side's list is not a near miss: 4 kHz on FM pins the filter far
+       * narrower than a station, and the radio then reports no pilot and no
+       * signal and reads as one with no aerial. This used to accept anything
+       * up to 6000, which let a form meant for AM silence FM.
+       *
+       * Zero is the FM automatic setting, and it is in the FM list and not
+       * in the AM one, so it is refused on AM by the same check. */
+      if (!bandBandwidthAllowed(settings->band, command->bandwidthKHz)) {
         return RADIO_ERR_BANDWIDTH;
       }
       settings->bandwidthKHz = command->bandwidthKHz;
@@ -294,6 +394,20 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       }
       settings->amNoiseBlankerStart = command->blanker[0];
       settings->fmNoiseBlankerStart = command->blanker[1];
+      return RADIO_OK;
+
+    case RADIO_SET_DEEMPHASIS:
+      /* Settable from either side, like the blankers. It only reaches the
+       * chip on FM, but refusing it on AM would mean a person has to change
+       * band before they can set a thing that belongs to their country.
+       *
+       * Only the two real standards and off. Anything else is a guess, and
+       * the chip would take it and quietly sound wrong. */
+      if (command->deemphasisUs != 0 && command->deemphasisUs != 50 &&
+          command->deemphasisUs != 75) {
+        return RADIO_ERR_RANGE;
+      }
+      settings->deemphasisUs = command->deemphasisUs;
       return RADIO_OK;
 
     case RADIO_SET_MPH_SUPPRESSION:
@@ -386,7 +500,8 @@ RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
       from->stereoBlendStart != to->stereoBlendStart ||
       from->stHiBlendStart != to->stHiBlendStart ||
       from->amNoiseBlankerStart != to->amNoiseBlankerStart ||
-      from->fmNoiseBlankerStart != to->fmNoiseBlankerStart;
+      from->fmNoiseBlankerStart != to->fmNoiseBlankerStart ||
+      from->deemphasisUs != to->deemphasisUs;
   return push;
 }
 

@@ -77,12 +77,16 @@ typedef struct {
  * the task is running, whether or not the tuner came up: a radio with a dead
  * tuner still has to be reachable, because that is how a fix gets installed.
  *
- * @param plan  The regional band choices. Copied, not kept by reference.
- * @param startFreqKHz  Where to come up, or 0 for the bottom of the FM band.
+ * @param settings  The stored settings. Everything a person has chosen comes
+ *                  from here: the band and frequency to come up on, the FM
+ *                  features, the blend levels, the blankers and the squelch
+ *                  mode. NULL means the defaults.
+ * @param plan  The regional band choices, from radioPlanFromSettings. Copied,
+ *              not kept by reference.
  * @param startVolumeDb The volume to come up at, which is where the knob is
  *                      pointing.
  *
- * Both are given here rather than posted as commands afterwards. The task
+ * All of it is given here rather than posted as commands afterwards. The task
  * unmutes at the end of its first push, so anything sent after that is heard:
  * posting the frequency gave a burst of noise from the default frequency, and
  * posting the volume gave a moment at full volume before the knob's value
@@ -90,7 +94,7 @@ typedef struct {
  * @return true when the task started. False means out of memory, and the
  *         radio has no business continuing.
  */
-bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
+bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
                     int8_t startVolumeDb);
 
 /**

@@ -725,6 +725,26 @@ flagged it as needing a check. Nothing ever reads from this panel, so MISO is
 never wired and the conflict does not exist. A driver that reads the panel back
 would have to settle it properly first.
 
+### 27. One live copy of the settings, and one call that keeps it
+
+The radio's state lives in one place, the `RadioSettings` the radio task owns. Nothing keeps a second copy of it. The stored `Settings` struct in NVS is not a second copy either: it is where that state goes to survive a power cycle, and it is written from the live one.
+
+So there are three kinds of setting and three ways to reach them:
+
+| Kind | Changed with | When it takes effect |
+|---|---|---|
+| What the radio is set to now | `/api/fm`, `/api/squelch`, `/api/bandwidth`, the knob, the keypad | At once |
+| The same, kept | `POST /api/save` | At the next start |
+| What can only be read at start up | `POST /api/settings` | At the next start, and the reply says so |
+
+The last row is the band plan, the medium wave spacing and which encoder is fitted. The band plan decides which frequencies exist, and changing it under a radio that is tuned to one of them is a change with no right answer, so it is not attempted.
+
+The reason for `POST /api/save` rather than a stored value beside every live one: two copies of the same thing drift, and then a person has to know which of the two a page is showing. It also gives "come up on the station I was listening to" for nothing, because that is the same call.
+
+`radioPlanFromSettings`, `radioFromSettings` and `radioToSettings` in `core/radio.c` are the only three places the two forms are converted. A caller that built its own band plan from the defaults would be a second answer to "what is the band plan", and there was already one of those.
+
+The volume belongs to the knob, and a stored volume arguing with the knob at every start up is exactly what this refuses. There is one exception, and it is the reason the exception is safe: in manual squelch the knob is the squelch control and never touches the volume, so in that one mode nothing on the radio says how loud to be. `startVolumeDb` is stored for that case and read in no other. Without it a radio left in manual squelch comes up at whatever the threshold maps to, which is full volume at one end of the travel and silence at the other.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

@@ -7,6 +7,7 @@
 #include "board/board.h"
 #include "core/access_pin.h"
 #include "core/band_plan.h"
+#include "core/input.h"
 #include "core/version.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
@@ -249,7 +250,212 @@ static String pageHead(const char *title) {
 
 /** Shared page tail. */
 static const char *pageTail(void) {
-  return "</div></body></html>";
+  /* The radio forms post to the API rather than to a handler of their own, so
+   * the checks and the wording of every failure live in one place. The reply
+   * is plain text and goes straight into the line above the forms. */
+  return "<script>"
+         "document.querySelectorAll('form[data-api]').forEach(function(f){"
+         "f.addEventListener('submit',function(e){e.preventDefault();"
+         "var m=document.getElementById('rmsg');"
+         "m.className='small text-secondary';m.textContent='Working...';"
+         "fetch(f.dataset.api,{method:'POST',"
+         "body:new URLSearchParams(new FormData(f))})"
+         ".then(function(r){return r.text().then(function(t){"
+         "m.className=r.ok?'small text-success':'small text-danger';"
+         "m.textContent=t.trim();});})"
+         ".catch(function(){m.className='small text-danger';"
+         "m.textContent='The radio did not answer.';});});});"
+         "</script></div></body></html>";
+}
+
+/** One labelled select, with the value the radio holds already chosen. */
+static String formSelect(const char *name, const char *label,
+                         const char *const *options, const long *values,
+                         int count, long current) {
+  String out;
+  out +=
+      F("<div class='col-6 col-md-4'><label class='form-label small "
+        "text-secondary mb-1'>");
+  out += label;
+  out += F("</label><select class='form-select form-select-sm' name=");
+  out += name;
+  out += F(">");
+  for (int i = 0; i < count; i++) {
+    out += F("<option value=");
+    out += String(values[i]);
+    if (values[i] == current) {
+      out += F(" selected");
+    }
+    out += F(">");
+    out += options[i];
+    out += F("</option>");
+  }
+  out += F("</select></div>");
+  return out;
+}
+
+/** One labelled number box. */
+static String formNumber(const char *name, const char *label, long low,
+                         long high, long current) {
+  String out;
+  out +=
+      F("<div class='col-6 col-md-4'><label class='form-label small "
+        "text-secondary mb-1'>");
+  out += label;
+  out +=
+      F("</label><input class='form-control form-control-sm' type=number "
+        "name=");
+  out += name;
+  out += F(" min=");
+  out += String(low);
+  out += F(" max=");
+  out += String(high);
+  out += F(" value=");
+  out += String(current);
+  out += F("></div>");
+  return out;
+}
+
+/**
+ * The radio settings, as forms that post to the API the scripts use.
+ *
+ * They post to /api/fm, /api/bandwidth and /api/settings rather than to
+ * handlers of their own, so there is one set of checks and one set of
+ * replies. A second path into the same settings would be a second place for
+ * a range to go wrong.
+ */
+static String radioForms(void) {
+  RadioSnapshot now;
+  bool live = radioGetSnapshot(&now);
+  const Settings *st = sSettings;
+
+  static const char *offOn[] = {"Off", "On"};
+  static const long zeroOne[] = {0, 1};
+  String out;
+  out.reserve(3000);
+
+  out +=
+      F("<h2>Radio</h2>"
+        "<p class='text-secondary small'>These take effect at once. Use "
+        "Keep these settings to have the radio come up this way.</p>"
+        "<p id=rmsg class='small' style='min-height:1.2em'></p>");
+
+  if (!live) {
+    out +=
+        F("<p class='small' style='color:#ff8a72'>The radio task is not "
+          "running, so there is nothing to set.</p>");
+    return out;
+  }
+
+  bool onFm = bandModulation(now.settings.band) == MODULATION_FM;
+
+  /* Split by what each setting can reach, not by what it is called. The
+   * de-emphasis and the two blankers work on either side, so they sit in a
+   * form of their own. The rest are FM ideas that radioApply refuses on an AM
+   * band, and one of those in a form would take the whole post down with it,
+   * including the settings that would have worked. */
+  out += F("<h2>FM settings</h2><form data-api='/api/fm' class='row g-2'>");
+  {
+    static const char *deemphNames[] = {"50 us", "75 us", "Off"};
+    static const long deemphValues[] = {50, 75, 0};
+    out += formSelect("deemph", "De-emphasis", deemphNames, deemphValues, 3,
+                      now.settings.deemphasisUs);
+  }
+  out += formNumber("fmnb", "Noise blanker, per cent", 0, 150,
+                    now.settings.fmNoiseBlankerStart);
+  out +=
+      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
+        "type=submit>Apply</button></div></form>");
+
+  if (!onFm) {
+    out +=
+        F("<p class='text-secondary small mt-2'>The rest of the FM "
+          "settings need the radio to be on FM. The tuner has nowhere to "
+          "put them on an AM band.</p>");
+  } else {
+    out += F("<form data-api='/api/fm' class='row g-2 mt-1'>");
+    out += formSelect("ims", "Multipath suppression", offOn, zeroOne, 2,
+                      now.settings.multipathSuppression ? 1 : 0);
+    out += formSelect("eq", "Channel equalizer", offOn, zeroOne, 2,
+                      now.settings.equalizer ? 1 : 0);
+    {
+      static const char *stereoMono[] = {"Stereo", "Mono"};
+      out += formSelect("mono", "Stereo", stereoMono, zeroOne, 2,
+                        now.settings.forcedMono ? 1 : 0);
+    }
+    out += formNumber("cut", "High cut from, dBuV", 0, 60,
+                      now.settings.highCutStart);
+    out += formNumber("blend", "Stereo blend from, dBuV", 0, 60,
+                      now.settings.stereoBlendStart);
+    out += formNumber("hiblend", "Both from, dBuV", 0, 60,
+                      now.settings.stHiBlendStart);
+    out +=
+        F("<div class='col-12'><button class='btn btn-primary btn-sm' "
+          "type=submit>Apply weak signal settings</button></div></form>"
+          "<p class='text-secondary small mt-2'>The three levels are 0 to "
+          "switch off, or 20 to 60. The blankers are 0, or 50 to 150.</p>");
+  }
+
+  out += F("<h2>AM settings</h2><form data-api='/api/fm' class='row g-2'>");
+  out += formNumber("amnb", "Noise blanker, per cent", 0, 150,
+                    now.settings.amNoiseBlankerStart);
+  out +=
+      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
+        "type=submit>Apply</button></div></form>");
+  if (!onFm) {
+    out += F("<form data-api='/api/bandwidth' class='row g-2 mt-1'>");
+    static const char *widthNames[] = {"3 kHz", "4 kHz", "6 kHz", "8 kHz"};
+    static const long widthValues[] = {3, 4, 6, 8};
+    out += formSelect("khz", "Bandwidth", widthNames, widthValues, 4,
+                      now.settings.bandwidthKHz);
+    out +=
+        F("<div class='col-12'><button class='btn btn-primary btn-sm' "
+          "type=submit>Apply bandwidth</button></div></form>");
+  } else {
+    /* No width form on FM. The two lists do not overlap, so posting an AM
+     * width here would pin the FM filter far narrower than a station and the
+     * radio would go quiet and read as broken. The API refuses it too. */
+    out +=
+        F("<p class='text-secondary small mt-2'>The bandwidth is offered "
+          "when the radio is on an AM band. On FM the tuner picks the "
+          "width itself.</p>");
+  }
+
+  out +=
+      F("<h2>Band plan and knob</h2>"
+        "<form data-api='/api/settings' class='row g-2'>");
+  {
+    static const char *regionNames[] = {"65 to 108", "Japan, 76 to 95",
+                                        "76 to 108", "87 to 108",
+                                        "87.5 to 108"};
+    static const long regionValues[] = {0, 1, 2, 3, 4};
+    out += formSelect("region", "FM band, MHz", regionNames, regionValues, 5,
+                      st->fmRegion);
+    static const char *spacingNames[] = {"9 kHz", "10 kHz"};
+    out += formSelect("spacing", "Medium wave steps", spacingNames, zeroOne, 2,
+                      st->mwSpacing);
+    static const char *encoderNames[] = {"Standard", "Optical"};
+    out += formSelect("encoder", "Encoder", encoderNames, zeroOne, 2,
+                      st->encoderKind);
+    static const char *directionNames[] = {"Normal", "Reversed"};
+    out += formSelect("direction", "Knob direction", directionNames, zeroOne, 2,
+                      st->encoderDirection);
+  }
+  out +=
+      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
+        "type=submit>Save band plan</button></div></form>"
+        "<p class='text-secondary small mt-2'>These four are read when the "
+        "radio starts, so they need a reboot.</p>");
+
+  out +=
+      F("<h2>Keep these settings</h2>"
+        "<p class='text-secondary small'>Stores the station and everything "
+        "above, so the radio comes up this way. The volume is not stored: "
+        "it follows the knob.</p>"
+        "<form data-api='/api/save'>"
+        "<button class='btn btn-primary btn-sm' type=submit>Keep these "
+        "settings</button></form>");
+  return out;
 }
 
 /** The status page, with whichever forms the caller is allowed to use. */
@@ -327,6 +533,7 @@ static void handleRoot(void) {
             "<button class='btn btn-primary mt-3' type=submit>Save and "
             "join</button></form>");
     }
+    out += radioForms();
     out +=
         F("<h2>Firmware</h2>"
           "<p class='text-secondary small'>Pick the .bin from "
@@ -675,6 +882,14 @@ static void appendRadioState(String &out) {
       out += snap.settings.equalizer ? F("true") : F("false");
       out += F(",\"mono\":");
       out += snap.settings.forcedMono ? F("true") : F("false");
+      /* The de-emphasis the tuner is set to. It is written on every start, so
+       * without it here there is no way to read back what the chip has. */
+      out += F(",\"deemph\":");
+      out += String(snap.settings.deemphasisUs);
+      out += F(",\"fmnb\":");
+      out += String(snap.settings.fmNoiseBlankerStart);
+      out += F(",\"amnb\":");
+      out += String(snap.settings.amNoiseBlankerStart);
       out += F(",\"snr\":");
       out += String(snap.quality.snrDb);
       if (snap.processingValid) {
@@ -1258,31 +1473,101 @@ static void handleApiMode(void) {
  * | `ssid` | The stored network name, empty when there is none |
  * | `hasPass` | A passphrase is stored. False is an open network |
  * | `defaultPin` | The access PIN is still 000000 |
+ * | `region` | Which slice of the FM band, 0 to 4 |
+ * | `spacing` | Medium wave channel spacing, 0 for 9 kHz and 1 for 10 |
+ * | `encoder` | Which encoder is fitted, 0 standard and 1 optical |
+ * | `direction` | 0 normal, 1 reversed |
+ * | `squelch` | The squelch mode this radio comes up in |
+ * | `startBand`, `startFreqKHz` | Where it comes up |
+ * | `startVolumeDb` | The volume it comes up at, in manual squelch only |
+ * | `ims`, `eq`, `mono` | The stored FM features |
+ * | `cut`, `blend`, `hiblend` | The stored weak signal start levels |
+ * | `fmnb`, `amnb` | The stored noise blanker percentages |
+ * | `deemph` | The stored FM de-emphasis, in microseconds |
+ * | `amBandwidthKHz` | The width the AM bands come up on |
+ *
+ * These are what is stored, which is not always what the radio is set to now.
+ * /api/state says what it is set to now. POST /api/save makes the two agree.
  */
 static void handleApiSettingsGet(void) {
   sRequests++;
   if (!requireAuth(false)) {
     return;
   }
+  const Settings *st = sSettings;
   String out;
-  out.reserve(128);
+  out.reserve(512);
   out += F("{\"ssid\":\"");
-  out += jsonEscape(sSettings->wifiSsid);
+  out += jsonEscape(st->wifiSsid);
   out += F("\",\"hasPass\":");
-  out += sSettings->wifiPass[0] != '\0' ? F("true") : F("false");
+  out += st->wifiPass[0] != '\0' ? F("true") : F("false");
   out += F(",\"defaultPin\":");
   out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
+  out += F(",\"squelch\":\"");
+  out += squelchModeName((SquelchMode)st->squelchMode);
+  out += F("\"");
+  out += F(",\"region\":");
+  out += st->fmRegion;
+  out += F(",\"spacing\":");
+  out += st->mwSpacing;
+  out += F(",\"encoder\":");
+  out += st->encoderKind;
+  out += F(",\"direction\":");
+  out += st->encoderDirection;
+  out += F(",\"startBand\":");
+  out += st->startBand;
+  out += F(",\"startFreqKHz\":");
+  out += st->startFreqKHz;
+  out += F(",\"startVolumeDb\":");
+  /* Through String, not straight in. This one is signed, and String appends a
+   * signed char as the character it stands for rather than as a number. */
+  out += String((int)st->startVolumeDb);
+  out += F(",\"ims\":");
+  out += st->fmMultipathSuppression;
+  out += F(",\"eq\":");
+  out += st->fmEqualizer;
+  out += F(",\"mono\":");
+  out += st->fmForcedMono;
+  out += F(",\"cut\":");
+  out += st->fmHighCutStart;
+  out += F(",\"blend\":");
+  out += st->fmStereoBlendStart;
+  out += F(",\"hiblend\":");
+  out += st->fmStHiBlendStart;
+  out += F(",\"fmnb\":");
+  out += st->fmNoiseBlankerStart;
+  out += F(",\"amnb\":");
+  out += st->amNoiseBlankerStart;
+  out += F(",\"deemph\":");
+  out += st->fmDeemphasisUs;
+  out += F(",\"amBandwidthKHz\":");
+  out += st->amBandwidthKHz;
   out += F("}");
   sServer.send(200, "application/json", out);
 }
 
 /**
- * POST /api/settings. Change the network, the PIN, or both.
+ * POST /api/settings. The things that are stored and not tuned.
  *
- * Takes `ssid` with an optional `pass`, and `pin`. Everything given is
- * checked before anything is written, and then one save puts the lot in NVS.
- * A half applied change, say a new PIN stored against the old network, is
- * worse than no change at all.
+ * Takes `ssid` with an optional `pass`, and `pin`, and the four settings the
+ * radio can only act on when it starts:
+ *
+ * | Argument | Range | What it is |
+ * |---|---|---|
+ * | `region` | 0 to 4 | Which slice of the FM band |
+ * | `spacing` | 0 or 1 | Medium wave channels, 9 kHz or 10 kHz |
+ * | `encoder` | 0 or 1 | Which encoder is fitted, standard or optical |
+ * | `direction` | 0 or 1 | Normal, or reversed |
+ *
+ * Everything given is checked before anything is written, and then one save
+ * puts the lot in NVS. A half applied change, say a new PIN stored against
+ * the old network, is worse than no change at all.
+ *
+ * The four above take effect at the next start, and the reply says so. The
+ * band plan decides which frequencies exist, and changing that under a radio
+ * that is tuned to one of them is a change with no right answer. The rest of
+ * the radio's settings are not here: they are changed with /api/fm,
+ * /api/squelch and the like, which act at once, and kept with /api/save.
  *
  * Changing the PIN ends the session, the same as the form does. Changing the
  * network moves the radio off whatever it is on, so the reply goes out first.
@@ -1295,13 +1580,50 @@ static void handleApiSettingsPost(void) {
 
   bool wantWifi = sServer.hasArg("ssid");
   bool wantPin = sServer.hasArg("pin");
-  if (!wantWifi && !wantPin) {
-    apiFail(400, "Give ssid, or pin, or both.");
+
+  /* The four that only take effect at the next start. Each is a number with
+   * a fixed set of values, and settingsValid checks the lot again below
+   * against the enums they name. */
+  struct {
+    const char *name;
+    long high;
+  } stored[] = {
+      {"region", (long)FM_REGION_COUNT - 1},
+      {"spacing", (long)MW_SPACING_10K},
+      {"encoder", (long)ENCODER_OPTICAL},
+      {"direction", (long)ENCODER_REVERSED},
+  };
+  long values[4] = {0, 0, 0, 0};
+  bool given[4] = {false, false, false, false};
+  bool wantStored = false;
+  for (int i = 0; i < 4; i++) {
+    if (!sServer.hasArg(stored[i].name)) {
+      continue;
+    }
+    if (!apiNumber(stored[i].name, &values[i], 0, stored[i].high)) {
+      return;
+    }
+    given[i] = true;
+    wantStored = true;
+  }
+
+  if (!wantWifi && !wantPin && !wantStored) {
+    apiFail(400,
+            "Give ssid, pin, region, spacing, encoder or direction, or any "
+            "mix of them.");
     return;
   }
 
   Settings pending = *sSettings;
   uint32_t newPin = sAccessPin;
+
+  uint8_t *fields[4] = {&pending.fmRegion, &pending.mwSpacing,
+                        &pending.encoderKind, &pending.encoderDirection};
+  for (int i = 0; i < 4; i++) {
+    if (given[i]) {
+      *fields[i] = (uint8_t)values[i];
+    }
+  }
 
   if (wantWifi) {
     String ssid = sServer.arg("ssid");
@@ -1324,6 +1646,13 @@ static void handleApiSettingsPost(void) {
     pending.accessPin = newPin;
   }
 
+  /* The whole struct, not only what this request touched. A blob that fails
+   * this is one the radio would refuse to load at its next start, and that
+   * is a radio that comes up on the defaults with no explanation. */
+  if (!settingsValid(&pending)) {
+    apiFail(400, "Those settings are not a set this radio can use.");
+    return;
+  }
   if (!settingsNvsSave(&pending)) {
     apiFail(500, "The settings could not be written. Nothing changed.");
     return;
@@ -1331,16 +1660,24 @@ static void handleApiSettingsPost(void) {
   *sSettings = pending;
 
   String said;
+  if (wantStored) {
+    said +=
+        F("Saved. The band plan and the knob are read at start up, so "
+          "reboot for this to take effect.");
+  }
   if (wantPin) {
+    if (said.length() > 0) {
+      said += F(" ");
+    }
     sAccessPin = newPin;
     /* The session was opened with the old PIN, so it goes. */
     dropSession();
     accessPinGateReset(&sGate);
     Serial.println("[web] the access PIN was changed");
-    said = accessPinIsDefault(newPin)
-               ? F("PIN changed to the default, so the radio is open to "
-                   "anyone on the network. Sign in again.")
-               : F("PIN changed. Sign in again.");
+    said += accessPinIsDefault(newPin)
+                ? F("PIN changed to the default, so the radio is open to "
+                    "anyone on the network. Sign in again.")
+                : F("PIN changed. Sign in again.");
   }
   if (wantWifi) {
     Serial.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
@@ -1361,6 +1698,62 @@ static void handleApiSettingsPost(void) {
     delay(200);
     wifiRetryNow(sSettings);
   }
+}
+
+/**
+ * POST /api/save. Keep what the radio is set to now.
+ *
+ * Takes nothing. It reads the radio's own state and writes the parts worth
+ * keeping into NVS: the band and frequency, the FM features, the weak signal
+ * levels, the noise blankers, the de-emphasis, the AM width and the squelch
+ * mode. The radio comes up on all of it next time.
+ *
+ * Why this rather than a stored copy of every setting alongside the live one:
+ * two copies of the same thing drift, and then a person has to know which of
+ * the two a given page is showing. There is one set of live values, changed
+ * through the endpoints that act at once, and this puts them somewhere they
+ * survive a power cycle.
+ *
+ * The volume is not kept. It belongs to the knob, and a stored volume would
+ * argue with the knob at every start up.
+ */
+static void handleApiSave(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+
+  RadioSnapshot now;
+  if (!radioGetSnapshot(&now)) {
+    apiFail(503, "The radio is busy. Nothing was saved.");
+    return;
+  }
+
+  Settings pending = *sSettings;
+  radioToSettings(&now.settings, &pending);
+  pending.squelchMode = (uint8_t)radioSquelchMode(NULL);
+
+  /* The radio can reach states the stored form has no room for, and the AM
+   * width on an FM band is one of them. Refusing here beats writing a blob
+   * the next start would throw away without saying so. */
+  if (!settingsValid(&pending)) {
+    apiFail(500, "The radio is in a state that cannot be stored.");
+    return;
+  }
+  if (!settingsNvsSave(&pending)) {
+    apiFail(500, "The settings could not be written. Nothing changed.");
+    return;
+  }
+  *sSettings = pending;
+
+  char text[16];
+  bandFormatFrequency(now.settings.band, now.settings.freqKHz, text,
+                      sizeof(text));
+  String said = String("Saved. It will come up on ") + text + " " +
+                bandFrequencyUnit(now.settings.band) + ", squelch " +
+                squelchModeName((SquelchMode)pending.squelchMode) + ".";
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
 }
 
 /**
@@ -1491,13 +1884,19 @@ static void handleApiSquelch(void) {
  * | `hiblend` | dBuV, 0 for off | Do both together below this. FM only |
  * | `amnb` | per cent, 0 or 50 to 150 | AM impulse noise blanker |
  * | `fmnb` | per cent, 0 or 50 to 150 | FM impulse noise blanker |
+ * | `deemph` | 50, 75 or 0 | FM de-emphasis, in microseconds |
  *
  * `cut`, `blend` and `hiblend` go to the chip together, and so do `amnb` and
  * `fmnb`. Whichever of a group is not given keeps the value it has, so
  * changing one does not switch off the others.
  *
  * The first six are FM ideas and are refused on the AM bands, where the chip
- * has nowhere to put them. The blankers work on both.
+ * has nowhere to put them. The blankers work on both, and so does `deemph`,
+ * which belongs to the country the radio is in rather than to the band it
+ * happens to be on.
+ *
+ * `deemph` is 50 everywhere except the Americas, which use 75. Wrong either
+ * way is not subtle: everything sounds dull, or everything sounds shrill.
  *
  * `ims` is multipath suppression, which the old radio badges as iMS and which
  * is what makes a station suffering reflections listenable. `eq` is the
@@ -1518,7 +1917,8 @@ static String apiFmState(void) {
          now.settings.highCutStart + " blend " + now.settings.stereoBlendStart +
          " hiblend " + now.settings.stHiBlendStart + ", blanker am " +
          now.settings.amNoiseBlankerStart + " fm " +
-         now.settings.fmNoiseBlankerStart;
+         now.settings.fmNoiseBlankerStart + ", de-emphasis " +
+         now.settings.deemphasisUs + " us";
 }
 
 static void handleApiFm(void) {
@@ -1630,10 +2030,26 @@ static void handleApiFm(void) {
     }
   }
 
-  if (count == 0 && !wantWeak && !wantBlanker) {
+  /* De-emphasis, in microseconds. Only the two real standards and off: any
+   * other number is a guess, and the chip would take it and sound wrong. */
+  bool wantDeemph = sServer.hasArg("deemph");
+  long deemph = 0;
+  if (wantDeemph) {
+    if (!apiNumber("deemph", &deemph, 0, 75)) {
+      return;
+    }
+    if (deemph != 0 && deemph != 50 && deemph != 75) {
+      apiFail(400,
+              "deemph is a time constant in microseconds: 50 here, 75 in the "
+              "Americas, or 0 to switch it off.");
+      return;
+    }
+  }
+
+  if (count == 0 && !wantWeak && !wantBlanker && !wantDeemph) {
     apiFail(400,
             "Give ims, eq or mono as 0 or 1, cut, blend or hiblend as a level "
-            "in dBuV, or amnb or fmnb as a percentage.");
+            "in dBuV, amnb or fmnb as a percentage, or deemph as 50, 75 or 0.");
     return;
   }
 
@@ -1676,6 +2092,21 @@ static void handleApiFm(void) {
         why != RADIO_OK) {
       apiFail(400,
               String("noise blanker: ") +
+                  (why != RADIO_OK ? radioErrorText(why) : "not confirmed") +
+                  ". It is now " + apiFmState());
+      return;
+    }
+  }
+
+  if (wantDeemph) {
+    RadioCommand cmd = {};
+    cmd.kind = RADIO_SET_DEEMPHASIS;
+    cmd.deemphasisUs = (uint16_t)deemph;
+    RadioError why = RADIO_OK;
+    if (radioPostAndSettle(&cmd, API_SETTLE_MS, &why) != RADIO_POST_DONE ||
+        why != RADIO_OK) {
+      apiFail(400,
+              String("de-emphasis: ") +
                   (why != RADIO_OK ? radioErrorText(why) : "not confirmed") +
                   ". It is now " + apiFmState());
       return;
@@ -1743,6 +2174,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/fm", HTTP_POST, handleApiFm);
   sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
+  sServer.on("/api/save", HTTP_POST, handleApiSave);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);

@@ -417,6 +417,20 @@ static const uint16_t *bandwidthList(BandId band, size_t *count) {
   return kBandwidthsAm;
 }
 
+bool bandBandwidthAllowed(BandId band, uint16_t khz) {
+  size_t count = 0;
+  const uint16_t *list = bandwidthList(band, &count);
+  if (list == NULL) {
+    return false;
+  }
+  for (size_t i = 0; i < count; i++) {
+    if (list[i] == khz) {
+      return true;
+    }
+  }
+  return false;
+}
+
 size_t bandBandwidthCount(BandId band) {
   size_t count = 0;
   (void)bandwidthList(band, &count);

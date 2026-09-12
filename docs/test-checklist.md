@@ -340,6 +340,48 @@ Three modes, and the mode also decides what the front pot does. There is one kno
 | 151 | Pull the antenna out in auto on a weak station | It closes. Push it back in and it opens |
 | 152 | Tune onto a station in auto and listen to the first moment | No clipped opening. The squelch acts on the reading that opened it, not a tenth of a second later |
 
+### Settings that survive a power cycle
+
+Everything the radio is set to now lives in one place. `POST /api/save` writes it to NVS. `POST /api/settings` takes only the four that can be read at start up and nowhere else.
+
+| # | Do this | Expect |
+|---|---|---|
+| 177 | `GET /api/settings` on a fresh radio | FM 87.5 to 108, 9 kHz medium wave, squelch `Off`, band `4`, every FM feature 0, de-emphasis 50, AM width 4 |
+| 178 | Tune to a station, change a few FM settings, then `POST /api/save` | It says where it will come up and which squelch mode |
+| 179 | Power cycle | It comes up on that station, on that band, with those settings. The old default of 104.0 MHz is gone |
+| 180 | Listen to the first second after that power cycle | Still one fade up and no burst of noise from anywhere else. The frequency is set before the task unmutes |
+| 181 | `GET /api/settings` after the save | Every field matches what `/api/state` said before the power cycle, except the volume, which is not stored |
+| 182 | Change the volume knob, `POST /api/save`, power cycle | It comes up at whatever the knob is pointing at, not at a stored number |
+| 183 | `POST /api/save` while on an AM band at 6 kHz, then power cycle | It comes up on that AM band at 6 kHz |
+| 184 | `POST /api/settings -d 'spacing=1'` | Accepted, and the reply says it needs a reboot |
+| 185 | Reboot, then step across medium wave | 10 kHz steps. Before the reboot it is still 9 |
+| 186 | `POST /api/settings -d 'region=1'` then reboot on FM | The band is 76 to 95 MHz. Stepping stops at both ends |
+| 187 | With region 1 stored and a station at 102.8 saved, reboot | It comes up somewhere inside 76 to 95, not on a frequency the band no longer has |
+| 188 | `POST /api/settings -d 'direction=1'` then reboot | The tuning knob counts the other way |
+| 189 | `POST /api/settings -d 'region=9'` | `400`, and nothing is stored. Read it back to check |
+| 190 | `POST /api/settings` with no arguments | `400` and the list of what it takes |
+| 191 | `POST /api/fm -d 'deemph=75'` on FM | Accepted. The sound gets duller, which is what 75 us is for |
+| 192 | `POST /api/fm -d 'deemph=60'` | `400`. Only 50, 75 and off are real |
+| 193 | `POST /api/fm -d 'deemph=75'` on a medium wave band | Accepted. It belongs to the country, not to the band you are on |
+| 194 | Save with de-emphasis 75, power cycle, listen to FM | Still dull. It is written again on every start |
+| 195 | Open the web page and look at the Radio section | The boxes show what the radio is set to now, not the defaults |
+| 196 | Change one box and press Apply | The line above the forms says what the radio reached. It does not reload the page |
+| 197 | Set an FM level to 10 in the web form and apply | The line goes red and says 0, or 20 to 60 |
+| 198 | Press Apply FM settings while on medium wave | The line says it only works on FM. Nothing changes |
+| 199 | Press Keep these settings, then power cycle | The radio comes up as it was left |
+| 200 | Flash this build over a radio that has never saved anything | It still comes up on 104.0 MHz. An update must not move where the radio starts |
+| 201 | Set a comfortable volume, put the squelch in manual, save, then power cycle | It comes up at that volume, not at whatever the squelch knob maps to. In manual the knob is the squelch and never touches the volume |
+| 201a | Do the same with the squelch knob at the very bottom | Still that volume. The knob position must not decide the volume in this mode |
+| 202 | From that state, put the squelch back to off or auto | The volume goes at once to what the knob is pointing at |
+| 203 | On FM, `POST /api/bandwidth -d 'khz=4'` | `400`. 4 kHz is an AM width, and on FM it pins the filter narrower than a station and the radio goes quiet and reads as broken |
+| 204 | On FM, `POST /api/bandwidth -d 'khz=110'` | `400`. Between two real widths is not a near miss |
+| 205 | On medium wave, `POST /api/bandwidth -d 'khz=114'` and `khz=0` | `400` both times. 0 is the FM automatic setting and the AM side has no answer for it |
+| 206 | Open the web page while on FM | No bandwidth form, and a line saying the tuner picks the width itself |
+| 207 | Open the web page while on medium wave | A bandwidth select with 3, 4, 6 and 8, showing the width the radio is on |
+| 208 | Open the web page while on medium wave and look at FM settings | De-emphasis and the FM blanker are there. iMS, EQ, mono and the three levels are not, with a line saying they need FM |
+| 209 | Set de-emphasis to 75 from the page while on medium wave | Accepted. Before this it took the whole post down with it |
+| 210 | `GET /api/state` after changing de-emphasis | `deemph` says what the tuner is set to. `fmnb` and `amnb` are there too |
+
 ### Reception and audio
 
 | # | Do this | Expect |

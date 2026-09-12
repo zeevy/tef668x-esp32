@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "band_plan.h"
+#include "settings.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,7 +93,15 @@ typedef struct {
    * setting at 1 and the feature off. This one means what it says.
    */
   bool multipathSuppression;
-  bool equalizer;  /**< Channel equalizer, EQ on that screen. FM only. */
+  bool equalizer; /**< Channel equalizer, EQ on that screen. FM only. */
+  /**
+   * FM de-emphasis, in microseconds. 50, 75, or 0 for none.
+   *
+   * 50 everywhere except the Americas. It belongs with the band plan rather
+   * than with the weak signal settings, but it is written to the tuner with
+   * the rest of the FM features, so it lives here.
+   */
+  uint16_t deemphasisUs;
   bool forcedMono; /**< Stereo refused on purpose, not the automatic blend. */
   /* Weak signal handling. Each is a level in dBuV below which that mechanism
    * starts working, and 0 switches it off. The reference firmware ships all
@@ -112,6 +121,48 @@ typedef struct {
   uint8_t amNoiseBlankerStart; /**< AM impulse noise blanker. */
   uint8_t fmNoiseBlankerStart; /**< FM impulse noise blanker. */
 } RadioSettings;
+
+/**
+ * Fill a band plan in from the stored settings.
+ *
+ * The one place this conversion happens. Every caller that needs to know
+ * where a band starts and ends asks for the plan this way, so there is never
+ * a second copy built from the defaults that quietly disagrees. That has
+ * already happened once, in the tune endpoint, and it only stayed harmless
+ * because the two copies were identical.
+ *
+ * @param settings  The stored settings.
+ * @param out       Receives the plan.
+ */
+void radioPlanFromSettings(const Settings *settings, BandPlanConfig *out);
+
+/**
+ * Fill the radio's starting state in from the stored settings.
+ *
+ * Everything the tuner has to be told that a person can change: the band and
+ * frequency to come up on, the FM features, the blend start levels and the
+ * noise blankers.
+ *
+ * @param settings  The stored settings.
+ * @param plan      The band plan, from radioPlanFromSettings.
+ * @param out       Receives the settings the radio starts from.
+ */
+void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
+                       RadioSettings *out);
+
+/**
+ * Copy the parts of the radio's state that are worth keeping back out.
+ *
+ * Only what a person changed and would expect to find again. The volume is
+ * here for one reason: in manual squelch the knob is the squelch control and
+ * nothing else on the radio says how loud to be. It is not read in any other
+ * mode, where the knob wins. The squelch mode is not here, because it is not
+ * part of the radio's settings: ask radioSquelchMode for it.
+ *
+ * @param radio     What the radio is set to now.
+ * @param settings  Receives the parts worth storing.
+ */
+void radioToSettings(const RadioSettings *radio, Settings *settings);
 
 /**
  * Whether a tuning mode can be used on a band.
@@ -154,7 +205,8 @@ typedef enum {
   RADIO_SET_EQUALIZER,       /**< Channel equalizer on or off. */
   RADIO_SET_MONO,            /**< Force mono, or allow stereo. */
   RADIO_SET_WEAK_SIGNAL,     /**< The three weak signal start levels. */
-  RADIO_SET_NOISE_BLANKER    /**< The AM and FM impulse noise blankers. */
+  RADIO_SET_NOISE_BLANKER,   /**< The AM and FM impulse noise blankers. */
+  RADIO_SET_DEEMPHASIS       /**< The FM de-emphasis time constant. */
 } RadioCommandKind;
 
 /** One thing to do. Only the field its kind names is read. */
@@ -170,6 +222,7 @@ typedef struct {
   bool on;               /**< The three FM feature commands. */
   uint8_t weak[3];       /**< RADIO_SET_WEAK_SIGNAL: cut, blend, both. */
   uint8_t blanker[2];    /**< RADIO_SET_NOISE_BLANKER: AM then FM. */
+  uint16_t deemphasisUs; /**< RADIO_SET_DEEMPHASIS: 50, 75 or 0. */
   TuneMode tuneMode;     /**< RADIO_SET_TUNE_MODE. */
 } RadioCommand;
 

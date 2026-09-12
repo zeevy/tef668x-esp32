@@ -281,6 +281,18 @@ Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality);
 Tef668xError tef668xSetWeakSignal(uint8_t highCutStart, uint8_t stereoStart,
                                   uint8_t stHiBlendStart);
 
+/**
+ * FM de-emphasis time constant.
+ *
+ * The transmitter lifts the treble and the receiver has to put it back. 50 us
+ * everywhere except the Americas, which use 75 us. Getting it wrong is not
+ * subtle: everything sounds dull, or everything sounds shrill.
+ *
+ * @param microseconds  50, 75, or 0 to switch it off.
+ * @return TEF668X_OK, or TEF668X_ERR_RANGE for anything else.
+ */
+Tef668xError tef668xSetDeemphasis(uint16_t microseconds);
+
 /** What the chip is doing to the audio right now, rather than what it was told. */
 typedef struct {
   /*

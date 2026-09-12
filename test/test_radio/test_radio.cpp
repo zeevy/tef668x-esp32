@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "core/radio.h"
+#include "core/settings.h"
 
 static BandPlanConfig plan;
 static RadioSettings r;
@@ -610,10 +611,43 @@ static void muting_only_sets_the_mute(void) {
 
 static void changing_the_bandwidth_alone_does_not_retune(void) {
   RadioSettings before = r;
-  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 110});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 114});
   RadioPush push = radioPushNeeded(&before, &r);
   TEST_ASSERT_TRUE(push.bandwidth);
   TEST_ASSERT_FALSE(push.retune);
+}
+
+static void a_bandwidth_the_band_does_not_offer_is_refused(void) {
+  /* The two lists do not overlap. 4 kHz is an AM width, and on FM it pins
+   * the filter far narrower than a station: the radio then reports no pilot
+   * and no signal and reads as one with no aerial. A form meant for AM could
+   * reach this endpoint, so the refusal is here and not in the caller. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_BANDWIDTH;
+  cmd.bandwidthKHz = 4;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_BANDWIDTH, radioApply(&s, &plan, &cmd));
+  cmd.bandwidthKHz = 110; /* Between two real ones is not a near miss. */
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_BANDWIDTH, radioApply(&s, &plan, &cmd));
+  cmd.bandwidthKHz = 114;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+
+  /* And the other way round, where 0 is the FM automatic setting that the
+   * AM side has no answer for. */
+  RadioCommand band = {};
+  band.kind = RADIO_SET_BAND;
+  band.band = BAND_MW;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &band));
+  cmd.bandwidthKHz = 114;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_BANDWIDTH, radioApply(&s, &plan, &cmd));
+  cmd.bandwidthKHz = 0;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_BANDWIDTH, radioApply(&s, &plan, &cmd));
+  cmd.bandwidthKHz = 6;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
 }
 
 static void the_step_size_and_the_mode_never_reach_the_tuner(void) {
@@ -885,6 +919,286 @@ static void the_band_change_fade_is_much_shorter_than_the_one_at_start(void) {
   TEST_ASSERT_TRUE(RADIO_BAND_FADE_MS < RADIO_FADE_MS);
 }
 
+/* ---------------------------------------------------------- from settings */
+
+static void the_plan_comes_from_the_stored_region_and_spacing(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.fmRegion = (uint8_t)FM_REGION_JAPAN;
+  st.mwSpacing = (uint8_t)MW_SPACING_10K;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  TEST_ASSERT_EQUAL_INT(FM_REGION_JAPAN, plan.fmRegion);
+  TEST_ASSERT_EQUAL_INT(MW_SPACING_10K, plan.mwSpacing);
+}
+
+static void a_stored_region_out_of_range_leaves_the_default(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.fmRegion = 99;
+  st.mwSpacing = 99;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  BandPlanConfig want;
+  bandPlanDefaults(&want);
+  TEST_ASSERT_EQUAL_INT(want.fmRegion, plan.fmRegion);
+  TEST_ASSERT_EQUAL_INT(want.mwSpacing, plan.mwSpacing);
+}
+
+static void no_settings_gives_the_default_plan(void) {
+  BandPlanConfig plan;
+  radioPlanFromSettings(NULL, &plan);
+  BandPlanConfig want;
+  bandPlanDefaults(&want);
+  TEST_ASSERT_EQUAL_INT(want.fmRegion, plan.fmRegion);
+  TEST_ASSERT_EQUAL_INT(want.mwSpacing, plan.mwSpacing);
+  radioPlanFromSettings(NULL, NULL); /* Must not crash. */
+}
+
+static void the_radio_starts_on_the_stored_band_and_frequency(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_MW;
+  st.startFreqKHz = 738;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+}
+
+static void a_stored_frequency_in_no_band_falls_back(void) {
+  /* A region change can put a stored frequency outside every band. The
+   * stored band's own start is what is left, and it is right. */
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_FM;
+  st.startFreqKHz = 5; /* Below everything this radio covers. */
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_FM, &plan, &lo, &hi));
+  TEST_ASSERT_EQUAL_UINT32(lo, r.freqKHz);
+}
+
+static void a_stored_frequency_picks_its_own_band(void) {
+  /* The two are stored together so they normally agree. When a region change
+   * breaks that, the frequency is the more exact of the two and wins. */
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_FM;
+  st.startFreqKHz = 738;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+}
+
+static void the_fm_features_come_from_the_settings(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.fmMultipathSuppression = 1;
+  st.fmEqualizer = 1;
+  st.fmForcedMono = 1;
+  st.fmHighCutStart = 30;
+  st.fmStereoBlendStart = 35;
+  st.fmStHiBlendStart = 40;
+  st.fmNoiseBlankerStart = 90;
+  st.amNoiseBlankerStart = 100;
+  st.fmDeemphasisUs = 75;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_TRUE(r.multipathSuppression);
+  TEST_ASSERT_TRUE(r.equalizer);
+  TEST_ASSERT_TRUE(r.forcedMono);
+  TEST_ASSERT_EQUAL_UINT8(30, r.highCutStart);
+  TEST_ASSERT_EQUAL_UINT8(35, r.stereoBlendStart);
+  TEST_ASSERT_EQUAL_UINT8(40, r.stHiBlendStart);
+  TEST_ASSERT_EQUAL_UINT8(90, r.fmNoiseBlankerStart);
+  TEST_ASSERT_EQUAL_UINT8(100, r.amNoiseBlankerStart);
+  TEST_ASSERT_EQUAL_UINT16(75, r.deemphasisUs);
+}
+
+static void the_stored_am_width_only_applies_on_am(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.amBandwidthKHz = 6;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+
+  st.startBand = (uint8_t)BAND_FM;
+  RadioSettings fm;
+  radioFromSettings(&st, &plan, &fm);
+  TEST_ASSERT_EQUAL_UINT16(0, fm.bandwidthKHz); /* The tuner chooses. */
+
+  /* The frequency has to move with the band. It is the more exact of the
+   * two, so leaving it on an FM frequency would put the radio back on FM. */
+  st.startBand = (uint8_t)BAND_MW;
+  st.startFreqKHz = 738;
+  RadioSettings am;
+  radioFromSettings(&st, &plan, &am);
+  TEST_ASSERT_EQUAL_UINT16(6, am.bandwidthKHz);
+}
+
+static void no_settings_gives_the_radio_defaults(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings want;
+  radioDefaults(&want, &plan);
+  RadioSettings got;
+  radioFromSettings(NULL, &plan, &got);
+  TEST_ASSERT_EQUAL_MEMORY(&want, &got, sizeof(want));
+
+  radioFromSettings(NULL, NULL, &got); /* Must not crash. */
+  radioFromSettings(NULL, &plan, NULL);
+}
+
+static void what_is_worth_keeping_goes_back_to_the_settings(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings r;
+  radioDefaults(&r, &plan);
+  r.band = BAND_SW;
+  r.freqKHz = 9500;
+  r.equalizer = true;
+  r.stereoBlendStart = 35;
+  r.deemphasisUs = 75;
+  r.volumeDb = -12;
+
+  Settings st;
+  settingsDefaults(&st);
+  radioToSettings(&r, &st);
+  TEST_ASSERT_EQUAL_UINT8((uint8_t)BAND_SW, st.startBand);
+  TEST_ASSERT_EQUAL_UINT32(9500, st.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT8(1, st.fmEqualizer);
+  TEST_ASSERT_EQUAL_UINT8(35, st.fmStereoBlendStart);
+  TEST_ASSERT_EQUAL_UINT16(75, st.fmDeemphasisUs);
+  /* The volume is kept for the one mode where the knob is not the volume. */
+  TEST_ASSERT_EQUAL_INT8(-12, st.startVolumeDb);
+  TEST_ASSERT_TRUE(settingsValid(&st));
+
+  radioToSettings(NULL, &st); /* Must not crash. */
+  radioToSettings(&r, NULL);
+}
+
+static void a_stored_volume_stays_inside_what_the_knob_can_ask_for(void) {
+  /* The chip takes up to 24 dB, the knob only reaches 0. A volume set past
+   * the knob's top through the API must not be stored as a number the knob
+   * can never get back down from in one turn. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings r;
+  radioDefaults(&r, &plan);
+  Settings st;
+  settingsDefaults(&st);
+
+  r.volumeDb = RADIO_VOLUME_MAX;
+  radioToSettings(&r, &st);
+  TEST_ASSERT_EQUAL_INT8(0, st.startVolumeDb);
+  TEST_ASSERT_TRUE(settingsValid(&st));
+
+  r.volumeDb = RADIO_VOLUME_MIN;
+  radioToSettings(&r, &st);
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN, st.startVolumeDb);
+  TEST_ASSERT_TRUE(settingsValid(&st));
+}
+
+static void a_round_trip_through_the_settings_changes_nothing(void) {
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_LW;
+  st.startFreqKHz = 198;
+  st.fmForcedMono = 1;
+  st.fmHighCutStart = 25;
+  st.amNoiseBlankerStart = 120;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+
+  Settings back;
+  settingsDefaults(&back);
+  radioToSettings(&r, &back);
+  TEST_ASSERT_EQUAL_UINT8(st.startBand, back.startBand);
+  TEST_ASSERT_EQUAL_UINT32(st.startFreqKHz, back.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT8(st.fmForcedMono, back.fmForcedMono);
+  TEST_ASSERT_EQUAL_UINT8(st.fmHighCutStart, back.fmHighCutStart);
+  TEST_ASSERT_EQUAL_UINT8(st.amNoiseBlankerStart, back.amNoiseBlankerStart);
+}
+
+/* ------------------------------------------------------------ de-emphasis */
+
+static void the_deemphasis_can_be_set_from_either_band(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+  TEST_ASSERT_EQUAL_UINT16(50, s.deemphasisUs);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_DEEMPHASIS;
+  cmd.deemphasisUs = 75;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT16(75, s.deemphasisUs);
+
+  /* And on AM, where it does not reach the chip but still belongs to the
+   * person's country rather than to the band they happen to be on. */
+  RadioCommand band = {};
+  band.kind = RADIO_SET_BAND;
+  band.band = BAND_MW;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &band));
+  cmd.deemphasisUs = 50;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT16(50, s.deemphasisUs);
+}
+
+static void only_the_two_real_deemphasis_standards_are_taken(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_DEEMPHASIS;
+  cmd.deemphasisUs = 60;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT16(50, s.deemphasisUs);
+
+  cmd.deemphasisUs = 0; /* Off is a real choice. */
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT16(0, s.deemphasisUs);
+}
+
+static void changing_the_deemphasis_needs_a_feature_push(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings a;
+  radioDefaults(&a, &plan);
+  RadioSettings b = a;
+  b.deemphasisUs = 75;
+
+  RadioPush push = radioPushNeeded(&a, &b);
+  TEST_ASSERT_TRUE(push.features);
+  TEST_ASSERT_FALSE(push.retune);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -931,6 +1245,7 @@ int main(int, char **) {
   RUN_TEST(changing_band_carries_the_bandwidth_with_it);
   RUN_TEST(muting_only_sets_the_mute);
   RUN_TEST(changing_the_bandwidth_alone_does_not_retune);
+  RUN_TEST(a_bandwidth_the_band_does_not_offer_is_refused);
   RUN_TEST(the_step_size_and_the_mode_never_reach_the_tuner);
   RUN_TEST(nothing_known_means_send_everything);
 
@@ -957,6 +1272,23 @@ int main(int, char **) {
   RUN_TEST(the_fade_never_overshoots_its_target);
   RUN_TEST(no_duration_means_no_fade);
   RUN_TEST(the_band_change_fade_is_much_shorter_than_the_one_at_start);
+
+  RUN_TEST(the_plan_comes_from_the_stored_region_and_spacing);
+  RUN_TEST(a_stored_region_out_of_range_leaves_the_default);
+  RUN_TEST(no_settings_gives_the_default_plan);
+  RUN_TEST(the_radio_starts_on_the_stored_band_and_frequency);
+  RUN_TEST(a_stored_frequency_in_no_band_falls_back);
+  RUN_TEST(a_stored_frequency_picks_its_own_band);
+  RUN_TEST(the_fm_features_come_from_the_settings);
+  RUN_TEST(the_stored_am_width_only_applies_on_am);
+  RUN_TEST(no_settings_gives_the_radio_defaults);
+  RUN_TEST(what_is_worth_keeping_goes_back_to_the_settings);
+  RUN_TEST(a_stored_volume_stays_inside_what_the_knob_can_ask_for);
+  RUN_TEST(a_round_trip_through_the_settings_changes_nothing);
+
+  RUN_TEST(the_deemphasis_can_be_set_from_either_band);
+  RUN_TEST(only_the_two_real_deemphasis_standards_are_taken);
+  RUN_TEST(changing_the_deemphasis_needs_a_feature_push);
 
   return UNITY_END();
 }

@@ -19,7 +19,9 @@
 #include "core/access_pin.h"
 #include "core/band_plan.h"
 #include "core/input.h"
+#include "core/radio.h"
 #include "core/settings.h"
+#include "core/squelch.h"
 #include "core/version.h"
 #include "drivers/analog.h"
 #include "drivers/device_id.h"
@@ -39,9 +41,6 @@ static Settings gSettings;
 
 /** The PIN this radio is using. */
 static uint32_t gAccessPin = 0;
-
-/** Where the radio parks until there is a setting for it. */
-static const uint32_t kBootFrequencyKHz = 104000;
 
 /** How the tuner start up went, so the banner and the web page can say. */
 static Tef668xError gTunerError = TEF668X_ERR_NOT_READY;
@@ -150,29 +149,42 @@ void setup() {
    * else touches it. Commands go in through a queue and state comes out as a
    * snapshot. */
   BandPlanConfig plan;
-  bandPlanDefaults(&plan);
+  radioPlanFromSettings(&gSettings, &plan);
   /* Where the volume knob is pointing, read before the radio task starts.
    * The task unmutes at the end of its first push, so a volume sent after
    * that is heard as a moment at whatever the default was, which is full. */
   analogBegin();
-  int8_t startVolume = potVolumeDb(potRead(), NULL);
+  /* There is one knob. In manual squelch it is the squelch control, so
+   * reading a volume off it would come up at whatever the threshold maps to,
+   * which is full volume at one end and silence at the other, and nothing
+   * would correct it: the knob never touches the volume in that mode. The
+   * stored volume is for that one case. Everywhere else the knob wins. */
+  int8_t startVolume = gSettings.startVolumeDb;
+  if (gSettings.squelchMode != (uint8_t)SQUELCH_MANUAL) {
+    startVolume = potVolumeDb(potRead(), NULL);
+  }
 
-  if (!radioTaskStart(&plan, kBootFrequencyKHz, startVolume)) {
+  if (!radioTaskStart(&gSettings, &plan, startVolume)) {
     Serial.println(F("[radio] the radio task could not start"));
     /* The tuner was muted at the end of its start up, and the task is what
      * unmutes it. Without this the radio is silent for good, which is worse
      * than the wrong station: a radio making no sound reads as dead. */
     tef668xSetMute(false);
   } else {
+    RadioSnapshot snap;
     char text[16];
-    bandFormatFrequency(BAND_FM, kBootFrequencyKHz, text, sizeof(text));
-    Serial.printf("[radio] task started on %s %s\n", text,
-                  bandFrequencyUnit(BAND_FM));
+    if (radioGetSnapshot(&snap)) {
+      bandFormatFrequency(snap.settings.band, snap.settings.freqKHz, text,
+                          sizeof(text));
+      Serial.printf("[radio] task started on %s %s\n", text,
+                    bandFrequencyUnit(snap.settings.band));
+    }
   }
 
   /* The knob and the keypad. They post to the same queue the web API uses,
    * so there is one path into the tuner and not two. */
-  if (!inputBegin(ENCODER_STANDARD, ENCODER_NORMAL)) {
+  if (!inputBegin((EncoderKind)gSettings.encoderKind,
+                  (EncoderDirection)gSettings.encoderDirection)) {
     Serial.println(F("[input] no keypad answered at 0x20, knob only"));
   }
 

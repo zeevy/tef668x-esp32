@@ -18,7 +18,7 @@ This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty five design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty seven design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.

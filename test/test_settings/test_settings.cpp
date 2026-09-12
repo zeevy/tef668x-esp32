@@ -5,6 +5,8 @@
  */
 #include <unity.h>
 
+#include "core/band_plan.h"
+#include "core/radio.h"
 #include "core/settings.h"
 
 #include <stddef.h>
@@ -236,6 +238,189 @@ static void setting_wifi_clears_the_old_value_completely(void) {
   }
 }
 
+/* ------------------------------------------- reading an older radio's blob */
+
+/** The version 1 struct, exactly as a radio in the field wrote it. */
+#define V1_SIZE 108
+
+/**
+ * Build a version 1 blob, the way the old firmware laid it out.
+ *
+ * Written through offsetof rather than by counting bytes. Version 1's fields
+ * are at the same offsets in version 2, because the struct is append only,
+ * and saying it this way makes the test fail loudly if that ever stops being
+ * true rather than quietly reading the wrong field.
+ */
+static size_t makeV1(uint8_t *blob, const char *ssid, const char *pass,
+                     uint32_t pin) {
+  memset(blob, 0, V1_SIZE);
+  uint16_t version = 1;
+  uint16_t size = V1_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+  memcpy(blob + offsetof(Settings, wifiSsid), ssid, strlen(ssid));
+  memcpy(blob + offsetof(Settings, wifiPass), pass, strlen(pass));
+  memcpy(blob + offsetof(Settings, accessPin), &pin, sizeof(pin));
+  return V1_SIZE;
+}
+
+static void the_version_1_fields_never_moved(void) {
+  /* The invariant the whole migration rests on. If any of these shifts, every
+   * radio already in the field reads its own settings from the wrong place. */
+  TEST_ASSERT_EQUAL_size_t(0, offsetof(Settings, version));
+  TEST_ASSERT_EQUAL_size_t(2, offsetof(Settings, size));
+  TEST_ASSERT_EQUAL_size_t(4, offsetof(Settings, wifiSsid));
+  TEST_ASSERT_EQUAL_size_t(37, offsetof(Settings, wifiPass));
+  TEST_ASSERT_EQUAL_size_t(104, offsetof(Settings, accessPin));
+  /* And version 1 ended where the size table says it did. */
+  TEST_ASSERT_EQUAL_size_t(V1_SIZE,
+                           offsetof(Settings, accessPin) + sizeof(uint32_t));
+}
+
+static void a_version_1_blob_still_reads(void) {
+  /* The whole point of the version and size pair. A radio that has been
+   * running the old firmware must come up with its network and its PIN
+   * intact, not reset to the factory. */
+  uint8_t blob[V1_SIZE];
+  size_t len = makeV1(blob, "TARANG", "hunter2", 123456);
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, len, &out));
+  TEST_ASSERT_EQUAL_STRING("TARANG", out.wifiSsid);
+  TEST_ASSERT_EQUAL_STRING("hunter2", out.wifiPass);
+  TEST_ASSERT_EQUAL_UINT32(123456, out.accessPin);
+}
+
+static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
+  uint8_t blob[V1_SIZE];
+  size_t len = makeV1(blob, "TARANG", "hunter2", 123456);
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, len, &out));
+
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.fmRegion, out.fmRegion);
+  TEST_ASSERT_EQUAL_UINT8(fresh.mwSpacing, out.mwSpacing);
+  TEST_ASSERT_EQUAL_UINT8(fresh.squelchMode, out.squelchMode);
+  TEST_ASSERT_EQUAL_UINT8(fresh.amBandwidthKHz, out.amBandwidthKHz);
+  /* Including where it comes up. A radio updated from version 1 has never
+   * saved a station, so it has to keep coming up where it used to. */
+  TEST_ASSERT_EQUAL_UINT8((uint8_t)BAND_FM, out.startBand);
+  TEST_ASSERT_EQUAL_UINT32(104000, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT16(fresh.fmDeemphasisUs, out.fmDeemphasisUs);
+  /* And it is stamped as the current version, so it is written back whole. */
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+  TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
+}
+
+static void a_version_1_blob_of_the_wrong_length_is_refused(void) {
+  /* The size in the header is not enough on its own: a corrupt blob can
+   * declare a length that matches its own truncation. */
+  uint8_t blob[V1_SIZE];
+  size_t len = makeV1(blob, "TARANG", "hunter2", 1);
+  Settings out;
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len - 1, &out));
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len + 1, &out));
+}
+
+/* ----------------------------------------------- the new ranges are checked */
+
+static void a_blend_start_is_off_or_somewhere_a_signal_reaches(void) {
+  /* A level below 20 dBuV switches the mechanism on at a point no signal
+   * gets to, so it is on and does nothing. That is the silent no-op. */
+  Settings s;
+  settingsDefaults(&s);
+  s.fmHighCutStart = 0;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmHighCutStart = 40;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmHighCutStart = 19;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.fmHighCutStart = 61;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void a_noise_blanker_is_a_percentage(void) {
+  Settings s;
+  settingsDefaults(&s);
+  s.amNoiseBlankerStart = 0;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.amNoiseBlankerStart = 100;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  /* The range that reads like dBuV and is not. */
+  s.amNoiseBlankerStart = 30;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.amNoiseBlankerStart = 151;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void only_the_widths_the_am_side_has_are_accepted(void) {
+  Settings s;
+  settingsDefaults(&s);
+  uint8_t good[] = {3, 4, 6, 8};
+  for (size_t i = 0; i < sizeof(good); i++) {
+    s.amBandwidthKHz = good[i];
+    TEST_ASSERT_TRUE(settingsValid(&s));
+  }
+  s.amBandwidthKHz = 5;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.amBandwidthKHz = 0;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void the_stored_volume_stays_inside_what_the_chip_takes(void) {
+  /* It is only read in manual squelch, where the knob is the squelch and
+   * nothing else says how loud to be. A value outside the chip's range would
+   * come up at whatever the driver clamped it to. */
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  s.startVolumeDb = 0;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.startVolumeDb = RADIO_VOLUME_MIN;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.startVolumeDb = 1; /* Above what the knob can ask for. */
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.startVolumeDb = RADIO_VOLUME_MIN - 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void a_deemphasis_that_is_not_one_of_the_two_is_refused(void) {
+  Settings s;
+  settingsDefaults(&s);
+  s.fmDeemphasisUs = 50;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmDeemphasisUs = 75;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmDeemphasisUs = 60;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+static void the_new_settings_survive_a_round_trip(void) {
+  Settings s;
+  settingsDefaults(&s);
+  s.fmRegion = 1;
+  s.mwSpacing = 1;
+  s.squelchMode = 2;
+  s.fmMultipathSuppression = 1;
+  s.fmHighCutStart = 40;
+  s.amNoiseBlankerStart = 100;
+  s.startFreqKHz = 102800;
+  s.startVolumeDb = -30;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(&s, sizeof(s), &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.fmRegion);
+  TEST_ASSERT_EQUAL_UINT8(2, out.squelchMode);
+  TEST_ASSERT_EQUAL_UINT8(40, out.fmHighCutStart);
+  TEST_ASSERT_EQUAL_UINT8(100, out.amNoiseBlankerStart);
+  TEST_ASSERT_EQUAL_UINT32(102800, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_INT8(-30, out.startVolumeDb);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(defaults_are_valid_and_have_no_wifi);
@@ -255,5 +440,16 @@ int main(int, char **) {
   RUN_TEST(one_character_too_many_is_refused_and_changes_nothing);
   RUN_TEST(an_open_network_with_no_passphrase_is_allowed);
   RUN_TEST(setting_wifi_clears_the_old_value_completely);
+  RUN_TEST(the_version_1_fields_never_moved);
+  RUN_TEST(a_version_1_blob_still_reads);
+  RUN_TEST(a_version_1_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_1_blob_of_the_wrong_length_is_refused);
+  RUN_TEST(a_blend_start_is_off_or_somewhere_a_signal_reaches);
+  RUN_TEST(a_noise_blanker_is_a_percentage);
+  RUN_TEST(only_the_widths_the_am_side_has_are_accepted);
+  RUN_TEST(the_stored_volume_stays_inside_what_the_chip_takes);
+  RUN_TEST(a_deemphasis_that_is_not_one_of_the_two_is_refused);
+  RUN_TEST(the_new_settings_survive_a_round_trip);
+
   return UNITY_END();
 }

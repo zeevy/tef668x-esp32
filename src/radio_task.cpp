@@ -175,6 +175,7 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
   Tef668xError mono = tef668xSetMono(s->forcedMono);
   Tef668xError weak = tef668xSetWeakSignal(s->highCutStart, s->stereoBlendStart,
                                            s->stHiBlendStart);
+  Tef668xError deemp = tef668xSetDeemphasis(s->deemphasisUs);
   if (err != TEF668X_OK) {
     return err;
   }
@@ -184,7 +185,10 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
   if (mono != TEF668X_OK) {
     return mono;
   }
-  return weak != TEF668X_OK ? weak : blanker;
+  if (weak != TEF668X_OK) {
+    return weak;
+  }
+  return deemp != TEF668X_OK ? deemp : blanker;
 }
 
 static Tef668xError pushToTuner(const RadioSettings *from,
@@ -542,7 +546,7 @@ static void radioTask(void *arg) {
   }
 }
 
-bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
+bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
                     int8_t startVolumeDb) {
   if (sTask != NULL) {
     return true;
@@ -554,17 +558,12 @@ bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
   }
 
   memset(&sSnapshot, 0, sizeof(sSnapshot));
-  radioDefaults(&sSnapshot.settings, &sPlan);
 
-  /* Where it comes up, before the task takes its first look. The task's first
-   * push ends with an unmute, so anything tuned after that is heard as a
-   * burst of whatever was on the default frequency first. */
-  if (startFreqKHz != 0) {
-    RadioCommand tune = {};
-    tune.kind = RADIO_TUNE;
-    tune.freqKHz = startFreqKHz;
-    radioApply(&sSnapshot.settings, &sPlan, &tune);
-  }
+  /* Everything a person chose, before the task takes its first look. The
+   * task's first push ends with an unmute, so anything changed after that is
+   * heard: a burst of whatever was on the default frequency, or a moment of
+   * the feature that was about to be switched off. */
+  radioFromSettings(settings, &sPlan, &sSnapshot.settings);
 
   RadioCommand volume = {};
   volume.kind = RADIO_SET_VOLUME;
@@ -579,6 +578,9 @@ bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
   signalAverageReset(&sSnrAverage);
   sBandwidthKnown = false;
   sSquelchMode = SQUELCH_OFF;
+  if (settings != NULL && settings->squelchMode < SQUELCH_MODE_COUNT) {
+    sSquelchMode = (SquelchMode)settings->squelchMode;
+  }
   sSquelchThreshold = 0;
   sLastPushedMute = false;
 
