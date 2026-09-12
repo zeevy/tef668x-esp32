@@ -203,7 +203,27 @@ static bool requireAuth(bool allowInSetupMode) {
  * the page falls back to, and it has to be enough on its own. Phase 5 moves
  * Bootstrap onto the filesystem and drops the CDN.
  */
-static String pageHead(const char *title) {
+/**
+ * Shared page head.
+ *
+ * @param title   What goes in the browser tab.
+ * @param active  Which page this is, as its path, so the nav can mark it.
+ *                NULL for the short result pages, which get no nav.
+ */
+static String pageHead(const char *title, const char *active = NULL);
+
+/** One entry in the nav bar. */
+static String navLink(const char *path, const char *label, const char *active) {
+  bool here = active != NULL && strcmp(path, active) == 0;
+  String out = F("<a href='");
+  out += path;
+  out += here ? F("' class=here>") : F("'>");
+  out += label;
+  out += F("</a>");
+  return out;
+}
+
+static String pageHead(const char *title, const char *active) {
   String out;
   out.reserve(1500);
   out +=
@@ -244,34 +264,112 @@ static String pageHead(const char *title) {
         ".table{--bs-table-color:#e6e6e6;--bs-table-bg:transparent;"
         "--bs-table-border-color:#24313d}"
         "h2{font-size:16px;color:#ffb200;letter-spacing:.02em}"
+        /* The nav. Plain links so it still works when the CDN is gone,
+           which is exactly the case on the radio's own access point. */
+        "nav.pages{display:flex;flex-wrap:wrap;gap:4px;margin:14px 0 18px}"
+        "nav.pages a{padding:6px 12px;border-radius:6px;text-decoration:none;"
+        "color:#9fb3c8;border:1px solid #24313d;font-size:14px}"
+        "nav.pages a:hover{color:#e6e6e6;border-color:#3a4b5c}"
+        "nav.pages a.here{color:#0b0f13;background:#ffb200;"
+        "border-color:#ffb200;font-weight:600}"
         "</style></head><body><div class='wrap container-sm py-3'>");
+
+  if (active != NULL) {
+    out +=
+        F("<h1 class='h4 mb-0' style='letter-spacing:.04em'>TEF668X</h1>"
+          "<p class='text-secondary small mb-0' "
+          "style='letter-spacing:.04em'>");
+    out += F(BOARD_NAME_DISPLAY " &middot; V" FIRMWARE_VERSION);
+    out += F("</p><nav class=pages>");
+    out += navLink("/", "Home", active);
+    out += navLink("/radio", "Radio", active);
+    out += navLink("/network", "Network", active);
+    out += navLink("/system", "System", active);
+    out += F("</nav>");
+  }
   return out;
 }
 
 /** Shared page tail. */
-static const char *pageTail(void) {
-  /* The radio forms post to the API rather than to a handler of their own, so
-   * the checks and the wording of every failure live in one place. The reply
-   * is plain text and goes straight into the line above the forms. */
+static const char *pageTail(bool scripted = false) {
+  if (!scripted) {
+    /* Only the Radio page has controls that need it, and shipping it on the
+     * other three cost every one of them 1.75 KB of heap per request. */
+    return "</div></body></html>";
+  }
+  /*
+   * Everything on the Radio page posts to the same API a script would use,
+   * so the checks and the wording of every refusal live in one place.
+   *
+   * Three behaviours, and no framework:
+   *
+   *   data-post   a button that posts once, with data-args, or with the
+   *               value of the field named by data-from
+   *   data-now    a control that posts the moment it changes. data-send=label
+   *               sends the option's text rather than its value, because
+   *               /api/band and /api/squelch take names
+   *   data-apply  a button that gathers every data-api field in its own card
+   *               and posts one request per endpoint
+   *
+   * The reply is plain text and goes into the line at the top, as text, never
+   * as markup. A hostile reply would be shown, not run.
+   */
   return "<script>"
-         "document.querySelectorAll('form[data-api]').forEach(function(f){"
-         "f.addEventListener('submit',function(e){e.preventDefault();"
-         "var m=document.getElementById('rmsg');"
-         "m.className='small text-secondary';m.textContent='Working...';"
-         "fetch(f.dataset.api,{method:'POST',"
-         "body:new URLSearchParams(new FormData(f))})"
-         ".then(function(r){return r.text().then(function(t){"
-         "m.className=r.ok?'small text-success':'small text-danger';"
-         "m.textContent=t.trim();});})"
-         ".catch(function(){m.className='small text-danger';"
-         "m.textContent='The radio did not answer.';});});});"
+         "var M=function(t,ok){var m=document.getElementById('rmsg');"
+         "if(!m)return;m.className='small mb-3 '+(ok?'text-success':"
+         "'text-danger');m.textContent=t.trim();};"
+         "var W=function(){var m=document.getElementById('rmsg');"
+         "if(m){m.className='small mb-3 text-secondary';"
+         "m.textContent='Working...';}};"
+         /* Update the big frequency line without a reload. */
+         "var R=function(){fetch('/api/state').then(function(r){"
+         "return r.json();}).then(function(d){var t=d.tuner;if(!t)return;"
+         "var set=function(i,v){var e=document.getElementById(i);"
+         "if(e)e.textContent=v;};"
+         "set('npf',t.f);set('npu',t.unit||'');set('npb',t.band);"
+         "var s=[];if(t.sig!==undefined)s.push(Math.round(t.sig/10)+' dBuV');"
+         "if(t.st)s.push('stereo');"
+         "s.push('squelch '+(t.sqlOpen?'open':'shut'));"
+         "if(t.mute)s.push('muted');set('nps',s.join(' \\u00b7 '));"
+         "var k=document.getElementById('khz');if(k)k.value=t.khz;"
+         "}).catch(function(){});};"
+         "var P=function(url,body){W();"
+         "return fetch(url,{method:'POST',body:body}).then(function(r){"
+         "return r.text().then(function(t){M(t,r.ok);R();return r.ok;});})"
+         ".catch(function(){M('The radio did not answer.',false);"
+         "return false;});};"
+         "document.querySelectorAll('[data-post]').forEach(function(b){"
+         "b.addEventListener('click',function(e){e.preventDefault();"
+         "var p=new URLSearchParams(b.dataset.args||'');"
+         "if(b.dataset.from){var f=document.getElementById(b.dataset.from);"
+         "if(f)p.append(f.name,f.value);}P(b.dataset.post,p);});});"
+         "document.querySelectorAll('[data-now]').forEach(function(el){"
+         "el.addEventListener('change',function(){"
+         "var v=el.dataset.send==='label'&&el.options?"
+         "el.options[el.selectedIndex].text:el.value;"
+         "if(el.dataset.echo){var e=document.getElementById(el.dataset.echo);"
+         "if(e)e.textContent=el.value;}"
+         "var p=new URLSearchParams();p.append(el.name,v);"
+         "P(el.dataset.now,p).then(function(){"
+         /* A band change rebuilds which settings apply, so reload. */
+         "if(el.name==='band')location.reload();});});"
+         "if(el.dataset.echo)el.addEventListener('input',function(){"
+         "var e=document.getElementById(el.dataset.echo);"
+         "if(e)e.textContent=el.value;});});"
+         "document.querySelectorAll('[data-apply]').forEach(function(b){"
+         "b.addEventListener('click',async function(e){e.preventDefault();"
+         "var card=b.closest('[data-card]');if(!card)return;var g={};"
+         "card.querySelectorAll('[data-api]').forEach(function(el){"
+         "if(el.disabled)return;var u=el.dataset.api;"
+         "if(!g[u])g[u]=new URLSearchParams();g[u].append(el.name,el.value);});"
+         "for(var u in g){var ok=await P(u,g[u]);if(!ok)return;}});});"
          "</script></div></body></html>";
 }
 
 /** One labelled select, with the value the radio holds already chosen. */
 static String formSelect(const char *name, const char *label,
                          const char *const *options, const long *values,
-                         int count, long current) {
+                         int count, long current, const char *attrs) {
   String out;
   out +=
       F("<div class='col-6 col-md-4'><label class='form-label small "
@@ -279,6 +377,8 @@ static String formSelect(const char *name, const char *label,
   out += label;
   out += F("</label><select class='form-select form-select-sm' name=");
   out += name;
+  out += F(" ");
+  out += attrs;
   out += F(">");
   for (int i = 0; i < count; i++) {
     out += F("<option value=");
@@ -296,7 +396,7 @@ static String formSelect(const char *name, const char *label,
 
 /** One labelled number box. */
 static String formNumber(const char *name, const char *label, long low,
-                         long high, long current) {
+                         long high, long current, const char *attrs) {
   String out;
   out +=
       F("<div class='col-6 col-md-4'><label class='form-label small "
@@ -312,17 +412,40 @@ static String formNumber(const char *name, const char *label, long low,
   out += String(high);
   out += F(" value=");
   out += String(current);
+  out += F(" ");
+  out += attrs;
   out += F("></div>");
   return out;
 }
 
+/** Open a card. An Apply button only gathers fields inside its own card. */
+static String cardOpen(const char *title) {
+  String out =
+      F("<div class='card mb-3' data-card><div class='card-body "
+        "p-3'><h2 class='mt-0 mb-3'>");
+  out += title;
+  out += F("</h2>");
+  return out;
+}
+
+/** Close a card. */
+static const char *cardClose(void) {
+  return "</div></div>";
+}
+
 /**
- * The radio settings, as forms that post to the API the scripts use.
+ * The Radio page.
  *
- * They post to /api/fm, /api/bandwidth and /api/settings rather than to
- * handlers of their own, so there is one set of checks and one set of
- * replies. A second path into the same settings would be a second place for
- * a range to go wrong.
+ * Three cards. The first one works the radio, which is what a page called
+ * Radio ought to do and did not: it was four forms of settings with no way to
+ * change station. The second holds how it receives, behind one Apply. The
+ * third holds the ones that need a reboot, kept apart so that "needs a
+ * reboot" is a property of a card rather than small print somebody has to
+ * notice.
+ *
+ * Every control posts to the same API a script would use, so there is one set
+ * of checks and one set of refusals, and no second path with a weaker check
+ * on it.
  */
 static String radioForms(void) {
   RadioSnapshot now;
@@ -332,245 +455,470 @@ static String radioForms(void) {
   static const char *offOn[] = {"Off", "On"};
   static const long zeroOne[] = {0, 1};
   String out;
-  out.reserve(3000);
+  out.reserve(5500);
 
-  out +=
-      F("<h2>Radio</h2>"
-        "<p class='text-secondary small'>These take effect at once. Use "
-        "Keep these settings to have the radio come up this way.</p>"
-        "<p id=rmsg class='small' style='min-height:1.2em'></p>");
+  out += F("<p id=rmsg class='small mb-3' style='min-height:1.2em'></p>");
 
   if (!live) {
     out +=
-        F("<p class='small' style='color:#ff8a72'>The radio task is not "
-          "running, so there is nothing to set.</p>");
+        F("<div class='alert alert-danger py-2 px-3 small'>The radio task "
+          "is not running, so there is nothing to set.</div>");
     return out;
   }
 
   bool onFm = bandModulation(now.settings.band) == MODULATION_FM;
-
-  /* Split by what each setting can reach, not by what it is called. The
-   * de-emphasis and the two blankers work on either side, so they sit in a
-   * form of their own. The rest are FM ideas that radioApply refuses on an AM
-   * band, and one of those in a form would take the whole post down with it,
-   * including the settings that would have worked. */
-  out += F("<h2>FM settings</h2><form data-api='/api/fm' class='row g-2'>");
-  {
-    static const char *deemphNames[] = {"50 us", "75 us", "Off"};
-    static const long deemphValues[] = {50, 75, 0};
-    out += formSelect("deemph", "De-emphasis", deemphNames, deemphValues, 3,
-                      now.settings.deemphasisUs);
+  char freqText[16];
+  if (!bandFormatFrequency(now.settings.band, now.settings.freqKHz, freqText,
+                           sizeof(freqText))) {
+    freqText[0] = '\0';
   }
-  out += formNumber("fmnb", "Noise blanker, per cent", 0, 150,
-                    now.settings.fmNoiseBlankerStart);
-  out +=
-      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
-        "type=submit>Apply</button></div></form>");
 
-  if (!onFm) {
-    out +=
-        F("<p class='text-secondary small mt-2'>The rest of the FM "
-          "settings need the radio to be on FM. The tuner has nowhere to "
-          "put them on an AM band.</p>");
-  } else {
-    out += F("<form data-api='/api/fm' class='row g-2 mt-1'>");
-    out += formSelect("ims", "Multipath suppression", offOn, zeroOne, 2,
-                      now.settings.multipathSuppression ? 1 : 0);
-    out += formSelect("eq", "Channel equalizer", offOn, zeroOne, 2,
-                      now.settings.equalizer ? 1 : 0);
-    {
-      static const char *stereoMono[] = {"Stereo", "Mono"};
-      out += formSelect("mono", "Stereo", stereoMono, zeroOne, 2,
-                        now.settings.forcedMono ? 1 : 0);
+  /* ------------------------------------------------------------ the dial */
+  out += cardOpen("Listening to");
+  out +=
+      F("<div class='d-flex align-items-baseline gap-2 mb-1'>"
+        "<span id=npf style='font-size:30px;color:#ffb200;"
+        "font-variant-numeric:tabular-nums'>");
+  out += freqText;
+  out += F("</span><span id=npu class='text-secondary'>");
+  out += bandFrequencyUnit(now.settings.band);
+  out += F("</span><span id=npb class='text-secondary'>");
+  out += bandName(now.settings.band);
+  out += F("</span></div><p id=nps class='small text-secondary mb-3'>");
+  if (now.qualityValid) {
+    out += String(now.quality.levelDbuVTenths / 10);
+    out += F(" dBuV");
+    if (now.quality.stereo && !now.settings.forcedMono) {
+      out += F(" &middot; stereo");
     }
-    out += formNumber("cut", "High cut from, dBuV", 0, 60,
-                      now.settings.highCutStart);
-    out += formNumber("blend", "Stereo blend from, dBuV", 0, 60,
-                      now.settings.stereoBlendStart);
-    out += formNumber("hiblend", "Both from, dBuV", 0, 60,
-                      now.settings.stHiBlendStart);
-    out +=
-        F("<div class='col-12'><button class='btn btn-primary btn-sm' "
-          "type=submit>Apply weak signal settings</button></div></form>"
-          "<p class='text-secondary small mt-2'>The three levels are 0 to "
-          "switch off, or 20 to 60. The blankers are 0, or 50 to 150.</p>");
   }
+  out += now.squelchOpen ? F(" &middot; squelch open")
+                         : F(" &middot; squelch shut");
+  if (now.settings.muted) {
+    out += F(" &middot; muted");
+  }
+  out += F("</p>");
 
-  out += F("<h2>AM settings</h2><form data-api='/api/fm' class='row g-2'>");
-  out += formNumber("amnb", "Noise blanker, per cent", 0, 150,
-                    now.settings.amNoiseBlankerStart);
+  /* Step buttons either side of a box to type in: the knob and the keypad,
+   * which are the two ways the radio itself is tuned. */
   out +=
-      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
-        "type=submit>Apply</button></div></form>");
+      F("<div class='row g-2 align-items-end'>"
+        "<div class='col-12 col-md-7'>"
+        "<label class='form-label small text-secondary mb-1'>Frequency, "
+        "kHz</label><div class='input-group input-group-sm'>"
+        "<button class='btn btn-outline-secondary' data-post='/api/step' "
+        "data-args='steps=-1' title='Down one step'>&#8249;</button>"
+        "<input class=form-control id=khz name=khz type=number value=");
+  out += String(now.settings.freqKHz);
+  out +=
+      F("><button class='btn btn-outline-secondary' data-post='/api/step' "
+        "data-args='steps=1' title='Up one step'>&#8250;</button>"
+        "<button class='btn btn-primary' data-post='/api/tune' "
+        "data-from=khz>Go</button></div></div>");
+
+  out +=
+      F("<div class='col-6 col-md-5'><label class='form-label small "
+        "text-secondary mb-1'>Band</label>"
+        "<select class='form-select form-select-sm' name=band "
+        "data-now='/api/band' data-send=label>");
+  for (int b = 0; b < BAND_COUNT; b++) {
+    out += F("<option");
+    if (b == (int)now.settings.band) {
+      out += F(" selected");
+    }
+    out += F(">");
+    out += bandName((BandId)b);
+    out += F("</option>");
+  }
+  out += F("</select></div>");
+
+  out +=
+      F("<div class='col-12 col-md-8'><label class='form-label small "
+        "text-secondary mb-1'>Volume, dB <span id=volnow>");
+  out += String(now.settings.volumeDb);
+  out += F("</span></label><input class=form-range type=range name=db min=");
+  out += String(RADIO_VOLUME_MIN);
+  out += F(" max=0 value=");
+  out += String(now.settings.volumeDb);
+  out += F(" data-now='/api/volume' data-echo=volnow></div>");
+
+  out +=
+      F("<div class='col-6 col-md-4'><label class='form-label small "
+        "text-secondary mb-1'>Squelch</label>"
+        "<select class='form-select form-select-sm' name=mode "
+        "data-now='/api/squelch' data-send=label>");
+  for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
+    out += F("<option");
+    if (m == (int)now.squelchMode) {
+      out += F(" selected");
+    }
+    out += F(">");
+    out += squelchModeName((SquelchMode)m);
+    out += F("</option>");
+  }
+  out += F("</select></div>");
+
+  out +=
+      F("<div class='col-12 mt-2'>"
+        "<button class='btn btn-outline-secondary btn-sm me-2' "
+        "data-post='/api/cycle' data-args='what=mute'>Mute or unmute"
+        "</button>"
+        "<button class='btn btn-primary btn-sm' data-post='/api/save'>"
+        "Keep these settings</button></div></div>"
+        "<p class='small text-secondary mt-2 mb-0'>Keep these settings "
+        "stores the station and everything below, so the radio comes up "
+        "this way. The volume follows the knob, except in manual squelch "
+        "where the knob is the squelch.</p>");
+  out += cardClose();
+
+  /* ----------------------------------------------------------- reception */
+  out += cardOpen("Reception");
+  out += F("<div class='row g-2'>");
+  static const char *deemphNames[] = {"50 us", "75 us", "Off"};
+  static const long deemphValues[] = {50, 75, 0};
+  out += formSelect("deemph", "De-emphasis", deemphNames, deemphValues, 3,
+                    now.settings.deemphasisUs, "data-api='/api/fm'");
   if (!onFm) {
-    out += F("<form data-api='/api/bandwidth' class='row g-2 mt-1'>");
     static const char *widthNames[] = {"3 kHz", "4 kHz", "6 kHz", "8 kHz"};
     static const long widthValues[] = {3, 4, 6, 8};
     out += formSelect("khz", "Bandwidth", widthNames, widthValues, 4,
-                      now.settings.bandwidthKHz);
-    out +=
-        F("<div class='col-12'><button class='btn btn-primary btn-sm' "
-          "type=submit>Apply bandwidth</button></div></form>");
+                      now.settings.bandwidthKHz, "data-api='/api/bandwidth'");
   } else {
-    /* No width form on FM. The two lists do not overlap, so posting an AM
-     * width here would pin the FM filter far narrower than a station and the
-     * radio would go quiet and read as broken. The API refuses it too. */
+    out += formSelect("ims", "Multipath suppression", offOn, zeroOne, 2,
+                      now.settings.multipathSuppression ? 1 : 0,
+                      "data-api='/api/fm'");
+    out += formSelect("eq", "Channel equalizer", offOn, zeroOne, 2,
+                      now.settings.equalizer ? 1 : 0, "data-api='/api/fm'");
+    static const char *stereoMono[] = {"Stereo", "Mono"};
+    out += formSelect("mono", "Stereo", stereoMono, zeroOne, 2,
+                      now.settings.forcedMono ? 1 : 0, "data-api='/api/fm'");
+  }
+  out += F("</div>");
+
+  /* The expert half, folded away. Nobody sets a stereo blend start level by
+   * accident, and leaving it open made the page look harder than it is. */
+  out +=
+      F("<details class='mt-3'><summary class='small text-secondary' "
+        "style='cursor:pointer'>Weak signal and noise blankers</summary>"
+        "<div class='row g-2 mt-1'>");
+  if (onFm) {
+    out += formNumber("cut", "High cut from, dBuV", 0, 60,
+                      now.settings.highCutStart, "data-api='/api/fm'");
+    out += formNumber("blend", "Stereo blend from, dBuV", 0, 60,
+                      now.settings.stereoBlendStart, "data-api='/api/fm'");
+    out += formNumber("hiblend", "Both from, dBuV", 0, 60,
+                      now.settings.stHiBlendStart, "data-api='/api/fm'");
+  }
+  out += formNumber("fmnb", "FM noise blanker, per cent", 0, 150,
+                    now.settings.fmNoiseBlankerStart, "data-api='/api/fm'");
+  out += formNumber("amnb", "AM noise blanker, per cent", 0, 150,
+                    now.settings.amNoiseBlankerStart, "data-api='/api/fm'");
+  out +=
+      F("</div><p class='small text-secondary mt-2 mb-0'>The levels are 0 "
+        "to switch off, or 20 to 60. The blankers are 0, or 50 to 150."
+        "</p></details>");
+
+  if (!onFm) {
     out +=
-        F("<p class='text-secondary small mt-2'>The bandwidth is offered "
-          "when the radio is on an AM band. On FM the tuner picks the "
-          "width itself.</p>");
-  }
-
-  out +=
-      F("<h2>Band plan and knob</h2>"
-        "<form data-api='/api/settings' class='row g-2'>");
-  {
-    static const char *regionNames[] = {"65 to 108", "Japan, 76 to 95",
-                                        "76 to 108", "87 to 108",
-                                        "87.5 to 108"};
-    static const long regionValues[] = {0, 1, 2, 3, 4};
-    out += formSelect("region", "FM band, MHz", regionNames, regionValues, 5,
-                      st->fmRegion);
-    static const char *spacingNames[] = {"9 kHz", "10 kHz"};
-    out += formSelect("spacing", "Medium wave steps", spacingNames, zeroOne, 2,
-                      st->mwSpacing);
-    static const char *encoderNames[] = {"Standard", "Optical"};
-    out += formSelect("encoder", "Encoder", encoderNames, zeroOne, 2,
-                      st->encoderKind);
-    static const char *directionNames[] = {"Normal", "Reversed"};
-    out += formSelect("direction", "Knob direction", directionNames, zeroOne, 2,
-                      st->encoderDirection);
+        F("<p class='small text-secondary mt-3 mb-0'>The FM settings "
+          "appear when the radio is on FM. The tuner has nowhere to put "
+          "them on an AM band.</p>");
   }
   out +=
-      F("<div class='col-12'><button class='btn btn-primary btn-sm' "
-        "type=submit>Save band plan</button></div></form>"
-        "<p class='text-secondary small mt-2'>These four are read when the "
-        "radio starts, so they need a reboot.</p>");
+      F("<div class='mt-3'><button class='btn btn-primary btn-sm' "
+        "data-apply>Apply</button></div>");
+  out += cardClose();
 
+  /* ----------------------------------------------------------- band plan */
+  out += cardOpen("Band plan and knob");
   out +=
-      F("<h2>Keep these settings</h2>"
-        "<p class='text-secondary small'>Stores the station and everything "
-        "above, so the radio comes up this way. The volume is not stored: "
-        "it follows the knob.</p>"
-        "<form data-api='/api/save'>"
-        "<button class='btn btn-primary btn-sm' type=submit>Keep these "
-        "settings</button></form>");
+      F("<p class='small text-secondary mb-3'>These are read when the "
+        "radio starts, so they need a reboot. They decide which "
+        "frequencies exist, which is not a thing to change under a radio "
+        "that is tuned to one of them.</p><div class='row g-2'>");
+  static const char *regionNames[] = {"65 to 108", "Japan, 76 to 95",
+                                      "76 to 108", "87 to 108", "87.5 to 108"};
+  static const long regionValues[] = {0, 1, 2, 3, 4};
+  out += formSelect("region", "FM band, MHz", regionNames, regionValues, 5,
+                    st->fmRegion, "data-api='/api/settings'");
+  static const char *spacingNames[] = {"9 kHz", "10 kHz"};
+  out += formSelect("spacing", "Medium wave steps", spacingNames, zeroOne, 2,
+                    st->mwSpacing, "data-api='/api/settings'");
+  static const char *encoderNames[] = {"Standard", "Optical"};
+  out += formSelect("encoder", "Encoder", encoderNames, zeroOne, 2,
+                    st->encoderKind, "data-api='/api/settings'");
+  static const char *directionNames[] = {"Normal", "Reversed"};
+  out += formSelect("direction", "Knob direction", directionNames, zeroOne, 2,
+                    st->encoderDirection, "data-api='/api/settings'");
+  out +=
+      F("</div><div class='mt-3'><button class='btn btn-primary btn-sm' "
+        "data-apply>Save band plan</button></div>");
+  out += cardClose();
+  return out;
+}
+/**
+ * The PIN form, shown on any page a caller is not signed in to.
+ *
+ * @param next  Where to go after signing in, so a person who opened the Radio
+ *              page gets the Radio page rather than being dropped on Home.
+ *              Checked against the known pages before it is used, because a
+ *              redirect target that comes from the request and is not checked
+ *              is an open redirect.
+ */
+static String signInForm(const char *next) {
+  String out = cardOpen("Access PIN");
+  out +=
+      F("<p class='text-secondary small'>Six digits. A new radio is on "
+        "000000. Five wrong tries locks this for a minute.</p>"
+        "<form method=post action='/auth'>"
+        "<input type=hidden name=next value='");
+  out += next;
+  out +=
+      F("'><label class='form-label small text-secondary'>PIN</label>"
+        "<input class=form-control name=pin inputmode=numeric "
+        "pattern='[0-9]{6}' maxlength=6 required>"
+        "<button class='btn btn-primary mt-3' type=submit>Unlock</button>"
+        "</form>");
+  out += cardClose();
   return out;
 }
 
-/** The status page, with whichever forms the caller is allowed to use. */
-static void handleRoot(void) {
-  sRequests++;
-  char pin[ACCESS_PIN_DIGITS + 1];
-  accessPinFormat(sAccessPin, pin);
-  (void)pin; /* Never sent to the browser. It is read off the radio. */
-
-  String out = pageHead("TEF668X");
-  out +=
-      F("<h1 class='h4 mb-0' style='letter-spacing:.04em'>TEF668X</h1>"
-        "<p class='text-secondary small mb-3' "
-        "style='letter-spacing:.04em'>");
-  out += F(BOARD_NAME_DISPLAY " &middot; V" FIRMWARE_VERSION);
-  out += F("</p>");
-
-  if (accessPinIsDefault(sAccessPin)) {
-    out +=
-        F("<div class='alert alert-danger py-2 px-3 small' role=alert "
-          "style='background:#3a1410;border:1px solid #7a2a1e;"
-          "color:#ffb4a2'><strong>This radio is on the default access PIN, "
-          "000000.</strong> Anyone who can reach it on the network can "
-          "change its settings and replace its firmware. Set your own PIN "
-          "below.</div>");
+/**
+ * Where a sign in may send the browser afterwards.
+ *
+ * Only the four pages this firmware serves. Anything else, including an
+ * absolute URL somebody put in the form, comes back as the home page.
+ */
+static const char *safeNext(const String &want) {
+  static const char *kPages[] = {"/", "/radio", "/network", "/system"};
+  for (size_t i = 0; i < sizeof(kPages) / sizeof(kPages[0]); i++) {
+    if (want == kPages[i]) {
+      return kPages[i];
+    }
   }
+  return "/";
+}
 
-  out += F("<h2>Status</h2><table class='table table-sm align-middle'>");
-  out += "<tr><td class='text-secondary'>Network</td><td>" +
-         escapeHtml(wifiNetworkName()) + "</td></tr>";
-  out += "<tr><td>Address</td><td>" + String(wifiAddress()) + "</td></tr>";
-  out += "<tr><td>Mode</td><td>";
-  out += inSetupMode() ? F("access point, setup") : F("joined a network");
-  out += F("</td></tr>");
-  out += "<tr><td>Running from</td><td>" + String(rollbackRunningPartition()) +
-         "</td></tr>";
-  out += "<tr><td>Image</td><td class=";
-  out += rollbackPending() ? F("warn>") : F("ok>");
-  out += String(rollbackStateText()) + "</td></tr>";
-  out += "<tr><td>Free heap</td><td>" + String(ESP.getFreeHeap()) +
-         " bytes</td></tr>";
-  out += "<tr><td>Up for</td><td>" + String(millis() / 1000UL) +
-         " seconds</td></tr>";
-  out += F("</table>");
+/** The red banner for a radio anyone on the network can take over. */
+static String defaultPinBanner(void) {
+  if (!accessPinIsDefault(sAccessPin)) {
+    return String();
+  }
+  return F(
+      "<div class='alert alert-danger py-2 px-3 small' role=alert "
+      "style='background:#3a1410;border:1px solid #7a2a1e;"
+      "color:#ffb4a2'><strong>This radio is on the default access PIN, "
+      "000000.</strong> Anyone who can reach it on the network can change "
+      "its settings and replace its firmware. Set your own PIN on the "
+      "<a href='/network' style='color:#ffb4a2'>Network</a> page.</div>");
+}
 
+/** The Wi-Fi form. Different words on the access point, same form. */
+static String wifiForm(void) {
+  String out = cardOpen("Wi-Fi");
   if (inSetupMode()) {
     out +=
-        F("<h2>Wi-Fi</h2>"
-          "<p class='text-secondary small'>The radio could not join a network, "
-          "so it is "
-          "serving this page on its own. Enter the details and it will "
-          "try again.</p>"
-          "<form method=post action='/wifi'>"
-          "<label class='form-label small text-secondary'>Network name</label>"
-          "<input class=form-control name=ssid maxlength=32 required>"
-          "<label class='form-label small text-secondary'>Passphrase, leave "
-          "empty for an open network</label>"
-          "<input class=form-control name=pass type=password maxlength=64>"
-          "<button class='btn btn-primary mt-3' type=submit>Save and "
-          "join</button></form>");
+        F("<p class='text-secondary small'>The radio could not join a "
+          "network, so it is serving this page on its own. Enter the "
+          "details and it will try again.</p>");
+  }
+  out +=
+      F("<form method=post action='/wifi'>"
+        "<label class='form-label small text-secondary'>Network name"
+        "</label><input class=form-control name=ssid maxlength=32 required "
+        "value='");
+  out += escapeHtml(sSettings->wifiSsid);
+  out +=
+      F("'><label class='form-label small text-secondary mt-2'>Passphrase, "
+        "leave empty for an open network</label>"
+        "<input class=form-control name=pass type=password maxlength=64>"
+        "<button class='btn btn-primary mt-3' type=submit>Save and join"
+        "</button></form>");
+  return out;
+}
+
+/**
+ * Home. What the radio is and where it is, and nothing that changes it.
+ *
+ * The four pages exist because one page held the lot, and that page was the
+ * largest String the web server ever built. Splitting them cuts the peak
+ * heap for a request as well as the scrolling.
+ */
+static void handleRoot(void) {
+  sRequests++;
+  String out = pageHead("TEF668X", "/");
+  out += defaultPinBanner();
+
+  /* What it is receiving, read once. A page that refreshes itself belongs on
+   * a websocket, which is phase 5. */
+  RadioSnapshot now;
+  if (radioGetSnapshot(&now)) {
+    out += cardOpen("Radio");
+    char freq[16];
+    if (bandFormatFrequency(now.settings.band, now.settings.freqKHz, freq,
+                            sizeof(freq))) {
+      out +=
+          F("<div class='d-flex align-items-baseline gap-2 mb-1'>"
+            "<span style='font-size:30px;color:#ffb200;"
+            "font-variant-numeric:tabular-nums'>");
+      out += freq;
+      out += F("</span><span class='text-secondary'>");
+      out += bandFrequencyUnit(now.settings.band);
+      out += F("</span><span class='text-secondary'>");
+      out += bandName(now.settings.band);
+      out += F("</span></div>");
+    }
+    out += F("<p class='small text-secondary mb-2'>");
+    if (now.qualityValid) {
+      out += String(now.quality.levelDbuVTenths / 10);
+      out += F(" dBuV");
+      if (now.quality.stereo && !now.settings.forcedMono) {
+        out += F(" &middot; stereo");
+      }
+    }
+    out += F(" &middot; squelch ");
+    out += squelchModeName(now.squelchMode);
+    out += now.squelchOpen ? F(", open") : F(", shut");
+    if (now.settings.muted) {
+      out += F(" &middot; muted");
+    }
+    out += F("</p>");
+    if (signedIn()) {
+      out +=
+          F("<a class='btn btn-outline-secondary btn-sm' href='/radio'>"
+            "Tune and settings</a>");
+    }
+    out += cardClose();
   }
 
-  if (signedIn()) {
-    if (!inSetupMode()) {
-      out += F(
-          "<h2>Wi-Fi</h2>"
-          "<form method=post action='/wifi'>"
-          "<label class='form-label small text-secondary'>Network name</label>"
-          "<input class=form-control name=ssid maxlength=32 required value='");
-      out += escapeHtml(sSettings->wifiSsid);
-      out +=
-          F("'><label class='form-label small text-secondary mt-2'>Passphrase, "
-            "leave empty for an open network</label>"
-            "<input class=form-control name=pass type=password maxlength=64>"
-            "<button class='btn btn-primary mt-3' type=submit>Save and "
-            "join</button></form>");
-    }
-    out += radioForms();
+  out += cardOpen("Network");
+  out += F("<table class='table table-sm align-middle mb-0'>");
+  out += "<tr><td class='text-secondary'>Joined</td><td>" +
+         escapeHtml(wifiNetworkName()) + "</td></tr>";
+  out += "<tr><td class='text-secondary'>Address</td><td>" +
+         String(wifiAddress()) + "</td></tr>";
+  out += F("<tr><td class='text-secondary'>Mode</td><td>");
+  out += inSetupMode() ? F("access point, setup") : F("joined a network");
+  out += F("</td></tr></table>");
+  out += cardClose();
+
+  if (inSetupMode()) {
+    /* On the access point there is no network yet, so the form that fixes
+     * that goes here as well rather than one page away. */
+    out += wifiForm();
+  }
+  if (!signedIn()) {
+    out += signInForm("/");
+  }
+  out += pageTail();
+  sServer.send(200, "text/html", out);
+}
+
+/** Radio. Everything about how it receives. */
+static void handleRadioPage(void) {
+  sRequests++;
+  String out = pageHead("Radio", "/radio");
+  if (!signedIn()) {
+    out += signInForm("/radio");
+    out += pageTail();
+    sServer.send(200, "text/html", out);
+    return;
+  }
+  out += radioForms();
+  out += pageTail(true);
+  sServer.send(200, "text/html", out);
+}
+
+/** Network. The Wi-Fi it joins and the PIN that guards it. */
+static void handleNetworkPage(void) {
+  sRequests++;
+  String out = pageHead("Network", "/network");
+  out += defaultPinBanner();
+  out += wifiForm(); /* Open on the access point, which is the point of it. */
+  if (!signedIn()) {
+    out += signInForm("/network");
+  } else {
+    out += cardOpen("Access PIN");
     out +=
-        F("<h2>Firmware</h2>"
-          "<p class='text-secondary small'>Pick the .bin from "
-          ".pio/build/ats125/firmware.bin. The radio reboots into it and "
-          "puts the old one back on its own if it does not come up.</p>"
-          "<form method=post action='/update' enctype='multipart/form-data'>"
-          "<input class=form-control type=file name=firmware accept='.bin' "
-          "required>"
-          "<button class='btn btn-primary mt-3' type=submit>Upload and "
-          "reboot</button></form>"
-          "<h2>Access PIN</h2>"
-          "<p class='text-secondary small'>Six digits. Changing it takes "
-          "effect at once and "
-          "signs every browser out, this one included.</p>"
+        F("<p class='text-secondary small'>Six digits. Changing it takes "
+          "effect at once and signs every browser out, this one included."
+          "</p>"
           "<form method=post action='/setpin'>"
           "<label class='form-label small text-secondary'>New PIN</label>"
           "<input class=form-control name=pin inputmode=numeric "
           "pattern='[0-9]{6}' maxlength=6 required>"
-          "<button class='btn btn-primary mt-3' type=submit>Change "
-          "PIN</button></form>"
-          "<h2>Reboot</h2>"
-          "<form method=post action='/reboot'>"
-          "<button class='btn btn-outline-secondary mt-2' type=submit>Reboot "
-          "now</button></form>");
-  } else {
-    out +=
-        F("<h2>Access PIN</h2>"
-          "<p class='text-secondary small'>Six digits. A new radio is on "
-          "000000. Five wrong "
-          "tries locks this for a minute.</p>"
-          "<form method=post action='/auth'>"
-          "<label class='form-label small text-secondary'>PIN</label>"
-          "<input class=form-control name=pin inputmode=numeric "
-          "pattern='[0-9]{6}' maxlength=6 required>"
-          "<button class='btn btn-primary mt-3' "
-          "type=submit>Unlock</button></form>");
+          "<button class='btn btn-primary mt-3' type=submit>Change PIN"
+          "</button></form>");
+    out += cardClose();
   }
+  out += pageTail();
+  sServer.send(200, "text/html", out);
+}
+
+/** System. The image it runs, and what it is doing for memory. */
+static void handleSystemPage(void) {
+  sRequests++;
+  String out = pageHead("System", "/system");
+  if (!signedIn()) {
+    out += signInForm("/system");
+    out += pageTail();
+    sServer.send(200, "text/html", out);
+    return;
+  }
+
+  out += cardOpen("This image");
+  out += F("<table class='table table-sm align-middle mb-0'>");
+  out += "<tr><td class='text-secondary'>Firmware</td><td>V" +
+         String(FIRMWARE_VERSION) + "</td></tr>";
+  out += "<tr><td class='text-secondary'>Running from</td><td>" +
+         String(rollbackRunningPartition()) + "</td></tr>";
+  out += "<tr><td class='text-secondary'>Image</td><td class=";
+  out += rollbackPending() ? F("warn>") : F("ok>");
+  out += String(rollbackStateText()) + "</td></tr>";
+  const Tef668xCapabilities *tuner = tef668xCapabilities();
+  if (tuner != NULL) {
+    out += "<tr><td class='text-secondary'>Tuner</td><td>" +
+           String(tuner->part) + ", patch v" +
+           String((unsigned)tuner->patchVersion) + "</td></tr>";
+  } else {
+    out += "<tr><td class='text-secondary'>Tuner</td><td class=warn>" +
+           String(tef668xErrorText(tunerStartError())) + "</td></tr>";
+  }
+  out += F("</table>");
+  out += cardClose();
+
+  out += cardOpen("How it is doing");
+  out += F("<table class='table table-sm align-middle mb-0'>");
+  out += "<tr><td class='text-secondary'>Free heap</td><td>" +
+         String(ESP.getFreeHeap()) + " bytes</td></tr>";
+  out += "<tr><td class='text-secondary'>Up for</td><td>" +
+         String(millis() / 1000UL) + " seconds</td></tr>";
+  out += "<tr><td class='text-secondary'>Requests served</td><td>" +
+         String(sRequests) + "</td></tr>";
+  out += F("</table>");
+  out += cardClose();
+
+  out += cardOpen("Firmware");
+  out +=
+      F("<p class='text-secondary small'>Pick the .bin from "
+        ".pio/build/ats125/firmware.bin. The radio reboots into it and "
+        "puts the old one back on its own if it does not come up.</p>"
+        "<form method=post action='/update' enctype='multipart/form-data'>"
+        "<input class=form-control type=file name=firmware accept='.bin' "
+        "required>"
+        "<button class='btn btn-primary mt-3' type=submit>Upload and "
+        "reboot</button></form>");
+  out += cardClose();
+
+  out += cardOpen("Reboot");
+  out +=
+      F("<p class='text-secondary small'>The band plan and the knob "
+        "settings are read at start up, so this is how they take "
+        "effect.</p>"
+        "<form method=post action='/reboot'>"
+        "<button class='btn btn-outline-secondary' type=submit>"
+        "Reboot now</button></form>");
+  out += cardClose();
 
   out += pageTail();
   sServer.send(200, "text/html", out);
@@ -625,7 +973,12 @@ static void handleAuth(void) {
   cookie += "; Path=/; Max-Age=" + String(WEB_SESSION_TTL_SECONDS) +
             "; HttpOnly; SameSite=Strict";
   sServer.sendHeader("Set-Cookie", cookie);
-  sServer.sendHeader("Location", "/");
+  /* Back to the page the form was on, checked against the pages this
+   * firmware serves. An unchecked target out of the request would send the
+   * browser wherever the poster liked. */
+  sServer.sendHeader(
+      "Location",
+      safeNext(sServer.hasArg("next") ? sServer.arg("next") : String("/")));
   sServer.send(303, "text/plain", "");
 }
 
@@ -863,13 +1216,15 @@ static void appendRadioState(String &out) {
       char freqText[16];
       if (bandFormatFrequency(snap.settings.band, snap.settings.freqKHz,
                               freqText, sizeof(freqText))) {
-        char tuned[128];
+        char tuned[160];
         snprintf(tuned, sizeof(tuned),
-                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"step\":%u"
-                 ",\"vol\":%d,\"mute\":%s,\"mode\":\"%s\",\"seq\":%u",
+                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"unit\":\"%s\""
+                 ",\"step\":%u,\"vol\":%d,\"mute\":%s,\"mode\":\"%s\""
+                 ",\"seq\":%u",
                  bandName(snap.settings.band), (unsigned)snap.settings.freqKHz,
-                 freqText, (unsigned)snap.settings.stepKHz,
-                 snap.settings.volumeDb, snap.settings.muted ? "true" : "false",
+                 freqText, bandFrequencyUnit(snap.settings.band),
+                 (unsigned)snap.settings.stepKHz, snap.settings.volumeDb,
+                 snap.settings.muted ? "true" : "false",
                  tuneModeName(snap.settings.tuneMode), (unsigned)snap.sequence);
         out += tuned;
       }
@@ -2162,6 +2517,9 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.collectHeaders(keep, 2);
 
   sServer.on("/", HTTP_GET, handleRoot);
+  sServer.on("/radio", HTTP_GET, handleRadioPage);
+  sServer.on("/network", HTTP_GET, handleNetworkPage);
+  sServer.on("/system", HTTP_GET, handleSystemPage);
   sServer.on("/status.json", HTTP_GET, handleStatusJson);
   sServer.on("/auth", HTTP_POST, handleAuth);
   sServer.on("/wifi", HTTP_POST, handleWifi);

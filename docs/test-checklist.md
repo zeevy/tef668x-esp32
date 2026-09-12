@@ -364,9 +364,9 @@ Everything the radio is set to now lives in one place. `POST /api/save` writes i
 | 192 | `POST /api/fm -d 'deemph=60'` | `400`. Only 50, 75 and off are real |
 | 193 | `POST /api/fm -d 'deemph=75'` on a medium wave band | Accepted. It belongs to the country, not to the band you are on |
 | 194 | Save with de-emphasis 75, power cycle, listen to FM | It is written again on every start, which `GET /api/state` confirms. Whether it is audible is what 191 could not show |
-| 195 | Open the web page and look at the Radio section | The boxes show what the radio is set to now, not the defaults |
-| 196 | Change one box and press Apply | The line above the forms says what the radio reached. It does not reload the page |
-| 197 | Set an FM level to 10 in the web form and apply | The line goes red and says 0, or 20 to 60 |
+| 195 | Open `/radio` | Three cards: Listening to, Reception, Band plan and knob. Every box shows what the radio is set to now, not the defaults |
+| 196 | Change a box in Reception and press Apply | The line at the top of the page says what the radio reached. The page does not reload |
+| 197 | Open Weak signal and noise blankers, set High cut to 10 and press Apply | The line goes red and says 0, or 20 to 60 |
 | 198 | `POST /api/fm -d 'ims=1'` and `-d 'cut=40'` on medium wave | `400` both times, naming which argument failed and then what the radio is actually set to. Not from the page: the FM only controls are not rendered on an AM band, which is 208 |
 | 199 | Press Keep these settings, then power cycle | The radio comes up as it was left |
 | 200 | Flash this build over a radio that has never saved anything | It still comes up on 104.0 MHz. An update must not move where the radio starts |
@@ -379,11 +379,48 @@ Everything the radio is set to now lives in one place. `POST /api/save` writes i
 | 203 | On FM, `POST /api/bandwidth -d 'khz=4'` | `400`. 4 kHz is an AM width, and on FM it pins the filter narrower than a station and the radio goes quiet and reads as broken |
 | 204 | On FM, `POST /api/bandwidth -d 'khz=110'` | `400`. Between two real widths is not a near miss |
 | 205 | On medium wave, `POST /api/bandwidth -d 'khz=114'` and `khz=0` | `400` both times. 0 is the FM automatic setting and the AM side has no answer for it |
-| 206 | Open the web page while on FM | No bandwidth form, and a line saying the tuner picks the width itself |
-| 207 | Open the web page while on medium wave | A bandwidth select with 3, 4, 6 and 8, showing the width the radio is on |
-| 208 | Open the web page while on medium wave and look at FM settings | De-emphasis and the FM blanker are there. iMS, EQ, mono and the three levels are not, with a line saying they need FM |
+| 206 | Open `/radio` while on FM | The Reception card has no bandwidth box. On FM the tuner picks the width itself |
+| 207 | Open `/radio` while on medium wave | Reception has a bandwidth select of 3, 4, 6 and 8, showing the width the radio is on |
+| 208 | Open `/radio` while on medium wave and look at Reception | De-emphasis and both blankers are there. iMS, EQ, mono and the three levels are not, with a line saying they appear on FM |
 | 209 | Set de-emphasis to 75 from the page while on medium wave | Accepted. Before this it took the whole post down with it |
 | 210 | `GET /api/state` after changing de-emphasis | `deemph` says what the tuner is set to. `fmnb` and `amnb` are there too |
+
+### The web pages
+
+Four pages instead of one. The split is not only tidiness: one page held every form, and it was the largest String the web server ever built.
+
+| # | Do this | Expect |
+|---|---|---|
+| 211 | Open `/` signed out | Status, the red banner if the PIN is still 000000, and a PIN form. No forms that change anything |
+| 212 | Look at the nav on any page | Home, Radio, Network, System, with the page you are on filled in amber |
+| 213 | Open `/radio` signed out, enter the PIN | You land back on `/radio`, not on Home |
+| 214 | Open `/system` signed out, enter the PIN | You land back on `/system` |
+| 215 | Post to `/auth` with `next=http://example.com` | You land on Home. An unchecked redirect target out of the request would send the browser anywhere |
+| 216 | Post to `/auth` with `next=/radio` | You land on `/radio` |
+| 217 | `/` while receiving | A Radio card with the frequency large, the signal, the squelch, and a button through to `/radio`. Read once: it does not refresh on its own, which is what the websocket in phase 5 is for |
+| 218 | Force mono and reload `/` | The Radio card stops saying stereo |
+| 219 | `/network` | Two cards, Wi-Fi and Access PIN, nothing else |
+| 220 | `/system` | Four cards: This image, How it is doing, Firmware, Reboot. What the image is stays still, what it is doing changes every second |
+| 221 | `/radio` | Only the radio. No firmware form anywhere near the reboot button |
+| 222 | The red default PIN banner | On Home and Network, and it links to Network where the PIN is changed |
+| 223 | Load any page with the CDN blocked | Still readable, and the nav still looks like a nav. The radio's own access point has no internet |
+
+### Working the radio from the page
+
+The Listening to card is the reason the Radio page exists. Before this it was four forms of settings with no way to change station.
+
+| # | Do this | Expect |
+|---|---|---|
+| 224 | Press the right chevron beside the frequency | One step up, and the big frequency changes without the page reloading |
+| 225 | Press the left chevron | One step back down |
+| 226 | Type a frequency in the box and press Go | It tunes there. A frequency in no band goes red with a reason |
+| 227 | Change the Band select | It changes band, and the page reloads, because which settings apply depends on the band |
+| 228 | Drag the volume slider and let go | The number beside the label follows your finger, and the radio changes when you let go, not on every pixel |
+| 229 | Change the Squelch select | It changes at once. In Manual the front knob becomes the squelch and stops setting the volume |
+| 230 | Press Mute or unmute twice | It goes quiet and comes back. The line at the top says which |
+| 231 | Press Keep these settings | It says where the radio will come up and which squelch mode |
+| 232 | Do any of the above with the radio unplugged from the network mid press | The line says the radio did not answer, rather than the page hanging |
+| 233 | Press Apply in Reception on an AM band | Only the settings that band can take are sent. Nothing is refused for being an FM idea |
 
 ### Reception and audio
 
