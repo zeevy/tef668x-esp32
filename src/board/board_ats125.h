@@ -56,6 +56,16 @@
 #define PIN_SMETER_PWM 27   /**< Analogue S meter, driven by PWM. */
 #define PIN_TOUCH_IRQ 33    /**< XPT2046 pen down interrupt. */
 #define PIN_KEYPAD_IRQ 14   /**< PCA9555 interrupt, a key was pressed. */
+#define PIN_TUNER_XTAL_ADC 15 /**< Says which crystal the tuner has. */
+
+/* What the crystal sense pin reads for each crystal, and how far off a reading
+ * may sit. From the PE5PVB firmware, which runs on this board. The tuner has
+ * its own crystal, separate from the ESP32's 40 MHz one, and the same firmware
+ * runs on boards with different ones, so this is read and never assumed. */
+#define XTAL_ADC_0V 0          /**< Near 0 means a 9.216 MHz crystal. */
+#define XTAL_ADC_1V 1050       /**< About 1V means a 12 MHz crystal. */
+#define XTAL_ADC_2V 2250       /**< About 2V means a 55 MHz crystal. */
+#define XTAL_ADC_TOLERANCE 300 /**< How far a reading may sit from those. */
 
 /* Display, from TFT_eSPI/User_Setup.h in the PE5PVB fork. */
 #define PIN_TFT_CS 5    /**< ILI9341 chip select. */

@@ -17,10 +17,12 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
+#include "core/band_plan.h"
 #include "core/settings.h"
 #include "core/version.h"
 #include "drivers/device_id.h"
 #include "drivers/settings_nvs.h"
+#include "drivers/tef668x.h"
 #include "net/boot_watchdog.h"
 #include "net/ota_service.h"
 #include "net/rollback.h"
@@ -30,8 +32,18 @@
 /** The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
 
-/** The PIN this radio is using, either from settings or from the MAC. */
+/** The PIN this radio is using. */
 static uint32_t gAccessPin = 0;
+
+/** Where the radio parks until there is a setting for it. */
+static const uint32_t kBootFrequencyKHz = 104000;
+
+/** How the tuner start up went, so the banner and the web page can say. */
+static Tef668xError gTunerError = TEF668X_ERR_NOT_READY;
+
+Tef668xError tunerStartError(void) {
+  return gTunerError;
+}
 
 /** Print everything someone standing at the serial port needs to know. */
 static void printBanner(void) {
@@ -49,6 +61,20 @@ static void printBanner(void) {
                 rollbackStateText());
   Serial.printf("  mac            %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],
                 mac[1], mac[2], mac[3], mac[4], mac[5]);
+  const Tef668xCapabilities *tuner = tef668xCapabilities();
+  if (tuner != NULL) {
+    Serial.printf("  tuner          %s, patch v%u\n", tuner->part,
+                  (unsigned)tuner->patchVersion);
+    Serial.printf("  tuner words    device %04X hw %04X sw %04X\n",
+                  tuner->deviceWord, tuner->hardwareWord, tuner->softwareWord);
+    Serial.printf("  tuner can do   %s%s%s\n",
+                  tuner->hasStereoImprovement ? "stereo improvement " : "",
+                  tuner->hasFullSearchRds ? "full search RDS " : "",
+                  tuner->hasDigitalRadio ? "digital radio" : "");
+  } else {
+    Serial.printf("  tuner          FAILED: %s\n",
+                  tef668xErrorText(gTunerError));
+  }
   Serial.printf(
       "  access pin     %s%s\n", pin,
       accessPinIsDefault(gAccessPin) ? "   <- still the default" : "");
@@ -98,6 +124,37 @@ void setup() {
   settingsNvsLoad(&gSettings);
 
   gAccessPin = gSettings.accessPin;
+
+  /* The tuner takes a patch over I2C before it will do anything, so this is
+   * where that happens. It is independent of the network, and a failure must
+   * not stop the radio being reachable, because being reachable is how a fix
+   * gets installed. */
+  gTunerError = tef668xBegin();
+  if (gTunerError != TEF668X_OK) {
+    Serial.printf("[tuner] start up failed: %s\n",
+                  tef668xErrorText(gTunerError));
+  } else {
+    /* Tune something so there is audio to hear. Which station this is will
+     * come from settings once there are settings for it. */
+    Tef668xError err = tef668xTuneFm(kBootFrequencyKHz);
+    if (err == TEF668X_OK) {
+      err = tef668xSetFmBandwidth(0);
+    }
+    if (err == TEF668X_OK) {
+      err = tef668xSetVolume(0);
+    }
+    if (err == TEF668X_OK) {
+      err = tef668xSetMute(false);
+    }
+    if (err != TEF668X_OK) {
+      Serial.printf("[tuner] could not tune: %s\n", tef668xErrorText(err));
+    } else {
+      char text[16];
+      bandFormatFrequency(BAND_FM, kBootFrequencyKHz, text, sizeof(text));
+      Serial.printf("[tuner] tuned to %s %s\n", text,
+                    bandFrequencyUnit(BAND_FM));
+    }
+  }
 
   wifiBegin(&gSettings);
 

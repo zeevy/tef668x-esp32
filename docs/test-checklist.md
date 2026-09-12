@@ -40,12 +40,12 @@ This flash needs the cable and the boot button. Every flash after it does not.
 |---|---|---|
 | 11 | Open `http://tef668x.local/` | The status page loads. If mDNS does not work on your network, use the address from check 10 and note that check 11 failed |
 | 12 | Read the status table | Network is your SSID, mode is `joined a network`, running from is `app0`, image is `confirmed` |
-| 13 | Open `http://tef668x.local/status.json` | JSON with `board`, `version`, `partition`, `imageConfirmed`, `mode`, `address`, `freeHeap`, `uptimeSeconds` |
+| 13 | Open `http://tef668x.local/status.json` | JSON with `board`, `ver`, `slot`, `confirmed`, `mode`, `ip`, `heap`, `up` |
 | 14 | Try to open the firmware upload form without entering a PIN | There is no upload form. Only the PIN form is shown |
 | 15 | Enter `000000` | The page reloads and now shows the Wi-Fi form, the firmware form, a Change PIN form and the reboot button |
 | 15b | Look at the top of the page | A red banner says the radio is on the default PIN |
-| 15c | Check `/status.json` | `pinIsDefault` is `true` |
-| 15d | Change the PIN to something else, then reload | The red banner is gone, `pinIsDefault` is `false`, and you are signed out. The old PIN no longer works |
+| 15c | Check `/status.json` | `defaultPin` is `true` |
+| 15d | Change the PIN to something else, then reload | The red banner is gone, `defaultPin` is `false`, and you are signed out. The old PIN no longer works |
 
 ### The PIN gate
 
@@ -61,9 +61,9 @@ This flash needs the cable and the boot button. Every flash after it does not.
 |---|---|---|
 | 19 | Unplug the USB cable from the radio. Leave it on battery | The radio stays on your network |
 | 20 | Run `TEF_OTA_PIN=<your PIN> pio run -e ats125 -t upload --upload-port tef668x.local`. This needs the radio to be able to open a connection back to your machine, so it fails across subnets or through a host firewall. If it does, use the browser upload in check 24 instead | The build prints `Upload port tef668x.local looks like a network address, using espota`, the upload runs to 100 percent, and the radio reboots |
-| 21 | Reconnect serial and read the banner, or open `/status.json` | `partition` has changed to `app1`. This proves both slots work |
-| 22 | Wait 15 seconds, then reload `/status.json` | `imageConfirmed` is `true`. The self check passed and the image is kept |
-| 23 | Run the same upload again | `partition` goes back to `app0`. The two slots alternate |
+| 21 | Reconnect serial and read the banner, or open `/status.json` | `slot` has changed to `app1`. This proves both slots work |
+| 22 | Wait 15 seconds, then reload `/status.json` | `confirmed` is `true`. The self check passed and the image is kept |
+| 23 | Run the same upload again | `slot` goes back to `app0`. The two slots alternate |
 
 ### Over the air update from the browser, no cable
 
@@ -71,14 +71,14 @@ This flash needs the cable and the boot button. Every flash after it does not.
 |---|---|---|
 | 24 | Open the page on a phone, check the layout is readable and the buttons are reachable one handed | Bootstrap 5 is loaded from a CDN, so this needs the radio to be on a network with internet. On the setup access point the page falls back to the built in stylesheet and must still be usable |
 | 24b | Enter the PIN, pick `.pio/build/ats125/firmware.bin` and press Upload and reboot | The page says the radio is rebooting into the new image |
-| 25 | Wait 20 seconds and reload the page | The page comes back. The partition has changed again |
+| 25 | Wait 20 seconds and reload the page | The page comes back. The `slot` has changed again |
 | 26 | Upload a file that is not firmware, such as a text file | The page says the image was not accepted and the radio is still running the old one. The radio does not reboot |
 
 ### The upload endpoint refuses anyone without the PIN
 
 | # | Do this | Expect |
 |---|---|---|
-| 27 | From a terminal, run `curl -i -X POST http://tef668x.local/update` | `403 Forbidden` and `Enter the access PIN first.` The radio does **not** reboot. Check `/status.json` and confirm `uptimeSeconds` kept counting |
+| 27 | From a terminal, run `curl -i -X POST http://tef668x.local/update` | `403 Forbidden` and `Enter the access PIN first.` The radio does **not** reboot. Check `/status.json` and confirm `up` kept counting |
 | 28 | Run `curl -i -X POST -F 'note=hello' http://tef668x.local/update` | `403 Forbidden`, and again no reboot |
 | 29 | Sign in with the PIN in a browser, then run the same curl without the cookie | Still `403`. A session in one browser does not let an unauthenticated client through |
 
@@ -92,7 +92,7 @@ This is the one that decides whether the phase worked. Do not skip it.
 | 31 | Edit `src/main.cpp`. Put `while (true) { delay(1000); }` on the line **after** `bootWatchdogArm();`, not before it, and build | The build succeeds |
 | 32 | Upload that image over the air, either way | It uploads and the radio reboots into it. It then does nothing, because setup never finishes |
 | 33 | Wait two minutes without touching the radio | Serial prints `setup did not finish in time, restarting`, the radio restarts, and comes back on the network on its own |
-| 34 | Open `/status.json` | `partition` is the one from check 30, and `version` is the working firmware. A hung image was rolled back with no cable |
+| 34 | Open `/status.json` | `slot` is the one from check 30, and `ver` is the working firmware. A hung image was rolled back with no cable |
 | 35 | Undo the edit from check 31 | The working source is back |
 
 A hang placed **before** `bootWatchdogArm()`, which is the first statement in `setup()`, is the one case that still needs the cable. There is nothing running at that point to catch it. Keep that line first.
@@ -106,9 +106,62 @@ A hang placed **before** `bootWatchdogArm()`, which is the first statement in `s
 | 38 | Join it, open `http://192.168.4.1/`, enter the right details | The radio rejoins your network. Wrong credentials never needed the cable |
 | 39 | With the radio on your network, reboot your router and watch `/status.json` | The radio stays on the network once the router is back. It only drops to the access point if the network really has gone |
 
+## Build 0.2.0, phase 2, the tuner
+
+This build makes it a radio. It tunes, it plays audio, and it can be driven
+from a script over Wi-Fi.
+
+Flashing is over the air now. No cable, no boot button.
+
+```bash
+curl -s -c /tmp/c -X POST -d 'pin=<your PIN>' http://tef668x.local/auth
+curl -s -b /tmp/c -F "firmware=@.pio/build/ats125/firmware.bin" \
+     http://tef668x.local/update
+```
+
+### The tuner comes up
+
+| # | Do this | Expect |
+|---|---|---|
+| 40 | `curl -s http://tef668x.local/status.json` and read `tuner` | `part` is `TEF6686`, `patch` is 102, and `fmsi`, `fsrds` and `dr` are all false. That is what this part is |
+| 41 | Read `xtal` and `xtalAdc` in the same reply | `xtalAdc` is 0 and `xtal` is `9.216 MHz`. A different crystal here means the radio is deaf, so it is worth reading every time |
+| 42 | Flash again over the air, then read `xtal` again | Still `9.216 MHz`, not `not read`. The tuner is patched on every start, because after an update the chip keeps the old firmware's settings |
+
+### It receives
+
+Stations known to be on air at this location. Substitute your own.
+
+| # | Do this | Expect |
+|---|---|---|
+| 43 | Extend the telescopic antenna | Without it every reading sits near the noise floor and it looks like a firmware fault |
+| 44 | `curl -s -b /tmp/c -X POST -d 'khz=102800' http://tef668x.local/api/tune` | `FM 102.80 MHz`, and audio you can hear |
+| 45 | Read `status.json` | `sig` above 300, `usn` under 50, `bw` around 236, `st` true. `sig` is in tenths, so 300 means 30 dBuV |
+| 46 | Tune 98300, 101900, 93500, 91100, 92700, 94300, 106400, 104000 in turn | Each one receives. Weak ones may not show `st` true, which is honest rather than wrong |
+| 47 | Watch `mod` on 92.7 and 104.0 | It goes above 100. That is real over modulation, not an error, and it is the case the AGC fixtures were kept for |
+
+### It receives on medium wave, and comes back
+
+The band switch is where this went wrong once, so check it in both directions.
+
+| # | Do this | Expect |
+|---|---|---|
+| 48 | Tune 738 | `MW 738 kHz`, `sig` around 190, and audio |
+| 49 | Tune 846 and 1377 | Both receive. 1377 shows as `1 377` |
+| 50 | Tune 102800 straight after a medium wave station | It receives properly again. If every FM station reads `sig` 8320 and `bw` 4, the chip is stuck on its AM side and the FM preset wake is broken |
+| 51 | Alternate FM and MW five times | The last reading matches the first for the same station |
+
+### The control API
+
+| # | Do this | Expect |
+|---|---|---|
+| 52 | `curl -i -X POST -d 'khz=102800' http://tef668x.local/api/tune` with no session | `403` and `Enter the access PIN first.` |
+| 53 | Sign in, then `-d 'khz=50000'` | `400` and `That frequency is in no band.` 50 MHz is between OIRT and shortwave |
+| 54 | `-d 'khz=0'` and `-d 'khz=abc'` | `400` and a plain reason. Never a 500, and never a 200 that quietly did nothing |
+| 55 | `-d 'khz=4294967295'` | `400`, not a tune to something absurd |
+
 ### Things this build cannot be tested for
 
-Not written yet, so do not look for them: tuner, audio, display, touch, encoder, keypad, RTC, battery reading, telemetry.
+Not written yet, so do not look for them: display, touch, encoder, keypad, RTC, battery reading, telemetry, RDS.
 
 ### Already covered by CI, do not retest by hand
 

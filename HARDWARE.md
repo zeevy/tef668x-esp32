@@ -64,9 +64,76 @@ From the defines at the top of `TEF6686_ESP32.ino` in the PE5PVB firmware.
 | 27 | Analog S-meter PWM |
 | 33 | Touch controller interrupt |
 | 14 | Keypad interrupt from the I/O expander |
+| 15 | Tuner crystal sense, ADC. Read on 2026-09-12 |
 
 Pins 34, 35, 36 and 39 are input only on the ESP32. Pin 35 is on ADC1, which is
 the ADC that still works while Wi-Fi is running.
+
+### The tuner has its own crystal, and which one is fitted is read
+
+The 40 MHz crystal in the table above is the ESP32's. The tuner has a separate
+one, and the same firmware runs on boards with different ones, so it is read
+rather than assumed. A voltage on pin 15 says which:
+
+| Reading on pin 15 | Crystal |
+|---|---|
+| Near 0 | 9.216 MHz |
+| About 1050 | 12 MHz |
+| About 2250 | 55 MHz |
+| Anything else | 4 MHz |
+
+A reading may sit up to 300 counts away from those. **This unit reads 0, so it
+has a 9.216 MHz crystal**, confirmed over HTTP on 12 September 2026.
+
+Getting this wrong does not fail loudly. An earlier version of this table had
+the windows shifted by one, so the radio told the chip it had a 4 MHz crystal.
+Everything still started, the chip still answered, and the signal level sat at
+about -3 dBuV on every frequency, which reads as a radio with no aerial. Fixing
+the mapping alone took 104.0 MHz from -3 dBuV to 25 dBuV.
+
+Pin 15 is on ADC2, which stops working once Wi-Fi is running. The tuner is
+therefore brought up before Wi-Fi, and it has to stay that way.
+
+### Bringing the tuner up, in order
+
+Learned by getting it wrong on 12 September 2026. Each of these was found only
+by running it on the radio, and each failure looks like a working I2C bus.
+
+1. **Wait 2 ms after every write.** That wait is also what sits between a
+   query's write and its read. Without it every read returns zeros, and the
+   transfer reports success.
+2. **Patch, then set the clock, then power on, then write the register
+   defaults.** The chip cannot answer the identification until the first three
+   are done. A patched chip with no clock acknowledges every write and returns
+   zeros to every read.
+3. **Operation mode 0 is working, 1 is standby.** It reads backwards. A chip
+   left in standby answers everything and returns a quality status of 0xFFFA
+   with nonsense in every field, which looks exactly like a broken decoder.
+4. **Bandwidth mode 0 pins it, mode 1 lets the chip adapt.** That reads
+   backwards too. Mode 0 with a bandwidth of zero pins the bandwidth at zero:
+   the chip reports its narrowest setting, never finds a stereo pilot, and
+   looks like a radio with no aerial again.
+5. **Stereo is not in the quality word.** It is bit 15 of the signal status,
+   command 133 on the FM module. Reading bit 15 of the quality word gives an
+   answer that looks plausible and is always wrong.
+6. **The reset command is five bytes**, `1E 5A 01 5A 5A`. A three byte version
+   is acknowledged just the same and resets nothing, so the patch then lands
+   on top of whatever state the chip was already in.
+7. **Coming back from AM to FM needs more than tuning the FM module.** Setting
+   operation mode 0 is only half of it: the chip also wants an FM preset tune,
+   which the working firmware does as a fixed jump to 100.00 MHz. Without it
+   one AM tune leaves the chip on its AM front end for good, and every FM
+   station afterwards reads the same fixed nonsense, 832 dBuV and a 4 kHz
+   bandwidth. It reads as a broken decoder rather than a chip on the wrong
+   side.
+8. **Do not trust the chip's "already patched" answer after an update over the
+   air.** The ESP32 reboots and the tuner does not, so it comes up still
+   holding the previous firmware's clock and register settings. Patch it every
+   time, or a firmware update cannot change anything about the tuner until
+   someone power cycles the radio.
+
+Once all of that is right the readings are sane: level in tenths of a dBuV,
+bandwidth in tenths of a kilohertz, modulation in tenths of a percent.
 
 ## Display
 
@@ -271,5 +338,35 @@ threshold from this table.
    at all.
 3. Which USB serial chip other batches carry, and whether those are wired for
    auto reset.
+4. **The FM tuning is about 50 ppm high, and the reference crystal is the
+   likely cause.** Measured on 12 September 2026 across nine local stations,
+   the tuner's own offset reading ranged from -0.6 to +8.8 kHz and averaged
+   about +5 kHz. On the three medium wave stations it was -0.2, -0.7 and 0.0
+   kHz, which is effectively zero.
+
+   That difference is the evidence. An error in the tuning arithmetic would
+   show on both bands, because both go through the same code, and a
+   transmitter being off frequency would not line up across nine of them. An
+   error in the reference clock scales with the frequency being received, so
+   +5 kHz at 100 MHz is about 50 ppm, and the same 50 ppm at 738 kHz is 0.04
+   kHz, far too small to see. 50 ppm is ordinary for a cheap crystal.
+
+   It changes nothing for listening: FM channels are 100 kHz apart, so 5 kHz
+   never reaches the next station.
+
+   **The PE5PVB firmware has no frequency trim either.** It was searched on 12
+   September 2026 and the only calibration in it is for the analogue meter and
+   the touchscreen. So it runs on this same radio with this same error, and its
+   RDS decodes well enough that the captures in `test/fixtures/` came from it.
+   That is real evidence that 50 ppm is tolerable, and it takes RDS off the
+   list of things this threatens.
+
+   What is left is the band scan in phase 6, where a systematic offset shifts
+   every peak by the same amount. That is worth correcting, and it is also the
+   easiest place to measure the correction, since a scan across a band of
+   known stations gives the error directly.
+
+   Nothing is being adjusted until it has been measured that way. Dialling a
+   trim until the number looks tidy is how a guessed threshold gets in.
 4. Whether the air band converter board is fitted. Nothing in the photos looks
    like one, which supports the theory that it is absent.

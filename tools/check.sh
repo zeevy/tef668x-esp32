@@ -103,18 +103,83 @@ gate_build() {
   return 0
 }
 
+# Where the per test coverage files are kept, so one run of the suite serves
+# both the test gate and the coverage gate.
+COVERAGE_DIR=""
+
+# Run every test folder on its own and keep each one's coverage.
+#
+# PlatformIO builds a separate binary per folder and each build overwrites the
+# .gcda files rather than adding to them, so reading them once at the end
+# reports only whichever folder ran last. Each is saved as it goes and merged
+# afterwards.
+#
+# Both gates call this and it only does the work once per invocation.
+run_suite() {
+  if [ -n "$COVERAGE_DIR" ]; then
+    return "$SUITE_RESULT"
+  fi
+  COVERAGE_DIR=$(mktemp -d) || {
+    echo "   could not make a working directory"
+    COVERAGE_DIR=""
+    return 1
+  }
+  SUITE_RESULT=0
+  COVERAGE_RESULT=0
+  SUITE_COUNT=0
+
+  local gcov t
+  gcov=$(gcov_executable)
+  for t in test/test_*; do
+    [ -d "$t" ] || continue
+    t=$(basename "$t")
+    SUITE_COUNT=$((SUITE_COUNT + 1))
+    rm -rf .pio/build/native
+    if ! pio test -e native -f "$t" 2>&1 | tail -4; then
+      SUITE_RESULT=1
+      continue
+    fi
+    # Coverage collection failing is not a test failure. Keeping them apart
+    # stops the test gate reporting red when every test passed.
+    if ! gcovr --gcov-executable "$gcov" --root . --filter 'src/core/' \
+               --json "$COVERAGE_DIR/$t.json" .pio/build/native >/dev/null 2>&1; then
+      echo "   could not read coverage for $t"
+      COVERAGE_RESULT=1
+    fi
+  done
+
+  if [ "$SUITE_COUNT" -eq 0 ]; then
+    echo "   no test folders were found, so nothing ran"
+    SUITE_RESULT=1
+  fi
+  return "$SUITE_RESULT"
+}
+
 gate_test() {
-  pio test -e native 2>&1 | tail -5
-  return ${PIPESTATUS[0]}
+  run_suite
 }
 
 gate_coverage() {
-  # The tests have to have run, so that the .gcda files exist.
-  pio test -e native >/dev/null 2>&1 || return 1
-  gcovr --gcov-executable "$(gcov_executable)" \
-        --root . --filter 'src/core/' \
-        --fail-under-line "$COVERAGE_FLOOR" \
-        .pio/build/native 2>&1 | tail -8
+  run_suite || {
+    echo "   the tests did not all pass, so coverage means nothing"
+    return 1
+  }
+  if [ "$COVERAGE_RESULT" -ne 0 ]; then
+    echo "   coverage could not be collected for every test"
+    return 1
+  fi
+
+  local args=() f
+  for f in "$COVERAGE_DIR"/*.json; do
+    [ -f "$f" ] || continue
+    args+=(--add-tracefile "$f")
+  done
+  if [ ${#args[@]} -eq 0 ]; then
+    echo "   no coverage was produced"
+    return 1
+  fi
+
+  gcovr "${args[@]}" --fail-under-line "$COVERAGE_FLOOR" 2>&1 | tail -10
   return ${PIPESTATUS[0]}
 }
 
@@ -178,6 +243,8 @@ case "${1:-all}" in
     exit 2
     ;;
 esac
+
+[ -n "$COVERAGE_DIR" ] && rm -rf "$COVERAGE_DIR"
 
 printf '\n'
 if [ "$failed" -eq 0 ]; then

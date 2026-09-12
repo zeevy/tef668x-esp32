@@ -6,8 +6,10 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
+#include "core/band_plan.h"
 #include "core/version.h"
 #include "drivers/settings_nvs.h"
+#include "drivers/tef668x.h"
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
 
@@ -577,28 +579,232 @@ static void handleReboot(void) {
   sRebootAfterReply = true;
 }
 
-/** Small JSON for scripts and for the test checklist. */
+/**
+ * The radio's state as JSON, for scripts and for the test checklist.
+ *
+ * Keys are short on purpose. They are the names already used on the radio's
+ * own screen and in `test/fixtures/agc/`, so a telemetry capture, a test
+ * fixture and this endpoint all use one vocabulary. Decision 25 asks for one
+ * schema across the API and telemetry, and this is it.
+ *
+ * Every number is an integer. Anything with a fraction is sent in tenths, so
+ * nothing has to parse a float and no precision is lost.
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `board` | Board id | |
+ * | `ver` | Firmware version | |
+ * | `slot` | Application partition this image booted from | |
+ * | `confirmed` | Image passed its self check and will not roll back | |
+ * | `mode` | `station` on a network, `ap` on its own access point | |
+ * | `ip` | Address it can be reached on | |
+ * | `defaultPin` | Access PIN is still 000000 | |
+ * | `heap` | Free heap | bytes |
+ * | `up` | Time since boot | seconds |
+ *
+ * Inside `tuner`, when the tuner started:
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `part` | Which TEF668x is fitted | |
+ * | `patch` | Tuner firmware version loaded into it | |
+ * | `fmsi` | Has FM stereo improvement | |
+ * | `fsrds` | Has full search RDS | |
+ * | `dr` | Has digital radio | |
+ * | `sig` | Signal level | tenths of a dBuV |
+ * | `usn` | Ultrasonic noise | tenths of a percent |
+ * | `wam` | Multipath, what the chip calls weighted AM | tenths of a percent |
+ * | `offset` | How far off centre the station is | tenths of a kHz |
+ * | `bw` | Bandwidth the tuner settled on | kHz |
+ * | `mod` | Modulation depth | percent |
+ * | `st` | A stereo pilot is present | |
+ *
+ * Inside `tuner` when it did not start, so a fault can be read without a
+ * serial cable:
+ *
+ * | Key | Full name |
+ * |---|---|
+ * | `error` | What stopped it, in words |
+ * | `device`, `hw`, `sw` | The three identification words, hex |
+ * | `sawChip` | Something acknowledged at the I2C address |
+ * | `readBoot` | The operation status came back |
+ * | `boot` | What it said. 0 means not patched yet |
+ * | `patched` | A patch was written this boot |
+ * | `tried` | Which patch version was written |
+ * | `wanted` | Which one the chip then asked for |
+ */
 static void handleStatusJson(void) {
   sRequests++;
   String out;
-  out.reserve(320);
-  out += F("{\"board\":\"" BOARD_NAME "\",\"version\":\"" FIRMWARE_VERSION
-           "\",\"partition\":\"");
+  out.reserve(640);
+  out += F("{\"board\":\"" BOARD_NAME "\",\"ver\":\"" FIRMWARE_VERSION
+           "\",\"slot\":\"");
   out += rollbackRunningPartition();
-  out += F("\",\"imageConfirmed\":");
+  out += F("\",\"confirmed\":");
   out += rollbackPending() ? F("false") : F("true");
   out += F(",\"mode\":\"");
-  out += inSetupMode() ? F("accessPoint") : F("station");
-  out += F("\",\"address\":\"");
+  out += inSetupMode() ? F("ap") : F("station");
+  out += F("\",\"ip\":\"");
   out += wifiAddress();
-  out += F("\",\"pinIsDefault\":");
+  const Tef668xCapabilities *tuner = tef668xCapabilities();
+  out += F("\",\"tuner\":");
+  if (tuner != NULL) {
+    out += F("{\"part\":\"");
+    out += tuner->part;
+    out += F("\",\"patch\":");
+    out += String(tuner->patchVersion);
+    /* The crystal is reported whether start up worked or not. A wrong choice
+     * here does not fail, it just makes the radio deaf, so it has to be
+     * visible on a working radio too. */
+    const Tef668xDiagnostics *dg = tef668xDiagnostics();
+    char xt[72];
+    snprintf(xt, sizeof(xt), ",\"xtalAdc\":%u,\"xtal\":\"%s\"",
+             (unsigned)dg->xtalAdc, dg->xtal ? dg->xtal : "not read");
+    out += xt;
+    out += F(",\"fmsi\":");
+    out += tuner->hasStereoImprovement ? F("true") : F("false");
+    out += F(",\"fsrds\":");
+    out += tuner->hasFullSearchRds ? F("true") : F("false");
+    out += F(",\"dr\":");
+    out += tuner->hasDigitalRadio ? F("true") : F("false");
+    /* Which band we are on decides which module the quality comes from and
+     * how the frequency reads, so it goes out too. */
+    uint32_t nowKHz = 0;
+    bool nowFm = true;
+    BandPlanConfig plan;
+    bandPlanDefaults(&plan);
+    bool haveTune = tef668xCurrentTune(&nowKHz, &nowFm);
+    if (haveTune) {
+      BandId nowBand;
+      char freqText[16];
+      if (bandForFrequency(&plan, nowKHz, &nowBand) &&
+          bandFormatFrequency(nowBand, nowKHz, freqText, sizeof(freqText))) {
+        char tuned[64];
+        snprintf(tuned, sizeof(tuned),
+                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\"", bandName(nowBand),
+                 (unsigned)nowKHz, freqText);
+        out += tuned;
+      }
+    }
+
+    /* Only read quality when something is actually tuned. Otherwise these
+     * numbers describe nothing and look like a live reading. */
+    Tef668xQuality q;
+    if (haveTune && tef668xReadQuality(nowFm, &q) == TEF668X_OK) {
+      char sig[176];
+      /* Tenths go out as tenths, not as a decimal string, so nothing has to
+       * parse a float and no precision is lost on the way. */
+      snprintf(
+          sig, sizeof(sig),
+          ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"offset\":%d"
+          ",\"bw\":%u,\"mod\":%d,\"st\":%s",
+          q.levelDbuVTenths, (unsigned)q.usnTenths,
+          nowFm ? (unsigned)q.multipathTenths : (unsigned)q.coChannelTenths,
+          q.offsetKHzTenths, (unsigned)q.bandwidthKHz, q.modulationPercent,
+          q.stereo ? "true" : "false");
+      out += sig;
+    }
+    out += F("}");
+  } else {
+    /* Say why, not just that it failed. Without this the only way to find out
+     * is the cable, and the whole point of this phase is not needing one. */
+    out += F("{\"error\":\"");
+    out += tef668xErrorText(tunerStartError());
+    out += F("\"");
+    uint16_t dev = 0;
+    uint16_t hw = 0;
+    uint16_t sw = 0;
+    if (tef668xLastIdentification(&dev, &hw, &sw)) {
+      char words[64];
+      snprintf(words, sizeof(words),
+               ",\"device\":\"%04X\",\"hw\":\"%04X\",\"sw\":\"%04X\"", dev, hw,
+               sw);
+      out += words;
+    }
+    const Tef668xDiagnostics *d = tef668xDiagnostics();
+    char diag[176];
+    snprintf(diag, sizeof(diag),
+             ",\"sawChip\":%s,\"readBoot\":%s,\"boot\":%u"
+             ",\"patched\":%s,\"tried\":%u,\"wanted\":%u",
+             d->sawDevice ? "true" : "false",
+             d->readBootStatus ? "true" : "false", (unsigned)d->bootStatus,
+             d->patchLoaded ? "true" : "false", (unsigned)d->patchTried,
+             (unsigned)d->patchWanted);
+    out += diag;
+    char xt[64];
+    snprintf(xt, sizeof(xt), ",\"xtalAdc\":%u,\"xtal\":\"%s\"",
+             (unsigned)d->xtalAdc, d->xtal ? d->xtal : "");
+    out += xt;
+    out += F("}");
+  }
+  out += F(",\"defaultPin\":");
   out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
-  out += F(",\"freeHeap\":");
+  out += F(",\"heap\":");
   out += String(ESP.getFreeHeap());
-  out += F(",\"uptimeSeconds\":");
+  out += F(",\"up\":");
   out += String(millis() / 1000UL);
   out += F("}");
   sServer.send(200, "application/json", out);
+}
+
+/**
+ * Tune the radio. The first piece of the control API from decision 25.
+ *
+ * Takes `khz`, the frequency in kilohertz, the same unit core/band_plan.h
+ * uses on every band. The band is worked out from the frequency rather than
+ * asked for, because a frequency already says which band it is in.
+ *
+ * A write, so it needs the PIN. Errors say what was wrong in plain words,
+ * never a bare 500 and never a 200 with the command quietly dropped.
+ */
+static void handleApiTune(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("khz")) {
+    sServer.send(400, "text/plain", "Give khz, the frequency in kilohertz.\n");
+    return;
+  }
+
+  long asked = sServer.arg("khz").toInt();
+  if (asked <= 0) {
+    sServer.send(400, "text/plain", "khz has to be a positive number.\n");
+    return;
+  }
+  uint32_t khz = (uint32_t)asked;
+
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  BandId band;
+  if (!bandForFrequency(&plan, khz, &band)) {
+    sServer.send(400, "text/plain", "That frequency is in no band.\n");
+    return;
+  }
+
+  Tef668xError err = bandModulation(band) == MODULATION_FM ? tef668xTuneFm(khz)
+                                                           : tef668xTuneAm(khz);
+  if (err == TEF668X_ERR_RANGE) {
+    /* The caller asked for something the chip cannot reach, which is their
+     * mistake and not a fault here. FM tunes in steps of 10 kHz. */
+    sServer.send(400, "text/plain",
+                 "The tuner cannot reach that. FM tunes in steps of 10 kHz.\n");
+    return;
+  }
+  if (err != TEF668X_OK) {
+    String why = "The tuner refused it: ";
+    why += tef668xErrorText(err);
+    why += "\n";
+    sServer.send(500, "text/plain", why);
+    return;
+  }
+
+  char text[16];
+  bandFormatFrequency(band, khz, text, sizeof(text));
+  String body = String(bandName(band)) + " " + text + " " +
+                bandFrequencyUnit(band) + "\n";
+  Serial.printf("[api] tuned to %s\n", body.c_str());
+  sServer.send(200, "text/plain", body);
 }
 
 /** Anything else. */
@@ -626,6 +832,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/auth", HTTP_POST, handleAuth);
   sServer.on("/wifi", HTTP_POST, handleWifi);
   sServer.on("/update", HTTP_POST, handleUploadDone, handleUploadData);
+  sServer.on("/api/tune", HTTP_POST, handleApiTune);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);
