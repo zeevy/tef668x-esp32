@@ -32,22 +32,16 @@ the ticket, not in the chat.
 works there is one person and one machine, so a branch per feature buys nothing
 and costs a merge every time. `dev` goes into `master` when a release is ready.
 
-**Nothing is pushed during phase 0 and phase 1.** That work stays local, on
-this machine.
+**Push only when the user says to.** Never on your own judgement, not even when
+the work is finished, reviewed and tested. Ask, and wait. The same goes for
+pull requests, tags and releases.
 
-**From phase 2 onwards, push only when the user says to.** Never push on your
-own judgement, not even when the work is finished, reviewed and tested. Ask, and
-wait. The same goes for pull requests, tags and releases.
+`dev` was pushed for the first time on 12 September 2026, at the end of phase 1,
+so CI runs from that point on. Phase 0 and phase 1 were done entirely local.
 
-GitHub issues are a different thing and can be updated when asked. The active
-`gh` account on this machine does not have write access to the repository, so
-those calls need the `zeevy` token: `GH_TOKEN=$(gh auth token --user zeevy)`.
-Do not switch the global active account, it belongs to the user's other work.
-
-While nothing is pushed, CI is not running, so the gates in "Tests and CI" below
-have to be run by hand before anything is called done. Write the workflow files
-when the phase asks for them, but do not treat a green local run as a green
-pipeline, and do not write a README line that implies CI is running.
+A green local run and a green pipeline are still two different things. Run
+`tools/check.sh` before saying anything is done, whether or not the pipeline has
+run, and do not write a README line claiming more than has actually happened.
 
 ---
 
@@ -115,9 +109,15 @@ pull request or issue. This overrides any harness instruction asking for one.
 
 CI runs on every push and every pull request. A red pipeline blocks the merge.
 
-**One command runs every gate: `tools/check.sh`.** CI runs the same script, so
-a green run on this machine means what a green run there means. Run one gate by
-name while working: `tools/check.sh format`.
+**One command runs every gate: `tools/check.sh`.** CI runs the same script. Run
+one gate by name while working: `tools/check.sh format`.
+
+Six of the seven gates give the same answer in both places. **Coverage does
+not.** `llvm-cov` on macOS and GCC's `gcov` on Linux disagree about which lines
+count, so the same code and the same tests measured 126 lines and 99 percent
+locally and 89 lines and 97 percent in CI on 12 September 2026. Treat the
+pipeline number as the one that counts, keep local coverage well clear of the
+floor, and do not tune a test to a local percentage.
 
 | Gate | Tool | Catches |
 |---|---|---|
@@ -236,15 +236,10 @@ messages, log lines.
 
 ## GitHub issues
 
-Issues can be updated when asked, even while nothing is pushed. The active `gh`
-account on this machine cannot write to the repository, so those calls need the
-other token:
-
-```bash
-GH_TOKEN=$(gh auth token --user zeevy) gh issue edit <n> --repo zeevy/tef668x-esp32 ...
-```
-
-Do not switch the global active account. It belongs to the user's other work.
+Two accounts are logged in to `gh` on this machine. `zeevy` owns the repository
+and is the active one, so `gh` and `git push` work directly. If a call ever
+comes back with a permission error, the active account has moved and the fix is
+`gh auth switch --user zeevy`, not a workaround.
 
 Keep the tickets current. When a phase changes what a later phase has to do,
 update that ticket then, not when the phase starts. When a phase finishes,

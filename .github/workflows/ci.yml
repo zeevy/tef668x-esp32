@@ -1,7 +1,9 @@
 # Gates for every push and every pull request.
 #
-# This runs tools/check.sh, the same script that runs on a development machine,
-# so a green run here means what a green run there means.
+# This runs tools/check.sh, the same script that runs on a development machine.
+# Six of the seven gates give the same answer in both places. Coverage does not:
+# llvm-cov on macOS and gcov on Linux count lines differently, so this run is
+# the number that counts. See RULES.md.
 #
 # What this cannot do: the display, the tuner over I2C, touch and audio need a
 # radio. Those stay in docs/test-checklist.md and a person ticks them off.
