@@ -21,6 +21,21 @@ work around it.
 I2C addresses, part markings, flash layout. Facts in it were read off the chip
 or off the board photos. Do not add anything to it that was guessed.
 
+## Where things are
+
+| | |
+|---|---|
+| This repo | The working directory of your session |
+| Reference firmware | `../TEF6686_ESP32`, a sibling directory. PE5PVB's firmware, which runs on this radio today |
+| Serial port | `/dev/cu.usbserial-A5069RR4`, an FT232R with no auto reset |
+| Test fixtures | `test/fixtures/`, real captures taken off air from this radio |
+
+The reference firmware is worth reading when a hardware detail is unclear. It is
+working code on the same board, so its pin numbers, I2C sequences and tuner
+patch blobs are known good. **Do not copy code from it.** This project is a
+rewrite and shares no source with it. Read it to learn the hardware, then write
+the thing properly.
+
 ## Branches
 
 | Branch | What it is |
@@ -69,6 +84,8 @@ python3 tools/telemetry.py --out capture.jsonl
 
 Captures are useful beyond debugging. Real off air recordings become test
 fixtures, which are worth far more than invented test vectors.
+`test/fixtures/agc/` already holds five of them, taken from this radio in
+September 2026, with a README explaining the format and the cases they cover.
 
 ## Architecture
 
