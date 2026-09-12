@@ -158,6 +158,31 @@ The band switch is where this went wrong once, so check it in both directions.
 | 53 | Sign in, then `-d 'khz=50000'` | `400` and `That frequency is in no band.` 50 MHz is between OIRT and shortwave |
 | 54 | `-d 'khz=0'` and `-d 'khz=abc'` | `400` and a plain reason. Never a 500, and never a 200 that quietly did nothing |
 | 55 | `-d 'khz=4294967295'` | `400`, not a tune to something absurd |
+| 56 | `GET /api/state` with no session | `200` and JSON. Reads are open, writes are not |
+| 57 | Compare `/api/state` and `/status.json` | Byte for byte the same document, apart from `heap` and `up`. They share one builder |
+| 58 | `POST /api/step -d 'steps=2'` on FM | `200` and the frequency it landed on, not just `stepped 2`. Two steps of the current step size up |
+| 59 | `POST /api/step -d 'steps=-1'` | `200` and one step back down. Same frequency as before check 58, less one step |
+| 60 | `POST /api/band -d 'band=SW'` then straight away `POST /api/mode -d 'mode=MeterBand'` | Both `200`. Sent back to back, this used to refuse the mode because the band change had not been applied yet |
+| 61 | `POST /api/mode -d 'mode=MeterBand'` while on MW | `400` and `that tuning mode is not available here`. Meter band is shortwave only |
+| 62 | `POST /api/band -d 'band=AIR'` | `400` and the list of real band names |
+| 63 | `POST /api/mode -d 'mode=Wobble'` | `400` and the list of real modes |
+| 64 | `POST /api/volume -d 'db=99'` | `400` saying the range. Then `db=0` gives `200 volume 0 dB` |
+| 65 | `POST /api/mute -d 'on=1'` then `on=0` | Audio stops and comes back. `mute` in `/api/state` follows |
+| 66 | `POST /api/bandwidth -d 'khz=110'` then `khz=0` | `200 bandwidth 110 kHz` then `200 bandwidth automatic`. On AM, `khz=0` is refused |
+| 67 | `POST /api/step-size -d 'khz=50'` on FM, then step once | The step moves 50 kHz, and `step` in `/api/state` reads 50 |
+| 68 | Send eight writes back to back with no pause | Every reply names the state that request reached. None of them names a frequency the radio is not on |
+| 69 | Every `/api/*` write with no session | `403`. Check all eight, not one of them |
+| 70 | On MW, `POST /api/step-size -d 'khz=9'` | `200 step 9 kHz`. Medium wave offers 9 kHz |
+| 71 | On FM, `POST /api/step-size -d 'khz=9'` | `400` and `that band does not offer that step`. A refused command must never answer 200 |
+| 72 | On MW, `POST /api/bandwidth -d 'khz=0'` | `400` and `that bandwidth is not allowed here`. There is no automatic bandwidth on AM |
+| 73 | Time a `GET /api/state` against a `POST /api/step` | The write costs about 10 ms more than the read. If it costs 100 ms more, the radio task has stopped waking on its queue |
+| 74 | `GET /api/settings` with no session | `403`. This one is not an open read, the struct holds the passphrase |
+| 75 | `GET /api/settings` signed in | The stored `ssid`, `hasPass` and `defaultPin`. Never the passphrase itself and never the PIN |
+| 76 | `POST /api/settings` with no arguments | `400` and `Give ssid, or pin, or both.` |
+| 77 | `POST /api/settings -d 'pin=12345'` and `-d 'pin=abcdef'` | `400` and `A PIN is six digits.` Nothing is saved |
+| 78 | `POST /api/settings -d 'ssid='` | `400`. An empty network name is refused before anything is written |
+| 79 | `POST /api/settings -d 'pin=000000'` | `200`, the session ends, and the next write is `403` until you sign in again |
+| 80 | `POST /api/settings -d 'ssid=<your network>&pass=<the passphrase>'` | `200`, then the radio reconnects and answers on the same address. **Needs someone at the radio.** A wrong passphrase here leaves it on its own access point, and only a person standing there can fix it |
 
 ### Things this build cannot be tested for
 

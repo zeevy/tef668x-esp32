@@ -8,11 +8,11 @@ Firmware for radio receivers built around the NXP TEF668x tuner and an ESP32.
 The first target is the ATS-125, a portable with an ILI9341 320x240 touch
 display.
 
-**Status: design only. There is no code yet.** The repo holds documents and
-test fixtures. There is no `platformio.ini` and no `src/`, so every command
-under "Build and flash" below fails today. They are written down because they
-are what the project is being built towards. The next work is phase 0 in
-[ROADMAP.md](ROADMAP.md).
+**Status: it receives.** Phases 0 and 1 are done and phase 2 is most of the way
+through. The radio joins Wi-Fi, updates itself over the air with rollback,
+brings the TEF6686 up with its patch, and tunes FM and AM. It is driven from a
+web page or from the HTTP control API, because there is no display, no encoder
+and no buttons yet. Those are phases 3 to 6 in [ROADMAP.md](ROADMAP.md).
 
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
@@ -39,6 +39,8 @@ or off the board photos. Do not add anything to it that was guessed.
 | Every gate | `tools/check.sh`. Build, tests, coverage, analysis, format, docs, size |
 | Build order | [ROADMAP.md](ROADMAP.md), seven phases. Do not start a phase before the one before it is green |
 | Screen design | [docs/design.html](docs/design.html), the proposed screens at 320x240, the type scale and the palette. Also published as an artifact |
+| Manual test checklist | [docs/test-checklist.md](docs/test-checklist.md). Numbered checks a person runs on the radio, because CI cannot. Add to it with every build |
+| Security audit | [docs/security/](docs/security/), appended to by each phase, never replaced |
 
 The reference firmware is worth reading when a hardware detail is unclear. It is
 working code on the same board, so its pin numbers, I2C sequences and tuner
@@ -83,15 +85,23 @@ standing at the radio.
 
 ### Reading state off a running radio
 
-Do not add debug prints and reflash. The radio broadcasts its live state as JSON
-over UDP when telemetry is enabled.
+Do not add debug prints and reflash. There is no serial cable on this radio, so
+ask it over HTTP instead. `GET /api/state` needs no PIN and holds everything:
+which slot booted, the tuner identification, the band, the frequency, and the
+signal readings.
 
 ```bash
-python3 tools/telemetry.py --out capture.jsonl
+curl -s http://tef668x.local/api/state
 ```
 
-`tools/telemetry.py` is not written yet. It arrives in phase 5 with the
-telemetry sender on the radio.
+The same document is served at `/status.json`, which is the name the scripts in
+`tools/` use. Writes need the PIN. See the control API section in the README.
+
+A JSON parse failure in a polling script looks exactly like a radio that hung.
+Print the raw body before deciding the firmware crashed. That mistake cost an
+hour once.
+
+Telemetry over UDP, and `tools/telemetry.py` with it, arrives in phase 5.
 
 Captures are useful beyond debugging. Real off air recordings become test
 fixtures, which are worth far more than invented test vectors.

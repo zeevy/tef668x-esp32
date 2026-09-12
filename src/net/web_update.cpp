@@ -78,6 +78,37 @@ static String escapeHtml(const char *raw) {
   return out;
 }
 
+/**
+ * Escape a string so it can go inside a JSON string.
+ *
+ * A network name is chosen by whoever runs the network, so it can hold a
+ * quote or a backslash and there is nothing wrong with that. Without this the
+ * whole document stops parsing, which is how a missing quote broke every
+ * reader of /status.json once already.
+ *
+ * @param raw  The text. Never NULL.
+ * @return The escaped text, without the surrounding quotes.
+ */
+static String jsonEscape(const char *raw) {
+  String out;
+  for (const char *p = raw; *p != '\0'; p++) {
+    unsigned char c = (unsigned char)*p;
+    if (c == '"' || c == '\\') {
+      out += '\\';
+      out += (char)c;
+    } else if (c < 0x20) {
+      /* Control characters have no place in a name, but a corrupt NVS blob
+       * can still hold one, and it has to come out as valid JSON. */
+      char esc[7];
+      snprintf(esc, sizeof(esc), "\\u%04x", c);
+      out += esc;
+    } else {
+      out += (char)c;
+    }
+  }
+  return out;
+}
+
 /** Make a fresh session token from the hardware random number generator. */
 static void newSession(void) {
   static const char kHex[] = "0123456789abcdef";
@@ -581,74 +612,19 @@ static void handleReboot(void) {
 }
 
 /**
- * The radio's state as JSON, for scripts and for the test checklist.
+ * Append everything about the radio and its tuner, as JSON fields.
  *
- * Keys are short on purpose. They are the names already used on the radio's
- * own screen and in `test/fixtures/agc/`, so a telemetry capture, a test
- * fixture and this endpoint all use one vocabulary. Decision 25 asks for one
- * schema across the API and telemetry, and this is it.
+ * One builder, used by both /api/state and /status.json, so the two
+ * cannot drift apart and telemetry in a later phase has one shape to
+ * match. The caller supplies the braces and any leading comma.
  *
- * Every number is an integer. Anything with a fraction is sent in tenths, so
- * nothing has to parse a float and no precision is lost.
+ * The field names are documented on handleStatusJson.
  *
- * | Key | Full name | Unit |
- * |---|---|---|
- * | `board` | Board id | |
- * | `ver` | Firmware version | |
- * | `slot` | Application partition this image booted from | |
- * | `confirmed` | Image passed its self check and will not roll back | |
- * | `mode` | `station` on a network, `ap` on its own access point | |
- * | `ip` | Address it can be reached on | |
- * | `defaultPin` | Access PIN is still 000000 | |
- * | `heap` | Free heap | bytes |
- * | `up` | Time since boot | seconds |
- *
- * Inside `tuner`, when the tuner started:
- *
- * | Key | Full name | Unit |
- * |---|---|---|
- * | `part` | Which TEF668x is fitted | |
- * | `patch` | Tuner firmware version loaded into it | |
- * | `fmsi` | Has FM stereo improvement | |
- * | `fsrds` | Has full search RDS | |
- * | `dr` | Has digital radio | |
- * | `sig` | Signal level | tenths of a dBuV |
- * | `usn` | Ultrasonic noise | tenths of a percent |
- * | `wam` | Multipath, what the chip calls weighted AM | tenths of a percent |
- * | `offset` | How far off centre the station is | tenths of a kHz |
- * | `bw` | Bandwidth the tuner settled on | kHz |
- * | `mod` | Modulation depth | percent |
- * | `st` | A stereo pilot is present | |
- *
- * Inside `tuner` when it did not start, so a fault can be read without a
- * serial cable:
- *
- * | Key | Full name |
- * |---|---|
- * | `error` | What stopped it, in words |
- * | `device`, `hw`, `sw` | The three identification words, hex |
- * | `sawChip` | Something acknowledged at the I2C address |
- * | `readBoot` | The operation status came back |
- * | `boot` | What it said. 0 means not patched yet |
- * | `patched` | A patch was written this boot |
- * | `tried` | Which patch version was written |
- * | `wanted` | Which one the chip then asked for |
+ * @param out  The reply being built.
  */
-static void handleStatusJson(void) {
-  sRequests++;
-  String out;
-  out.reserve(640);
-  out += F("{\"board\":\"" BOARD_NAME "\",\"ver\":\"" FIRMWARE_VERSION
-           "\",\"slot\":\"");
-  out += rollbackRunningPartition();
-  out += F("\",\"confirmed\":");
-  out += rollbackPending() ? F("false") : F("true");
-  out += F(",\"mode\":\"");
-  out += inSetupMode() ? F("ap") : F("station");
-  out += F("\",\"ip\":\"");
-  out += wifiAddress();
+static void appendRadioState(String &out) {
   const Tef668xCapabilities *tuner = tef668xCapabilities();
-  out += F("\",\"tuner\":");
+  out += F("\"tuner\":");
   if (tuner != NULL) {
     out += F("{\"part\":\"");
     out += tuner->part;
@@ -747,85 +723,521 @@ static void handleStatusJson(void) {
     out += xt;
     out += F("}");
   }
-  out += F(",\"defaultPin\":");
+}
+
+/**
+ * Build the whole state document, device and tuner together.
+ *
+ * One builder for both /status.json and /api/state. They are the same
+ * document under two names: /status.json is what phase 0 called it and what
+ * the scripts in tools/ read, /api/state is the name the control API uses.
+ * Two names for one document is better than two documents, which is what a
+ * subset would become the first time a field is added to only one of them.
+ *
+ * @return The JSON, ready to send.
+ */
+static String buildState(void) {
+  String out;
+  out.reserve(768);
+  out += F("{\"board\":\"" BOARD_NAME "\",\"ver\":\"" FIRMWARE_VERSION
+           "\",\"slot\":\"");
+  out += rollbackRunningPartition();
+  out += F("\",\"confirmed\":");
+  out += rollbackPending() ? F("false") : F("true");
+  out += F(",\"mode\":\"");
+  out += inSetupMode() ? F("ap") : F("station");
+  out += F("\",\"ip\":\"");
+  out += wifiAddress();
+  /* Closing the address string, then the separator. The quote used to be
+   * fused onto the front of the next field, which is exactly how it went
+   * missing when that field moved into its own builder. */
+  out += F("\",\"defaultPin\":");
   out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
   out += F(",\"heap\":");
   out += String(ESP.getFreeHeap());
   out += F(",\"up\":");
   out += String(millis() / 1000UL);
+  out += F(",");
+  appendRadioState(out);
   out += F("}");
-  sServer.send(200, "application/json", out);
+  return out;
 }
 
 /**
- * Tune the radio. The first piece of the control API from decision 25.
+ * The radio's state as JSON, for scripts and for the test checklist.
  *
- * Takes `khz`, the frequency in kilohertz, the same unit core/band_plan.h
- * uses on every band. The band is worked out from the frequency rather than
- * asked for, because a frequency already says which band it is in.
+ * Keys are short on purpose. They are the names already used on the radio's
+ * own screen and in `test/fixtures/agc/`, so a telemetry capture, a test
+ * fixture and this endpoint all use one vocabulary. Decision 25 asks for one
+ * schema across the API and telemetry, and this is it.
  *
- * A write, so it needs the PIN. Errors say what was wrong in plain words,
- * never a bare 500 and never a 200 with the command quietly dropped.
+ * Every number is an integer. Anything with a fraction is sent in tenths, so
+ * nothing has to parse a float and no precision is lost.
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `board` | Board id | |
+ * | `ver` | Firmware version | |
+ * | `slot` | Application partition this image booted from | |
+ * | `confirmed` | Image passed its self check and will not roll back | |
+ * | `mode` | `station` on a network, `ap` on its own access point | |
+ * | `ip` | Address it can be reached on | |
+ * | `defaultPin` | Access PIN is still 000000 | |
+ * | `heap` | Free heap | bytes |
+ * | `up` | Time since boot | seconds |
+ *
+ * Inside `tuner`, when the tuner started:
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `part` | Which TEF668x is fitted | |
+ * | `patch` | Tuner firmware version loaded into it | |
+ * | `fmsi` | Has FM stereo improvement | |
+ * | `fsrds` | Has full search RDS | |
+ * | `dr` | Has digital radio | |
+ * | `sig` | Signal level | tenths of a dBuV |
+ * | `usn` | Ultrasonic noise | tenths of a percent |
+ * | `wam` | Multipath, what the chip calls weighted AM | tenths of a percent |
+ * | `offset` | How far off centre the station is | tenths of a kHz |
+ * | `bw` | Bandwidth the tuner settled on | kHz |
+ * | `mod` | Modulation depth | percent |
+ * | `st` | A stereo pilot is present | |
+ *
+ * Inside `tuner` when it did not start, so a fault can be read without a
+ * serial cable:
+ *
+ * | Key | Full name |
+ * |---|---|
+ * | `error` | What stopped it, in words |
+ * | `device`, `hw`, `sw` | The three identification words, hex |
+ * | `sawChip` | Something acknowledged at the I2C address |
+ * | `readBoot` | The operation status came back |
+ * | `boot` | What it said. 0 means not patched yet |
+ * | `patched` | A patch was written this boot |
+ * | `tried` | Which patch version was written |
+ * | `wanted` | Which one the chip then asked for |
  */
+static void handleStatusJson(void) {
+  sRequests++;
+  sServer.send(200, "application/json", buildState());
+}
+
+/* ------------------------------------------------------------ control API -
+ *
+ * Decision 25: every command the radio can carry out is reachable over HTTP,
+ * and the screen is one caller of the same queue. Nothing here talks to the
+ * tuner. A request becomes a RadioCommand and goes on the queue, which is the
+ * same path the buttons will use.
+ *
+ * Reads are open. Writes need the PIN.
+ * ------------------------------------------------------------------------ */
+
+/** Reply with a plain reason and a status code, never a bare 500. */
+static void apiFail(int code, const String &why) {
+  sServer.send(code, "text/plain", why + "\n");
+}
+
+/** How the radio is set now, for a caller that wants to say what changed. */
+static String apiDescribe(const RadioSettings *s) {
+  char text[16];
+  bandFormatFrequency(s->band, s->freqKHz, text, sizeof(text));
+  return String(bandName(s->band)) + " " + text + " " +
+         bandFrequencyUnit(s->band);
+}
+
+/** How long a request waits for the radio task to carry a command out. */
+#define API_SETTLE_MS 500
+
+/**
+ * Check a command, carry it out, and say what happened.
+ *
+ * The one place a request turns into a command. Every endpoint below ends
+ * here, so they cannot drift apart in how they validate or what they report.
+ *
+ * It waits for the radio to finish. Without that wait a script that sends two
+ * requests back to back gets the second one judged against the state before
+ * the first, which refuses things that are allowed and reports frequencies the
+ * radio is not on.
+ *
+ * @param command  What to do.
+ * @param said     What to tell the caller when it worked.
+ * @param where    true to answer with the band and frequency it reached
+ *                 instead, for the commands that move the dial.
+ */
+static void apiSubmit(const RadioCommand *command, const String &said,
+                      bool where = false) {
+  RadioError why = RADIO_OK;
+  RadioPostResult posted = radioPostAndSettle(command, API_SETTLE_MS, &why);
+  if (posted == RADIO_POST_BUSY) {
+    apiFail(503, "The radio is busy. Try again in a moment.");
+    return;
+  }
+  if (posted == RADIO_POST_SLOW) {
+    /* 202, not an error. The command is on the queue and will be carried out.
+     * Calling this a failure would have the caller send it again, and the
+     * radio would do it twice. */
+    apiFail(202,
+            "The radio took it but has not confirmed yet. Read "
+            "/api/state to see where it got to.");
+    return;
+  }
+  /* The radio's own verdict on this exact command, not a guess made before it
+   * was sent. Judging it beforehand against the last published state meant a
+   * command refused by the radio still answered 200. */
+  if (why != RADIO_OK) {
+    apiFail(400, String("The radio refused it: ") + radioErrorText(why));
+    return;
+  }
+
+  String answer = said;
+  RadioSnapshot now;
+  if (where && radioGetSnapshot(&now)) {
+    answer = apiDescribe(&now.settings);
+  }
+  Serial.printf("[api] %s\n", answer.c_str());
+  sServer.send(200, "text/plain", answer + "\n");
+}
+
+/** Read a whole number argument, saying so plainly when it is not one. */
+static bool apiNumber(const char *name, long *out, long low, long high) {
+  if (!sServer.hasArg(name)) {
+    apiFail(400, String("Give ") + name + ".");
+    return false;
+  }
+  String raw = sServer.arg(name);
+  char *end = NULL;
+  long value = strtol(raw.c_str(), &end, 10);
+  if (raw.length() == 0 || end == NULL || *end != '\0') {
+    apiFail(400, String(name) + " has to be a whole number.");
+    return false;
+  }
+  if (value < low || value > high) {
+    apiFail(400,
+            String(name) + " has to be between " + low + " and " + high + ".");
+    return false;
+  }
+  *out = value;
+  return true;
+}
+
+/**
+ * GET /api/state. The whole of the radio, open to read.
+ *
+ * The same document as /status.json, from the same builder.
+ */
+static void handleApiState(void) {
+  sRequests++;
+  sServer.send(200, "application/json", buildState());
+}
+
+/** POST /api/tune. A frequency in kilohertz, on any band. */
 static void handleApiTune(void) {
   sRequests++;
   if (!requireAuth(false)) {
     return;
   }
-  if (!sServer.hasArg("khz")) {
-    sServer.send(400, "text/plain", "Give khz, the frequency in kilohertz.\n");
+  long khz = 0;
+  if (!apiNumber("khz", &khz, 1, 30000000L)) {
     return;
   }
-
-  long asked = sServer.arg("khz").toInt();
-  if (asked <= 0) {
-    sServer.send(400, "text/plain", "khz has to be a positive number.\n");
-    return;
-  }
-  uint32_t khz = (uint32_t)asked;
 
   BandPlanConfig plan;
-  bandPlanDefaults(&plan);
-  BandId band;
-  if (!bandForFrequency(&plan, khz, &band)) {
-    sServer.send(400, "text/plain", "That frequency is in no band.\n");
+  if (!radioTaskPlan(&plan)) {
+    apiFail(503, "The radio is not running.");
     return;
   }
-
+  BandId band;
+  if (!bandForFrequency(&plan, (uint32_t)khz, &band)) {
+    apiFail(400, "That frequency is in no band.");
+    return;
+  }
   /* FM tunes in steps of 10 kHz on this chip, so anything finer is the
    * caller's mistake and never reaches the radio task. */
   if (bandModulation(band) == MODULATION_FM && (khz % 10) != 0) {
-    sServer.send(400, "text/plain",
-                 "The tuner cannot reach that. FM tunes in steps of 10 kHz.\n");
+    apiFail(400, "The tuner cannot reach that. FM tunes in steps of 10 kHz.");
     return;
   }
 
   RadioCommand cmd = {};
   cmd.kind = RADIO_TUNE;
-  cmd.freqKHz = khz;
-
-  /* Ask whether it would be accepted before saying so. A 200 that hides a
-   * dropped command is worse than an honest refusal. */
-  RadioError why;
-  if (!radioWouldAccept(&cmd, &why)) {
-    String refused = "The radio refused it: ";
-    refused += radioErrorText(why);
-    refused += "\n";
-    sServer.send(400, "text/plain", refused);
-    return;
-  }
-  if (!radioPost(&cmd)) {
-    sServer.send(503, "text/plain",
-                 "The radio is busy. Try again in a moment.\n");
-    return;
-  }
+  cmd.freqKHz = (uint32_t)khz;
 
   char text[16];
-  bandFormatFrequency(band, khz, text, sizeof(text));
-  String body = String(bandName(band)) + " " + text + " " +
-                bandFrequencyUnit(band) + "\n";
-  Serial.printf("[api] tuned to %s\n", body.c_str());
-  sServer.send(200, "text/plain", body);
+  bandFormatFrequency(band, (uint32_t)khz, text, sizeof(text));
+  apiSubmit(&cmd,
+            String(bandName(band)) + " " + text + " " + bandFrequencyUnit(band),
+            true);
+}
+
+/** POST /api/step. Whole steps up or down, by the current step size. */
+static void handleApiStep(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long steps = 0;
+  if (!apiNumber("steps", &steps, -1000, 1000)) {
+    return;
+  }
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_STEP;
+  cmd.steps = (int16_t)steps;
+
+  /* Say where it landed, not just that it moved, so a script can check the
+   * answer without a second request. */
+  apiSubmit(&cmd, String("stepped ") + steps, true);
+}
+
+/** POST /api/band. By name, as the radio itself shows it. */
+static void handleApiBand(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("band")) {
+    apiFail(400, "Give band, one of LW MW SW OIRT FM.");
+    return;
+  }
+  String want = sServer.arg("band");
+  want.toUpperCase();
+
+  BandId band = BAND_COUNT;
+  for (int b = 0; b < BAND_COUNT; b++) {
+    if (want.equals(bandName((BandId)b))) {
+      band = (BandId)b;
+      break;
+    }
+  }
+  if (band == BAND_COUNT) {
+    apiFail(400, "That is not a band. Use one of LW MW SW OIRT FM.");
+    return;
+  }
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_BAND;
+  cmd.band = band;
+  apiSubmit(&cmd, String("band ") + bandName(band), true);
+}
+
+/** POST /api/bandwidth. In kilohertz, or 0 on FM to let the tuner choose. */
+static void handleApiBandwidth(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long khz = 0;
+  if (!apiNumber("khz", &khz, 0, 6000)) {
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_BANDWIDTH;
+  cmd.bandwidthKHz = (uint16_t)khz;
+  apiSubmit(&cmd, khz == 0 ? String("bandwidth automatic")
+                           : String("bandwidth ") + khz + " kHz");
+}
+
+/** POST /api/step-size. Which step the knob moves by. */
+static void handleApiStepSize(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long khz = 0;
+  if (!apiNumber("khz", &khz, 1, 1000)) {
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_STEP;
+  cmd.stepKHz = (uint16_t)khz;
+  apiSubmit(&cmd, String("step ") + khz + " kHz");
+}
+
+/** POST /api/volume. In decibels. */
+static void handleApiVolume(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long db = 0;
+  if (!apiNumber("db", &db, RADIO_VOLUME_MIN, RADIO_VOLUME_MAX)) {
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_VOLUME;
+  cmd.volumeDb = (int8_t)db;
+  apiSubmit(&cmd, String("volume ") + db + " dB");
+}
+
+/** POST /api/mute. on=1 to mute, on=0 to unmute. */
+static void handleApiMute(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long on = 0;
+  if (!apiNumber("on", &on, 0, 1)) {
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_MUTE;
+  cmd.muted = on != 0;
+  apiSubmit(&cmd, on ? String("muted") : String("unmuted"));
+}
+
+/** POST /api/mode. What the knob does: Manual, Auto, Memory, Meter band. */
+static void handleApiMode(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("mode")) {
+    apiFail(400, "Give mode, one of Manual Auto Memory MeterBand.");
+    return;
+  }
+  String want = sServer.arg("mode");
+  want.toLowerCase();
+  want.replace(" ", "");
+
+  TuneMode mode = TUNE_MODE_COUNT;
+  for (int m = 0; m < TUNE_MODE_COUNT; m++) {
+    String name = tuneModeName((TuneMode)m);
+    name.toLowerCase();
+    name.replace(" ", "");
+    if (want.equals(name)) {
+      mode = (TuneMode)m;
+      break;
+    }
+  }
+  if (mode == TUNE_MODE_COUNT) {
+    apiFail(400,
+            "That is not a tuning mode. Use Manual, Auto, Memory or "
+            "MeterBand.");
+    return;
+  }
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_TUNE_MODE;
+  cmd.tuneMode = mode;
+  apiSubmit(&cmd, String("mode ") + tuneModeName(mode));
+}
+
+/**
+ * GET /api/settings. What is stored, without the secrets.
+ *
+ * Behind the PIN in both directions. The struct holds the Wi-Fi passphrase
+ * and the access PIN, so this says whether each one is set and never what it
+ * is. A caller that wants to know the passphrase already has to be standing
+ * at the radio.
+ *
+ * | Key | Full name |
+ * |---|---|
+ * | `ssid` | The stored network name, empty when there is none |
+ * | `hasPass` | A passphrase is stored. False is an open network |
+ * | `defaultPin` | The access PIN is still 000000 |
+ */
+static void handleApiSettingsGet(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  String out;
+  out.reserve(128);
+  out += F("{\"ssid\":\"");
+  out += jsonEscape(sSettings->wifiSsid);
+  out += F("\",\"hasPass\":");
+  out += sSettings->wifiPass[0] != '\0' ? F("true") : F("false");
+  out += F(",\"defaultPin\":");
+  out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
+  out += F("}");
+  sServer.send(200, "application/json", out);
+}
+
+/**
+ * POST /api/settings. Change the network, the PIN, or both.
+ *
+ * Takes `ssid` with an optional `pass`, and `pin`. Everything given is
+ * checked before anything is written, and then one save puts the lot in NVS.
+ * A half applied change, say a new PIN stored against the old network, is
+ * worse than no change at all.
+ *
+ * Changing the PIN ends the session, the same as the form does. Changing the
+ * network moves the radio off whatever it is on, so the reply goes out first.
+ */
+static void handleApiSettingsPost(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+
+  bool wantWifi = sServer.hasArg("ssid");
+  bool wantPin = sServer.hasArg("pin");
+  if (!wantWifi && !wantPin) {
+    apiFail(400, "Give ssid, or pin, or both.");
+    return;
+  }
+
+  Settings pending = *sSettings;
+  uint32_t newPin = sAccessPin;
+
+  if (wantWifi) {
+    String ssid = sServer.arg("ssid");
+    String pass = sServer.hasArg("pass") ? sServer.arg("pass") : String("");
+    if (ssid.length() == 0) {
+      apiFail(400, "A network name is needed.");
+      return;
+    }
+    if (!settingsSetWifi(&pending, ssid.c_str(), pass.c_str())) {
+      apiFail(400, "That network name or passphrase is too long.");
+      return;
+    }
+  }
+
+  if (wantPin) {
+    if (!accessPinParse(sServer.arg("pin").c_str(), &newPin)) {
+      apiFail(400, "A PIN is six digits.");
+      return;
+    }
+    pending.accessPin = newPin;
+  }
+
+  if (!settingsNvsSave(&pending)) {
+    apiFail(500, "The settings could not be written. Nothing changed.");
+    return;
+  }
+  *sSettings = pending;
+
+  String said;
+  if (wantPin) {
+    sAccessPin = newPin;
+    /* The session was opened with the old PIN, so it goes. */
+    dropSession();
+    accessPinGateReset(&sGate);
+    Serial.println("[web] the access PIN was changed");
+    said = accessPinIsDefault(newPin)
+               ? F("PIN changed to the default, so the radio is open to "
+                   "anyone on the network. Sign in again.")
+               : F("PIN changed. Sign in again.");
+  }
+  if (wantWifi) {
+    Serial.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
+    if (said.length() > 0) {
+      said += F(" ");
+    }
+    said +=
+        F("Network saved. The radio is trying it now, so this address "
+          "may stop answering.");
+  }
+  sServer.send(200, "text/plain", said + "\n");
+
+  if (wantWifi) {
+    /* Answer first, then move the radio, or the reply never reaches a caller
+     * on the access point that is being torn down. Closing the socket is what
+     * puts the bytes on the wire. */
+    sServer.client().stop();
+    delay(200);
+    wifiRetryNow(sSettings);
+  }
 }
 
 /** Anything else. */
@@ -853,7 +1265,17 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/auth", HTTP_POST, handleAuth);
   sServer.on("/wifi", HTTP_POST, handleWifi);
   sServer.on("/update", HTTP_POST, handleUploadDone, handleUploadData);
+  sServer.on("/api/state", HTTP_GET, handleApiState);
   sServer.on("/api/tune", HTTP_POST, handleApiTune);
+  sServer.on("/api/step", HTTP_POST, handleApiStep);
+  sServer.on("/api/band", HTTP_POST, handleApiBand);
+  sServer.on("/api/bandwidth", HTTP_POST, handleApiBandwidth);
+  sServer.on("/api/step-size", HTTP_POST, handleApiStepSize);
+  sServer.on("/api/volume", HTTP_POST, handleApiVolume);
+  sServer.on("/api/mute", HTTP_POST, handleApiMute);
+  sServer.on("/api/mode", HTTP_POST, handleApiMode);
+  sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
+  sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);

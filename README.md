@@ -7,12 +7,43 @@ an ILI9341 320x240 touch display. The code is structured so other TEF668x radios
 can be added as a board header and a build environment, without touching the
 application.
 
-> **Status: in design.** Nothing is built yet. The design is settled in
-> [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md),
-> and the proposed screens, type scale and palette are in
-> [docs/design.html](docs/design.html).
+> **Status: it receives.** The radio tunes FM and AM, and is flashed and driven over Wi-Fi. There is no display, no encoder and no buttons yet, so today it is controlled from a browser or from `curl`. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
 
-## What it does
+## What works today
+
+Phases 0 and 1 are done and phase 2 is most of the way through.
+
+| | |
+|---|---|
+| Wi-Fi | Joins a network, or starts its own access point when the stored credentials do not work |
+| Updates | Over the air from the browser. Two application slots, and the bootloader rolls back an image that will not boot |
+| Web page | Status, Wi-Fi setup, PIN change and firmware upload, behind a six digit access PIN |
+| Tuner | TEF6686 brought up with its patch, FM and AM, bandwidth, volume, mute and signal readings |
+| Band plan | FM, OIRT, LW, MW and SW, with every step size and both band edges |
+| Control API | Every control the radio has, over HTTP. See below |
+
+Not built yet: the display, touch, the encoder, the keypad, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 3 to 6.
+
+## The control API
+
+Reads are open. Writes need the access PIN, which is sent once to `/auth` and comes back as a session cookie.
+
+```bash
+R=http://tef668x.local
+curl -s $R/api/state                       # everything, as JSON. No PIN needed
+curl -s -c jar -d 'pin=000000' $R/auth     # sign in, keep the session cookie
+curl -s -b jar -d 'khz=102800' $R/api/tune # FM 102.80 MHz
+curl -s -b jar -d 'steps=-1'   $R/api/step # one step down
+curl -s -b jar -d 'band=MW'    $R/api/band
+```
+
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode` and `/api/settings`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 25 is the rule: if the screen can do it, the API can do it.
+
+This is how the radio is tested. A script can tune it across a band edge and read back what happened, with nobody standing at it.
+
+## What it will do
+
+The whole target, not a description of today.
 
 | | |
 |---|---|
@@ -99,6 +130,10 @@ instead of hanging. And wrong Wi-Fi credentials start an access point rather
 than forcing a cable flash. Before any of this runs, the bootloader has already
 rolled back to the previous firmware if the current one failed to boot.
 
+The rollback, the Wi-Fi branch and the tuner part of the self test work today.
+The recovery screen and the rest of the self test need the display and the
+encoder, which are phase 4.
+
 ## Hardware
 
 Everything known about the ATS-125 is in [HARDWARE.md](HARDWARE.md): chip, pin
@@ -117,7 +152,8 @@ pio run -e ats125 -t upload       # first flash, over USB
 ```
 
 The first USB flash needs the board in download mode: hold BOOT, tap RESET,
-release BOOT. Everything after that goes over Wi-Fi.
+release BOOT. Everything after that goes over Wi-Fi, either from the upload form
+on the radio's own page or with `pio run -e ats125 -t upload --upload-port <ip>`.
 
 ## Contributing
 

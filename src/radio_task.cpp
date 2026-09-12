@@ -29,9 +29,8 @@
  * task then signals a handle that is gone and writes through a pointer into a
  * stack frame that has been reused.
  *
- * Callers that need an answer use radioWouldAccept instead, which runs the
- * same pure state machine over a copy. Nothing crosses the task boundary but
- * plain data.
+ * Callers that need an answer use radioPostAndSettle, which waits for the
+ * task's own verdict. Nothing crosses the task boundary but plain data.
  */
 /** What travels on the queue: a command, and nothing else. */
 typedef RadioCommand QueueItem;
@@ -42,12 +41,40 @@ static SemaphoreHandle_t sLock = NULL;
 static RadioSnapshot sSnapshot;
 static BandPlanConfig sPlan;
 
-/** Copy the working state out to where readers can see it. */
-static void publish(const RadioSettings *settings, const Tef668xQuality *q,
-                    bool qualityValid, Tef668xError lastError) {
+/** How many commands have been put on the queue. Guarded by sLock. */
+static uint32_t sPosted;
+
+/**
+ * Copy the working state out to where readers can see it.
+ *
+ * The count of commands worked through moves in the same locked step as the
+ * settings they produced. A reader that sees its own command counted is
+ * therefore looking at the settings that came of it, never at the ones from
+ * before.
+ *
+ * Each command's own answer goes out with it. Tickets are handed out in queue
+ * order and the queue is first in first out, so the n'th command drained this
+ * time round is ticket `applied + 1 + n`, and a waiter can find its own
+ * result rather than inferring one from the state that followed.
+ *
+ * @param drained  How many commands were taken off the queue this time round.
+ * @param results  What the state machine made of each, in the same order.
+ * @return false when the lock could not be taken, in which case nothing was
+ *         published and the caller still owes these drains.
+ */
+static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
+                    bool qualityValid, Tef668xError lastError, uint32_t drained,
+                    const RadioError *results) {
   if (xSemaphoreTake(sLock, portMAX_DELAY) != pdTRUE) {
-    return;
+    return false;
   }
+  for (uint32_t i = 0; i < drained; i++) {
+    uint32_t ticket = sSnapshot.applied + 1 + i;
+    RadioOutcome *slot = &sSnapshot.outcomes[ticket % RADIO_OUTCOMES];
+    slot->ticket = ticket;
+    slot->result = results != NULL ? results[i] : RADIO_OK;
+  }
+  sSnapshot.applied += drained;
   sSnapshot.settings = *settings;
   if (qualityValid) {
     sSnapshot.quality = *q;
@@ -58,6 +85,7 @@ static void publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.updatedMs = millis();
   sSnapshot.sequence++;
   xSemaphoreGive(sLock);
+  return true;
 }
 
 /**
@@ -111,19 +139,56 @@ static void radioTask(void *arg) {
   bool pushFailed = lastError != TEF668X_OK;
   Tef668xQuality quality;
   memset(&quality, 0, sizeof(quality));
-  publish(&settings, &quality, false, lastError);
+  publish(&settings, &quality, false, lastError, 0, NULL);
 
-  TickType_t nextPoll = xTaskGetTickCount();
+  const TickType_t period = pdMS_TO_TICKS(RADIO_POLL_INTERVAL_MS);
+  TickType_t nextPoll = xTaskGetTickCount() + period;
+  bool qualityOk = false;
+  /* Carried across a round that applied commands but could not publish them,
+   * so a drain is never lost and the count never falls behind for good. */
+  uint32_t owed = 0;
+  RadioError owedResults[RADIO_QUEUE_DEPTH];
 
   for (;;) {
-    /* Take everything that is waiting before touching the tuner, so a burst
-     * of commands costs one retune rather than one each. */
     RadioSettings wanted = settings;
     QueueItem item;
     bool changed = false;
-    while (xQueueReceive(sQueue, &item, 0) == pdTRUE) {
-      if (radioApply(&wanted, &sPlan, &item) == RADIO_OK) {
-        changed = true;
+    uint32_t drained = owed;
+    RadioError results[RADIO_QUEUE_DEPTH];
+    for (uint32_t i = 0; i < owed; i++) {
+      results[i] = owedResults[i];
+    }
+
+    /* Sleep on the queue rather than on the clock, so a command is picked up
+     * in about a millisecond instead of waiting out the rest of the poll
+     * interval. That latency is what a person feels when they turn the knob,
+     * and it is the whole of the wait an HTTP write sits through. */
+    TickType_t now = xTaskGetTickCount();
+    TickType_t wait = (int32_t)(nextPoll - now) > 0 ? nextPoll - now : 0;
+
+    if (drained >= RADIO_QUEUE_DEPTH) {
+      /* Every slot is already owed to a command that could not be published.
+       * Hold the cadence rather than spinning, and take no more until these
+       * have gone out. */
+      if (wait > 0) {
+        vTaskDelay(wait);
+      }
+    } else {
+      /* The first read waits, the rest take whatever is already there, so a
+       * burst of commands costs one retune rather than one each. `drained`
+       * can never pass the end of `results`, which is what publish reads. */
+      bool first = true;
+      while (drained < RADIO_QUEUE_DEPTH &&
+             xQueueReceive(sQueue, &item, first ? wait : 0) == pdTRUE) {
+        first = false;
+        /* Recorded whether or not the state machine took it. The caller
+         * waiting on this one wants to know the radio has dealt with it, and
+         * a refusal is dealing with it. */
+        RadioError result = radioApply(&wanted, &sPlan, &item);
+        results[drained++] = result;
+        if (result == RADIO_OK) {
+          changed = true;
+        }
       }
     }
 
@@ -139,13 +204,29 @@ static void radioTask(void *arg) {
     }
     settings = wanted;
 
-    bool fm = bandModulation(settings.band) == MODULATION_FM;
-    bool ok = tef668xReadQuality(fm, &quality) == TEF668X_OK;
-    publish(&settings, &quality, ok, lastError);
+    /* The reading keeps its own cadence, whatever the commands are doing. */
+    now = xTaskGetTickCount();
+    if ((int32_t)(now - nextPoll) >= 0) {
+      bool fm = bandModulation(settings.band) == MODULATION_FM;
+      qualityOk = tef668xReadQuality(fm, &quality) == TEF668X_OK;
+      nextPoll += period;
+      /* A slow push can leave the next reading already in the past. Start
+       * again from now rather than spinning to catch up. */
+      if ((int32_t)(xTaskGetTickCount() - nextPoll) >= 0) {
+        nextPoll = xTaskGetTickCount() + period;
+      }
+    }
 
-    /* A fixed cadence rather than a delay after the work, so the poll rate
-     * does not drift with how long the work took. */
-    vTaskDelayUntil(&nextPoll, pdMS_TO_TICKS(RADIO_POLL_INTERVAL_MS));
+    if (publish(&settings, &quality, qualityOk, lastError, drained, results)) {
+      owed = 0;
+    } else {
+      /* The commands were applied but nobody was told. Keep them, so the
+       * count never falls permanently behind and strands every later waiter. */
+      owed = drained;
+      for (uint32_t i = 0; i < owed; i++) {
+        owedResults[i] = results[i];
+      }
+    }
   }
 }
 
@@ -161,6 +242,7 @@ bool radioTaskStart(const BandPlanConfig *plan) {
 
   memset(&sSnapshot, 0, sizeof(sSnapshot));
   radioDefaults(&sSnapshot.settings, &sPlan);
+  sPosted = 0;
 
   sQueue = xQueueCreate(RADIO_QUEUE_DEPTH, sizeof(QueueItem));
   sLock = xSemaphoreCreateMutex();
@@ -185,6 +267,33 @@ bool radioTaskStart(const BandPlanConfig *plan) {
   return false;
 }
 
+/**
+ * Put a command on the queue and say which one it was.
+ *
+ * The number and the queue move together under the lock, so a ticket is never
+ * handed out for a command that was not queued, and two callers at once
+ * cannot be given the same one.
+ *
+ * @param item    The command, already copied.
+ * @param ticket  Receives the count this command will be at once the task has
+ *                worked through it. May be NULL.
+ * @return false when the queue is full.
+ */
+static bool post(const QueueItem *item, uint32_t *ticket) {
+  if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) != pdTRUE) {
+    return false;
+  }
+  bool sent = xQueueSend(sQueue, item, 0) == pdTRUE;
+  if (sent) {
+    sPosted++;
+    if (ticket != NULL) {
+      *ticket = sPosted;
+    }
+  }
+  xSemaphoreGive(sLock);
+  return sent;
+}
+
 bool radioPost(const RadioCommand *command) {
   /* The task has to exist, not just the queue. If the task failed to start,
    * the queue still accepts eight commands and nothing ever reads them, so a
@@ -193,22 +302,60 @@ bool radioPost(const RadioCommand *command) {
     return false;
   }
   QueueItem item = *command;
-  return xQueueSend(sQueue, &item, 0) == pdTRUE;
+  return post(&item, NULL);
 }
 
-bool radioWouldAccept(const RadioCommand *command, RadioError *result) {
-  RadioError applied = RADIO_ERR_UNKNOWN;
-  if (command != NULL) {
-    RadioSnapshot now;
-    if (radioGetSnapshot(&now)) {
-      RadioSettings trial = now.settings;
-      applied = radioApply(&trial, &sPlan, command);
-    }
-  }
+RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
+                                   RadioError *result) {
+  uint32_t ticket = 0;
   if (result != NULL) {
-    *result = applied;
+    *result = RADIO_OK;
   }
-  return applied == RADIO_OK;
+  if (sTask == NULL || sQueue == NULL || command == NULL) {
+    return RADIO_POST_BUSY;
+  }
+  QueueItem item = *command;
+  if (!post(&item, &ticket)) {
+    return RADIO_POST_BUSY;
+  }
+
+  /* Poll rather than wait on a notification. The task has no idea who posted,
+   * and giving it a list of tasks to wake would put the waiters' business
+   * inside the one place that must never be held up. */
+  const TickType_t step = pdMS_TO_TICKS(2);
+  TickType_t started = xTaskGetTickCount();
+  for (;;) {
+    RadioSnapshot now;
+    /* Compared by subtraction, the same way the millis() deadlines in this
+     * firmware are, so the answer stays right when the count wraps. */
+    if (radioGetSnapshot(&now) && (int32_t)(now.applied - ticket) >= 0) {
+      const RadioOutcome *slot = &now.outcomes[ticket % RADIO_OUTCOMES];
+      /* The slot is only ours while fewer than RADIO_OUTCOMES commands have
+       * been drained since. It cannot have been overwritten here: the queue
+       * holds at most RADIO_QUEUE_DEPTH, and this poll is far faster than the
+       * radio can work through that many. The check is for the case that
+       * would otherwise report someone else's answer as ours. */
+      if (result != NULL && slot->ticket == ticket) {
+        *result = slot->result;
+      }
+      return RADIO_POST_DONE;
+    }
+    if ((xTaskGetTickCount() - started) >= pdMS_TO_TICKS(waitMs)) {
+      return RADIO_POST_SLOW;
+    }
+    vTaskDelay(step);
+  }
+}
+
+bool radioTaskPlan(BandPlanConfig *out) {
+  if (sTask == NULL || out == NULL) {
+    return false;
+  }
+  /* Written once before the task starts and never again, so this needs no
+   * lock. If the plan ever becomes something a person can change while the
+   * radio is running, it has to move inside the snapshot. */
+  *out = sPlan;
+  return true;
 }
 
 bool radioGetSnapshot(RadioSnapshot *out) {

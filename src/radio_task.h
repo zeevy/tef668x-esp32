@@ -30,6 +30,15 @@
 /** How many commands can be waiting before a caller is told to try later. */
 #define RADIO_QUEUE_DEPTH 8
 
+/** How many command outcomes the snapshot remembers. One per queue slot. */
+#define RADIO_OUTCOMES RADIO_QUEUE_DEPTH
+
+/** What the state machine made of one command. */
+typedef struct {
+  uint32_t ticket;   /**< Which command this was. 0 means an unused slot. */
+  RadioError result; /**< RADIO_OK, or why it was refused. */
+} RadioOutcome;
+
 /** Everything a reader needs, copied out in one go so it cannot tear. */
 typedef struct {
   RadioSettings settings; /**< What the radio is set to. */
@@ -39,6 +48,10 @@ typedef struct {
   Tef668xError lastError; /**< What the tuner last complained about. */
   uint32_t updatedMs;     /**< When this was taken, ms since boot. */
   uint32_t sequence;      /**< Goes up every time. Spots a stalled task. */
+  uint32_t applied;       /**< How many commands the task has worked through. */
+  /** What came of the last few commands, so a caller can be told the truth
+   *  about its own one rather than about the state that followed it. */
+  RadioOutcome outcomes[RADIO_OUTCOMES];
 } RadioSnapshot;
 
 /**
@@ -66,28 +79,57 @@ bool radioTaskStart(const BandPlanConfig *plan);
  */
 bool radioPost(const RadioCommand *command);
 
+/** What came of asking the radio to do something and waiting for it. */
+typedef enum {
+  RADIO_POST_DONE, /**< The radio has worked through it. */
+  RADIO_POST_BUSY, /**< The queue was full. Nothing was taken. */
+  RADIO_POST_SLOW  /**< Taken, but not carried out inside the wait. */
+} RadioPostResult;
+
 /**
- * Ask whether a command would be accepted, without posting it.
+ * Ask the radio to do something, and wait until it has been done.
  *
- * For callers that have to tell someone whether it worked before the radio
- * has got round to it, such as the HTTP API answering a request.
+ * The same queue as radioPost, but it returns only once the task has taken
+ * the command off the queue and published the state that came of it. A
+ * snapshot read after this call shows the result, so a caller can report what
+ * actually happened rather than what it hoped would happen.
  *
- * This does not ask the radio task. It runs the same pure state machine over
- * a copy of the last snapshot, which gives the same answer for the same
- * input. That is what lets a caller report a refusal straight away without
- * waiting for, or blocking, the task.
+ * Waiting costs one poll interval at worst. It blocks the calling task, never
+ * the radio task, so the HTTP API can use it and the radio keeps its cadence.
  *
- * @param command  What to ask about.
- * @param result   Receives why it would be refused. May be NULL.
- * @return true when it would be accepted.
+ * The three answers are kept apart on purpose. A command that was taken but
+ * not finished in time is not a command that failed: it is still on the queue
+ * and will be carried out. Telling a caller it failed would have them send it
+ * again, and the radio would do it twice.
  *
- * @note Strictly there is a gap between this and the post that follows it, in
- *       which something else could change the band and make the answer stale.
- *       Nothing else does: commands come from one person turning one knob or
- *       making one request. If that stops being true, this has to become a
- *       real round trip rather than being patched.
+ * RADIO_POST_DONE means the radio dealt with the command, not that it liked
+ * it. What it made of it comes back in `result`, which is the state machine's
+ * own answer about this exact command rather than a guess made beforehand
+ * against a state that may since have moved.
+ *
+ * @param command  What to do.
+ * @param waitMs   How long to wait for the task to get to it.
+ * @param result   Receives RADIO_OK, or why the radio refused it. Only
+ *                 meaningful on RADIO_POST_DONE. May be NULL.
+ * @return RADIO_POST_DONE, RADIO_POST_BUSY when there was no room on the
+ *         queue, or RADIO_POST_SLOW when the wait ran out.
  */
-bool radioWouldAccept(const RadioCommand *command, RadioError *result);
+RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
+                                   RadioError *result);
+
+/**
+ * The band plan the radio task is working to.
+ *
+ * A caller that has to work out which band a frequency is in must use this
+ * one, not its own defaults. The two agree today and would stop agreeing the
+ * moment the plan comes from settings, and then the answer given to a caller
+ * would be about a different band from the one the radio tuned.
+ *
+ * @param out  Receives a copy of the plan.
+ * @return false when the task is not running, in which case nothing is
+ *         written.
+ */
+bool radioTaskPlan(BandPlanConfig *out);
 
 /**
  * Take a copy of the radio's state.
