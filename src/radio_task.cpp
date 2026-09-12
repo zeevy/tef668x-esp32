@@ -4,6 +4,8 @@
  */
 #include "radio_task.h"
 
+#include "core/signal.h"
+
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -58,6 +60,14 @@ static Squelch sSquelch;
  * decides whether anything needs sending.
  */
 static bool sLastPushedMute = false;
+
+/** Smoothed readings, for anything that decides on the signal. */
+static SignalAverage sLevelAverage;
+static SignalAverage sSnrAverage;
+
+/** What the bandwidth extension was last set to. */
+static bool sBandwidthWide = false;
+static bool sBandwidthKnown = false;
 static SquelchMode sSquelchMode = SQUELCH_OFF;
 static int16_t sSquelchThreshold = 0;
 
@@ -99,6 +109,8 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.qualityValid = qualityValid;
   sSnapshot.tunerReady = tef668xCapabilities() != NULL;
   sSnapshot.lastError = lastError;
+  sSnapshot.bandwidthWide = sBandwidthWide;
+  sSnapshot.tunerMuted = sLastPushedMute;
   sSnapshot.squelchMode = sSquelchMode;
   sSnapshot.squelchOpen = sSquelch.open;
   sSnapshot.squelchThresholdTenths = sSquelchThreshold;
@@ -122,6 +134,31 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
  * @param from  What the tuner was last told, or NULL to send everything.
  * @param to    What it should be set to.
  */
+/**
+ * The three FM features, which the AM side does not have.
+ *
+ * Written on every retune as well as on a change, because crossing to the AM
+ * side and back puts the chip through its active mode again and what it keeps
+ * across that is not documented.
+ */
+static Tef668xError pushFeatures(const RadioSettings *s) {
+  if (bandModulation(s->band) != MODULATION_FM) {
+    return TEF668X_OK;
+  }
+  /* All three go out whatever happens to the first, and the first error is
+   * what gets reported. Stopping at a failure would leave the other two
+   * holding whatever the chip had, with the firmware believing it had set
+   * them, which is the harder fault to find. The same reasoning as the
+   * unmute above, and worth saying rather than leaving it to look accidental. */
+  Tef668xError err = tef668xSetMultipathSuppression(s->multipathSuppression);
+  Tef668xError eq = tef668xSetChannelEqualizer(s->equalizer);
+  Tef668xError mono = tef668xSetMono(s->forcedMono);
+  if (err != TEF668X_OK) {
+    return err;
+  }
+  return eq != TEF668X_OK ? eq : mono;
+}
+
 static Tef668xError pushToTuner(const RadioSettings *from,
                                 const RadioSettings *to) {
   RadioPush push = radioPushNeeded(from, to);
@@ -163,7 +200,16 @@ static Tef668xError pushToTuner(const RadioSettings *from,
      * is silent looks broken. So the unmute happens on every path, and the
      * first real error is what gets reported. */
     Tef668xError unmute = tef668xSetMute(to->muted);
-    return err != TEF668X_OK ? err : unmute;
+    if (err == TEF668X_OK) {
+      err = unmute;
+    }
+    if (push.features) {
+      Tef668xError feat = pushFeatures(to);
+      if (err == TEF668X_OK) {
+        err = feat;
+      }
+    }
+    return err;
   }
 
   /* Nothing moved the dial, so nothing is muted around these. */
@@ -181,6 +227,11 @@ static Tef668xError pushToTuner(const RadioSettings *from,
   }
   if (push.mute) {
     if ((err = tef668xSetMute(to->muted)) != TEF668X_OK) {
+      return err;
+    }
+  }
+  if (push.features) {
+    if ((err = pushFeatures(to)) != TEF668X_OK) {
       return err;
     }
   }
@@ -269,16 +320,26 @@ static void radioTask(void *arg) {
     heard.muted = wanted.muted || !sSquelch.open;
     RadioSettings wasHeard = settings;
     wasHeard.muted = sLastPushedMute;
+    RadioPush push = radioPushNeeded(&wasHeard, &heard);
 
     /* No `changed` guard here. The squelch can move the mute with no command
      * having arrived at all, and a push that only happens when something was
      * drained would never act on it. Comparing the two is the whole test. */
-    if (radioNeedsRetune(&wasHeard, &heard) || pushFailed) {
+    if (push.retune || push.bandwidth || push.volume || push.mute ||
+        push.features || pushFailed) {
       /* After a failure the tuner's state is not known, so everything goes
        * again rather than only what the settings say moved. */
       lastError = pushToTuner(pushFailed ? NULL : &wasHeard, &heard);
       pushFailed = lastError != TEF668X_OK;
       sLastPushedMute = heard.muted;
+      if (push.retune) {
+        /* The readings from before the dial moved say nothing about where it
+         * is now, and the chip has been through its active mode, which may
+         * have taken the bandwidth option with it. Both start again. */
+        signalAverageReset(&sLevelAverage);
+        signalAverageReset(&sSnrAverage);
+        sBandwidthKnown = false;
+      }
     }
     settings = wanted;
 
@@ -308,6 +369,33 @@ static void radioTask(void *arg) {
         mode = sSquelchMode;
         threshold = sSquelchThreshold;
       }
+      /* Only a reading that arrived, and only from the FM side.
+       *
+       * A failed read leaves the quality struct holding the previous one, so
+       * feeding it in again would count the same sample twice. And the AM
+       * readings are a different scale entirely: letting them into these
+       * averages meant a strong FM station came back from a spell on medium
+       * wave with the filter held narrow for about two seconds while the
+       * smoothing forgot the AM numbers. */
+      if (qualityOk && fm) {
+        /* Smoothed, because one reading of this tuner jumps far more than the
+         * signal does and the filter would open and shut several times a
+         * second on a bare one. */
+        int16_t level = signalAverage(&sLevelAverage, quality.levelDbuVTenths);
+        int16_t snr = signalAverage(&sSnrAverage, quality.snrDb);
+
+        /* The reference firmware's rule: a strong clean signal is allowed a
+         * wider filter, which is more treble and better separation. Its
+         * thresholds, on the level scale this firmware now shares with it. */
+        bool wantWide = snr > 15 && level > 300;
+        if (wantWide != sBandwidthWide || !sBandwidthKnown) {
+          if (tef668xSetBandwidthExtension(wantWide) == TEF668X_OK) {
+            sBandwidthWide = wantWide;
+            sBandwidthKnown = true;
+          }
+        }
+      }
+
       bool wasOpen = sSquelch.open;
       squelchUpdate(&sSquelch, NULL, mode, settings.band, &reading, threshold,
                     millis());
@@ -374,6 +462,9 @@ bool radioTaskStart(const BandPlanConfig *plan) {
   /* Open. A zeroed squelch is a shut one, and the radio would come up silent
    * and stay that way until the first reading arrived. */
   squelchInit(&sSquelch);
+  signalAverageReset(&sLevelAverage);
+  signalAverageReset(&sSnrAverage);
+  sBandwidthKnown = false;
   sSquelchMode = SQUELCH_OFF;
   sSquelchThreshold = 0;
   sLastPushedMute = false;

@@ -65,6 +65,8 @@ const char *radioErrorText(RadioError error) {
       return "ok";
     case RADIO_ERR_BAND:
       return "not a band this radio has";
+    case RADIO_ERR_FM_ONLY:
+      return "that only works on FM";
     case RADIO_ERR_FREQUENCY:
       return "that frequency is in no band";
     case RADIO_ERR_STEP:
@@ -264,6 +266,24 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       settings->muted = !settings->muted;
       return RADIO_OK;
 
+    case RADIO_SET_MPH_SUPPRESSION:
+    case RADIO_SET_EQUALIZER:
+    case RADIO_SET_MONO:
+      /* All three are FM ideas. The chip has nowhere to put them on the AM
+       * side, so asking there is a mistake worth reporting rather than a
+       * write that quietly goes nowhere. */
+      if (bandModulation(settings->band) != MODULATION_FM) {
+        return RADIO_ERR_FM_ONLY;
+      }
+      if (command->kind == RADIO_SET_MPH_SUPPRESSION) {
+        settings->multipathSuppression = command->on;
+      } else if (command->kind == RADIO_SET_EQUALIZER) {
+        settings->equalizer = command->on;
+      } else {
+        settings->forcedMono = command->on;
+      }
+      return RADIO_OK;
+
     case RADIO_SET_TUNE_MODE:
       if (!radioTuneModeAllowed(command->tuneMode, settings->band)) {
         return RADIO_ERR_TUNE_MODE;
@@ -282,6 +302,7 @@ RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
   push.bandwidth = true;
   push.volume = true;
   push.mute = true;
+  push.features = true;
   if (from == NULL || to == NULL) {
     return push;
   }
@@ -299,6 +320,11 @@ RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
   bool sideChanged = bandModulation(from->band) != bandModulation(to->band);
   push.volume = sideChanged || from->volumeDb != to->volumeDb;
   push.mute = from->muted != to->muted;
+  /* The three FM features go together. They are three writes either way, and
+   * a band change loses them, so a retune re-sends them. */
+  push.features =
+      push.retune || from->multipathSuppression != to->multipathSuppression ||
+      from->equalizer != to->equalizer || from->forcedMono != to->forcedMono;
   return push;
 }
 
@@ -306,5 +332,6 @@ bool radioNeedsRetune(const RadioSettings *a, const RadioSettings *b) {
   /* The step size and the tuning mode never reach the chip. They decide what
    * the next command will be, not what the tuner is doing now. */
   RadioPush push = radioPushNeeded(a, b);
-  return push.retune || push.bandwidth || push.volume || push.mute;
+  return push.retune || push.bandwidth || push.volume || push.mute ||
+         push.features;
 }

@@ -16,6 +16,7 @@
 #include "i2c_bus.h"
 
 #include "board/board.h"
+#include "core/signal.h"
 #include "tef668x_patch.h"
 
 /** Modules inside the chip. Every command is addressed to one of them. */
@@ -41,15 +42,19 @@ typedef enum {
 #define CMD_SET_NOISE_BLANKER 23 /**< Impulse noise blanker. */
 #define CMD_SET_NOISE_BLANKER_AUDIO 24 /**< Its audio side. AM only. */
 #define CMD_SET_DEEMPHASIS 31          /**< FM de-emphasis time constant. */
-#define CMD_SET_LEVEL_OFFSET 39  /**< Calibration of the reported level. */
-#define CMD_SET_SOFTMUTE_MAX 45  /**< How far soft mute may pull the audio. */
-#define CMD_SET_HIGHCUT_LEVEL 52 /**< Treble roll off against level. */
-#define CMD_SET_HIGHCUT_NOISE 53 /**< Against noise. */
-#define CMD_SET_HIGHCUT_MPH 54   /**< Against multipath. */
-#define CMD_SET_HIGHCUT_MAX 55   /**< The highest frequency it may pass. */
-#define CMD_SET_STEREO_LEVEL 62  /**< Stereo blend against level. */
-#define CMD_SET_STEREO_NOISE 63  /**< Against noise. */
-#define CMD_SET_STEREO_MPH 64    /**< Against multipath. */
+#define CMD_SET_LEVEL_OFFSET 39    /**< Calibration of the reported level. */
+#define CMD_SET_SOFTMUTE_MAX 45    /**< How far soft mute may pull the audio. */
+#define CMD_SET_HIGHCUT_LEVEL 52   /**< Treble roll off against level. */
+#define CMD_SET_HIGHCUT_NOISE 53   /**< Against noise. */
+#define CMD_SET_HIGHCUT_MPH 54     /**< Against multipath. */
+#define CMD_SET_HIGHCUT_MAX 55     /**< The highest frequency it may pass. */
+#define CMD_SET_STEREO_LEVEL 62    /**< Stereo blend against level. */
+#define CMD_SET_STEREO_NOISE 63    /**< Against noise. */
+#define CMD_SET_STEREO_MPH 64      /**< Against multipath. */
+#define CMD_SET_MPH_SUPPRESSION 20 /**< iMS, multipath suppression. */
+#define CMD_SET_CHANNEL_EQUALIZER 22 /**< EQ, the channel equalizer. */
+#define CMD_SET_STEREO_MIN 66        /**< Forced mono, or stereo allowed. */
+#define CMD_SET_BANDWIDTH_OPTIONS 86 /**< How far the adaptive filter opens. */
 
 #define CMD_AUDIO_SET_VOLUME 10 /**< Output gain, in tenths of a dB. */
 #define CMD_AUDIO_SET_MUTE 11   /**< Mute or unmute the output. */
@@ -991,6 +996,31 @@ Tef668xError tef668xReadQualityRaw(bool fm, uint8_t out[14]) {
   return query(fm ? MODULE_FM : MODULE_AM, CMD_GET_QUALITY_STATUS, out, 14);
 }
 
+Tef668xError tef668xSetMultipathSuppression(bool on) {
+  uint16_t args[1] = {(uint16_t)(on ? 1 : 0)};
+  return command(MODULE_FM, CMD_SET_MPH_SUPPRESSION, args, 1);
+}
+
+Tef668xError tef668xSetChannelEqualizer(bool on) {
+  uint16_t args[1] = {(uint16_t)(on ? 1 : 0)};
+  return command(MODULE_FM, CMD_SET_CHANNEL_EQUALIZER, args, 1);
+}
+
+Tef668xError tef668xSetBandwidthExtension(bool wide) {
+  /* 400 lets it open, 950 holds it back. Not a width in kHz and not a flag:
+   * they are the two values the reference firmware writes, and it writes one
+   * or the other and nothing between. */
+  uint16_t args[1] = {(uint16_t)(wide ? 400 : 950)};
+  return command(MODULE_FM, CMD_SET_BANDWIDTH_OPTIONS, args, 1);
+}
+
+Tef668xError tef668xSetMono(bool mono) {
+  /* Mode 2 forces mono and mode 0 allows stereo. The second word is 400 in
+   * both cases in the reference firmware. */
+  uint16_t args[2] = {(uint16_t)(mono ? 2 : 0), 400};
+  return command(MODULE_FM, CMD_SET_STEREO_MIN, args, 2);
+}
+
 Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality) {
   if (quality == NULL) {
     return TEF668X_ERR_RANGE;
@@ -1031,5 +1061,10 @@ Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality) {
     quality->coChannelTenths = word16(buf + 6);
     quality->stereo = false; /* AM has no stereo on this part. */
   }
+  /* Worked out, not read. The chip does not report it, and the two sides put
+   * their noise on different scales, so which one this came from matters. */
+  quality->snrDb =
+      signalSnrDb(quality->levelDbuVTenths, quality->usnTenths, fm);
+
   return TEF668X_OK;
 }

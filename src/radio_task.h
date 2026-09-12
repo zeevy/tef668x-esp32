@@ -50,6 +50,16 @@ typedef struct {
   uint32_t updatedMs;     /**< When this was taken, ms since boot. */
   uint32_t sequence;      /**< Goes up every time. Spots a stalled task. */
   uint32_t applied;       /**< How many commands the task has worked through. */
+  bool bandwidthWide;     /**< The adaptive filter is allowed to open. */
+  /**
+   * What the tuner was last told about the mute.
+   *
+   * Not the same as settings.muted, which is what the person asked for. The
+   * tuner is told that, or silence because the squelch is shut. When the
+   * radio has gone quiet for no reason the page can give, the difference
+   * between these two is the first thing worth seeing.
+   */
+  bool tunerMuted;
   SquelchMode squelchMode; /**< What decides whether the audio is open. */
   bool squelchOpen;        /**< Whether the squelch is letting sound through. */
   int16_t squelchThresholdTenths; /**< What Manual is set to. */

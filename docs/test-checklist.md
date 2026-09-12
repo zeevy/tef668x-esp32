@@ -272,6 +272,24 @@ Not written yet, so do not look for them: touch, RTC, battery reading, telemetry
 
 There is no analogue S-meter on this unit, so there is nothing to watch on pin 27. The pin is driven anyway.
 
+### The FM features
+
+None of these turns itself on except the bandwidth extension, which follows the signal.
+
+| # | Do this | Expect |
+|---|---|---|
+| 153 | `GET /api/state` on FM | `ims`, `eq` and `mono` are all false. The same as the radio this replaces ships |
+| 154 | `POST /api/fm -d 'ims=1'` on a station suffering multipath | Audibly cleaner. This is the feature with its own badge on the old radio |
+| 155 | `POST /api/fm -d 'eq=1'` | The channel equalizer. Listen for a difference on a marginal station |
+| 156 | `POST /api/fm -d 'mono=1'` then `mono=0` | Stereo stops and comes back. Different from the automatic blend, which drops to mono on its own as a signal weakens |
+| 157 | `POST /api/fm -d 'ims=1'` on an AM band | `400` and `that only works on FM`. Not the message for a band that does not exist |
+| 158 | Turn a feature on, change band and come back | It is still on, and still doing something. Crossing to AM and back puts the chip through its active mode, so they have to be re-sent |
+| 159 | `POST /api/fm -d 'ims=5'` and with no arguments | `400` both times, and nothing changed |
+| 160 | Watch `wide` on a strong local station | True. It needs a smoothed signal above 30 dBuV and a ratio above 15 dB |
+| 161 | Watch `wide` on a weak station | False. A wide filter on a weak signal is mostly the neighbours |
+| 162 | Tune from a strong station to an empty frequency and watch `wide` | It changes once, not several times a second. The readings are smoothed before anything decides on them |
+| 163 | Compare `snr` against `sig` and `usn` | It rises with signal and falls with noise. The chip does not report it, so it is worked out from those two |
+
 ### The squelch
 
 Three modes, and the mode also decides what the front pot does. There is one knob, so it is the volume or the squelch and never both.

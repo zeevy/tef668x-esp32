@@ -71,6 +71,13 @@ typedef struct {
   uint16_t bandwidthKHz;     /**< The bandwidth the tuner settled on. */
   int16_t modulationPercent; /**< Modulation depth. See the note below. */
   bool stereo;               /**< A stereo pilot is present. FM. */
+  /**
+   * Signal to noise in dB, worked out rather than read.
+   *
+   * The chip does not report it. See core/signal.h for the line it comes
+   * from and why that line is copied rather than derived.
+   */
+  int8_t snrDb;
 } Tef668xQuality;
 
 /**
@@ -170,6 +177,51 @@ Tef668xError tef668xSetVolume(int8_t decibels);
  * @return TEF668X_OK, or what stopped it.
  */
 Tef668xError tef668xSetMute(bool muted);
+
+/**
+ * Multipath suppression, which the old firmware and its screen call iMS.
+ *
+ * FM only. It is the feature that makes a station suffering reflections
+ * listenable, and it is off until something turns it on.
+ *
+ * @param on  true to suppress.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetMultipathSuppression(bool on);
+
+/**
+ * The channel equalizer, which that firmware calls EQ.
+ *
+ * FM only, and also off by default.
+ *
+ * @param on  true to equalize.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetChannelEqualizer(bool on);
+
+/**
+ * How far the adaptive bandwidth may open.
+ *
+ * FM only, and only meaningful while the bandwidth is on automatic. On a
+ * strong clean signal the filter is allowed to open further, which is more
+ * treble and better stereo separation. On anything else it is held back,
+ * because a wide filter on a weak signal is mostly the neighbours.
+ *
+ * @param wide  true to let it open.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetBandwidthExtension(bool wide);
+
+/**
+ * Force mono, or allow stereo.
+ *
+ * FM only. Not the same as the automatic blend, which drops to mono on its
+ * own as a signal weakens. This is the switch a person throws.
+ *
+ * @param mono  true for mono.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetMono(bool mono);
 
 /**
  * Read the signal quality.

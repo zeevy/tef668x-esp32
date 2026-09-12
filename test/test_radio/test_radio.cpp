@@ -639,6 +639,76 @@ static void nothing_known_means_send_everything(void) {
   TEST_ASSERT_TRUE(push.mute);
 }
 
+/* ------------------------------------------------------- the FM features */
+
+static void the_fm_features_start_off(void) {
+  /* The same as the radio this replaces ships. Its setting for these is
+   * stored inverted, so a 1 there means off, which is worth not copying. */
+  TEST_ASSERT_FALSE(r.multipathSuppression);
+  TEST_ASSERT_FALSE(r.equalizer);
+  TEST_ASSERT_FALSE(r.forcedMono);
+}
+
+static void each_fm_feature_can_be_turned_on_and_off(void) {
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_OK,
+      apply((RadioCommand){.kind = RADIO_SET_MPH_SUPPRESSION, .on = true}));
+  TEST_ASSERT_TRUE(r.multipathSuppression);
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_OK, apply((RadioCommand){.kind = RADIO_SET_EQUALIZER, .on = true}));
+  TEST_ASSERT_TRUE(r.equalizer);
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_OK, apply((RadioCommand){.kind = RADIO_SET_MONO, .on = true}));
+  TEST_ASSERT_TRUE(r.forcedMono);
+
+  apply((RadioCommand){.kind = RADIO_SET_MPH_SUPPRESSION, .on = false});
+  apply((RadioCommand){.kind = RADIO_SET_EQUALIZER, .on = false});
+  apply((RadioCommand){.kind = RADIO_SET_MONO, .on = false});
+  TEST_ASSERT_FALSE(r.multipathSuppression);
+  TEST_ASSERT_FALSE(r.equalizer);
+  TEST_ASSERT_FALSE(r.forcedMono);
+}
+
+static void the_fm_features_are_refused_on_am(void) {
+  /* The chip has nowhere to put them on the AM side. Refusing says so,
+   * where a write that quietly goes nowhere would not. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_ERR_FM_ONLY,
+      apply((RadioCommand){.kind = RADIO_SET_MPH_SUPPRESSION, .on = true}));
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_ERR_FM_ONLY,
+      apply((RadioCommand){.kind = RADIO_SET_EQUALIZER, .on = true}));
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_ERR_FM_ONLY,
+      apply((RadioCommand){.kind = RADIO_SET_MONO, .on = true}));
+  /* And the reason is its own, not the one for a band that does not exist. */
+  TEST_ASSERT_EQUAL_STRING("that only works on FM",
+                           radioErrorText(RADIO_ERR_FM_ONLY));
+  TEST_ASSERT_FALSE(r.multipathSuppression);
+}
+
+static void changing_a_feature_does_not_move_the_dial(void) {
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_SET_MPH_SUPPRESSION, .on = true});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.features);
+  TEST_ASSERT_FALSE(push.retune);
+  TEST_ASSERT_FALSE(push.volume);
+  TEST_ASSERT_FALSE(push.mute);
+}
+
+static void a_retune_sends_the_features_again(void) {
+  /* Crossing to the AM side and back puts the chip through its active mode,
+   * and what it keeps across that is not documented. */
+  apply((RadioCommand){.kind = RADIO_SET_MPH_SUPPRESSION, .on = true});
+  RadioSettings before = r;
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 98300});
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.retune);
+  TEST_ASSERT_TRUE(push.features);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -687,6 +757,12 @@ int main(int, char **) {
   RUN_TEST(changing_the_bandwidth_alone_does_not_retune);
   RUN_TEST(the_step_size_and_the_mode_never_reach_the_tuner);
   RUN_TEST(nothing_known_means_send_everything);
+
+  RUN_TEST(the_fm_features_start_off);
+  RUN_TEST(each_fm_feature_can_be_turned_on_and_off);
+  RUN_TEST(the_fm_features_are_refused_on_am);
+  RUN_TEST(changing_a_feature_does_not_move_the_dial);
+  RUN_TEST(a_retune_sends_the_features_again);
 
   return UNITY_END();
 }

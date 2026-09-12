@@ -668,11 +668,25 @@ static void appendRadioState(String &out) {
       }
       /* What the tuner last refused. Without this the page can show a station
        * the radio is not actually on, with nothing to say so. */
+      /* The FM features, none of which turns itself on. */
+      out += F(",\"ims\":");
+      out += snap.settings.multipathSuppression ? F("true") : F("false");
+      out += F(",\"eq\":");
+      out += snap.settings.equalizer ? F("true") : F("false");
+      out += F(",\"mono\":");
+      out += snap.settings.forcedMono ? F("true") : F("false");
+      out += F(",\"snr\":");
+      out += String(snap.quality.snrDb);
+      out += F(",\"wide\":");
+      out += snap.bandwidthWide ? F("true") : F("false");
+
       /* The squelch, so a radio that has gone quiet says why. */
       out += F(",\"sql\":\"");
       out += squelchModeName(snap.squelchMode);
       out += F("\",\"sqlOpen\":");
       out += snap.squelchOpen ? F("true") : F("false");
+      out += F(",\"hwMute\":");
+      out += snap.tunerMuted ? F("true") : F("false");
       if (snap.squelchMode == SQUELCH_MANUAL) {
         out += F(",\"sqlAt\":");
         out += String(snap.squelchThresholdTenths);
@@ -859,6 +873,15 @@ static String buildState(void) {
  * | `bw` | Bandwidth the tuner settled on | kHz |
  * | `mod` | Modulation depth | percent |
  * | `st` | A stereo pilot is present | |
+ * | `ims` | Multipath suppression, iMS on the old radio | |
+ * | `eq` | Channel equalizer | |
+ * | `mono` | Stereo refused on purpose | |
+ * | `snr` | Signal to noise, worked out and not read from the chip | dB |
+ * | `wide` | The adaptive filter is allowed to open | |
+ * | `sql` | Off, Auto or Manual | |
+ * | `sqlOpen` | The squelch is letting sound through | |
+ * | `sqlAt` | The manual threshold. Manual only | tenths of a dBuV |
+ * | `hwMute` | What the tuner was told, against `mute` which is what was asked | |
  *
  * Inside `tuner` when it did not start, so a fault can be read without a
  * serial cable:
@@ -1441,6 +1464,104 @@ static void handleApiSquelch(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
+/**
+ * POST /api/fm. The FM features the tuner has and nothing turns on by itself.
+ *
+ * Takes any of `ims`, `eq` and `mono`, each 0 or 1. All three are FM ideas
+ * and are refused on the AM bands, where the chip has nowhere to put them.
+ *
+ * `ims` is multipath suppression, which the old radio badges as iMS and which
+ * is what makes a station suffering reflections listenable. `eq` is the
+ * channel equalizer. `mono` refuses stereo on purpose, which is not the same
+ * as the automatic blend that drops to mono as a signal weakens.
+ *
+ * The bandwidth extension is not here. It follows the signal on its own.
+ */
+/** The three FM features as they actually are, read back from the radio. */
+static String apiFmState(void) {
+  RadioSnapshot now;
+  if (!radioGetSnapshot(&now)) {
+    return String("unknown, the radio is not running");
+  }
+  return String("iMS ") + (now.settings.multipathSuppression ? "on" : "off") +
+         ", EQ " + (now.settings.equalizer ? "on" : "off") + ", " +
+         (now.settings.forcedMono ? "mono" : "stereo");
+}
+
+static void handleApiFm(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+
+  struct {
+    const char *name;
+    RadioCommandKind kind;
+  } features[] = {
+      {"ims", RADIO_SET_MPH_SUPPRESSION},
+      {"eq", RADIO_SET_EQUALIZER},
+      {"mono", RADIO_SET_MONO},
+  };
+
+  /* Every argument is read and checked before any command is sent, so a
+   * request with one bad argument changes nothing.
+   *
+   * That is not the same as the whole handler being all or nothing. Three
+   * features are three commands, and if the second is refused the first has
+   * already been applied, so every failure below reports the state the radio
+   * actually reached rather than implying nothing happened. */
+  long values[3];
+  bool given[3] = {false, false, false};
+  int count = 0;
+  for (int i = 0; i < 3; i++) {
+    if (!sServer.hasArg(features[i].name)) {
+      continue;
+    }
+    if (!apiNumber(features[i].name, &values[i], 0, 1)) {
+      return;
+    }
+    given[i] = true;
+    count++;
+  }
+  if (count == 0) {
+    apiFail(400, "Give ims, eq or mono, each 0 or 1.");
+    return;
+  }
+
+  for (int i = 0; i < 3; i++) {
+    if (!given[i]) {
+      continue;
+    }
+    RadioCommand cmd = {};
+    cmd.kind = features[i].kind;
+    cmd.on = values[i] != 0;
+    RadioError why = RADIO_OK;
+    RadioPostResult posted = radioPostAndSettle(&cmd, API_SETTLE_MS, &why);
+    if (posted != RADIO_POST_DONE || why != RADIO_OK) {
+      String reason;
+      if (posted == RADIO_POST_BUSY) {
+        reason = F("the radio is busy");
+      } else if (posted == RADIO_POST_SLOW) {
+        reason = F("the radio has not confirmed it");
+      } else {
+        reason = String(F("the radio refused it: ")) + radioErrorText(why);
+      }
+      /* Which one failed, and what the radio is actually set to now. An
+       * earlier feature in the same request may already have been applied,
+       * and a reply that only said no would be describing a radio that had
+       * changed underneath it. */
+      apiFail(posted == RADIO_POST_DONE ? 400 : 503,
+              String(features[i].name) + ": " + reason + ". It is now " +
+                  apiFmState());
+      return;
+    }
+  }
+
+  String said = apiFmState();
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
+}
+
 /** Anything else. */
 static void handleNotFound(void) {
   sRequests++;
@@ -1477,6 +1598,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/mode", HTTP_POST, handleApiMode);
   sServer.on("/api/cycle", HTTP_POST, handleApiCycle);
   sServer.on("/api/squelch", HTTP_POST, handleApiSquelch);
+  sServer.on("/api/fm", HTTP_POST, handleApiFm);
   sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/setpin", HTTP_POST, handleSetPin);

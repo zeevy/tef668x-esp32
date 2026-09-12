@@ -84,6 +84,16 @@ typedef struct {
    * A band never visited holds 0, which means the bottom of the band.
    */
   uint32_t bandFreqKHz[BAND_COUNT];
+  /**
+   * Multipath suppression, iMS on the old radio's screen. FM only.
+   *
+   * True means suppress. The reference firmware stores this inverted, so
+   * that its setting of 0 turns the feature on, and it ships with the
+   * setting at 1 and the feature off. This one means what it says.
+   */
+  bool multipathSuppression;
+  bool equalizer;  /**< Channel equalizer, EQ on that screen. FM only. */
+  bool forcedMono; /**< Stereo refused on purpose, not the automatic blend. */
 } RadioSettings;
 
 /**
@@ -119,10 +129,13 @@ typedef enum {
    * the keypad sent an FM bandwidth of 56 kHz to a radio that had just
    * arrived on medium wave, where the widest filter is 8 kHz.
    */
-  RADIO_CYCLE_BAND,      /**< The next band, wrapping round. */
-  RADIO_CYCLE_BANDWIDTH, /**< The next bandwidth this band offers. */
-  RADIO_CYCLE_TUNE_MODE, /**< The next mode this band offers. */
-  RADIO_TOGGLE_MUTE      /**< Mute if playing, unmute if muted. */
+  RADIO_CYCLE_BAND,          /**< The next band, wrapping round. */
+  RADIO_CYCLE_BANDWIDTH,     /**< The next bandwidth this band offers. */
+  RADIO_CYCLE_TUNE_MODE,     /**< The next mode this band offers. */
+  RADIO_TOGGLE_MUTE,         /**< Mute if playing, unmute if muted. */
+  RADIO_SET_MPH_SUPPRESSION, /**< Multipath suppression on or off. */
+  RADIO_SET_EQUALIZER,       /**< Channel equalizer on or off. */
+  RADIO_SET_MONO             /**< Force mono, or allow stereo. */
 } RadioCommandKind;
 
 /** One thing to do. Only the field its kind names is read. */
@@ -135,6 +148,7 @@ typedef struct {
   uint16_t bandwidthKHz; /**< RADIO_SET_BANDWIDTH. */
   int8_t volumeDb;       /**< RADIO_SET_VOLUME. */
   bool muted;            /**< RADIO_SET_MUTE. */
+  bool on;               /**< The three FM feature commands. */
   TuneMode tuneMode;     /**< RADIO_SET_TUNE_MODE. */
 } RadioCommand;
 
@@ -142,6 +156,7 @@ typedef struct {
 typedef enum {
   RADIO_OK = 0,        /**< It was applied. */
   RADIO_ERR_BAND,      /**< Not a band this radio has. */
+  RADIO_ERR_FM_ONLY,   /**< The band is real, the feature is FM only. */
   RADIO_ERR_FREQUENCY, /**< Not inside any band. */
   RADIO_ERR_STEP,      /**< Not a step size that band offers. */
   RADIO_ERR_BANDWIDTH, /**< Out of range, or not allowed on this band. */
@@ -186,6 +201,7 @@ typedef struct {
   bool bandwidth; /**< The filter width has to be set. */
   bool volume;    /**< The output gain has to be set. */
   bool mute;      /**< The mute has to be set. */
+  bool features;  /**< The FM features have to be set. */
 } RadioPush;
 
 /**
