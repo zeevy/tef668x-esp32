@@ -21,6 +21,21 @@ work around it.
 I2C addresses, part markings, flash layout. Facts in it were read off the chip
 or off the board photos. Do not add anything to it that was guessed.
 
+## Branches
+
+| Branch | What it is |
+|---|---|
+| `main` | Released code. What a visitor to the repo sees. Tagged releases come from here |
+| `dev` | The working branch. Everything lands here first |
+| `feature/*`, `fix/*` | Branched off `dev`, merged back into `dev` by pull request |
+
+Work on `dev` or on a branch off it, never directly on `main`. `dev` goes into
+`main` when a release is ready, and the release workflow builds and publishes
+from the tag.
+
+CI runs on both branches and on every pull request. A red pipeline blocks the
+merge.
+
 ## Build and flash
 
 PlatformIO. One environment per board, plus a native environment for tests.

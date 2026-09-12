@@ -119,6 +119,12 @@ pio run -e ats125 -t upload       # first flash, over USB
 The first USB flash needs the board in download mode: hold BOOT, tap RESET,
 release BOOT. Everything after that goes over Wi-Fi.
 
+## Contributing
+
+`main` is released code. Work happens on `dev`, or on a `feature/` or `fix/`
+branch cut from it, and comes back by pull request. CI has to be green before a
+merge.
+
 ## Licence
 
 GPLv3.
