@@ -146,7 +146,7 @@ The band switch is where this went wrong once, so check it in both directions.
 | # | Do this | Expect |
 |---|---|---|
 | 48 | Tune 738 | `MW 738 kHz`, `sig` around 190, and audio |
-| 49 | Tune 846 and 1377 | Both receive. 1377 shows as `1 377` |
+| 49 | Tune 846 and 1377 | Both receive. 1377 shows as `1377`, with nothing between the digits |
 | 50 | Tune 102800 straight after a medium wave station | It receives properly again. If every FM station reads `sig` 8320 and `bw` 4, the chip is stuck on its AM side and the FM preset wake is broken |
 | 51 | Alternate FM and MW five times | The last reading matches the first for the same station |
 
@@ -165,6 +165,7 @@ The band switch is where this went wrong once, so check it in both directions.
 | 60 | `POST /api/band -d 'band=SW'` then straight away `POST /api/mode -d 'mode=MeterBand'` | Both `200`. Sent back to back, this used to refuse the mode because the band change had not been applied yet |
 | 61 | `POST /api/mode -d 'mode=MeterBand'` while on MW | `400` and `that tuning mode is not available here`. Meter band is shortwave only |
 | 62 | `POST /api/band -d 'band=AIR'` | `400` and the list of real band names |
+| 62a | Tune 11900 on SW | Shows `11900`, not `11 900` |
 | 63 | `POST /api/mode -d 'mode=Wobble'` | `400` and the list of real modes |
 | 64 | `POST /api/volume -d 'db=99'` | `400` saying the range. Then `db=0` gives `200 volume 0 dB` |
 | 65 | `POST /api/mute -d 'on=1'` then `on=0` | Audio stops and comes back. `mute` in `/api/state` follows |
@@ -217,6 +218,7 @@ These need a person at the radio. Watch what the radio saw with `curl -s http://
 | 88 | Hold BAND for a second | `BAND long`. The RDS screen is phase 4 |
 | 89 | Press BW repeatedly on FM | The full list in turn: automatic, 56, 64, 72, 84, 97, 114, 133, 151, 168, 184, 200, 217, 236, 254, 287, 311 kHz, then back to automatic |
 | 90 | Press BW repeatedly on MW | 3, 4, 6, 8 kHz and round again. There is no automatic on AM |
+| 90a | Listen to each of those four on a strong medium wave station | 4 kHz is the clearest, which is the default a band change picks. 3 kHz is muffled, 8 kHz lets the neighbour in |
 | 91 | Press MODE repeatedly on FM | Manual, Auto, Memory, Manual. Meter band is skipped, because it is shortwave only |
 | 92 | Press MODE repeatedly on SW | Meter band appears in the cycle |
 | 93 | Tap MODE four times quickly | Four mode changes, not two. A quick pair must not be swallowed as one double press |
@@ -231,9 +233,32 @@ These need a person at the radio. Watch what the radio saw with `curl -s http://
 | 102 | Hold two keys at once | Nothing is typed. There is no way to tell which one was meant |
 | 103 | Turn the knob while pressing keys | Both work. They are on the same I2C bus as the tuner, so a signal reading of exactly 0 for level, bandwidth and modulation at once means the bus lock has been lost |
 
+### The display
+
+The panel needed four things that could not be read off a datasheet, and each
+fails in a way that still looks like a working screen. Check all four.
+
+| # | Do this | Expect |
+|---|---|---|
+| 114 | Look at the screen at power on | The boot text, then the band, frequency, signal and stereo. Not a blank screen and not a white one |
+| 115 | Read the text | It reads normally. Mirrored text means only one of `MX` and `MY` is set, which is a flip rather than a rotation |
+| 116 | Check the screen is the right way up | The band is top left. Upside down means the other landscape rotation |
+| 117 | Look at the edges | The picture fills the glass. Everything squeezed against one side means the width and height are the wrong way round |
+| 118 | Check the background is black and the band name is amber | An amber that looks blue and a background that looks white mean the colour inversion is off |
+| 119 | Check the background is black rather than dark blue | A blue background means the power and gamma registers were not sent. Pure black, white, red, green and blue all look right even when they are missing, so this is the only check that catches it |
+| 120 | Tune across the band with the knob | The frequency follows without flicker, and nothing of the previous number is left behind when it gets shorter, such as 100.00 to 99.90 |
+| 121 | Switch FM to MW | The unit changes from MHz to kHz and moves to sit against the shorter number |
+| 122 | Tune 1377 on MW | Reads `1377`, with nothing between the digits |
+| 123 | Press the knob to mute | `muted` appears at the foot, and clears when unmuted |
+| 124 | Change the tuning mode | The mode at the top right follows |
+| 125 | Pull the antenna out and push it in while watching the signal | The dBuV reading follows |
+| 126 | Leave it on a station for a minute | The signal reading updates and nothing else flickers. Only what changed is redrawn |
+| 127 | Power the radio on and watch and listen | The screen lights up before any sound comes out. Audio first reads as a fault rather than as a fast start |
+| 128 | Tune from 108.00 down to 99.50, then to 738, then to 162 | Nothing of the old number or the old unit is left behind. This is the check that failed as `kHz MHzzHz` |
+
 ### Things this build cannot be tested for
 
-Not written yet, so do not look for them: display, touch, encoder, keypad, RTC, battery reading, telemetry, RDS.
+Not written yet, so do not look for them: touch, RTC, battery reading, telemetry, RDS, memory channels, the volume AGC, and seek in Auto mode. Selecting Auto is possible, but the knob still steps manually there. That is issue 15.
 
 ### Known stations, for testing
 

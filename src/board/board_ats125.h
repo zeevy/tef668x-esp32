@@ -68,6 +68,12 @@
 #define XTAL_ADC_TOLERANCE 300 /**< How far a reading may sit from those. */
 
 /* Display, from TFT_eSPI/User_Setup.h in the PE5PVB fork. */
+#define PIN_SPI_SCK 18  /**< VSPI clock, the ESP32 default. */
+#define PIN_SPI_MOSI 23 /**< VSPI data out, the ESP32 default. */
+/* MISO would be pin 19 on VSPI, and pin 19 is the standby LED on this board.
+ * Nothing reads from the panel or the touch controller here, so MISO is never
+ * wired and the two never conflict. Decision 26. Reading the panel back would
+ * have to settle that first. */
 #define PIN_TFT_CS 5    /**< ILI9341 chip select. */
 #define PIN_TFT_DC 17   /**< ILI9341 data or command select. */
 #define PIN_TFT_RST 16  /**< ILI9341 reset. */

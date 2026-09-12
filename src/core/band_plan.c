@@ -371,23 +371,12 @@ bool bandFormatFrequency(BandId band, uint32_t freqKHz, char *out,
     written = snprintf(buf, sizeof(buf), "%u.%02u", (unsigned)(freqKHz / 1000),
                        (unsigned)((freqKHz % 1000) / 10));
   } else {
-    /* Kilohertz, grouped in threes from the right: 9420 reads "9 420". */
-    /* Ten digits is the widest a uint32_t gets, so the buffer cannot be too
-     * small. Checking that at compile time rather than at run time keeps out
-     * a branch that no test could ever reach. */
-    char digits[12];
-    _Static_assert(sizeof(digits) >= 11,
-                   "a uint32_t needs ten digits and a terminator");
-    int n = snprintf(digits, sizeof(digits), "%u", (unsigned)freqKHz);
-    size_t outPos = 0;
-    for (int i = 0; i < n; i++) {
-      if (i > 0 && (n - i) % 3 == 0) {
-        buf[outPos++] = ' ';
-      }
-      buf[outPos++] = digits[i];
-    }
-    buf[outPos] = '\0';
-    written = (int)outPos;
+    /* Plain kilohertz. 1377 reads "1377", not "1 377".
+     *
+     * It was grouped in threes at first, on the idea that five digits are
+     * easier to read that way. On the radio it looked like a fault: the space
+     * reads as a gap in the number rather than as a separator. */
+    written = snprintf(buf, sizeof(buf), "%u", (unsigned)freqKHz);
   }
 
   if (written < 0 || (size_t)written >= outLen) {

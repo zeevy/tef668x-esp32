@@ -80,10 +80,16 @@ typedef enum {
 /**
  * I2C speed for the tuner.
  *
- * 100 kHz, the standard rate. The working firmware never raises it, and the
- * patch load is thousands of writes, so this is not the place to be clever.
+ * 400 kHz, which is what the working PE5PVB firmware uses on this board:
+ * Wire.setClock(400000) in its Tuner_Interface.cpp. This was 100 kHz with a
+ * comment claiming that firmware never raised it, which was simply wrong and
+ * was never checked.
+ *
+ * It matters most for the patch, which is six thousand bytes, and for the RDS
+ * reads every 43 ms that arrive in a later phase. The 2 ms settle after each
+ * write dominates short commands either way.
  */
-#define TUNER_I2C_HZ 100000
+#define TUNER_I2C_HZ 400000
 
 static bool sReady = false;
 static Tef668xCapabilities sCaps;

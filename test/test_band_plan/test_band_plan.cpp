@@ -487,16 +487,20 @@ static void fm_frequencies_read_as_megahertz_with_two_decimals(void) {
   TEST_ASSERT_EQUAL_STRING("MHz", bandFrequencyUnit(BAND_FM));
 }
 
-static void am_frequencies_read_as_grouped_kilohertz(void) {
+static void am_frequencies_read_as_plain_kilohertz(void) {
+  /* Nothing between the digits. A space there was tried and it read as a gap
+   * in the number rather than as a separator. */
   char out[16];
   TEST_ASSERT_TRUE(bandFormatFrequency(BAND_SW, 9420, out, sizeof(out)));
-  TEST_ASSERT_EQUAL_STRING("9 420", out);
+  TEST_ASSERT_EQUAL_STRING("9420", out);
   TEST_ASSERT_TRUE(bandFormatFrequency(BAND_SW, 27000, out, sizeof(out)));
-  TEST_ASSERT_EQUAL_STRING("27 000", out);
+  TEST_ASSERT_EQUAL_STRING("27000", out);
   TEST_ASSERT_TRUE(bandFormatFrequency(BAND_MW, 999, out, sizeof(out)));
   TEST_ASSERT_EQUAL_STRING("999", out);
   TEST_ASSERT_TRUE(bandFormatFrequency(BAND_MW, 1791, out, sizeof(out)));
-  TEST_ASSERT_EQUAL_STRING("1 791", out);
+  TEST_ASSERT_EQUAL_STRING("1791", out);
+  TEST_ASSERT_TRUE(bandFormatFrequency(BAND_MW, 1377, out, sizeof(out)));
+  TEST_ASSERT_EQUAL_STRING("1377", out);
   TEST_ASSERT_TRUE(bandFormatFrequency(BAND_LW, 144, out, sizeof(out)));
   TEST_ASSERT_EQUAL_STRING("144", out);
   TEST_ASSERT_EQUAL_STRING("kHz", bandFrequencyUnit(BAND_MW));
@@ -682,7 +686,7 @@ int main(int, char **) {
   RUN_TEST(meter_band_stepping_wraps_at_both_ends);
 
   RUN_TEST(fm_frequencies_read_as_megahertz_with_two_decimals);
-  RUN_TEST(am_frequencies_read_as_grouped_kilohertz);
+  RUN_TEST(am_frequencies_read_as_plain_kilohertz);
   RUN_TEST(formatting_into_a_buffer_that_is_too_small_fails_safely);
   RUN_TEST(typing_1028_on_fm_means_102_point_8_megahertz);
   RUN_TEST(typing_738_means_738_kilohertz_on_medium_wave);

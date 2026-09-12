@@ -343,9 +343,7 @@ bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
  * Write a frequency the way it is shown on screen, without the unit.
  *
  * FM and OIRT come out as megahertz with two decimals, "104.00". AM bands come
- * out as kilohertz with an ordinary ASCII space every three digits from the
- * right, "9 420". A plain space, not a thin one, so the string needs no
- * particular font to render.
+ * out as plain kilohertz, "9420" and "1377", with nothing between the digits.
  *
  * @param band    Which band, which decides the format.
  * @param freqKHz The frequency in kHz.

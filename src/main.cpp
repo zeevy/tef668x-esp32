@@ -30,6 +30,7 @@
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
+#include "screen_task.h"
 
 /** The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
@@ -127,6 +128,12 @@ void setup() {
 
   gAccessPin = gSettings.accessPin;
 
+  /* The panel first, so there is something to look at while the rest starts.
+   * It was after the tuner at first, and the radio could be heard before
+   * anything appeared on the screen, which reads as a fault rather than as a
+   * fast start. The panel needs nothing else to be up. */
+  screenTaskBegin();
+
   /* The tuner takes a patch over I2C before it will do anything, so this is
    * where that happens. It is independent of the network, and a failure must
    * not stop the radio being reachable, because being reachable is how a fix
@@ -185,6 +192,7 @@ void setup() {
 void loop() {
   /* First, so a turn of the knob is acted on before anything slower runs. */
   inputPoll();
+  screenTaskPoll();
 
   wifiLoop();
   otaLoop();

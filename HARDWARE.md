@@ -150,9 +150,31 @@ From `TFT_eSPI/User_Setup.h` in the PE5PVB fork of the library.
 | SPI clock | 7.5 MHz write, 20 MHz read, 2.5 MHz touch |
 | Colour order | RGB |
 
-MOSI, MISO and SCK are the ESP32 VSPI defaults: 23, 19 and 18. Note that 19 is
-also listed as the standby LED in the pin map above, which needs checking on the
-real board before it is trusted.
+MOSI and SCK are the ESP32 VSPI defaults, 23 and 18. MISO would be 19, which is
+also listed as the standby LED. **That conflict does not have to be settled.**
+Nothing reads back from the panel, so this firmware never wires MISO. See
+decision 26.
+
+### What the panel actually needed, found by looking at it
+
+Driven for the first time on 12 September 2026. Four things could not be worked
+out from the datasheet or from the pin map, and each was settled by putting
+something on the glass and looking.
+
+| | |
+|---|---|
+| Orientation | `MADCTL` = `MV` and `BGR`. Landscape is `MV` alone or `MV` with **both** `MX` and `MY`. Setting only one of those two is a mirror, not a rotation, and reads backwards |
+| Size | 320 across by 240 down in this orientation. Having width and height the other way round drew everything into a 240 wide box against the left hand edge |
+| Inversion | `INVON`, command 0x21, is needed. Without it the amber came out blue and the near black background came out white |
+| Gamma | The datasheet's recommended power and gamma registers have to be sent. Without them the panel still shows pure red, green, blue, black and white correctly, so it looks fine, but the bottom of the scale is lifted hard |
+
+**The design's background colour cannot be shown on this panel.** `#0B0F13` is
+red 1, green 3 and blue 2 once it is in the panel's 5, 6 and 5 bits, and it
+renders as a solid medium blue rather than as a near black. Pure black renders
+correctly. Measured with a bar of each side by side, so the screen uses black.
+
+The colour order line above says RGB, which is the name of that setting in
+TFT_eSPI. In the controller's own terms it is the `BGR` bit being set.
 
 **Touch is fitted and working.** An `XPT2046` in SOIC is on the main board,
 marked `XPT2046 ABDDCB`, next to the PCA9555, and touch input works on this unit
@@ -332,8 +354,10 @@ threshold from this table.
 
 ## Open items
 
-1. Whether pin 19 is really both the standby LED and SPI MISO, or whether one of
-   the two sources is wrong.
+1. ~~Whether pin 19 is really both the standby LED and SPI MISO.~~ **Closed, by
+   not needing the answer.** Nothing reads from the panel or the touch
+   controller, so MISO is never wired and the two never contend. A driver that
+   reads the panel back would have to settle it first.
 2. How the JIELI Bluetooth chip is controlled, and whether the ESP32 talks to it
    at all.
 3. Which USB serial chip other batches carry, and whether those are wired for
