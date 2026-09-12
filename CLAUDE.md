@@ -224,6 +224,30 @@ file changes that. Those stay a written manual checklist that the release
 workflow requires someone to tick. Do not name a job or write a README line that
 implies otherwise.
 
+### Review and test before committing, then commit once
+
+The order is: write the code, run the tests, run `/code-review`, run
+`/security-audit`, fix everything that comes back, run the tests again, and
+only then commit.
+
+**One commit for the finished change.** Never commit a first cut and then add a
+"fix what the review found" commit on top. The history should show the work as
+it was delivered, not the order it was typed in. If a review finding has
+already been committed by mistake, squash before the branch is pushed.
+
+**Keep the message short.** A subject line under about 60 characters, then a
+short body of three or four lines saying what the change does. Wrap the body at
+about 72 characters. The detail belongs in the code, the docs and the pull
+request, not in the commit.
+
+The message says what the change does, in plain English. It does not say that a
+review found something, because the reviewed state is the only state that was
+ever committed.
+
+Run both tools on the finished change, not on a half written one. Fix what they
+find, or say in one line why a finding is being left. Do not ask whether to run
+them.
+
 ### Every build gets a test checklist
 
 After every build that the user will flash, write the manual test checklist for

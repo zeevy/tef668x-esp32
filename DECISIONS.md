@@ -295,11 +295,17 @@ September 2026. Over the air removes the person from the loop.
 A six digit PIN protects anything that changes the radio. It can be changed in
 settings, and a factory reset brings the default back.
 
-**The default is derived from the MAC address, not fixed.** Every radio gets a
-different default, so there is no universal PIN to look up. Because it is
-computed rather than stored, a factory reset restores it exactly. It is shown on
-the radio's About screen, which is the one place someone on the network cannot
-reach.
+**The default is 000000, and the radio says so.** A radio still on the default
+prints a warning on every boot and shows a red banner on its own web page.
+Changing it is the user's call.
+
+The first design derived the default from the MAC address, so that every radio
+had a different one and a factory reset restored it without storing it. That was
+dropped on 12 September 2026. The MAC is in the header of every frame the radio
+sends, and the derivation is eight lines in this repository, so the default was
+public while looking private. A default that is obviously public is safer than
+one that is secretly public, because nobody is left thinking they are protected
+when they are not.
 
 Six digits rather than four: a million combinations against ten thousand, at the
 cost of two extra key presses.
