@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "core/radio.h"
+#include "core/squelch.h"
 #include "drivers/tef668x.h"
 
 /** How often the task reads the tuner, in milliseconds. */
@@ -49,6 +50,9 @@ typedef struct {
   uint32_t updatedMs;     /**< When this was taken, ms since boot. */
   uint32_t sequence;      /**< Goes up every time. Spots a stalled task. */
   uint32_t applied;       /**< How many commands the task has worked through. */
+  SquelchMode squelchMode; /**< What decides whether the audio is open. */
+  bool squelchOpen;        /**< Whether the squelch is letting sound through. */
+  int16_t squelchThresholdTenths; /**< What Manual is set to. */
   /** What came of the last few commands, so a caller can be told the truth
    *  about its own one rather than about the state that followed it. */
   RadioOutcome outcomes[RADIO_OUTCOMES];
@@ -130,6 +134,35 @@ RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
  *         written.
  */
 bool radioTaskPlan(BandPlanConfig *out);
+
+/**
+ * Choose what decides whether the audio is open.
+ *
+ * Safe from any task.
+ *
+ * @param mode  Off, Auto or Manual.
+ */
+void radioSetSquelchMode(SquelchMode mode);
+
+/**
+ * Set the threshold Manual mode works to.
+ *
+ * @param tenths  The level a signal has to beat, in tenths of a dBuV.
+ */
+void radioSetSquelchThreshold(int16_t tenths);
+
+/**
+ * What the squelch is set to now.
+ *
+ * Read from where it is kept, not from the snapshot. The snapshot is only
+ * republished ten times a second, so a caller that sets the mode and then
+ * reads it back from there gets the value from before it was set. That is
+ * how the API came to answer "Off" to a request that turned it to Auto.
+ *
+ * @param thresholdTenths  Receives the manual threshold. May be NULL.
+ * @return The mode.
+ */
+SquelchMode radioSquelchMode(int16_t *thresholdTenths);
 
 /**
  * Take a copy of the radio's state.

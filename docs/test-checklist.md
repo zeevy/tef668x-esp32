@@ -272,6 +272,29 @@ Not written yet, so do not look for them: touch, RTC, battery reading, telemetry
 
 There is no analogue S-meter on this unit, so there is nothing to watch on pin 27. The pin is driven anyway.
 
+### The squelch
+
+Three modes, and the mode also decides what the front pot does. There is one knob, so it is the volume or the squelch and never both.
+
+| # | Do this | Expect |
+|---|---|---|
+| 138 | `GET /api/state` on a fresh radio | `sql` is `Off`. Nothing goes quiet until you ask for it |
+| 139 | `POST /api/squelch -d 'mode=auto'` on a station | `sqlOpen` true, audio unchanged |
+| 140 | Tune to an empty frequency | Goes quiet after about a second, and `sqlOpen` turns false |
+| 141 | Tune back to the station | Opens at once. Opening is not held, or the front of every station is clipped as the dial crosses it |
+| 142 | Tune slowly across a band in auto | It opens on each station and stays quiet between. It must not chatter on and off on a weak one |
+| 143 | `POST /api/squelch -d 'mode=manual'`, then turn the knob down | Opens. `sqlAt` follows the knob |
+| 144 | Turn the knob up past the station's signal level | Shuts. Compare `sqlAt` against `sig` |
+| 145 | Turn the knob to the very bottom | Always open, whatever the signal. Without this there is no way to listen to a weak station on purpose |
+| 146 | `POST /api/squelch -d 'mode=manual&threshold=250'` | `400`. The knob owns the threshold, and a second way to set it answered with a number the knob replaced a moment later |
+| 147 | Back to off or auto | The volume goes at once to what the knob is pointing at, without waiting for the knob to be moved |
+| 147a | Into manual from off | The threshold goes at once to what the knob is pointing at, not to whatever it was last time |
+| 148 | Mute with the knob press while the squelch is open | It goes quiet and stays quiet. A deliberate mute must win over an open squelch |
+| 149 | Unmute while the squelch is shut | It stays quiet, because the squelch is shut. Turn the squelch off and it plays |
+| 150 | `POST /api/squelch -d 'mode=wobble'` and with no arguments | `400` and the list of modes, both times |
+| 151 | Pull the antenna out in auto on a weak station | It closes. Push it back in and it opens |
+| 152 | Tune onto a station in auto and listen to the first moment | No clipped opening. The squelch acts on the reading that opened it, not a tenth of a second later |
+
 ### Reception and audio
 
 | # | Do this | Expect |

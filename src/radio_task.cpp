@@ -45,6 +45,23 @@ static BandPlanConfig sPlan;
 static uint32_t sPosted;
 
 /**
+ * The squelch. Only the radio task touches the state; the mode and the
+ * threshold are set from other tasks and are guarded by sLock.
+ */
+static Squelch sSquelch;
+
+/**
+ * The mute the tuner was last told, which is not what the settings say.
+ *
+ * The settings hold what the person asked for. The tuner holds that or
+ * silence from the squelch, and the difference between the two is what
+ * decides whether anything needs sending.
+ */
+static bool sLastPushedMute = false;
+static SquelchMode sSquelchMode = SQUELCH_OFF;
+static int16_t sSquelchThreshold = 0;
+
+/**
  * Copy the working state out to where readers can see it.
  *
  * The count of commands worked through moves in the same locked step as the
@@ -82,6 +99,9 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.qualityValid = qualityValid;
   sSnapshot.tunerReady = tef668xCapabilities() != NULL;
   sSnapshot.lastError = lastError;
+  sSnapshot.squelchMode = sSquelchMode;
+  sSnapshot.squelchOpen = sSquelch.open;
+  sSnapshot.squelchThresholdTenths = sSquelchThreshold;
   sSnapshot.updatedMs = millis();
   sSnapshot.sequence++;
   xSemaphoreGive(sLock);
@@ -199,7 +219,6 @@ static void radioTask(void *arg) {
   for (;;) {
     RadioSettings wanted = settings;
     QueueItem item;
-    bool changed = false;
     uint32_t drained = owed;
     RadioError results[RADIO_QUEUE_DEPTH];
     for (uint32_t i = 0; i < owed; i++) {
@@ -231,11 +250,7 @@ static void radioTask(void *arg) {
         /* Recorded whether or not the state machine took it. The caller
          * waiting on this one wants to know the radio has dealt with it, and
          * a refusal is dealing with it. */
-        RadioError result = radioApply(&wanted, &sPlan, &item);
-        results[drained++] = result;
-        if (result == RADIO_OK) {
-          changed = true;
-        }
+        results[drained++] = radioApply(&wanted, &sPlan, &item);
       }
     }
 
@@ -245,11 +260,25 @@ static void radioTask(void *arg) {
      * asking for the same frequency again changes nothing that
      * radioNeedsRetune can see, so the radio cannot be recovered by
      * repeating the command. */
-    if ((changed && radioNeedsRetune(&settings, &wanted)) || pushFailed) {
+    /* What the tuner is actually told to do about the audio: what the person
+     * asked for, or silence because the squelch is shut. The two are kept
+     * apart everywhere else, so turning the squelch off can never leave a
+     * radio the person deliberately muted playing, and the squelch can never
+     * unmute something they muted on purpose. */
+    RadioSettings heard = wanted;
+    heard.muted = wanted.muted || !sSquelch.open;
+    RadioSettings wasHeard = settings;
+    wasHeard.muted = sLastPushedMute;
+
+    /* No `changed` guard here. The squelch can move the mute with no command
+     * having arrived at all, and a push that only happens when something was
+     * drained would never act on it. Comparing the two is the whole test. */
+    if (radioNeedsRetune(&wasHeard, &heard) || pushFailed) {
       /* After a failure the tuner's state is not known, so everything goes
        * again rather than only what the settings say moved. */
-      lastError = pushToTuner(pushFailed ? NULL : &settings, &wanted);
+      lastError = pushToTuner(pushFailed ? NULL : &wasHeard, &heard);
       pushFailed = lastError != TEF668X_OK;
+      sLastPushedMute = heard.muted;
     }
     settings = wanted;
 
@@ -258,6 +287,55 @@ static void radioTask(void *arg) {
     if ((int32_t)(now - nextPoll) >= 0) {
       bool fm = bandModulation(settings.band) == MODULATION_FM;
       qualityOk = tef668xReadQuality(fm, &quality) == TEF668X_OK;
+
+      /* The squelch gets a say on every fresh reading, and only on a fresh
+       * one. Running it again between readings would make its hold measure
+       * loop iterations rather than time. */
+      SquelchReading reading;
+      reading.valid = qualityOk;
+      reading.levelTenths = quality.levelDbuVTenths;
+      reading.noiseTenths = quality.usnTenths;
+      reading.multipathTenths = quality.multipathTenths;
+      reading.offsetTenths = quality.offsetKHzTenths;
+
+      SquelchMode mode;
+      int16_t threshold;
+      if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+        mode = sSquelchMode;
+        threshold = sSquelchThreshold;
+        xSemaphoreGive(sLock);
+      } else {
+        mode = sSquelchMode;
+        threshold = sSquelchThreshold;
+      }
+      bool wasOpen = sSquelch.open;
+      squelchUpdate(&sSquelch, NULL, mode, settings.band, &reading, threshold,
+                    millis());
+
+      /* Acted on now, not next time round.
+       *
+       * The push above this runs before the reading, so leaving it to that
+       * would hold the decision back a whole poll interval. A tenth of a
+       * second of silence after the dial lands on a station is exactly the
+       * clipped opening the squelch is written to avoid, and the snapshot
+       * would meanwhile say open while the tuner was still muted.
+       *
+       * Only the mute moves, so only the mute is sent. */
+      if (sSquelch.open != wasOpen) {
+        bool wantMuted = settings.muted || !sSquelch.open;
+        if (wantMuted != sLastPushedMute) {
+          Tef668xError muteErr = tef668xSetMute(wantMuted);
+          if (muteErr == TEF668X_OK) {
+            sLastPushedMute = wantMuted;
+          } else {
+            lastError = muteErr;
+            /* Left for the push at the top of the next round to put right,
+             * which re-sends everything after a failure. */
+            pushFailed = true;
+          }
+        }
+      }
+
       nextPoll += period;
       /* A slow push can leave the next reading already in the past. Start
        * again from now rather than spinning to catch up. */
@@ -292,6 +370,13 @@ bool radioTaskStart(const BandPlanConfig *plan) {
   memset(&sSnapshot, 0, sizeof(sSnapshot));
   radioDefaults(&sSnapshot.settings, &sPlan);
   sPosted = 0;
+
+  /* Open. A zeroed squelch is a shut one, and the radio would come up silent
+   * and stay that way until the first reading arrived. */
+  squelchInit(&sSquelch);
+  sSquelchMode = SQUELCH_OFF;
+  sSquelchThreshold = 0;
+  sLastPushedMute = false;
 
   sQueue = xQueueCreate(RADIO_QUEUE_DEPTH, sizeof(QueueItem));
   sLock = xSemaphoreCreateMutex();
@@ -394,6 +479,44 @@ RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
     }
     vTaskDelay(step);
   }
+}
+
+void radioSetSquelchMode(SquelchMode mode) {
+  if (mode >= SQUELCH_MODE_COUNT) {
+    return;
+  }
+  if (sLock != NULL && xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    sSquelchMode = mode;
+    xSemaphoreGive(sLock);
+    return;
+  }
+  sSquelchMode = mode;
+}
+
+void radioSetSquelchThreshold(int16_t tenths) {
+  if (sLock != NULL && xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    sSquelchThreshold = tenths;
+    xSemaphoreGive(sLock);
+    return;
+  }
+  sSquelchThreshold = tenths;
+}
+
+SquelchMode radioSquelchMode(int16_t *thresholdTenths) {
+  SquelchMode mode;
+  int16_t threshold;
+  if (sLock != NULL && xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    mode = sSquelchMode;
+    threshold = sSquelchThreshold;
+    xSemaphoreGive(sLock);
+  } else {
+    mode = sSquelchMode;
+    threshold = sSquelchThreshold;
+  }
+  if (thresholdTenths != NULL) {
+    *thresholdTenths = threshold;
+  }
+  return mode;
 }
 
 bool radioTaskPlan(BandPlanConfig *out) {

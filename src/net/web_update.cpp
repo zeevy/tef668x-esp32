@@ -668,6 +668,16 @@ static void appendRadioState(String &out) {
       }
       /* What the tuner last refused. Without this the page can show a station
        * the radio is not actually on, with nothing to say so. */
+      /* The squelch, so a radio that has gone quiet says why. */
+      out += F(",\"sql\":\"");
+      out += squelchModeName(snap.squelchMode);
+      out += F("\",\"sqlOpen\":");
+      out += snap.squelchOpen ? F("true") : F("false");
+      if (snap.squelchMode == SQUELCH_MANUAL) {
+        out += F(",\"sqlAt\":");
+        out += String(snap.squelchThresholdTenths);
+      }
+
       if (snap.lastError != TEF668X_OK) {
         out += F(",\"pushError\":\"");
         out += tef668xErrorText(snap.lastError);
@@ -1365,6 +1375,72 @@ static void handleApiCycle(void) {
   apiSubmit(&cmd, String("cycled ") + want, say);
 }
 
+/**
+ * POST /api/squelch. What decides whether the audio is open.
+ *
+ * Takes `mode`: `off`, `auto` or `manual`.
+ *
+ * The mode also decides what the pot on the front does. There is one knob, so
+ * it is the volume control or the squelch control and never both: off and
+ * auto leave it as the volume, manual takes it for the squelch.
+ *
+ * There is deliberately no way to set the manual threshold here. In manual the
+ * knob is the threshold, and a second way to set it is a second owner for one
+ * value: setting it here answered with the number asked for and the knob
+ * replaced it a fraction of a second later, so the reply was untrue before the
+ * caller had read it. Read the threshold back from `sqlAt` and turn the knob
+ * to change it.
+ */
+static void handleApiSquelch(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+
+  if (sServer.hasArg("threshold")) {
+    apiFail(400,
+            "The knob sets the threshold in manual, so it cannot be set "
+            "here. Read it back from sqlAt.");
+    return;
+  }
+  if (!sServer.hasArg("mode")) {
+    apiFail(400, "Give mode, one of off auto manual.");
+    return;
+  }
+
+  String want = sServer.arg("mode");
+  want.toLowerCase();
+  SquelchMode mode = SQUELCH_MODE_COUNT;
+  for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
+    String name = squelchModeName((SquelchMode)m);
+    name.toLowerCase();
+    if (want.equals(name)) {
+      mode = (SquelchMode)m;
+      break;
+    }
+  }
+  if (mode == SQUELCH_MODE_COUNT) {
+    apiFail(400, "That is not a squelch mode. Use off, auto or manual.");
+    return;
+  }
+  radioSetSquelchMode(mode);
+
+  /* Read back rather than repeat what was asked for, and read it from where
+   * it is kept rather than from the snapshot, which is only republished ten
+   * times a second and would still hold the value from before this call.
+   *
+   * The threshold is not reported here even in manual. The knob has not been
+   * read since the mode changed, so what is stored is still the old value and
+   * saying it would be the same lie as setting it was. */
+  SquelchMode now = radioSquelchMode(NULL);
+  String said = String("squelch ") + squelchModeName(now);
+  if (now == SQUELCH_MANUAL) {
+    said += F(", the knob sets the threshold");
+  }
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
+}
+
 /** Anything else. */
 static void handleNotFound(void) {
   sRequests++;
@@ -1400,6 +1476,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/mute", HTTP_POST, handleApiMute);
   sServer.on("/api/mode", HTTP_POST, handleApiMode);
   sServer.on("/api/cycle", HTTP_POST, handleApiCycle);
+  sServer.on("/api/squelch", HTTP_POST, handleApiSquelch);
   sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/setpin", HTTP_POST, handleSetPin);

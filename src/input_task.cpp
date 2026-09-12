@@ -4,6 +4,7 @@
  */
 #include "input_task.h"
 
+#include "core/squelch.h"
 #include "drivers/analog.h"
 #include "drivers/encoder.h"
 #include "drivers/keypad.h"
@@ -60,6 +61,10 @@ static InputStatus sStatus;
 /** The last pot reading acted on, and whether there is one yet. */
 static uint16_t sPot = 0;
 static bool sPotKnown = false;
+
+/** What the knob was last doing, so a change of job can be acted on. */
+static SquelchMode sJob = SQUELCH_OFF;
+static bool sJobKnown = false;
 
 /** Remember what just happened, for the diagnostic page. */
 static void note(const char *what) {
@@ -406,7 +411,19 @@ static void pollKeypad(uint32_t nowMs) {
   note(text);
 }
 
-/** The volume knob. */
+/**
+ * The knob.
+ *
+ * One knob, one job at a time, and the squelch mode decides which. Off and
+ * Auto leave it as the volume; Manual takes it for the squelch threshold.
+ *
+ * The job changing is the awkward part. Whichever it becomes has to be
+ * applied at once from where the knob is now, or the setting it took over
+ * keeps a value from a knob position that is long gone: coming back from
+ * Manual with the volume stuck where it was before, or entering Manual with
+ * a threshold from an old position that silences everything. Neither
+ * recovers until the knob is moved past the deadband.
+ */
 static void pollPot(uint32_t nowMs) {
   static uint32_t lastPollMs = 0;
   if ((uint32_t)(nowMs - lastPollMs) < POT_POLL_MS) {
@@ -414,16 +431,35 @@ static void pollPot(uint32_t nowMs) {
   }
   lastPollMs = nowMs;
 
+  /* Asked for directly, not read out of the snapshot. The snapshot is
+   * republished ten times a second, so for up to that long after a mode
+   * change the knob would still be doing its old job. */
+  SquelchMode mode = radioSquelchMode(NULL);
+  bool jobChanged = !sJobKnown || mode != sJob;
+  sJob = mode;
+  sJobKnown = true;
+
   uint16_t raw = potRead();
   sStatus.pot = raw;
-  if (sPotKnown && !potMoved(sPot, raw, NULL)) {
+  if (!jobChanged && sPotKnown && !potMoved(sPot, raw, NULL)) {
     return;
   }
   sPot = raw;
   sPotKnown = true;
 
+  if (mode == SQUELCH_MANUAL) {
+    int16_t tenths = squelchThresholdFromPot(raw);
+    radioSetSquelchThreshold(tenths);
+    char text[INPUT_EVENT_MAX];
+    snprintf(text, sizeof(text), "squelch %s%d.%d dBuV",
+             (tenths < 0 && tenths > -10) ? "-" : "", tenths / 10,
+             (tenths < 0 ? -tenths : tenths) % 10);
+    note(text);
+    return;
+  }
+
   int8_t db = potVolumeDb(raw, NULL);
-  if (db == sStatus.potDb) {
+  if (!jobChanged && db == sStatus.potDb) {
     /* The reading moved but not far enough to be a different volume. */
     return;
   }
