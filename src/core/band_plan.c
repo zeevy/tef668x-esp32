@@ -396,3 +396,105 @@ bool bandFormatFrequency(BandId band, uint32_t freqKHz, char *out,
   memcpy(out, buf, (size_t)written + 1);
   return true;
 }
+
+/*
+ * The bandwidths the tuner offers, in kHz.
+ *
+ * Read off the working PE5PVB firmware, which drives the same chip. They are
+ * not a round set of numbers anybody would guess: the filter is built from
+ * what the silicon can actually do, and asking for something between two of
+ * these gets the nearest one without saying so.
+ *
+ * The 0 at the front of the FM list is the adaptive mode, where the tuner
+ * narrows the filter itself when a neighbouring station is strong. The AM
+ * side has no such mode and refuses 0.
+ */
+static const uint16_t kBandwidthsFm[] = {0,   56,  64,  72,  84,  97,
+                                         114, 133, 151, 168, 184, 200,
+                                         217, 236, 254, 287, 311};
+static const uint16_t kBandwidthsAm[] = {3, 4, 6, 8};
+
+/** Which list a band uses, and how long it is. */
+static const uint16_t *bandwidthList(BandId band, size_t *count) {
+  if (!validBand(band)) {
+    *count = 0;
+    return NULL;
+  }
+  if (bandModulation(band) == MODULATION_FM) {
+    *count = sizeof(kBandwidthsFm) / sizeof(kBandwidthsFm[0]);
+    return kBandwidthsFm;
+  }
+  *count = sizeof(kBandwidthsAm) / sizeof(kBandwidthsAm[0]);
+  return kBandwidthsAm;
+}
+
+size_t bandBandwidthCount(BandId band) {
+  size_t count = 0;
+  (void)bandwidthList(band, &count);
+  return count;
+}
+
+uint16_t bandBandwidthAt(BandId band, size_t index) {
+  size_t count = 0;
+  const uint16_t *list = bandwidthList(band, &count);
+  if (list == NULL || index >= count) {
+    return 0;
+  }
+  return list[index];
+}
+
+uint16_t bandBandwidthNext(BandId band, uint16_t current) {
+  size_t count = 0;
+  const uint16_t *list = bandwidthList(band, &count);
+  if (list == NULL || count == 0) {
+    return 0;
+  }
+  for (size_t i = 0; i < count; i++) {
+    if (list[i] == current) {
+      return list[(i + 1) % count];
+    }
+  }
+  /* Not a value from the list. Start at the beginning rather than refusing,
+   * so a button press always does something. */
+  return list[0];
+}
+
+bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
+                         BandId prefer, uint32_t *freqKHz, BandId *band) {
+  if (config == NULL || typed == 0) {
+    return false;
+  }
+
+  /* Twenty seven thousand kHz is the top of shortwave, so almost any small
+   * number lands there at some power of ten. The band in use therefore has to
+   * be tried at every power of ten before any other band is considered at
+   * all. Checking one power of ten at a time across all bands would read 1028
+   * on FM as 1028 kHz on medium wave, which is not what the hand that typed
+   * it meant. */
+  for (int pass = 0; pass < 2; pass++) {
+    if (pass == 0 && prefer >= BAND_COUNT) {
+      continue;
+    }
+    /* Ten million kHz is well past the top of every band, so this stops long
+     * before the multiplication could overflow. */
+    for (uint32_t value = typed; value <= 10000000UL; value *= 10) {
+      BandId found = BAND_COUNT;
+      if (pass == 0) {
+        if (!bandContains(prefer, config, value)) {
+          continue;
+        }
+        found = prefer;
+      } else if (!bandForFrequency(config, value, &found)) {
+        continue;
+      }
+      if (freqKHz != NULL) {
+        *freqKHz = value;
+      }
+      if (band != NULL) {
+        *band = found;
+      }
+      return true;
+    }
+  }
+  return false;
+}

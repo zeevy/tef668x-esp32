@@ -23,6 +23,7 @@
 #include "drivers/device_id.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
+#include "input_task.h"
 #include "net/boot_watchdog.h"
 #include "net/ota_service.h"
 #include "net/rollback.h"
@@ -154,6 +155,12 @@ void setup() {
                   bandFrequencyUnit(BAND_FM));
   }
 
+  /* The knob and the keypad. They post to the same queue the web API uses,
+   * so there is one path into the tuner and not two. */
+  if (!inputBegin(ENCODER_STANDARD, ENCODER_NORMAL)) {
+    Serial.println(F("[input] no keypad answered at 0x20, knob only"));
+  }
+
   wifiBegin(&gSettings);
 
   if (!MDNS.begin(BOARD_HOSTNAME)) {
@@ -176,6 +183,9 @@ void setup() {
 
 /** Service the network, the updater and the self check. Runs forever. */
 void loop() {
+  /* First, so a turn of the knob is acted on before anything slower runs. */
+  inputPoll();
+
   wifiLoop();
   otaLoop();
   webLoop();

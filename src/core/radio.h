@@ -70,7 +70,30 @@ typedef struct {
   int8_t volumeDb;       /**< Output gain. */
   bool muted;            /**< Audio off. */
   TuneMode tuneMode;     /**< What the encoder does. */
+  /**
+   * Where each band was left, in kHz.
+   *
+   * Coming back to a band returns to the station you were listening to, not
+   * to the bottom of the band. Leaving medium wave to check something on FM
+   * and coming back to find 522 kHz is the behaviour this exists to stop.
+   *
+   * A band never visited holds 0, which means the bottom of the band.
+   */
+  uint32_t bandFreqKHz[BAND_COUNT];
 } RadioSettings;
+
+/**
+ * Whether a tuning mode can be used on a band.
+ *
+ * Meter band stepping only means something on shortwave. A caller that cycles
+ * through the modes has to know which ones to skip, or the button appears to
+ * do nothing on every other band.
+ *
+ * @param mode  Which mode.
+ * @param band  Which band.
+ * @return true when that mode is available there.
+ */
+bool radioTuneModeAllowed(TuneMode mode, BandId band);
 
 /** The things a caller can ask the radio to do. */
 typedef enum {
@@ -81,7 +104,21 @@ typedef enum {
   RADIO_SET_BANDWIDTH, /**< Change the bandwidth. */
   RADIO_SET_VOLUME,    /**< Change the volume. */
   RADIO_SET_MUTE,      /**< Mute or unmute. */
-  RADIO_SET_TUNE_MODE  /**< Change what the encoder does. */
+  RADIO_SET_TUNE_MODE, /**< Change what the encoder does. */
+  /*
+   * The four below take no argument. They mean "the next one", and the radio
+   * works out what that is from what it is set to now.
+   *
+   * A button cannot do this for itself. It would have to read the state,
+   * work out the next value and send that, and in between those two the
+   * state can move. That is not theory: pressing BW right after tuning with
+   * the keypad sent an FM bandwidth of 56 kHz to a radio that had just
+   * arrived on medium wave, where the widest filter is 8 kHz.
+   */
+  RADIO_CYCLE_BAND,      /**< The next band, wrapping round. */
+  RADIO_CYCLE_BANDWIDTH, /**< The next bandwidth this band offers. */
+  RADIO_CYCLE_TUNE_MODE, /**< The next mode this band offers. */
+  RADIO_TOGGLE_MUTE      /**< Mute if playing, unmute if muted. */
 } RadioCommandKind;
 
 /** One thing to do. Only the field its kind names is read. */

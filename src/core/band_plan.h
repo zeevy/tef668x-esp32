@@ -281,6 +281,65 @@ uint32_t swMeterBandNext(uint32_t freqKHz);
 uint32_t swMeterBandPrevious(uint32_t freqKHz);
 
 /**
+ * How many bandwidths this band offers.
+ *
+ * @param band  Which band.
+ * @return The count, or 0 for a band that is not real.
+ */
+size_t bandBandwidthCount(BandId band);
+
+/**
+ * One of the bandwidths a band offers, in kHz.
+ *
+ * The FM list starts at 0, which means the tuner picks the width itself from
+ * how much interference it can see. There is no such mode on the AM side, so
+ * that list has no 0 in it.
+ *
+ * @param band   Which band.
+ * @param index  Which one, from 0.
+ * @return The bandwidth in kHz, or 0 when the index is past the end. A 0 that
+ *         means "past the end" and a 0 that means "automatic" are told apart
+ *         by checking the index against bandBandwidthCount first.
+ */
+uint16_t bandBandwidthAt(BandId band, size_t index);
+
+/**
+ * The next bandwidth after this one, wrapping at the end.
+ *
+ * For the BW button, which walks the list. A current value that is not in the
+ * list starts again at the beginning rather than getting stuck.
+ *
+ * @param band     Which band.
+ * @param current  The bandwidth in use now, in kHz.
+ * @return The next one in kHz.
+ */
+uint16_t bandBandwidthNext(BandId band, uint16_t current);
+
+/**
+ * Work out what a typed number means.
+ *
+ * Somebody keying 1028 on the pad means 102.8 MHz, and keying 738 means
+ * 738 kHz. The digits alone do not say which, so the number is multiplied by
+ * ten until it lands inside a band. That is the rule the working PE5PVB
+ * firmware uses, so it is the one people already expect from this radio.
+ *
+ * The band in use is tried first, so a number that could be read two ways
+ * stays on the band the radio is already on. 1000 is both 1000 kHz on medium
+ * wave and 100.0 MHz on FM, and someone on medium wave typing it means the
+ * medium wave station.
+ *
+ * @param config   The band plan.
+ * @param typed    The digits as one number, so 1028 for 102.8 MHz.
+ * @param prefer   The band to try first. BAND_COUNT for no preference.
+ * @param freqKHz  Receives the frequency in kHz.
+ * @param band     Receives which band it turned out to be.
+ * @return false when no amount of multiplying lands it in a band, in which
+ *         case nothing is written.
+ */
+bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
+                         BandId prefer, uint32_t *freqKHz, BandId *band);
+
+/**
  * Write a frequency the way it is shown on screen, without the unit.
  *
  * FM and OIRT come out as megahertz with two decimals, "104.00". AM bands come

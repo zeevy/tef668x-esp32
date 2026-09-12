@@ -1,0 +1,77 @@
+/**
+ * @file keypad.h
+ * @brief The numeric keypad, on a PCA9555 I/O expander at I2C 0x20.
+ *
+ * Twelve keys on sixteen lines: the digits 0 to 9, an enter key and DX. A
+ * line reads low while its key is held.
+ *
+ * The expander has an interrupt line, but it is only a hint that something
+ * changed. The keys are read over I2C either way, because a missed interrupt
+ * would otherwise mean a key that never arrives.
+ */
+#ifndef DRIVERS_KEYPAD_H
+#define DRIVERS_KEYPAD_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+/** The enter key, next to the digits. Digits are 0 to 9 and are themselves. */
+#define KEYPAD_ENTER 10
+
+/**
+ * The DX key.
+ *
+ * On line 2 of the expander. The PE5PVB firmware reads every line except this
+ * one in its keypad routine, which is why copying that routine left the key
+ * dead. Confirmed on this radio: pressing DX pulls line 2 low and no other.
+ */
+#define KEYPAD_DX 11
+
+/** Nothing is being pressed. */
+#define KEYPAD_NONE (-1)
+
+/**
+ * Set the expander up: every line an input.
+ *
+ * @return false when nothing answered at 0x20, in which case this radio has
+ *         no keypad fitted and everything else still works.
+ */
+bool keypadBegin(void);
+
+/**
+ * Whether the expander answered at start up.
+ *
+ * @return true when there is a keypad to read.
+ */
+bool keypadPresent(void);
+
+/**
+ * Read which key is down.
+ *
+ * Reports a key once, when it goes down. Holding it does not repeat, and
+ * letting go arms the next press. Two keys at once report nothing, because
+ * there is no way to tell which one was meant.
+ *
+ * @param key    Receives the key: 0 to 9, KEYPAD_ENTER, KEYPAD_DX, or
+ *               KEYPAD_NONE.
+ * @param lines  Receives the raw lines from the same read. May be NULL.
+ *               Taking both from one read costs one transaction instead of
+ *               two on a bus the tuner is waiting for, and means the key and
+ *               the lines can never disagree.
+ * @return false when the read failed, in which case nothing is written.
+ */
+bool keypadRead(int8_t *key, uint16_t *lines);
+
+/**
+ * The raw sixteen lines, for a diagnostic page.
+ *
+ * A key that does nothing is either a dead switch or a wrong map, and those
+ * look identical from above. This is how they are told apart without opening
+ * the radio.
+ *
+ * @param bits  Receives the lines. A bit is 0 while its key is held.
+ * @return false when the read failed.
+ */
+bool keypadRawLines(uint16_t *bits);
+
+#endif /* DRIVERS_KEYPAD_H */

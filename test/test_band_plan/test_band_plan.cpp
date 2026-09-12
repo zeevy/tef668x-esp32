@@ -515,6 +515,132 @@ static void formatting_into_a_buffer_that_is_too_small_fails_safely(void) {
   TEST_ASSERT_EQUAL_STRING("", ok);
 }
 
+/* ------------------------------------------------- a number typed on a pad */
+
+static void typing_1028_on_fm_means_102_point_8_megahertz(void) {
+  uint32_t khz = 0;
+  BandId band = BAND_COUNT;
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 1028, BAND_FM, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(102800, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, band);
+}
+
+static void typing_738_means_738_kilohertz_on_medium_wave(void) {
+  uint32_t khz = 0;
+  BandId band = BAND_COUNT;
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 738, BAND_MW, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(738, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, band);
+}
+
+static void a_number_that_reads_two_ways_stays_on_the_band_in_use(void) {
+  /* 1000 is a medium wave frequency and also 100.0 MHz. Whoever typed it was
+   * looking at one band, and that is the one they meant. */
+  uint32_t khz = 0;
+  BandId band = BAND_COUNT;
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 1000, BAND_MW, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(1000, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, band);
+
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 1000, BAND_FM, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(100000, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, band);
+}
+
+static void typing_a_number_in_no_band_is_refused(void) {
+  uint32_t khz = 12345;
+  BandId band = BAND_FM;
+  /* 28000 sits in the gap above shortwave, which ends at 27000, and below
+   * OIRT, which starts at 65000. Ten times it is past the top of FM. So
+   * there is nothing honest to tune and nothing is written. */
+  TEST_ASSERT_FALSE(bandFromTypedNumber(&cfg, 28000, BAND_COUNT, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(12345, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, band);
+}
+
+static void almost_any_small_number_lands_somewhere(void) {
+  /* Worth writing down because it is surprising. Shortwave alone runs from
+   * 1700 to 27000 kHz, and no number can step over a range that wide by
+   * multiplying by ten. So a typed number is nearly always tunable somewhere,
+   * and the band in use is what decides which reading was meant.
+   *
+   * 4 stops at 400, which is long wave, before it ever reaches shortwave. */
+  uint32_t khz = 0;
+  BandId band = BAND_COUNT;
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 4, BAND_COUNT, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(400, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_LW, band);
+
+  /* And with shortwave preferred, the same digits mean 4000 kHz. */
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 4, BAND_SW, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(4000, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_SW, band);
+}
+
+static void typing_zero_is_refused(void) {
+  TEST_ASSERT_FALSE(bandFromTypedNumber(&cfg, 0, BAND_COUNT, NULL, NULL));
+}
+
+static void a_huge_typed_number_stops_rather_than_overflowing(void) {
+  TEST_ASSERT_FALSE(
+      bandFromTypedNumber(&cfg, 4000000000UL, BAND_COUNT, NULL, NULL));
+}
+
+static void typing_works_with_no_band_preference(void) {
+  uint32_t khz = 0;
+  BandId band = BAND_COUNT;
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 9420, BAND_COUNT, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(9420, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_SW, band);
+}
+
+static void a_null_plan_is_refused(void) {
+  TEST_ASSERT_FALSE(bandFromTypedNumber(NULL, 1028, BAND_FM, NULL, NULL));
+}
+
+/* ------------------------------------------------------------- bandwidths */
+
+static void fm_offers_the_automatic_width_and_am_does_not(void) {
+  TEST_ASSERT_EQUAL_UINT16(0, bandBandwidthAt(BAND_FM, 0));
+  TEST_ASSERT_EQUAL_UINT16(3, bandBandwidthAt(BAND_MW, 0));
+  for (size_t i = 0; i < bandBandwidthCount(BAND_MW); i++) {
+    TEST_ASSERT_NOT_EQUAL_UINT16(0, bandBandwidthAt(BAND_MW, i));
+  }
+}
+
+static void every_am_band_offers_the_same_four_widths(void) {
+  BandId am[] = {BAND_LW, BAND_MW, BAND_SW};
+  for (size_t b = 0; b < sizeof(am) / sizeof(am[0]); b++) {
+    TEST_ASSERT_EQUAL_size_t(4, bandBandwidthCount(am[b]));
+    TEST_ASSERT_EQUAL_UINT16(3, bandBandwidthAt(am[b], 0));
+    TEST_ASSERT_EQUAL_UINT16(8, bandBandwidthAt(am[b], 3));
+  }
+}
+
+static void the_bandwidth_button_walks_the_list_and_wraps(void) {
+  uint16_t bw = bandBandwidthAt(BAND_FM, 0);
+  size_t count = bandBandwidthCount(BAND_FM);
+  for (size_t i = 1; i < count; i++) {
+    bw = bandBandwidthNext(BAND_FM, bw);
+    TEST_ASSERT_EQUAL_UINT16(bandBandwidthAt(BAND_FM, i), bw);
+  }
+  /* Past the end and back to the start. */
+  TEST_ASSERT_EQUAL_UINT16(bandBandwidthAt(BAND_FM, 0),
+                           bandBandwidthNext(BAND_FM, bw));
+}
+
+static void a_bandwidth_not_in_the_list_starts_again_at_the_front(void) {
+  TEST_ASSERT_EQUAL_UINT16(bandBandwidthAt(BAND_FM, 0),
+                           bandBandwidthNext(BAND_FM, 999));
+  TEST_ASSERT_EQUAL_UINT16(3, bandBandwidthNext(BAND_MW, 999));
+}
+
+static void asking_past_the_end_of_the_list_gives_nothing(void) {
+  TEST_ASSERT_EQUAL_UINT16(0, bandBandwidthAt(BAND_FM, 99));
+  TEST_ASSERT_EQUAL_size_t(0, bandBandwidthCount(BAND_COUNT));
+  TEST_ASSERT_EQUAL_UINT16(0, bandBandwidthNext(BAND_COUNT, 100));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(the_defaults_are_the_ones_most_radios_ship_with);
@@ -558,5 +684,21 @@ int main(int, char **) {
   RUN_TEST(fm_frequencies_read_as_megahertz_with_two_decimals);
   RUN_TEST(am_frequencies_read_as_grouped_kilohertz);
   RUN_TEST(formatting_into_a_buffer_that_is_too_small_fails_safely);
+  RUN_TEST(typing_1028_on_fm_means_102_point_8_megahertz);
+  RUN_TEST(typing_738_means_738_kilohertz_on_medium_wave);
+  RUN_TEST(a_number_that_reads_two_ways_stays_on_the_band_in_use);
+  RUN_TEST(typing_a_number_in_no_band_is_refused);
+  RUN_TEST(almost_any_small_number_lands_somewhere);
+  RUN_TEST(typing_zero_is_refused);
+  RUN_TEST(a_huge_typed_number_stops_rather_than_overflowing);
+  RUN_TEST(typing_works_with_no_band_preference);
+  RUN_TEST(a_null_plan_is_refused);
+
+  RUN_TEST(fm_offers_the_automatic_width_and_am_does_not);
+  RUN_TEST(every_am_band_offers_the_same_four_widths);
+  RUN_TEST(the_bandwidth_button_walks_the_list_and_wraps);
+  RUN_TEST(a_bandwidth_not_in_the_list_starts_again_at_the_front);
+  RUN_TEST(asking_past_the_end_of_the_list_gives_nothing);
+
   return UNITY_END();
 }

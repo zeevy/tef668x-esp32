@@ -184,9 +184,68 @@ The band switch is where this went wrong once, so check it in both directions.
 | 79 | `POST /api/settings -d 'pin=000000'` | `200`, the session ends, and the next write is `403` until you sign in again |
 | 80 | `POST /api/settings -d 'ssid=<your network>&pass=<the passphrase>'` | `200`, then the radio reconnects and answers on the same address. **Needs someone at the radio.** A wrong passphrase here leaves it on its own access point, and only a person standing there can fix it |
 
+### The cycle endpoint
+
+The same four things the panel buttons do, over HTTP, so they can be checked without a person at the radio.
+
+| # | Do this | Expect |
+|---|---|---|
+| 104 | `POST /api/cycle -d 'what=band'` five times | LW, MW, SW, OIRT, FM in turn, each returning to the frequency that band was left on |
+| 105 | `POST /api/cycle -d 'what=bandwidth'` on FM, seventeen times | The whole FM list and back to automatic |
+| 106 | Tune to 738, then cycle the bandwidth five times with no pause | Every value is 3, 4, 6 or 8 kHz. An FM width such as 56 here means the caller is working from a stale copy of the band |
+| 107 | `POST /api/cycle -d 'what=mode'` ten times on FM | Manual, Auto and Memory only. Never Meter band |
+| 108 | The same on SW | Meter band appears |
+| 109 | `POST /api/cycle -d 'what=mute'` twice | `muted` then `unmuted`, and the audio follows |
+| 110 | `POST /api/cycle -d 'what=wobble'` | `400` and the list of things that can be cycled |
+| 111 | `POST /api/cycle` with no session | `403` |
+| 112 | Tune to 102800, then tune to 738, then cycle the band round to FM | FM 102.80, not 87.50. Leaving a band by tuning must remember it, the same as leaving it with the BAND button |
+| 113 | Check the reply of every write | It names what changed, read back after the radio settled. A bandwidth change must not answer with a frequency |
+
+### The knob, the buttons and the keypad
+
+These need a person at the radio. Watch what the radio saw with `curl -s http://tef668x.local/api/state`, in the `input` field: `clicks`, `presses`, `last` and `typed`.
+
+| # | Do this | Expect |
+|---|---|---|
+| 81 | Turn the knob one click at a time | The frequency moves by the step size, one step per click, in the right direction |
+| 82 | Turn it one click the other way | It comes back to where it was. Ten clicks out and ten back must land on the same frequency |
+| 83 | Spin the knob fast | It moves much further per click. Six steps per click at full speed, against one when turning slowly |
+| 84 | Turn the knob at power on without touching it first | Nothing moves until you actually turn it. The first reading only says where the knob is resting |
+| 85 | Press the knob | Audio stops and `last` reads `muted`. Press again and it comes back |
+| 86 | Hold the knob for a second | `PUSH long`. Its menu is phase 4, so nothing else happens |
+| 87 | Press BAND five times | LW, MW, SW, OIRT, FM in turn, and each band returns to the frequency it was left on |
+| 88 | Hold BAND for a second | `BAND long`. The RDS screen is phase 4 |
+| 89 | Press BW repeatedly on FM | The full list in turn: automatic, 56, 64, 72, 84, 97, 114, 133, 151, 168, 184, 200, 217, 236, 254, 287, 311 kHz, then back to automatic |
+| 90 | Press BW repeatedly on MW | 3, 4, 6, 8 kHz and round again. There is no automatic on AM |
+| 91 | Press MODE repeatedly on FM | Manual, Auto, Memory, Manual. Meter band is skipped, because it is shortwave only |
+| 92 | Press MODE repeatedly on SW | Meter band appears in the cycle |
+| 93 | Tap MODE four times quickly | Four mode changes, not two. A quick pair must not be swallowed as one double press |
+| 94 | Press every digit 0 to 9 in turn | `typed` grows by the right digit each time. A wrong digit means the line map is wrong, no digit at all means the switch or the wiring |
+| 95 | Press DX | `last` reads `DX`. This is expander line 2, the one the old firmware skips |
+| 96 | Type 1028 then enter, on FM | Tunes FM 102.80. The digits are read in the band you are already on |
+| 97 | Type 738 then enter, on MW | Tunes MW 738 kHz |
+| 98 | Type 1000 then enter on MW, then the same on FM | MW 1000 kHz the first time, FM 100.00 the second. The band in use decides which reading was meant |
+| 99 | Type nine digits | The ninth is refused and `last` reads `too many digits`. The first eight are kept |
+| 100 | Type three digits and wait five seconds | The part typed number is dropped, so the next person does not continue it |
+| 101 | Type 28000 then enter | `28000 is in no band`, and the radio does not move |
+| 102 | Hold two keys at once | Nothing is typed. There is no way to tell which one was meant |
+| 103 | Turn the knob while pressing keys | Both work. They are on the same I2C bus as the tuner, so a signal reading of exactly 0 for level, bandwidth and modulation at once means the bus lock has been lost |
+
 ### Things this build cannot be tested for
 
 Not written yet, so do not look for them: display, touch, encoder, keypad, RTC, battery reading, telemetry, RDS.
+
+### Known stations, for testing
+
+Taken off air from this radio. Signal alone does not say whether something is a station: ultrasonic noise `usn` is the better test, low for a station and in the thousands for noise.
+
+| Band | Frequencies |
+|---|---|
+| FM | 102.8, 98.3, 101.9, 93.5, 91.1, 92.7, 94.3, 106.4, 104.0 |
+| MW | 738, 846, 882, 1377 |
+| SW | 11900 and 15530 were receivable. 9620, 9740, 9870, 9500, 9700 and 11800 were not, at the time of testing |
+
+Shortwave is not like the other bands. A frequency that is dead now can carry a strong station three hours later, so a shortwave check that finds nothing is not a failure by itself.
 
 ### Already covered by CI, do not retest by hand
 

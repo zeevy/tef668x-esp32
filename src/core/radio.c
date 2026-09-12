@@ -97,6 +97,10 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan) {
 }
 
 /** Meter band mode only makes sense where there are meter bands. */
+bool radioTuneModeAllowed(TuneMode mode, BandId band) {
+  return tuneModeAllowedForBand(mode, band);
+}
+
 static bool tuneModeAllowedForBand(TuneMode mode, BandId band) {
   if (mode >= TUNE_MODE_COUNT) {
     return false;
@@ -143,6 +147,13 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
        * come with it or the next turn of the knob moves by something the new
        * band does not offer. */
       if (band != settings->band) {
+        /* And the band being left has to remember where it was, exactly as
+         * it does when the BAND button moves off it. Typing a frequency on
+         * the keypad is the usual way to leave a band, so without this the
+         * memory is lost on the most common route out. */
+        if (settings->band < BAND_COUNT) {
+          settings->bandFreqKHz[settings->band] = settings->freqKHz;
+        }
         settings->band = band;
         settleAfterBandChange(settings, plan);
       }
@@ -163,8 +174,25 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       if (!bandLimits(command->band, plan, &lo, &hi)) {
         return RADIO_ERR_BAND;
       }
+      if (command->band == settings->band) {
+        /* Already there. Doing the work anyway would throw away where the
+         * band was left and go back to the bottom of it. */
+        return RADIO_OK;
+      }
+
+      /* Remember where this band was before leaving it. */
+      if (settings->band < BAND_COUNT) {
+        settings->bandFreqKHz[settings->band] = settings->freqKHz;
+      }
+
       settings->band = command->band;
-      settings->freqKHz = bandHome(command->band, plan);
+      uint32_t back = settings->bandFreqKHz[command->band];
+      /* Clamped, because the band edges can move when the region or the
+       * medium wave spacing changes, and a remembered frequency from before
+       * that change can now be outside the band. */
+      settings->freqKHz = (back != 0 && bandContains(command->band, plan, back))
+                              ? back
+                              : bandHome(command->band, plan);
       settleAfterBandChange(settings, plan);
       return RADIO_OK;
     }
@@ -199,6 +227,40 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
 
     case RADIO_SET_MUTE:
       settings->muted = command->muted;
+      return RADIO_OK;
+
+    case RADIO_CYCLE_BAND: {
+      RadioCommand next = *command;
+      next.kind = RADIO_SET_BAND;
+      next.band = (BandId)((settings->band + 1) % BAND_COUNT);
+      return radioApply(settings, plan, &next);
+    }
+
+    case RADIO_CYCLE_BANDWIDTH: {
+      RadioCommand next = *command;
+      next.kind = RADIO_SET_BANDWIDTH;
+      next.bandwidthKHz =
+          bandBandwidthNext(settings->band, settings->bandwidthKHz);
+      return radioApply(settings, plan, &next);
+    }
+
+    case RADIO_CYCLE_TUNE_MODE: {
+      /* Skip the modes this band does not offer, so the button always does
+       * something. Meter band is shortwave only, and without this the cycle
+       * sticks on the mode before it everywhere else. */
+      TuneMode next = settings->tuneMode;
+      for (int i = 0; i < TUNE_MODE_COUNT; i++) {
+        next = (TuneMode)((next + 1) % TUNE_MODE_COUNT);
+        if (tuneModeAllowedForBand(next, settings->band)) {
+          break;
+        }
+      }
+      settings->tuneMode = next;
+      return RADIO_OK;
+    }
+
+    case RADIO_TOGGLE_MUTE:
+      settings->muted = !settings->muted;
       return RADIO_OK;
 
     case RADIO_SET_TUNE_MODE:

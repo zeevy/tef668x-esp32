@@ -11,7 +11,9 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+
 #include <string.h>
+#include "i2c_bus.h"
 
 #include "board/board.h"
 #include "tef668x_patch.h"
@@ -134,13 +136,18 @@ const char *tef668xErrorText(Tef668xError error) {
  * a successful transfer.
  */
 static Tef668xError writeRaw(const uint8_t *data, size_t len) {
+  if (!i2cBusTake(I2C_BUS_WAIT_MS)) {
+    return TEF668X_ERR_WRITE;
+  }
   Wire.beginTransmission(I2C_ADDR_TUNER);
   if (Wire.write(data, len) != len) {
     Wire.endTransmission();
+    i2cBusGive();
     return TEF668X_ERR_WRITE;
   }
   uint8_t result = Wire.endTransmission();
   delay(TUNER_SETTLE_MS);
+  i2cBusGive();
   return result == 0 ? TEF668X_OK : TEF668X_ERR_WRITE;
 }
 
@@ -170,20 +177,30 @@ static Tef668xError command(Tef668xModule module, uint8_t cmd,
 /** Ask for a value and read the answer back. */
 static Tef668xError query(Tef668xModule module, uint8_t cmd, uint8_t *out,
                           size_t len) {
+  /* The bus is held across both halves. A read is a write of what is wanted
+   * followed by a read of the answer, and another device getting in between
+   * them returns zeros that look like a good transfer. */
+  if (!i2cBusTake(I2C_BUS_WAIT_MS)) {
+    return TEF668X_ERR_READ;
+  }
   uint8_t head[3] = {(uint8_t)module, cmd, 1};
   Tef668xError err = writeRaw(head, sizeof(head));
   if (err != TEF668X_OK) {
+    i2cBusGive();
     return err;
   }
   if (Wire.requestFrom((uint8_t)I2C_ADDR_TUNER, (uint8_t)len) != len) {
+    i2cBusGive();
     return TEF668X_ERR_READ;
   }
   for (size_t i = 0; i < len; i++) {
     if (!Wire.available()) {
+      i2cBusGive();
       return TEF668X_ERR_READ;
     }
     out[i] = (uint8_t)Wire.read();
   }
+  i2cBusGive();
   return TEF668X_OK;
 }
 
@@ -473,16 +490,20 @@ Tef668xError tef668xBegin(void) {
   sTunedFm = false;
   memset(&sCaps, 0, sizeof(sCaps));
 
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
-  Wire.setClock(TUNER_I2C_HZ);
+  i2cBusBegin(TUNER_I2C_HZ);
 
   /* Is anything there at all? Worth separating from a chip that is there but
    * misbehaving, because the two mean different things to whoever is
    * holding the radio. */
   memset(&sDiag, 0, sizeof(sDiag));
 
+  if (!i2cBusTake(I2C_BUS_WAIT_MS)) {
+    return TEF668X_ERR_NO_DEVICE;
+  }
   Wire.beginTransmission(I2C_ADDR_TUNER);
-  if (Wire.endTransmission() != 0) {
+  uint8_t probe = Wire.endTransmission();
+  i2cBusGive();
+  if (probe != 0) {
     return TEF668X_ERR_NO_DEVICE;
   }
   sDiag.sawDevice = true;

@@ -378,6 +378,175 @@ static void only_changes_the_tuner_cares_about_ask_for_a_retune(void) {
   TEST_ASSERT_TRUE(radioNeedsRetune(&r, NULL));
 }
 
+/* ------------------------------------------- coming back to a band */
+
+static void a_band_remembers_where_it_was_left(void) {
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 102800});
+  TEST_ASSERT_EQUAL_UINT32(102800, r.freqKHz);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+
+  /* Back to FM, and back to the station that was playing. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  TEST_ASSERT_EQUAL_UINT32(102800, r.freqKHz);
+
+  /* And medium wave still remembers its own. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+}
+
+static void a_band_never_visited_starts_at_the_bottom(void) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_SW, &plan, &lo, &hi));
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  TEST_ASSERT_EQUAL_UINT32(lo, r.freqKHz);
+}
+
+static void choosing_the_band_already_in_use_changes_nothing(void) {
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 102800});
+  TEST_ASSERT_EQUAL_INT(
+      RADIO_OK, apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM}));
+  /* Not sent back to the bottom of the band, which is what made pressing
+   * BAND twice lose the station. */
+  TEST_ASSERT_EQUAL_UINT32(102800, r.freqKHz);
+}
+
+static void a_remembered_frequency_outside_the_band_is_not_used(void) {
+  /* Japan only reaches 95 MHz. A frequency remembered from a wider region is
+   * no longer in the band and must not be tuned. */
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 102800});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+
+  plan.fmRegion = FM_REGION_JAPAN;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_FM, &plan, &lo, &hi));
+  TEST_ASSERT_EQUAL_UINT32(lo, r.freqKHz);
+}
+
+static void meter_band_is_only_offered_on_shortwave(void) {
+  for (int b = 0; b < BAND_COUNT; b++) {
+    bool want = ((BandId)b == BAND_SW);
+    TEST_ASSERT_EQUAL_INT(
+        want, radioTuneModeAllowed(TUNE_MODE_METER_BAND, (BandId)b));
+    /* The other three are available everywhere. */
+    TEST_ASSERT_TRUE(radioTuneModeAllowed(TUNE_MODE_MANUAL, (BandId)b));
+    TEST_ASSERT_TRUE(radioTuneModeAllowed(TUNE_MODE_AUTO, (BandId)b));
+    TEST_ASSERT_TRUE(radioTuneModeAllowed(TUNE_MODE_MEMORY, (BandId)b));
+  }
+}
+
+/* ------------------------------------------------ the next one, not a guess */
+
+static void tuning_away_by_frequency_also_remembers_the_band(void) {
+  /* The keypad leaves a band by tuning, not by pressing BAND, and that is the
+   * usual way out. Without this the memory is lost on the common route. */
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 90000});
+  TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
+
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+
+  apply((RadioCommand){.kind = RADIO_CYCLE_BAND});
+  while (r.band != BAND_FM) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_BAND});
+  }
+  TEST_ASSERT_EQUAL_UINT32(90000, r.freqKHz);
+}
+
+static void cycling_the_band_goes_round_every_band_and_back(void) {
+  BandId first = r.band;
+  for (int i = 0; i < BAND_COUNT; i++) {
+    TEST_ASSERT_EQUAL_INT(RADIO_OK,
+                          apply((RadioCommand){.kind = RADIO_CYCLE_BAND}));
+  }
+  TEST_ASSERT_EQUAL_INT(first, r.band);
+}
+
+static void cycling_the_bandwidth_uses_the_band_it_is_actually_on(void) {
+  /* The bug this replaces: the caller read FM, the radio moved to medium
+   * wave, and the caller then sent 56 kHz to a band whose widest filter is
+   * 8 kHz. Worked out here, there is no gap for the state to move in. */
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+
+  for (int i = 0; i < 12; i++) {
+    TEST_ASSERT_EQUAL_INT(RADIO_OK,
+                          apply((RadioCommand){.kind = RADIO_CYCLE_BANDWIDTH}));
+    /* Never anything the AM side does not have. */
+    TEST_ASSERT_TRUE(r.bandwidthKHz >= 3 && r.bandwidthKHz <= 8);
+  }
+}
+
+static void cycling_the_bandwidth_on_fm_walks_the_whole_list(void) {
+  size_t count = bandBandwidthCount(BAND_FM);
+  for (size_t i = 1; i <= count; i++) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_BANDWIDTH});
+    TEST_ASSERT_EQUAL_UINT16(bandBandwidthAt(BAND_FM, i % count),
+                             r.bandwidthKHz);
+  }
+}
+
+static void cycling_the_mode_skips_what_the_band_does_not_offer(void) {
+  /* On FM, meter band never appears however many times the button is
+   * pressed. */
+  for (int i = 0; i < 12; i++) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_TUNE_MODE});
+    TEST_ASSERT_NOT_EQUAL_INT(TUNE_MODE_METER_BAND, r.tuneMode);
+  }
+
+  /* On shortwave it does. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  bool seen = false;
+  for (int i = 0; i < 12; i++) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_TUNE_MODE});
+    if (r.tuneMode == TUNE_MODE_METER_BAND) {
+      seen = true;
+    }
+  }
+  TEST_ASSERT_TRUE(seen);
+}
+
+static void cycling_the_mode_always_moves(void) {
+  for (int i = 0; i < 8; i++) {
+    TuneMode before = r.tuneMode;
+    apply((RadioCommand){.kind = RADIO_CYCLE_TUNE_MODE});
+    TEST_ASSERT_NOT_EQUAL_INT(before, r.tuneMode);
+  }
+}
+
+static void toggling_mute_turns_it_over_each_time(void) {
+  bool before = r.muted;
+  apply((RadioCommand){.kind = RADIO_TOGGLE_MUTE});
+  TEST_ASSERT_EQUAL_INT(!before, r.muted);
+  apply((RadioCommand){.kind = RADIO_TOGGLE_MUTE});
+  TEST_ASSERT_EQUAL_INT(before, r.muted);
+}
+
+static void changing_band_never_leaves_a_bandwidth_the_band_refuses(void) {
+  /* Walk FM to a wide filter, then go round every band cycling the bandwidth
+   * at each stop. Nothing may end up outside the list for the band it is on. */
+  for (int i = 0; i < 6; i++) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_BANDWIDTH});
+  }
+  for (int b = 0; b < BAND_COUNT * 2; b++) {
+    apply((RadioCommand){.kind = RADIO_CYCLE_BAND});
+    apply((RadioCommand){.kind = RADIO_CYCLE_BANDWIDTH});
+    bool found = false;
+    for (size_t i = 0; i < bandBandwidthCount(r.band); i++) {
+      if (bandBandwidthAt(r.band, i) == r.bandwidthKHz) {
+        found = true;
+      }
+    }
+    TEST_ASSERT_TRUE(found);
+  }
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -403,5 +572,20 @@ int main(int, char **) {
   RUN_TEST(a_command_that_is_not_a_command_is_refused);
   RUN_TEST(every_error_and_mode_has_words);
   RUN_TEST(only_changes_the_tuner_cares_about_ask_for_a_retune);
+  RUN_TEST(a_band_remembers_where_it_was_left);
+  RUN_TEST(a_band_never_visited_starts_at_the_bottom);
+  RUN_TEST(choosing_the_band_already_in_use_changes_nothing);
+  RUN_TEST(a_remembered_frequency_outside_the_band_is_not_used);
+  RUN_TEST(meter_band_is_only_offered_on_shortwave);
+
+  RUN_TEST(tuning_away_by_frequency_also_remembers_the_band);
+  RUN_TEST(cycling_the_band_goes_round_every_band_and_back);
+  RUN_TEST(cycling_the_bandwidth_uses_the_band_it_is_actually_on);
+  RUN_TEST(cycling_the_bandwidth_on_fm_walks_the_whole_list);
+  RUN_TEST(cycling_the_mode_skips_what_the_band_does_not_offer);
+  RUN_TEST(cycling_the_mode_always_moves);
+  RUN_TEST(toggling_mute_turns_it_over_each_time);
+  RUN_TEST(changing_band_never_leaves_a_bandwidth_the_band_refuses);
+
   return UNITY_END();
 }

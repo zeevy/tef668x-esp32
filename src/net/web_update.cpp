@@ -10,6 +10,7 @@
 #include "core/version.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
+#include "input_task.h"
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
@@ -726,6 +727,44 @@ static void appendRadioState(String &out) {
 }
 
 /**
+ * The input layer, as one JSON field.
+ *
+ * There is no display yet, so this is the only way to tell a dead switch from
+ * a wrong pin number. A press that shows up here but does nothing to the
+ * radio is a mapping problem; a press that never shows up at all is wiring.
+ *
+ * | Key | Full name |
+ * |---|---|
+ * | `pad` | The keypad expander answered at start up |
+ * | `clicks` | Knob clicks since boot |
+ * | `presses` | Button and key events since boot |
+ * | `last` | The last event in words, such as "BAND long" |
+ * | `lastMs` | When that was, ms since boot. 0 for never |
+ * | `typed` | Digits keyed and not yet entered |
+ *
+ * @param out  The reply being built.
+ */
+static void appendInputState(String &out) {
+  InputStatus in;
+  inputStatusGet(&in);
+  out += F("\"input\":{\"pad\":");
+  out += in.keypadPresent ? F("true") : F("false");
+  out += F(",\"clicks\":");
+  out += String(in.clicks);
+  out += F(",\"presses\":");
+  out += String(in.presses);
+  out += F(",\"last\":\"");
+  out += jsonEscape(in.lastEvent);
+  out += F("\",\"lastMs\":");
+  out += String(in.lastEventMs);
+  out += F(",\"typed\":\"");
+  out += jsonEscape(in.typed);
+  out += F("\",\"lines\":");
+  out += String(in.linesOk ? in.lines : 0xFFFF);
+  out += F("}");
+}
+
+/**
  * Build the whole state document, device and tuner together.
  *
  * One builder for both /status.json and /api/state. They are the same
@@ -757,6 +796,8 @@ static String buildState(void) {
   out += String(ESP.getFreeHeap());
   out += F(",\"up\":");
   out += String(millis() / 1000UL);
+  out += F(",");
+  appendInputState(out);
   out += F(",");
   appendRadioState(out);
   out += F("}");
@@ -845,6 +886,15 @@ static String apiDescribe(const RadioSettings *s) {
          bandFrequencyUnit(s->band);
 }
 
+/** Which part of the settled state a reply should describe. */
+typedef enum {
+  API_SAY_TEXT = 0,  /**< Whatever the caller passed in. */
+  API_SAY_TUNE,      /**< The band and frequency it reached. */
+  API_SAY_BANDWIDTH, /**< The bandwidth it reached. */
+  API_SAY_MODE,      /**< The tuning mode it reached. */
+  API_SAY_MUTE       /**< Whether it is muted. */
+} ApiSay;
+
 /** How long a request waits for the radio task to carry a command out. */
 #define API_SETTLE_MS 500
 
@@ -861,11 +911,12 @@ static String apiDescribe(const RadioSettings *s) {
  *
  * @param command  What to do.
  * @param said     What to tell the caller when it worked.
- * @param where    true to answer with the band and frequency it reached
- *                 instead, for the commands that move the dial.
+ * @param say      Which part of the settled state to answer with instead.
+ *                 Reporting what was asked for rather than what was reached
+ *                 is how a refused command came to answer 200.
  */
 static void apiSubmit(const RadioCommand *command, const String &said,
-                      bool where = false) {
+                      ApiSay say = API_SAY_TEXT) {
   RadioError why = RADIO_OK;
   RadioPostResult posted = radioPostAndSettle(command, API_SETTLE_MS, &why);
   if (posted == RADIO_POST_BUSY) {
@@ -891,8 +942,27 @@ static void apiSubmit(const RadioCommand *command, const String &said,
 
   String answer = said;
   RadioSnapshot now;
-  if (where && radioGetSnapshot(&now)) {
-    answer = apiDescribe(&now.settings);
+  if (say != API_SAY_TEXT && radioGetSnapshot(&now)) {
+    switch (say) {
+      case API_SAY_TUNE:
+        answer = apiDescribe(&now.settings);
+        break;
+      case API_SAY_BANDWIDTH:
+        answer =
+            now.settings.bandwidthKHz == 0
+                ? String("bandwidth automatic")
+                : String("bandwidth ") + now.settings.bandwidthKHz + " kHz";
+        break;
+      case API_SAY_MODE:
+        answer = String("mode ") + tuneModeName(now.settings.tuneMode);
+        break;
+      case API_SAY_MUTE:
+        answer = now.settings.muted ? String("muted") : String("unmuted");
+        break;
+      case API_SAY_TEXT:
+      default:
+        break;
+    }
   }
   Serial.printf("[api] %s\n", answer.c_str());
   sServer.send(200, "text/plain", answer + "\n");
@@ -966,7 +1036,7 @@ static void handleApiTune(void) {
   bandFormatFrequency(band, (uint32_t)khz, text, sizeof(text));
   apiSubmit(&cmd,
             String(bandName(band)) + " " + text + " " + bandFrequencyUnit(band),
-            true);
+            API_SAY_TUNE);
 }
 
 /** POST /api/step. Whole steps up or down, by the current step size. */
@@ -986,7 +1056,7 @@ static void handleApiStep(void) {
 
   /* Say where it landed, not just that it moved, so a script can check the
    * answer without a second request. */
-  apiSubmit(&cmd, String("stepped ") + steps, true);
+  apiSubmit(&cmd, String("stepped ") + steps, API_SAY_TUNE);
 }
 
 /** POST /api/band. By name, as the radio itself shows it. */
@@ -1017,7 +1087,7 @@ static void handleApiBand(void) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_SET_BAND;
   cmd.band = band;
-  apiSubmit(&cmd, String("band ") + bandName(band), true);
+  apiSubmit(&cmd, String("band ") + bandName(band), API_SAY_TUNE);
 }
 
 /** POST /api/bandwidth. In kilohertz, or 0 on FM to let the tuner choose. */
@@ -1033,8 +1103,10 @@ static void handleApiBandwidth(void) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_SET_BANDWIDTH;
   cmd.bandwidthKHz = (uint16_t)khz;
-  apiSubmit(&cmd, khz == 0 ? String("bandwidth automatic")
-                           : String("bandwidth ") + khz + " kHz");
+  apiSubmit(&cmd,
+            khz == 0 ? String("bandwidth automatic")
+                     : String("bandwidth ") + khz + " kHz",
+            API_SAY_BANDWIDTH);
 }
 
 /** POST /api/step-size. Which step the knob moves by. */
@@ -1082,7 +1154,7 @@ static void handleApiMute(void) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_SET_MUTE;
   cmd.muted = on != 0;
-  apiSubmit(&cmd, on ? String("muted") : String("unmuted"));
+  apiSubmit(&cmd, on ? String("muted") : String("unmuted"), API_SAY_MUTE);
 }
 
 /** POST /api/mode. What the knob does: Manual, Auto, Memory, Meter band. */
@@ -1119,7 +1191,7 @@ static void handleApiMode(void) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_SET_TUNE_MODE;
   cmd.tuneMode = mode;
-  apiSubmit(&cmd, String("mode ") + tuneModeName(mode));
+  apiSubmit(&cmd, String("mode ") + tuneModeName(mode), API_SAY_MODE);
 }
 
 /**
@@ -1240,6 +1312,53 @@ static void handleApiSettingsPost(void) {
   }
 }
 
+/**
+ * POST /api/cycle. The next one, whatever it is now.
+ *
+ * Takes `what`: `band`, `bandwidth`, `mode` or `mute`. This is what the BAND,
+ * BW and MODE buttons and the push on the knob send, so a script can drive
+ * the radio the way a hand does. Decision 25: if the panel can do it, the API
+ * can do it.
+ *
+ * The radio works out the next value from its own state rather than being
+ * told one. A caller that read the state, worked out the next value and sent
+ * that would leave a gap for the state to move in.
+ */
+static void handleApiCycle(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("what")) {
+    apiFail(400, "Give what, one of band bandwidth mode mute.");
+    return;
+  }
+  String want = sServer.arg("what");
+  want.toLowerCase();
+
+  RadioCommand cmd = {};
+  ApiSay say = API_SAY_TEXT;
+  if (want == "band") {
+    cmd.kind = RADIO_CYCLE_BAND;
+    say = API_SAY_TUNE;
+  } else if (want == "bandwidth") {
+    cmd.kind = RADIO_CYCLE_BANDWIDTH;
+    say = API_SAY_BANDWIDTH;
+  } else if (want == "mode") {
+    cmd.kind = RADIO_CYCLE_TUNE_MODE;
+    say = API_SAY_MODE;
+  } else if (want == "mute") {
+    cmd.kind = RADIO_TOGGLE_MUTE;
+    say = API_SAY_MUTE;
+  } else {
+    apiFail(400,
+            "That is not something to cycle. Use band, bandwidth, mode "
+            "or mute.");
+    return;
+  }
+  apiSubmit(&cmd, String("cycled ") + want, say);
+}
+
 /** Anything else. */
 static void handleNotFound(void) {
   sRequests++;
@@ -1274,6 +1393,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/volume", HTTP_POST, handleApiVolume);
   sServer.on("/api/mute", HTTP_POST, handleApiMute);
   sServer.on("/api/mode", HTTP_POST, handleApiMode);
+  sServer.on("/api/cycle", HTTP_POST, handleApiCycle);
   sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
