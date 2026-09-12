@@ -925,17 +925,22 @@ static void appendRadioState(String &out) {
 
     if (haveSnap && snap.qualityValid) {
       Tef668xQuality q = snap.quality;
-      char sig[176];
+      char sig[200];
       /* Tenths go out as tenths, not as a decimal string, so nothing has to
        * parse a float and no precision is lost on the way. */
       snprintf(sig, sizeof(sig),
                ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"offset\":%d"
-               ",\"bw\":%u,\"mod\":%d,\"st\":%s",
+               ",\"bw\":%u,\"mod\":%d,\"st\":%s,\"pilot\":%s",
                q.levelDbuVTenths, (unsigned)q.usnTenths,
                bandModulation(snap.settings.band) == MODULATION_FM
                    ? (unsigned)q.multipathTenths
                    : (unsigned)q.coChannelTenths,
                q.offsetKHzTenths, (unsigned)q.bandwidthKHz, q.modulationPercent,
+               /* st is what comes out of the speaker, pilot is the chip's raw
+                * flag. Forcing mono leaves the pilot where it was, so the two
+                * differ, and a reader that wants to know whether the station
+                * is transmitting stereo still has it. */
+               (q.stereo && !snap.settings.forcedMono) ? "true" : "false",
                q.stereo ? "true" : "false");
       out += sig;
     }
@@ -1096,7 +1101,8 @@ static String buildState(void) {
  * | `offset` | How far off centre the station is | tenths of a kHz |
  * | `bw` | Bandwidth the tuner settled on | kHz |
  * | `mod` | Modulation depth | percent |
- * | `st` | A stereo pilot is present | |
+ * | `st` | You are hearing stereo | |
+ * | `pilot` | The station is transmitting a stereo pilot | |
  * | `ims` | Multipath suppression, iMS on the old radio | |
  * | `eq` | Channel equalizer | |
  * | `mono` | Stereo refused on purpose | |

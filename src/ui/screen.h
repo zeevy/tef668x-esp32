@@ -24,10 +24,18 @@ typedef struct {
   const char *mode;      /**< The tuning mode in words. */
   int16_t signalTenths;  /**< Signal level in tenths of a dBuV. */
   bool signalValid;      /**< False when the last reading failed. */
-  bool stereo;           /**< A stereo pilot is present. */
-  bool muted;            /**< Audio is off. */
-  bool tunerReady;       /**< The tuner started up. */
-  const char *fault;     /**< What went wrong, or NULL when nothing did. */
+  /**
+   * You are hearing stereo.
+   *
+   * Not the same as the chip's pilot flag. Forcing mono does not remove the
+   * pilot from the transmission, so the chip keeps reporting it, and a screen
+   * driven straight off that flag says stereo while the audio is mono. The
+   * screen has to describe what comes out of the speaker.
+   */
+  bool stereo;
+  bool muted;        /**< Audio is off. */
+  bool tunerReady;   /**< The tuner started up. */
+  const char *fault; /**< What went wrong, or NULL when nothing did. */
 } ScreenState;
 
 /**

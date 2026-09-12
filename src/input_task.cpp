@@ -108,26 +108,34 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   memset(&sStatus, 0, sizeof(sStatus));
   clearTyped();
 
+  /* Nothing is known about the knob or about what it is for until the first
+   * poll, so both are forgotten here rather than carried over. */
+  sPotKnown = false;
+  sJobKnown = false;
+
   encoderBegin(kind, direction);
   analogBegin();
   sStatus.keypadPresent = keypadBegin();
 
-  /* Read the pot once and send the volume it is pointing at, so the radio
-   * starts where the knob says rather than at whatever the defaults say and
-   * then jumping the first time it is touched.
+  /* Read the pot for the status document, and send nothing.
    *
-   * Sending it is the part that is easy to leave out. Recording the reading
-   * without sending it looks right, and the radio then sits at the default
-   * volume until the knob moves far enough to pass the deadband. */
+   * This used to send the volume the knob was pointing at, so that the radio
+   * started where the knob says. That job moved to main.cpp, which asks the
+   * settings what the knob is for: in manual squelch the knob is the squelch
+   * control, and the volume comes from the stored one instead.
+   *
+   * Sending it here undid that. main.cpp would start the radio at the stored
+   * volume and this would overwrite it with the knob's a few milliseconds
+   * later, so a radio saved in manual squelch came up at whatever the
+   * threshold happened to map to. It was found on the radio, not in a test,
+   * because both halves looked right on their own.
+   *
+   * The first pollPot does the rest. Its jobChanged is true on the first
+   * poll, so it acts at once rather than waiting for the knob to move past
+   * the deadband. */
   sPot = potRead();
-  sPotKnown = true;
   sStatus.pot = sPot;
   sStatus.potDb = potVolumeDb(sPot, NULL);
-
-  RadioCommand volume = {};
-  volume.kind = RADIO_SET_VOLUME;
-  volume.volumeDb = sStatus.potDb;
-  send(&volume);
 
   return sStatus.keypadPresent;
 }

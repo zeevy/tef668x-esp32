@@ -63,7 +63,15 @@ void screenTaskPoll(void) {
   state.mode = tuneModeName(snap.settings.tuneMode);
   state.signalTenths = snap.quality.levelDbuVTenths;
   state.signalValid = snap.qualityValid;
-  state.stereo = snap.qualityValid && snap.quality.stereo;
+  /* A pilot on its own is not stereo coming out of the speaker. Forced mono
+   * leaves the pilot exactly where it was, so the flag stays true while the
+   * audio is mono, and the screen then tells the person something untrue
+   * about what they are listening to.
+   *
+   * The automatic blend is a matter of degree rather than a switch, so it is
+   * not folded in here. Forced mono is the unambiguous half. */
+  state.stereo =
+      snap.qualityValid && snap.quality.stereo && !snap.settings.forcedMono;
   state.muted = snap.settings.muted;
   state.tunerReady = snap.tunerReady;
   /* What the tuner last refused. Without it the screen can show a station the
