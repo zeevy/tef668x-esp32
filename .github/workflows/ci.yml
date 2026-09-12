@@ -133,9 +133,11 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            // Read from a file rather than interpolating ${{ }} into this
-            // script. Anything that reaches the build log would otherwise run
-            // as code in a job that can write to the pull request.
+            // The numbers are read from a file, never interpolated into this
+            // script as a workflow expression. Anything reaching the build log
+            // would otherwise run as code in a job that can write to the pull
+            // request. Note that an expression is evaluated even inside a
+            // comment, which is why one cannot be written here as an example.
             const report = fs.readFileSync('size.txt', 'utf8').trim();
             const body = [
               '### Size on `ats125`',
