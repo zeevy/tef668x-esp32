@@ -12,6 +12,7 @@
 #include "drivers/tef668x.h"
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
+#include "radio_task.h"
 
 #include <Update.h>
 #include <WebServer.h>
@@ -669,39 +670,48 @@ static void handleStatusJson(void) {
     out += tuner->hasDigitalRadio ? F("true") : F("false");
     /* Which band we are on decides which module the quality comes from and
      * how the frequency reads, so it goes out too. */
-    uint32_t nowKHz = 0;
-    bool nowFm = true;
-    BandPlanConfig plan;
-    bandPlanDefaults(&plan);
-    bool haveTune = tef668xCurrentTune(&nowKHz, &nowFm);
-    if (haveTune) {
-      BandId nowBand;
+    /* Everything live comes from one snapshot, so the frequency and the
+     * readings under it always describe the same moment. Reading the tuner
+     * from here would also mean two tasks on one I2C bus. */
+    RadioSnapshot snap;
+    bool haveSnap = radioGetSnapshot(&snap);
+    if (haveSnap) {
       char freqText[16];
-      if (bandForFrequency(&plan, nowKHz, &nowBand) &&
-          bandFormatFrequency(nowBand, nowKHz, freqText, sizeof(freqText))) {
-        char tuned[64];
+      if (bandFormatFrequency(snap.settings.band, snap.settings.freqKHz,
+                              freqText, sizeof(freqText))) {
+        char tuned[128];
         snprintf(tuned, sizeof(tuned),
-                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\"", bandName(nowBand),
-                 (unsigned)nowKHz, freqText);
+                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"step\":%u"
+                 ",\"vol\":%d,\"mute\":%s,\"mode\":\"%s\",\"seq\":%u",
+                 bandName(snap.settings.band), (unsigned)snap.settings.freqKHz,
+                 freqText, (unsigned)snap.settings.stepKHz,
+                 snap.settings.volumeDb, snap.settings.muted ? "true" : "false",
+                 tuneModeName(snap.settings.tuneMode), (unsigned)snap.sequence);
         out += tuned;
+      }
+      /* What the tuner last refused. Without this the page can show a station
+       * the radio is not actually on, with nothing to say so. */
+      if (snap.lastError != TEF668X_OK) {
+        out += F(",\"pushError\":\"");
+        out += tef668xErrorText(snap.lastError);
+        out += F("\"");
       }
     }
 
-    /* Only read quality when something is actually tuned. Otherwise these
-     * numbers describe nothing and look like a live reading. */
-    Tef668xQuality q;
-    if (haveTune && tef668xReadQuality(nowFm, &q) == TEF668X_OK) {
+    if (haveSnap && snap.qualityValid) {
+      Tef668xQuality q = snap.quality;
       char sig[176];
       /* Tenths go out as tenths, not as a decimal string, so nothing has to
        * parse a float and no precision is lost on the way. */
-      snprintf(
-          sig, sizeof(sig),
-          ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"offset\":%d"
-          ",\"bw\":%u,\"mod\":%d,\"st\":%s",
-          q.levelDbuVTenths, (unsigned)q.usnTenths,
-          nowFm ? (unsigned)q.multipathTenths : (unsigned)q.coChannelTenths,
-          q.offsetKHzTenths, (unsigned)q.bandwidthKHz, q.modulationPercent,
-          q.stereo ? "true" : "false");
+      snprintf(sig, sizeof(sig),
+               ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"offset\":%d"
+               ",\"bw\":%u,\"mod\":%d,\"st\":%s",
+               q.levelDbuVTenths, (unsigned)q.usnTenths,
+               bandModulation(snap.settings.band) == MODULATION_FM
+                   ? (unsigned)q.multipathTenths
+                   : (unsigned)q.coChannelTenths,
+               q.offsetKHzTenths, (unsigned)q.bandwidthKHz, q.modulationPercent,
+               q.stereo ? "true" : "false");
       out += sig;
     }
     out += F("}");
@@ -782,20 +792,31 @@ static void handleApiTune(void) {
     return;
   }
 
-  Tef668xError err = bandModulation(band) == MODULATION_FM ? tef668xTuneFm(khz)
-                                                           : tef668xTuneAm(khz);
-  if (err == TEF668X_ERR_RANGE) {
-    /* The caller asked for something the chip cannot reach, which is their
-     * mistake and not a fault here. FM tunes in steps of 10 kHz. */
+  /* FM tunes in steps of 10 kHz on this chip, so anything finer is the
+   * caller's mistake and never reaches the radio task. */
+  if (bandModulation(band) == MODULATION_FM && (khz % 10) != 0) {
     sServer.send(400, "text/plain",
                  "The tuner cannot reach that. FM tunes in steps of 10 kHz.\n");
     return;
   }
-  if (err != TEF668X_OK) {
-    String why = "The tuner refused it: ";
-    why += tef668xErrorText(err);
-    why += "\n";
-    sServer.send(500, "text/plain", why);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_TUNE;
+  cmd.freqKHz = khz;
+
+  /* Ask whether it would be accepted before saying so. A 200 that hides a
+   * dropped command is worse than an honest refusal. */
+  RadioError why;
+  if (!radioWouldAccept(&cmd, &why)) {
+    String refused = "The radio refused it: ";
+    refused += radioErrorText(why);
+    refused += "\n";
+    sServer.send(400, "text/plain", refused);
+    return;
+  }
+  if (!radioPost(&cmd)) {
+    sServer.send(503, "text/plain",
+                 "The radio is busy. Try again in a moment.\n");
     return;
   }
 

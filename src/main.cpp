@@ -28,6 +28,7 @@
 #include "net/rollback.h"
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
+#include "radio_task.h"
 
 /** The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
@@ -133,27 +134,24 @@ void setup() {
   if (gTunerError != TEF668X_OK) {
     Serial.printf("[tuner] start up failed: %s\n",
                   tef668xErrorText(gTunerError));
+  }
+
+  /* From here the tuner belongs to the radio task on core 0, and nothing
+   * else touches it. Commands go in through a queue and state comes out as a
+   * snapshot. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  if (!radioTaskStart(&plan)) {
+    Serial.println(F("[radio] the radio task could not start"));
   } else {
-    /* Tune something so there is audio to hear. Which station this is will
-     * come from settings once there are settings for it. */
-    Tef668xError err = tef668xTuneFm(kBootFrequencyKHz);
-    if (err == TEF668X_OK) {
-      err = tef668xSetFmBandwidth(0);
-    }
-    if (err == TEF668X_OK) {
-      err = tef668xSetVolume(0);
-    }
-    if (err == TEF668X_OK) {
-      err = tef668xSetMute(false);
-    }
-    if (err != TEF668X_OK) {
-      Serial.printf("[tuner] could not tune: %s\n", tef668xErrorText(err));
-    } else {
-      char text[16];
-      bandFormatFrequency(BAND_FM, kBootFrequencyKHz, text, sizeof(text));
-      Serial.printf("[tuner] tuned to %s %s\n", text,
-                    bandFrequencyUnit(BAND_FM));
-    }
+    RadioCommand tune = {};
+    tune.kind = RADIO_TUNE;
+    tune.freqKHz = kBootFrequencyKHz;
+    radioPost(&tune);
+    char text[16];
+    bandFormatFrequency(BAND_FM, kBootFrequencyKHz, text, sizeof(text));
+    Serial.printf("[radio] task started, tuning to %s %s\n", text,
+                  bandFrequencyUnit(BAND_FM));
   }
 
   wifiBegin(&gSettings);
