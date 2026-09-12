@@ -6,8 +6,6 @@
 
 #include <string.h>
 
-static bool tuneModeAllowedForBand(TuneMode mode, BandId band);
-
 /** Where each band parks when it is first selected, in kHz. */
 static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
   uint32_t lo = 0;
@@ -32,7 +30,7 @@ static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
 static void settleAfterBandChange(RadioSettings *s,
                                   const BandPlanConfig *plan) {
   s->stepKHz = bandDefaultStep(s->band, plan);
-  if (!tuneModeAllowedForBand(s->tuneMode, s->band)) {
+  if (!radioTuneModeAllowed(s->tuneMode, s->band)) {
     s->tuneMode = TUNE_MODE_MANUAL;
   }
   /* The bandwidth goes back to what the new band wants, in both directions.
@@ -96,12 +94,15 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan) {
   settings->tuneMode = TUNE_MODE_MANUAL;
 }
 
-/** Meter band mode only makes sense where there are meter bands. */
+/*
+ * Meter band mode only makes sense where there are meter bands.
+ *
+ * A plain comment, not a doc comment. This function is documented on its
+ * declaration in radio.h, and a second doc comment here is a second place to
+ * keep up to date. Doxygen on the CI machine also treats a doc block with no
+ * @param as an error, which is how this gate went red after passing locally.
+ */
 bool radioTuneModeAllowed(TuneMode mode, BandId band) {
-  return tuneModeAllowedForBand(mode, band);
-}
-
-static bool tuneModeAllowedForBand(TuneMode mode, BandId band) {
   if (mode >= TUNE_MODE_COUNT) {
     return false;
   }
@@ -251,7 +252,7 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       TuneMode next = settings->tuneMode;
       for (int i = 0; i < TUNE_MODE_COUNT; i++) {
         next = (TuneMode)((next + 1) % TUNE_MODE_COUNT);
-        if (tuneModeAllowedForBand(next, settings->band)) {
+        if (radioTuneModeAllowed(next, settings->band)) {
           break;
         }
       }
@@ -264,7 +265,7 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       return RADIO_OK;
 
     case RADIO_SET_TUNE_MODE:
-      if (!tuneModeAllowedForBand(command->tuneMode, settings->band)) {
+      if (!radioTuneModeAllowed(command->tuneMode, settings->band)) {
         return RADIO_ERR_TUNE_MODE;
       }
       settings->tuneMode = command->tuneMode;

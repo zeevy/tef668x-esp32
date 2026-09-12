@@ -209,8 +209,35 @@ gate_format() {
   return $bad
 }
 
+# A public function is documented on its declaration in the header, never again
+# on its definition. Two copies drift apart, and doxygen on the CI machine is an
+# older version that treats a doc block with no @param as an error, so this
+# fails there after passing here. Catch it locally instead.
+gate_doc_placement() {
+  found=0
+  for f in $(find src -name '*.c' -o -name '*.cpp'); do
+    # A /** */ block whose next line is a definition that does not start with
+    # static. awk keeps the line number of the block's opening.
+    awk -v file="$f" '
+      /^\/\*\*/ { inblock = 1; start = NR; next }
+      inblock && /\*\// { inblock = 0; expect = 1; next }
+      inblock { next }
+      expect {
+        expect = 0
+        # Only a function definition matters, and only a non static one.
+        if ($0 ~ /^[A-Za-z_].*\(/ && $0 !~ /^static/ && $0 !~ /^typedef/) {
+          printf "   %s:%d: doc comment on a public definition. Document it in the header instead.\n", file, start
+          exit 1
+        }
+      }
+    ' "$f" || found=1
+  done
+  return $found
+}
+
 gate_docs() {
   command -v doxygen >/dev/null 2>&1 || { echo "doxygen not found"; return 1; }
+  gate_doc_placement || return 1
   mkdir -p build/doc
   doxygen Doxyfile
 }

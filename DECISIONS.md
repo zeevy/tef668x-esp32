@@ -694,6 +694,37 @@ dropped, because a test that cannot tell those apart is worse than no test.
 This arrives in phase 2 with the tuner. Read endpoints land as soon as there is
 state to read, and each write endpoint lands with the control it drives.
 
+### 26. The panel driver is ours, the UI toolkit is not
+
+LVGL draws the user interface, as decision 12 says. What puts pixels on the
+ILI9341 underneath it is a driver in this repository, not TFT_eSPI or
+Adafruit_ILI9341.
+
+The reason is how little is actually needed. LVGL asks a display driver for one
+thing: take a rectangle of pixels and push it to the panel. That is a chip
+select, a command, and an SPI write. Everything else those libraries offer,
+fonts, shapes, sprites and touch, is work LVGL is already doing, so pulling one
+in means carrying a second drawing stack that nothing calls.
+
+What it buys:
+
+| | |
+|---|---|
+| Dependencies | Stays at zero. The only thing this firmware builds against is the Arduino ESP32 core, pinned exactly |
+| Configuration | Pins are in the board header with every other pin. TFT_eSPI wants its own header edited or thirty build flags, and a wrong one there fails as a blank screen |
+| Size | About 3KB against roughly 40KB, on top of LVGL's 150KB |
+
+What it costs: the initialisation sequence and the SPI setup are ours to get
+right, and those are the parts that fail as a screen that stays dark.
+
+The text drawing that phase 2 uses to prove the panel works is temporary. It
+goes when LVGL arrives, and the flush function is the only part that stays.
+
+**Pin 19 is the standby LED, not SPI MISO.** HARDWARE.md recorded it as both and
+flagged it as needing a check. Nothing ever reads from this panel, so MISO is
+never wired and the conflict does not exist. A driver that reads the panel back
+would have to settle it properly first.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what
