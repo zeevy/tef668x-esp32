@@ -171,6 +171,8 @@ struct Settings {
     uint8_t  agcTarget;   // 0 is off, else 30 to 80 percent
     uint8_t  agcBoost;    // 0 is off, else 2 to 8 dB
     int8_t   volume;
+    uint8_t  theme;       // index into the theme table
+    uint8_t  layout;      // index into the layout table
     // ...
 };
 ```
@@ -531,10 +533,10 @@ The splash carries information, not decoration. With OTA in use the most
 valuable thing it can say is which firmware is actually running.
 
 ```
-        ((( tef668x )))
-        v1.0.0 . ats125
+        ((( TEF668X )))
+         V1.0.0 . ATS125
 
-    TEF6686 Lithio . patch v102
+    TEF6686 LITHIO . PATCH V102
 
     Tuner          ok
     Keypad         ok
@@ -546,7 +548,9 @@ valuable thing it can say is which firmware is actually running.
 
 **The logo is drawn, not stored.** Three concentric arcs spreading from a point,
 drawn with LVGL arc primitives. No bitmap, so it costs no flash, scales to any
-size and stays sharp. The name is set in type beside it.
+size and stays sharp. The name is set in type between two mirrored copies of the
+arcs, both spreading outwards. Name, version and tuner line are all upper case
+and centred.
 
 **The animation is the progress indicator.** The arcs light one at a time as the
 self test passes each stage. On a failure the arcs stop and the failing line
@@ -559,6 +563,71 @@ turns red. Nothing on this screen exists only to look busy.
 **Target: under two seconds from power to audio**, and measured rather than
 assumed. The PE5PVB firmware has a bare `delay(1500)` in `setup()`, which is
 dead time on every power on.
+
+### Themes are data, and ten of them ship
+
+Colours are never written into screen code. Every screen, panel and menu draws
+from ten named roles, and a theme is one row of ten values.
+
+| Role | Used for |
+|---|---|
+| `bg` | Screen background |
+| `bar` | Status bar and bottom strip background |
+| `primary` | Frequency, panel values, the tuned thing |
+| `secondary` | Station name, radio text, anything the broadcast sends |
+| `muted` | Labels, units, scale numbers |
+| `text` | Neutral text such as the clock |
+| `ok` | Good state: stereo lock, battery healthy, self test passed, low end of a meter |
+| `warn` | Bad state: overload, low battery, a failed self test, high end of a meter |
+| `rule` | Dividers and panel edges |
+| `track` | The unfilled part of a meter |
+
+The ten that ship: Nightwatch (default), Grayscale, Nightvision, Daylight,
+Paper, Blueprint, Vintage, Ice, Terminal and High contrast.
+
+**Every theme has to carry rank.** A theme where the frequency, the station name
+and the labels sit at the same brightness reads flat, so a single hue at one
+weight is not shipped. Nightvision is the one exception and it earns it. Dim
+green with no white and no blue is what keeps night adaptation when the radio is
+used outdoors at night, and it still separates its four levels by brightness.
+Grayscale carries rank by brightness alone, so it still reads on a panel with a
+bad colour cast, and it is what the recovery screen uses.
+
+**The theme is one byte in the settings struct.** Changing it repaints the
+screen and touches nothing else. Adding an eleventh theme is adding a row to
+the table, never editing a screen.
+
+**A custom theme comes from the web interface**, as the same ten values stored
+in settings instead of read from the table. That falls out of the theme being
+data, so it costs almost nothing.
+
+### Themes and layouts are settings, not builds
+
+Both the colour theme and the screen layout are picked by the user at run time.
+Neither needs a reflash and neither is chosen at compile time.
+
+| | Where it lives | Cost |
+|---|---|---|
+| Theme | `settings.theme`, one byte | Ten colours per theme, so twelve themes is about 240 bytes of flash |
+| Layout | `settings.layout`, one byte | A layout is a table of panel placements, not code. Six of them is about 3KB |
+
+Layouts are already data. The decision on panels says describe what goes where,
+do not hard code the picture, so a second layout is a second table and not a
+second screen function. LVGL builds only the active layout, so RAM holds one at
+a time whatever the setting says.
+
+**Build flags only where a layout needs a subsystem that can be off.** The band
+spectrum layout needs `FEATURE_SPECTRUM`. With that flag at 0 the layout is not
+compiled and does not appear in the menu. No new flag is added for it, it
+follows the flag that already exists.
+
+**The real cost is testing, not flash.** Six layouts across two band groups,
+with touch off and again with touch on, is twenty four manual checks per release
+instead of four. That is the number to weigh when a seventh layout is proposed.
+Ship the six, and add another only when someone asks for it.
+
+Both settings are in the struct, so both come to the web interface for free, and
+both go into the settings backup.
 
 ### Licence
 

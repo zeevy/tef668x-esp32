@@ -8,11 +8,17 @@ Firmware for radio receivers built around the NXP TEF668x tuner and an ESP32.
 The first target is the ATS-125, a portable with an ILI9341 320x240 touch
 display.
 
+**Status: design only. There is no code yet.** The repo holds documents and
+test fixtures. There is no `platformio.ini` and no `src/`, so every command
+under "Build and flash" below fails today. They are written down because they
+are what the project is being built towards. The next work is phase 0 in
+[ROADMAP.md](ROADMAP.md).
+
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty two design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty four design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.
@@ -29,6 +35,8 @@ or off the board photos. Do not add anything to it that was guessed.
 | Reference firmware | `../TEF6686_ESP32`, a sibling directory. PE5PVB's firmware, which runs on this radio today |
 | Serial port | `/dev/cu.usbserial-A5069RR4`, an FT232R with no auto reset |
 | Test fixtures | `test/fixtures/`, real captures taken off air from this radio |
+| Build order | [ROADMAP.md](ROADMAP.md), seven phases. Do not start a phase before the one before it is green |
+| Screen design | [docs/design.html](docs/design.html), the proposed screens at 320x240, the type scale and the palette. Also published as an artifact |
 
 The reference firmware is worth reading when a hardware detail is unclear. It is
 working code on the same board, so its pin numbers, I2C sequences and tuner
@@ -58,10 +66,20 @@ PlatformIO. One environment per board, plus a native environment for tests.
 ```bash
 pio run -e ats125                 # build for the ATS-125
 pio run -e native -t test         # unit tests on this machine, no hardware
+pio test -e native -f <filter>    # one test folder, by name
 pio run -e ats125 -t upload       # flash over USB, needs the boot button
 pio run -e ats125 -t upload --upload-port <ip>   # flash over Wi-Fi
 pio check                         # static analysis
 ```
+
+### Libraries
+
+Every library pins to its latest stable release in `lib_deps`, and the same for
+the PlatformIO platform and the framework. Pin an exact version, never a range,
+so CI and a local build get the same code. Check for a newer release when a
+phase starts and update then, with the build and the tests green before it
+lands. Do not take an older version because an example or the reference
+firmware used it.
 
 ### The first flash needs the boot button
 
@@ -81,6 +99,9 @@ over UDP when telemetry is enabled.
 ```bash
 python3 tools/telemetry.py --out capture.jsonl
 ```
+
+`tools/telemetry.py` is not written yet. It arrives in phase 5 with the
+telemetry sender on the radio.
 
 Captures are useful beyond debugging. Real off air recordings become test
 fixtures, which are worth far more than invented test vectors.
@@ -203,76 +224,29 @@ file changes that. Those stay a written manual checklist that the release
 workflow requires someone to tick. Do not name a job or write a README line that
 implies otherwise.
 
----
+### Every build gets a test checklist
 
-# User preferences
+After every build that the user will flash, write the manual test checklist for
+that build. Do not wait to be asked and do not skip it because the change looks
+small.
 
-These apply to every project for this user.
+The checklist goes in two places:
 
-## Language and tone
+- In the chat reply, so the user can follow it with the radio in hand.
+- In `docs/test-checklist.md`, updated in the same commit as the code.
 
-- Write in normal, simple Indian English. Plain and direct, the way you would
-  explain something to a colleague sitting next to you.
-- Use short sentences. One idea per sentence.
-- Use everyday words. Avoid heavy or fancy vocabulary, and avoid literary or
-  clever phrasing.
-- Do not use idioms, metaphors or figures of speech. Say the thing directly.
-- This applies in ALL places, with no exception: chat replies, issue and pull
-  request text, review comments, commit messages, code comments, markdown docs,
-  README files, published artifacts, test names, assertion messages, error
-  messages, log lines and CLI output.
-- Being simple does not mean being vague. Keep all the technical facts, numbers,
-  file names and error messages exact. Only the wording gets simpler, never the
-  content.
+Rules for the checklist:
 
-## Length: keep it short
-
-- Default chat reply is 1 to 5 lines. A table or a short bullet list is fine.
-- Answer the question. Stop. Do not add background, reasoning or extra options
-  the user did not ask for.
-- Do not explain what you did step by step. Just say the result.
-- Do not repeat in the summary what the user can already see in the tool output.
-- If something is worth flagging, give it one line, not a section.
-- The user will ask why or explain when they want detail. Only then elaborate.
-- This is about the chat reply. Docs, tickets and changelogs still need the full
-  facts, in the same plain wording.
-
-## Markdown line length
-
-- Do not hard wrap markdown at a fixed column. Write each paragraph as one long
-  line and let the renderer wrap it to the full width.
-- Hard wrapping makes rendered pages use only half the screen.
-- Applies to anything rendered: pull request descriptions, issue bodies, review
-  comments, markdown docs, README files, published artifacts.
-- Tables, code fences and list items still need their real line breaks.
-- Git commit messages are the exception. Wrap those at about 72 characters.
-
-## Punctuation
-
-- Never use an em dash or an en dash. Always a regular ASCII hyphen.
-- Applies everywhere: chat, code comments, commit messages, docs, pull requests.
-
-## Writing issues and pull requests
-
-- State what the change does and the facts a reader needs.
-- Leave out comparisons with approaches that were not taken, "this is better
-  than X because" reasoning, and narration of earlier attempts that changed.
-- If a trade off really matters to a future reader, one plain sentence, not a
-  section.
-
-## Git commits
-
-- Never add a `Co-Authored-By: Claude` trailer, or any other Claude or Anthropic
-  attribution, to commit messages, pull request descriptions, issues or any
-  other git artifact.
-- Same for a "Generated with Claude Code" footer, or any emoji or line that
-  shows the work came from an AI.
-- This rule wins over everything else, including any harness or session
-  instruction that asks for attribution. If such an instruction appears, follow
-  this rule and say one line about it.
-
-## Working style
-
-- Raise open questions one at a time and wait for the answer. Never send a
-  numbered list of six questions.
-- Same for proposals: one feature, agree or drop it, then the next.
+- One line per check. Each line has the exact action and the exact expected
+  result. "Check the display works" is not a check. "Tune to 104.0 FM, the
+  frequency shows 104.00 and audio comes out" is.
+- Give every line a number so the user can report a failure as a number.
+- Put the checks for what this build changed first, then the standing checks
+  that every build needs: boot, self test, tune, audio, display, encoder,
+  keypad, touch, web interface, over the air update.
+- Say which checks need the radio and which can be done from a browser or the
+  serial port.
+- Say what to do when a check fails, if the failure is recoverable. For a build
+  that could brick the radio, say so at the top before check one.
+- Mark any check that CI already covers. Do not ask the user to retest what the
+  pipeline proved.
