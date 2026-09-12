@@ -1,0 +1,205 @@
+<title>tef668x-esp32 Design</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #F7F6F3; --surface: #FFFFFF; --ink: #1B1A17; --muted: #66625A;
+    --line: #E2DED6; --accent: #9A5B00; --chip: #F0EDE6; --ok: #1F7A4D; --warn: #A33B2A;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131210; --surface: #1C1A17; --ink: #EAE6DF; --muted: #9A948A;
+      --line: #2E2B26; --accent: #FFB43C; --chip: #26231E; --ok: #5FC08C; --warn: #FF8A72;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131210; --surface: #1C1A17; --ink: #EAE6DF; --muted: #9A948A;
+    --line: #2E2B26; --accent: #FFB43C; --chip: #26231E; --ok: #5FC08C; --warn: #FF8A72;
+    color-scheme: dark;
+  }
+
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; }
+
+  header { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+  h1 { margin: 0; font-size: clamp(30px, 6vw, 46px); font-weight: 600; letter-spacing: -.025em; text-wrap: balance; }
+  .lede { margin: 0; max-width: 62ch; color: var(--muted); font-size: 16px; }
+
+  h2 { margin: 52px 0 6px; font-size: 21px; font-weight: 600; letter-spacing: -.01em; }
+  h2 + p { margin: 0 0 20px; color: var(--muted); max-width: 66ch; }
+  h3 { margin: 30px 0 10px; font-size: 15px; font-weight: 600; }
+
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 30px; margin-top: 24px; padding-block: 16px; border-block: 1px solid var(--line); }
+  .fact { display: flex; align-items: baseline; gap: 8px; }
+  .fact b { font-family: var(--mono); font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .fact span { font-size: 13px; color: var(--muted); }
+
+  .screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+  figure { margin: 0; display: flex; flex-direction: column; gap: 9px; }
+  .scr { width: 100%; display: block; border-radius: 3px; }
+  figcaption { font-size: 13.5px; color: var(--muted); }
+  figcaption b { color: var(--ink); font-weight: 600; display: block; font-size: 14px; margin-bottom: 2px; }
+
+  .tablebox { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; margin-right: 8px; outline: 1px solid rgba(128,128,128,.35); }
+
+  .rules { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 15px; }
+  .rules li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 4px 20px; }
+  .k { font-family: var(--mono); font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); padding-top: 3px; }
+
+  .phases { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .phases li { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 18px; padding-block: 14px; border-bottom: 1px solid var(--line); }
+  .pn { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); padding-top: 3px; }
+  .pt { font-weight: 600; }
+  .pd { grid-column: 2; color: var(--muted); font-size: 14px; }
+
+  pre { background: var(--chip); border-left: 3px solid var(--accent); padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.55; margin: 0; }
+  code { font-family: var(--mono); font-size: .92em; }
+  .note { margin-top: 20px; padding: 14px 16px; background: var(--chip); font-size: 13.5px; }
+  .note p { margin: 0 0 9px; } .note p:last-child { margin: 0; }
+  .type-demo { font-family: "Barlow Condensed", sans-serif; color: var(--ink); line-height: 1.05; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">tef668x-esp32 &middot; design proposal</div>
+    <h1>A rewrite for the ATS-125</h1>
+    <p class="lede">Firmware for TEF668x radios, starting with one. Twenty two decisions are settled, the hardware is known down to the part markings, and the build order puts audio first and polish last.</p>
+  </header>
+
+  <div class="facts">
+    <div class="fact"><b>22</b><span>decisions settled</span></div>
+    <div class="fact"><b>7</b><span>build phases</span></div>
+    <div class="fact"><b>5</b><span>code layers</span></div>
+    <div class="fact"><b>8MB</b><span>flash, no PSRAM</span></div>
+    <div class="fact"><b>0</b><span>lines of code so far</span></div>
+  </div>
+
+  <h2>The screens</h2>
+  <p>Drawn at the real 320x240, with the proposed type scale and the Nightwatch palette. Amber is the radio, cyan is the broadcast, grey blue is every label.</p>
+
+  <div class="screens">
+    <figure>
+      <svg class="scr" viewBox="0 0 320 240" role="img" aria-label="Proposed FM screen"><rect width="320" height="240" fill="#000000"/><rect x="0" y="0" width="320" height="26" fill="#0A0F14" shape-rendering="crispEdges"/><text x="10" y="18" fill="#FFB200" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="0">FM</text><text x="42" y="18" fill="#4AC2EE" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">ST</text><text x="70" y="18" fill="#4AC2EE" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">RDS</text><text x="106" y="18" fill="#8B95A4" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">AF</text><text x="250" y="18" fill="#8B95A4" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">M12</text><text x="310" y="18" fill="#31C29C" font-size="15" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">78%</text><text x="214" y="84" fill="#FFB200" font-size="62" font-family="Barlow Condensed" text-anchor="end" font-weight="600" letter-spacing="-2">104.00</text><text x="220" y="84" fill="#8B95A4" font-size="20" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">MHz</text><text x="310" y="60" fill="#FFB200" font-size="26" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">52.4</text><text x="310" y="78" fill="#8B95A4" font-size="14" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">dB&#181;V</text><text x="10" y="116" fill="#4AC2EE" font-size="26" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="0">RADIO CITY</text><text x="310" y="116" fill="#FFB200" font-size="20" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">5C21</text><text x="10" y="140" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">SIG</text><defs><linearGradient id="gsig" x1="0" x2="1"><stop offset="0" stop-color="#31C29C"/><stop offset="0.25" stop-color="#31C29C"/><stop offset="0.60" stop-color="#FF5D4A"/><stop offset="1" stop-color="#FF5D4A"/></linearGradient></defs><rect x="42" y="130" width="200" height="10" fill="#293039" shape-rendering="crispEdges"/><rect x="42" y="130" width="168" height="10" fill="url(#gsig)" shape-rendering="crispEdges"/><text x="310" y="140" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">+30</text><text x="10" y="160" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">MOD</text><defs><linearGradient id="gmod" x1="0" x2="1"><stop offset="0" stop-color="#31C29C"/><stop offset="0.25" stop-color="#31C29C"/><stop offset="0.60" stop-color="#FFB200"/><stop offset="1" stop-color="#FFB200"/></linearGradient></defs><rect x="42" y="150" width="200" height="10" fill="#293039" shape-rendering="crispEdges"/><rect x="42" y="150" width="144" height="10" fill="url(#gmod)" shape-rendering="crispEdges"/><rect x="202" y="150" width="2" height="10" fill="#FFB200" shape-rendering="crispEdges"/><text x="310" y="160" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">100</text><text x="10" y="186" fill="#4AC2EE" font-size="17" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Now playing the best of the 90s</text><text x="10" y="206" fill="#8B95A4" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Pop Music</text><path d="M0 214.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="10" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">BW</text><text x="40" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">114k</text><text x="86" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">USN</text><text x="116" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">3%</text><text x="156" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">CN</text><text x="186" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">48</text><text x="218" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">AGC</text><text x="248" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">-7dB</text><text x="310" y="232" fill="#E6E6E6" font-size="17" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">21:04</text></svg>
+      <figcaption><b>FM</b>Frequency leads. Station name is 26px instead of 14px, because on FM that is what you look at. Signal and modulation are labelled bars rather than an unmarked scale. The bottom strip holds the numbers you check rather than read.</figcaption>
+    </figure>
+    <figure>
+      <svg class="scr" viewBox="0 0 320 240" role="img" aria-label="Proposed AM and SW screen"><rect width="320" height="240" fill="#000000"/><rect x="0" y="0" width="320" height="26" fill="#0A0F14" shape-rendering="crispEdges"/><text x="10" y="18" fill="#FFB200" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="0">SW</text><text x="42" y="18" fill="#4AC2EE" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">31 m</text><text x="86" y="18" fill="#31C29C" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">NB</text><text x="250" y="18" fill="#8B95A4" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">M07</text><text x="310" y="18" fill="#31C29C" font-size="15" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">78%</text><text x="214" y="84" fill="#FFB200" font-size="62" font-family="Barlow Condensed" text-anchor="end" font-weight="600" letter-spacing="-2">9 420</text><text x="220" y="84" fill="#8B95A4" font-size="20" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">kHz</text><text x="310" y="60" fill="#FFB200" font-size="26" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">41.8</text><text x="310" y="78" fill="#8B95A4" font-size="14" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">dB&#181;V</text><text x="10" y="120" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="1">BANDWIDTH</text><text x="10" y="150" fill="#E6E6E6" font-size="40" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="0">4</text><text x="36" y="150" fill="#8B95A4" font-size="18" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">kHz</text><path d="M96.5 104v56" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="110" y="120" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="1">CO-CHANNEL</text><text x="110" y="146" fill="#31C29C" font-size="24" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">low</text><path d="M196.5 104v56" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="210" y="120" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="1">OFFSET</text><text x="210" y="146" fill="#E6E6E6" font-size="24" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">-0.4</text><text x="258" y="146" fill="#8B95A4" font-size="14" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">kHz</text><text x="10" y="180" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">SIG</text><defs><linearGradient id="asig" x1="0" x2="1"><stop offset="0" stop-color="#31C29C"/><stop offset="0.25" stop-color="#31C29C"/><stop offset="0.60" stop-color="#FF5D4A"/><stop offset="1" stop-color="#FF5D4A"/></linearGradient></defs><rect x="42" y="170" width="200" height="10" fill="#293039" shape-rendering="crispEdges"/><rect x="42" y="170" width="124" height="10" fill="url(#asig)" shape-rendering="crispEdges"/><text x="10" y="200" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">MOD</text><defs><linearGradient id="amod" x1="0" x2="1"><stop offset="0" stop-color="#31C29C"/><stop offset="0.25" stop-color="#31C29C"/><stop offset="0.60" stop-color="#FFB200"/><stop offset="1" stop-color="#FFB200"/></linearGradient></defs><rect x="42" y="190" width="200" height="10" fill="#293039" shape-rendering="crispEdges"/><rect x="42" y="190" width="110" height="10" fill="url(#amod)" shape-rendering="crispEdges"/><path d="M0 214.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="10" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">ATT</text><text x="44" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">12dB</text><text x="86" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">STEP</text><text x="120" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">5k</text><text x="156" y="232" fill="#8B95A4" font-size="13" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">AGC</text><text x="190" y="232" fill="#FFB200" font-size="15" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">-3dB</text><text x="310" y="232" fill="#E6E6E6" font-size="17" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">21:04 UTC</text></svg>
+      <figcaption><b>AM and SW</b>The third of the screen FM uses for RDS goes to what matters here. Bandwidth is 40px because it gets changed constantly. Co-channel and tuning offset are shown at all, which today they are not. SW adds the meter band and a UTC clock.</figcaption>
+    </figure>
+    <figure>
+      <svg class="scr" viewBox="0 0 320 240" role="img" aria-label="Proposed menu"><rect width="320" height="240" fill="#000000"/><rect x="0" y="0" width="320" height="34" fill="#0A0F14" shape-rendering="crispEdges"/><text x="12" y="23" fill="#FFB200" font-size="20" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="1">AUDIO</text><text x="308" y="23" fill="#8B95A4" font-size="15" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">3 / 9</text><text x="14" y="58" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Volume</text><text x="306" y="58" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">0 dB</text><path d="M0 69.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><rect x="0" y="70" width="320" height="36" fill="#13212B" shape-rendering="crispEdges"/><rect x="0" y="70" width="3" height="36" fill="#FFB200" shape-rendering="crispEdges"/><text x="14" y="94" fill="#E6E6E6" font-size="21" font-family="Barlow Condensed" text-anchor="start" font-weight="500" letter-spacing="0">Volume AGC</text><text x="306" y="94" fill="#FFB200" font-size="21" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">50 %</text><path d="M0 105.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="14" y="130" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Volume AGC +</text><text x="306" y="130" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">+6 dB</text><path d="M0 141.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="14" y="166" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">High cut</text><text x="306" y="166" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">5500 Hz</text><path d="M0 177.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="14" y="202" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Deemphasis</text><text x="306" y="202" fill="#8B95A4" font-size="21" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">50 &#181;s</text><path d="M0 213.5h320" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><rect x="0" y="214" width="320" height="26" fill="#0A0F14" shape-rendering="crispEdges"/><text x="12" y="232" fill="#8B95A4" font-size="14" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">turn to change</text><text x="308" y="232" fill="#8B95A4" font-size="14" font-family="Barlow Condensed" text-anchor="end" font-weight="400" letter-spacing="0">press to go back</text></svg>
+      <figcaption><b>Menu</b>36px rows with 21px text, against 20px rows with a 16px font today. Five rows visible instead of ten, and the list scrolls. Readable beats dense on a screen held at arm's length.</figcaption>
+    </figure>
+    <figure>
+      <svg class="scr" viewBox="0 0 320 240" role="img" aria-label="Proposed boot screen"><rect width="320" height="240" fill="#000000"/><path d="M 60 52 A 14 14 0 0 1 60 80" fill="none" stroke="#FFB200" stroke-width="4" stroke-linecap="round"/><path d="M 60 42 A 24 24 0 0 1 60 90" fill="none" stroke="#FFB200" stroke-width="4" stroke-linecap="round"/><path d="M 60 32 A 34 34 0 0 1 60 100" fill="none" stroke="#293039" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="66" r="4" fill="#FFB200"/><text x="104" y="60" fill="#E6E6E6" font-size="34" font-family="Barlow Condensed" text-anchor="start" font-weight="600" letter-spacing="-1">tef668x</text><text x="106" y="82" fill="#8B95A4" font-size="17" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">v1.0.0 &#183; ats125</text><path d="M20 108.5h280" stroke="#182431" stroke-width="1" shape-rendering="crispEdges"/><text x="20" y="130" fill="#4AC2EE" font-size="17" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">TEF6686 Lithio &#183; patch v102</text><text x="20" y="154" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Tuner</text><text x="140" y="154" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text><text x="20" y="176" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Keypad</text><text x="140" y="176" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text><text x="20" y="198" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Touch</text><text x="140" y="198" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text><text x="170" y="154" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Clock</text><text x="290" y="154" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text><text x="170" y="176" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Filesystem</text><text x="290" y="176" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text><text x="170" y="198" fill="#8B95A4" font-size="16" font-family="Barlow Condensed" text-anchor="start" font-weight="400" letter-spacing="0">Settings</text><text x="290" y="198" fill="#31C29C" font-size="16" font-family="Barlow Condensed" text-anchor="end" font-weight="500" letter-spacing="0">ok</text></svg>
+      <figcaption><b>Boot</b>The arcs are the progress indicator, filling as the self test passes. The version and board are on screen because with over the air updates, knowing what is running matters more than a logo.</figcaption>
+    </figure>
+  </div>
+
+  <h2>Type scale</h2>
+  <p>The current menu is a 16px bitmap font in 20px rows. That is the complaint, and it is the thing this scale exists to fix.</p>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Role</th><th>Size</th><th>Face</th><th>Today</th></tr></thead>
+      <tbody>
+        <tr><td>Frequency</td><td class="n">62 px</td><td>Barlow Semi Condensed SemiBold, digits only</td><td class="n">~48 px</td></tr>
+        <tr><td>Station name</td><td class="n">26 px</td><td>Barlow Condensed SemiBold</td><td class="n">14 px</td></tr>
+        <tr><td>Big panel value</td><td class="n">40 px</td><td>Barlow Condensed SemiBold</td><td>did not exist</td></tr>
+        <tr><td>Menu row</td><td class="n">21 px</td><td>Barlow Condensed Medium</td><td class="n">16 px</td></tr>
+        <tr><td>Panel value</td><td class="n">24 px</td><td>Barlow Condensed Medium</td><td class="n">16 px</td></tr>
+        <tr><td>Screen title</td><td class="n">20 px</td><td>Barlow Condensed SemiBold</td><td class="n">16 px</td></tr>
+        <tr><td>Radio text</td><td class="n">17 px</td><td>Barlow Condensed Regular</td><td class="n">14 px</td></tr>
+        <tr><td>Label, unit, scale</td><td class="n">13 px</td><td>Barlow Condensed Regular</td><td class="n">14 px, same weight as the value</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Why this face</h3>
+  <ul class="rules">
+    <li><div class="k">Condensed</div><div>A 320px wide screen has to hold six digits of frequency at 62px. A condensed face fits them without shrinking them. Barlow Condensed is open licensed and converts cleanly with the LVGL font tool.</div></li>
+    <li><div class="k">Tabular figures</div><div>Not optional. With proportional digits the frequency jitters sideways every time a digit changes, and on a tuning display that is the one thing you cannot have.</div></li>
+    <li><div class="k">Weight, not size</div><div>Labels and values are separated by weight and colour, not by making labels smaller. Today both are 14px in the same colour, which is why the screen reads flat.</div></li>
+    <li><div class="k">Subset it</div><div>The 62px frequency font needs eleven glyphs: ten digits and a point. Subsetting takes it from about 180KB to under 20KB. The whole scale lands around 100KB, against 8MB of flash.</div></li>
+  </ul>
+
+  <div class="note">
+    <p><strong>The menu trade, stated plainly.</strong> Going from 20px rows to 36px rows means five rows on screen instead of ten. That is a real loss and it is deliberate. LVGL scrolls, so nothing becomes unreachable, and a row you can read at arm's length beats two you have to squint at.</p>
+  </div>
+
+  <h2>How it is built</h2>
+  <p>Five layers, one rule: the core must not know a screen exists.</p>
+
+<pre>board/     One header per board. Pin map, feature flags.
+           board_ats125.h, and the next radio is another header.
+
+drivers/   tef668x, display, touch, encoder, keypad, rtc, battery.
+           Each behind an interface. No globals.
+
+core/      Tuner state machine, RDS decoder, band plan, memory
+           channels, settings, volume AGC.
+           No hardware. No UI. Builds and runs on a laptop.
+
+ui/        LVGL screens, menus, panels. Talks to core through an
+           API. Never touches a driver.
+
+net/       Wi-Fi, web server, OTA, NTP, telemetry.</pre>
+
+  <p style="margin-top:18px">Two FreeRTOS tasks. The radio owns core 0 and the 43 ms RDS cadence. UI and network own core 1. They pass a state snapshot and a command queue, never a shared variable. That is why a slow web request cannot drop RDS groups, which in the current firmware it can.</p>
+
+  <h2>Build order</h2>
+  <p>Audio early, polish late. No phase starts before the one before it is green in CI.</p>
+
+  <ol class="phases">
+    <li><div class="pn">Phase 0</div><div class="pt">Escape the cable</div><div class="pd">Partition table, Wi-Fi with access point fallback, over the air update, rollback armed. Flashed once over USB. The last time the boot button is ever needed.</div></li>
+    <li><div class="pn">Phase 1</div><div class="pt">Foundations</div><div class="pd">Layer skeleton, board header, one environment per board plus native, and CI with a coverage gate. One passing test before anything depends on the test path.</div></li>
+    <li><div class="pn">Phase 2</div><div class="pt">It is a radio</div><div class="pd">Tuner driver, patch load, capability detection, band plan, encoder and keypad. Plain text on screen. Done when it tunes a station and plays audio.</div></li>
+    <li><div class="pn">Phase 3</div><div class="pt">Core logic, tested on a PC</div><div class="pd">RDS decoder, settings, memory channels, volume AGC. All of it under test with no hardware attached. This is the phase that justifies the architecture.</div></li>
+    <li><div class="pn">Phase 4</div><div class="pt">The interface</div><div class="pd">LVGL, fonts, the panel set, per band layouts, menu, boot screen, recovery screen. The largest phase.</div></li>
+    <li><div class="pn">Phase 5</div><div class="pt">Web and telemetry</div><div class="pd">Web server, access PIN, settings pages, memory editor, telemetry over UDP and websocket, diagnostics, backup and restore.</div></li>
+    <li><div class="pn">Phase 6</div><div class="pt">The rest</div><div class="pd">Spectrum view, sleep timer, alarm, power management, and over the air updates straight from a GitHub release.</div></li>
+  </ol>
+
+  <h2>The decisions that matter most</h2>
+
+  <ul class="rules">
+    <li><div class="k">LVGL</div><div>Today every menu row is written twice, once for the encoder and once for touch. LVGL treats them as two input devices on one UI, so touch becomes a setting rather than a second codebase.</div></li>
+    <li><div class="k">Settings struct</div><div>One versioned struct in NVS, not hand written byte offsets. Adding a setting is adding a field. The web UI then comes almost free, because the struct serialises straight to JSON.</div></li>
+    <li><div class="k">Named strings</div><div>UI code says <code>STR_VOLUME_AGC</code>, never an index. Inserting a string can never shift another one. English ships, the mechanism for more stays.</div></li>
+    <li><div class="k">Telemetry</div><div>The radio broadcasts its live state as JSON. No debug builds, no cable. Captures become test fixtures, which is how the RDS decoder gets tested against real broadcasts rather than invented data.</div></li>
+    <li><div class="k">Measured</div><div>No threshold is guessed and no power saving is claimed until it has been measured. A guessed signal threshold made the volume AGC do nothing for a week, and it failed silently.</div></li>
+    <li><div class="k">Recovery</div><div>One screen reached by holding the rotary button, rendered with safe display settings so it works when the broken setting is the display. Not seven button combinations nobody remembers.</div></li>
+  </ul>
+
+  <h2>What was dropped</h2>
+  <p>Deliberately, with the reasoning recorded.</p>
+
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Dropped</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>XDR-GTK</td><td>Takes over volume, mute and bandwidth, so every one of those paths carries a check for it. The largest single source of cross cutting complexity</td></tr>
+        <tr><td>RDS Spy output, StationList UDP</td><td>Cheap individually, but not used on this radio</td></tr>
+        <tr><td>22 of 23 languages</td><td>English only. The mechanism for adding more stays</td></tr>
+        <tr><td>US callsign lookup</td><td>25,000 lines of PI codes for a country this radio is not in</td></tr>
+        <tr><td>Air band</td><td>Needs a converter board this radio does not have. The tuner stops at 27 MHz and air band starts at 108</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Where these mockups are not the truth</h2>
+  <div class="note">
+    <p>The dimensions are real, the palette is real, and the type scale is the one being proposed. But this is SVG in a browser rendering Barlow Condensed as a web font. On the radio it will be the same family converted to LVGL bitmaps at each fixed size, so hinting and spacing will differ slightly.</p>
+    <p>The meter bars are drawn here as smooth gradients. On the panel they are discrete two pixel segments with the ramp computed in HSV, so the real thing steps rather than glides.</p>
+    <p>Everything on these screens is example data. The station, the frequencies and the readings are plausible values, not a capture from the radio.</p>
+  </div>
+</div>

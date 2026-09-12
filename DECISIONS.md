@@ -1,0 +1,570 @@
+# Design decisions
+
+Settled points for the ATS-125 firmware rewrite. Anything not in here is still
+open. Hardware facts live in [HARDWARE.md](HARDWARE.md).
+
+## Settled
+
+### Name: tef668x-esp32
+
+Tuner family first, because that is what defines the project. The ESP32 is the
+host. `tef668x` rather than `tef6686` says the code covers the family, and keeps
+it distinguishable from PE5PVB's `TEF6686_ESP32` while still findable by anyone
+searching for that.
+
+Not `esp32u`. The U in ESP32-WROOM-32U only means external antenna connector,
+which is a packaging variant and changes no code. Another board in this project
+could use a WROOM-32, a WROVER or an ESP32-S3.
+
+This radio is a board inside the project, not the project:
+
+| | |
+|---|---|
+| Repo | `tef668x-esp32` |
+| Board header | `board/board_ats125.h` |
+| Build env | `[env:ats125]` |
+| Release asset | `tef668x-esp32-ats125-v1.0.0.bin` |
+| mDNS and AP name | `tef668x` |
+
+### Modular, board agnostic
+
+The code is split so it can be built for other TEF668x radios later, not just
+this one.
+
+```
+board/     One header per board. Pin map, display driver, which inputs and
+           peripherals exist. Picked by a build flag, one PlatformIO env each.
+drivers/   tef668x, display, touch, encoder, keypad, rtc, battery.
+           Each behind an interface. No globals.
+core/      Tuner state machine, RDS decoder, band plan, memory channels,
+           settings, volume AGC. No hardware, no UI. Builds on a PC.
+ui/        LVGL screens and menus. Talks to core through an API only.
+net/       Wi-Fi, web server, OTA, NTP, remote protocols.
+```
+
+The rule that makes it work: **the core must not know a screen exists.** In the
+PE5PVB firmware `gui.cpp` reads and writes radio globals directly, which is why
+none of it can be reused on another board.
+
+### LVGL for the user interface
+
+The UI is built on LVGL, not hand drawn to TFT_eSPI.
+
+The reason is the encoder and touch split. In the PE5PVB firmware every menu row
+is written twice, once in `ShowOneLine()` for the encoder models and once in
+`ShowOneButton()` for the touch model. The two volume AGC rows added in
+September 2026 were each written twice. That duplication is why the menu is
+stuck at a small font and why the touch and non touch paths drift apart.
+
+LVGL treats a rotary encoder and a touchscreen as two input devices feeding one
+UI, through focus groups. Touch becomes a setting, not a second code path. The
+rest follows: scrollable lists, any TTF at any size with anti aliasing, and real
+theming, which is what a redesign needs.
+
+What this costs on this hardware:
+
+| | |
+|---|---|
+| Flash | About 150KB, against 8MB fitted |
+| RAM | No PSRAM, so partial draw buffers. Two of about 20KB each is normal for 320x240 and leaves most of the 320KB free |
+| SPI | The panel runs at 7.5 MHz write. Partial redraws are fine, full screen animation will not be smooth |
+| Effort | The largest single piece of the rewrite |
+
+The existing drawing code is not ported. It is 6000 lines of absolute
+coordinates and it is the thing being replaced.
+
+### Screens are built from panels, and each band gets its own layout
+
+The main screen is not one fixed picture. A set of panels is defined once and
+each band's screen is an arrangement of them.
+
+Panels: signal meter, modulation meter, RDS block, quality block, clock,
+spectrum thumbnail, memory name, tuning offset, bandwidth.
+
+Why per band layouts: the PE5PVB screen is FM's screen with AM squeezed into it.
+`PS:`, `RT:`, `PTY:` and `PI:` take the bottom third and are permanently empty
+on AM, while the things that matter on AM are tiny or missing.
+
+What goes on the AM screen with that space back:
+
+| Panel | Why it matters on AM |
+|---|---|
+| Bandwidth, large | It is changed constantly to fight the adjacent channel. Today it is 20 pixels in a corner |
+| Co-channel detector | `getStatusAM()` already returns it and nothing displays it |
+| Tuning offset | AM is deliberately tuned off centre for selective fading. Today it is a small corner number |
+| RF attenuation | Already a setting, buried in a menu |
+| Noise blanker state | Matters far more on AM than on FM |
+| Meter band, SW only | 49m, 41m, 31m. The data exists and is shown as an afterthought |
+| Clock, large | Shortwave listening is schedule driven |
+
+Shipping arrangement: FM and OIRT share one, LW MW and SW share another with SW
+adding the meter band. Two arrangements, not five.
+
+Composition rather than a drawing function per screen means adding a band, or
+later letting the user rearrange their own layout, does not mean writing another
+500 lines. Same principle as the board headers: describe what goes where, do not
+hard code the picture.
+
+### Capabilities are detected, never hard coded
+
+This unit has a TEF6686, which has no FMSI, no full search RDS and no digital
+radio. The tuner driver still reads the device word at startup and publishes a
+capability set. On a board with a TEF6687 or TEF6689 those features appear. Here
+the UI simply does not offer them.
+
+Same idea for the board: the board header says the hardware can have touch, a
+setting says whether to use it.
+
+### English only, with the mechanism kept for more
+
+Ship English and nothing else. But build the string system so a language can be
+added later without touching a single existing string.
+
+How: strings live in `lang/en.json`. A build script turns that into a header
+holding a named enum and a table. UI code refers to `STR_VOLUME_AGC`, never to a
+number. Adding a language is adding `lang/xx.json`.
+
+Why not the current approach: the PE5PVB firmware keeps 23 parallel arrays and
+every string is found by its index, so a new string has to be inserted at the
+same position in all 23 blocks or the entire UI shifts. That is why the volume
+AGC menu item added in September 2026 had to be assembled from recycled words
+instead of getting a proper label. Named IDs remove that whole class of bug.
+
+A language added later still needs font coverage. Telugu, for example, needs
+combining vowel signs that the current per codepoint bitmap fonts cannot
+compose. LVGL handles this better but it is still real work.
+
+### Two FreeRTOS tasks, not one cooperative loop
+
+| Task | Core | Job |
+|---|---|---|
+| Radio | 0 | Tuner I2C, the 43 ms RDS group cadence, signal and modulation reads, the volume AGC |
+| UI and net | 1 | LVGL, web server, OTA, telemetry |
+
+They talk through a queue each way and a shared state snapshot behind a lock.
+No mutable state is shared without one.
+
+What this replaces: the PE5PVB firmware runs one long `loop()` on `millis()`
+timers and guard flags. Its own notes say long work must not block or RDS
+decoding, touch and the web server all stall. The effects are visible in the
+code. The web server only runs when a menu is closed. `readRds()` is called from
+several different places to keep up with the group cadence. Adding the volume
+AGC in September 2026 meant checking seven mode flags to decide whether it was
+allowed to run at all.
+
+With a separate radio task, RDS keeps its timing no matter what the UI is doing
+and a slow web request cannot drop groups.
+
+What it costs: concurrency bugs, which are harder to find than the ones this
+design removes. The mitigation is discipline, not cleverness. Exactly two tasks.
+One queue in each direction. Nothing shared without a lock. Tasks do not get
+added later because something feels slow.
+
+### Settings are one versioned struct, not an address map
+
+Settings live in a single `Settings` struct with a `version` field, stored in
+NVS. Adding a setting is adding a field.
+
+```c
+struct Settings {
+    uint16_t version;
+    uint8_t  agcTarget;   // 0 is off, else 30 to 80 percent
+    uint8_t  agcBoost;    // 0 is off, else 2 to 8 dB
+    int8_t   volume;
+    // ...
+};
+```
+
+What this replaces: the PE5PVB firmware maps every setting to a hand written
+byte offset in `constants.h`. Adding one means editing six places and bumping
+`EE_TOTAL_CNT` in both `HAS_AIR_BAND` branches.
+
+Two failure modes of that design, both hit in September 2026:
+
+- Changing the layout means bumping `EE_CHECKBYTE_VALUE`, which silently wipes
+  every user setting on the next boot.
+- Turning on `HAS_AIR_BAND` shifts `EE_BYTE_WIFI_STATICIP` from 2287 to 2292, so
+  the Wi-Fi settings read back as garbage.
+
+Neither is a coding mistake. They are properties of the design.
+
+Upgrades are handled by the `version` field and a migration function, so a
+firmware update never wipes settings.
+
+Three things follow:
+
+1. The web UI is nearly free. The struct serialises straight to JSON, so
+   settings read and write over HTTP with no separate mapping layer.
+2. Backup and restore is downloading that JSON and uploading it back.
+3. It is testable. Round trip and migration tests run under `env:native` with no
+   hardware.
+
+The tradeoff: NVS writes are slower than raw EEPROM and use more flash for the
+same data. Neither matters here, settings are written once on leaving a menu.
+
+### No XDR-GTK, no RDS Spy, no StationList
+
+All three remote protocols from the PE5PVB firmware are dropped.
+
+XDR-GTK is the one that mattered. It takes over volume, mute and bandwidth, so
+every one of those paths in the current firmware carries a
+`XDRGTKUSB || XDRGTKTCP` check. The volume AGC added in September 2026 had to
+stand down entirely while it was connected. Dropping it removes that
+cross-cutting condition from the whole codebase.
+
+RDS Spy output and StationList UDP are cheap on their own but are not used here.
+
+### Telemetry instead of debug builds
+
+The radio broadcasts its live state so it can be watched without a cable and
+without a special build.
+
+| | |
+|---|---|
+| Transport | UDP, LAN broadcast or unicast to a configured address |
+| Format | One JSON object per line, with a schema version and a sequence number |
+| Contents | Frequency, band, signal, USN, WAM, modulation, AGC average and gain, RDS PI and PS, stereo, battery, free heap, uptime, Wi-Fi RSSI |
+| Rate | 1 Hz by default, up to 10 Hz while tuning something |
+| Default | Off. Turned on in settings or from the web UI |
+| Host tool | `tools/telemetry.py` listens and writes JSONL |
+
+The same data is also served over a websocket for a live dashboard in the web
+UI. UDP is for capturing to a file and analysing later, the websocket is for
+watching in a browser.
+
+Why this is worth building early: tuning the volume AGC on the PE5PVB firmware
+took four flash cycles, each needing a debug `#define`, a manual boot mode
+entry, a wired serial capture, and then stripping the debug code back out.
+Telemetry makes the shipping firmware observable, so what gets debugged is what
+gets released.
+
+Captures also become test data. The four AGC captures taken from this radio in
+September 2026 are real off air recordings, and under CI they turn into
+regression tests worth far more than invented test vectors.
+
+Two rules for the packet: no credentials in it ever, and the schema version and
+sequence number are not optional. Version so old captures stay readable,
+sequence so dropped packets show up instead of silently skewing an analysis.
+
+Note that UDP broadcast on a LAN is unauthenticated and unencrypted. Anyone on
+the network can see what the radio is tuned to. Default off covers this.
+
+### Flashing and updates
+
+USB with the boot button is the first flash only. Everything after that is over
+the air.
+
+| Path | Who uses it | Phase |
+|---|---|---|
+| USB serial, hold BOOT and tap RESET | First flash of a blank board | Day one |
+| espota, `pio run -t upload --upload-port <ip>` | Development | Day one |
+| Web upload, pick a `.bin` in the browser | The user | Day one |
+| GitHub release manifest with sha256 | Everyone | Later phase |
+
+**Phase 0 of the build is a minimal image that can flash itself.** Wi-Fi, OTA
+and the partition table, and nothing else. It goes on over USB once, and after
+that the cable and the boot button are never needed again. Wrong Wi-Fi
+credentials start an access point rather than forcing a cable flash, so there is
+no way back to the cable by accident.
+
+**The first USB image must already carry the OTA partition table.** Two
+application slots, `otadata`, and the larger filesystem. Shipping the current
+single slot layout would cost a second cable flash just to fix it.
+
+```
+nvs       data nvs      0x9000    0x5000
+otadata   data ota      0xE000    0x2000
+app0      app  ota_0    0x10000   0x300000
+app1      app  ota_1    0x310000  0x300000
+littlefs  data spiffs   0x610000  0x1F0000
+```
+
+Rollback is armed. A new image is marked pending, and if it fails to boot or
+fails its self check the bootloader falls back to the previous slot. A bad
+update never costs a cable flash.
+
+Why espota matters more than it looks: on the PE5PVB firmware every test cycle
+needs someone standing at the radio to hold BOOT and tap RESET, because the
+FT232R is not wired for auto reset. That happened five times in one session in
+September 2026. Over the air removes the person from the loop.
+
+### Access PIN
+
+A six digit PIN protects anything that changes the radio. It can be changed in
+settings, and a factory reset brings the default back.
+
+**The default is derived from the MAC address, not fixed.** Every radio gets a
+different default, so there is no universal PIN to look up. Because it is
+computed rather than stored, a factory reset restores it exactly. It is shown on
+the radio's About screen, which is the one place someone on the network cannot
+reach.
+
+Six digits rather than four: a million combinations against ten thousand, at the
+cost of two extra key presses.
+
+**Rate limited.** Five wrong attempts locks the endpoint for a minute. Without
+that, six digits fall to a script in minutes.
+
+**Writes only.** The dashboard, the live telemetry and the memory channel list
+are open to view without a PIN, so the radio stays a glanceable page on a phone.
+The PIN is required to change settings, edit memory channels, upload firmware or
+factory reset. A session cookie after entry avoids retyping it.
+
+### Memory channels in the web UI
+
+All 99 slots in a table in the browser. Edit frequency, band, bandwidth and name
+inline, reorder by dragging, delete, and import or export CSV.
+
+Import offers both modes:
+
+| Mode | Behaviour |
+|---|---|
+| Merge | Fills empty slots only, leaves existing channels alone |
+| Replace | Wipes the list and loads the file. Asks for confirmation first |
+
+The CSV conversion runs in the browser, not on the ESP32.
+
+Why it earns its place: entering a frequency and a name with a rotary encoder is
+the most tedious thing on the radio. A keyboard turns ten minutes into one. CSV
+means a bandplan for an area can be built in a spreadsheet and loaded in one go.
+
+It also makes the memories survivable. In the PE5PVB firmware they live in
+EEPROM bytes 0 to 2078 with no way to get them off the device.
+
+### Band scan with a spectrum view
+
+The sweep already exists. `doAutoMemory()` and the DX scanner both step across
+the band, but all the user sees is a progress bar and the signal reading at each
+step is thrown away.
+
+Keep the readings and draw them: signal strength against frequency, the whole
+band in one view. A plot on the radio screen, and an interactive chart in the
+browser where hovering a peak and tuning to it is one click.
+
+**The last few scans are stored with a timestamp**, so this evening can be
+compared with last week. Band openings on FM are exactly what a DX listener
+wants to catch, and they do not wait for someone to be watching.
+
+Cost is small. At 100 kHz steps the whole FM band is 205 points.
+
+Worth noting what this would have answered already: in September 2026 the signal
+on 104.0 read between 10 and 38 dBuV and swung about. A sweep would have shown
+straight away whether that is the station, the antenna, or a neighbour's
+interference.
+
+### Sleep timer and alarm
+
+The RTC and NTP are already on the board and the radio can power itself down.
+
+**Sleep timer.** 15, 30, 60 or 90 minutes. The volume fades down over the last
+30 seconds, then the radio powers off. The fade is the part that matters.
+Cutting audio dead is what makes most sleep timers unpleasant, and fine grained
+dB volume control already exists from the AGC work.
+
+**Alarm.** Wake at a set time on chosen days, to a chosen memory channel, at a
+chosen volume, for a set duration.
+
+**The battery warning is part of the feature, not an extra.** An alarm only
+fires if the radio still has power. When setting one, the estimated runtime is
+shown and a warning appears if the battery will not last until the alarm time.
+
+Why this is worth more than it sounds: it makes the radio useful when nobody is
+operating it. A shortwave listener with a schedule can have it wake for a
+broadcast.
+
+### Boot diagnostics and crash visibility
+
+**Startup self test.** Probe each I2C device, check the tuner device word,
+verify the patch loaded, check the filesystem mounts, confirm settings passed
+their version check. Anything that fails is named on screen in plain words.
+
+What this replaces: when the tuner does not answer, the PE5PVB firmware prints
+"Tuner not detected" and runs `for(;;);`. The radio hangs with no explanation
+and nothing is recorded.
+
+**Diagnostics page in the browser.** The same results plus free heap, uptime,
+Wi-Fi RSSI, flash usage, which OTA slot is running and what version sits in the
+other one.
+
+**Crash visibility.** The ESP32 records a reset reason and can write a core
+dump. Capture it, show the last reset reason with a timestamp, and keep the last
+few. A radio that reboots itself once a day is invisible today.
+
+This exists because of two other decisions. With a public repo, an issue saying
+"it reboots sometimes" is answerable by asking for the diagnostics page instead
+of guessing. With OTA, rollback catches an image that will not boot, but not one
+that boots and then misbehaves.
+
+### Power and battery
+
+The two task split is itself a power feature. A cooperative loop spins and never
+idles. Tasks that block on a queue let the idle task enter automatic light
+sleep, which lowers the floor rather than shaving a peak.
+
+Largest consumers first: backlight, Wi-Fi, CPU at 240 MHz, tuner, audio amp.
+Anything not aimed at the first three is noise.
+
+**Always on, no setting needed:**
+
+| | |
+|---|---|
+| CPU down to 80 MHz when idle | Roughly halves CPU current. Only LVGL redraws need 240 MHz |
+| `btStop()` at boot | Bluetooth is never used and costs RAM and power |
+| Wi-Fi modem sleep when connected | Keeps the connection, cuts much of the radio cost |
+| Tuner polled at 10 Hz | The PE5PVB firmware calls `getStatus()` every loop pass on a strong signal. RDS keeps its own 43 ms cadence |
+
+**Low power mode**, a setting that trades features for hours: Wi-Fi off, CPU
+pinned at 80 MHz, backlight capped with a shorter timeout, status polling at
+4 Hz, telemetry off, spectrum disabled.
+
+**Battery management beyond what exists today:**
+
+- A real Li-ion discharge curve rather than a linear voltage map, which is why
+  the percentage jumps around on the current firmware.
+- Estimated runtime in hours, not only a percentage. That is what makes the
+  alarm battery warning meaningful.
+- Charge detection and charge state.
+- A clean shutdown at low battery: warn, dim, save settings, power down. A
+  brownout during an NVS write can corrupt settings and nothing prevents that
+  today.
+
+**The savings are measured, not claimed.** No mA figure goes in the README until
+it has been measured. Telemetry already logs battery voltage with a timestamp,
+so the method is: run the radio in each mode, capture the discharge curve,
+compare. Guessing a threshold is what made the volume AGC do nothing for a week
+in September 2026.
+
+### Settings backup and restore over the web
+
+Download the whole configuration as a JSON file, upload it back to restore.
+
+The file carries the schema version, the firmware version and the board name.
+Restore refuses a file from a different board and migrates an older schema
+rather than rejecting it.
+
+**The Wi-Fi password is masked in the backup.** The file is not a credential
+store. On restore the radio keeps its current Wi-Fi password, or asks for one if
+it has none.
+
+Nearly free once settings are a struct: the serialiser already exists for the
+settings page, so this is two HTTP endpoints and a file picker.
+
+Why it earns its place on this radio: reflashing needs the board opened and the
+boot button held. A settings wipe would mean re-entering Wi-Fi credentials, band
+edges, memory channels and touch calibration on a 320x240 screen with a rotary
+encoder.
+
+### One recovery screen, not seven boot combos
+
+Hold the rotary button at boot to get a plain list, navigated with the encoder:
+
+```
+RECOVERY
+  Rotary direction          normal
+  Rotary type               standard
+  Flip screen               off
+  Invert colours            off
+  Calibrate touch
+  Calibrate S-meter
+  Show diagnostics
+  Roll back firmware
+  Factory reset
+  Exit and start radio
+```
+
+**Recovery mode ignores the stored display settings.** Known rotation, no
+inversion, full brightness, large font, encoder only with no touch dependency.
+So it stays readable and usable when the settings that caused the trouble are
+the broken ones.
+
+Why these belong at boot at all: every one is a recovery action, needed when the
+normal UI cannot be used. Touch calibration cannot be fixed through a touch
+menu. A flipped or inverted screen cannot be read to reach the menu that fixes
+it.
+
+Why not the PE5PVB approach of seven separate combos: nobody remembers that BW
+plus Mode is touch calibration, and the moment it is needed is the moment the
+README cannot be consulted.
+
+Two entries come from other decisions. **Roll back firmware** returns to the
+previous OTA slot when an update boots but misbehaves. **Show diagnostics** puts
+the self test results on the device when the web UI is unreachable.
+
+Two things stay outside it:
+
+1. Everything here is also in normal settings, discoverable without knowing any
+   trick.
+2. **Factory reset keeps a blind combo.** Hold BW and the rotary button for five
+   seconds, with a beep and the standby LED confirming, so it works with a dead
+   display. It is the only action that must work when nothing can be seen.
+
+The combo list goes on the About screen, so it is findable on the radio rather
+than only in a README.
+
+### Optional features are build flags, not deleted code
+
+Every optional subsystem sits behind a flag in the board header.
+
+```c
+#define FEATURE_WEB_UI      1
+#define FEATURE_TELEMETRY   1
+#define FEATURE_SPECTRUM    1
+#define FEATURE_ALARM       1
+#define FEATURE_AIR_BAND    0
+```
+
+A flag at 0 means that code is not compiled and costs nothing. The CI size
+report shows what each feature costs in flash and RAM, so "stripped down"
+becomes a measured number rather than a feeling.
+
+Deleting code instead would not be reversible and would not be per board. A
+future board might have the air band converter, or want something this one does
+not.
+
+This is also the correct fix for the `HAS_AIR_BAND` bug in the PE5PVB firmware.
+That option is broken precisely because it is a define in one file rather than a
+build flag every file sees.
+
+### Boot screen
+
+The splash carries information, not decoration. With OTA in use the most
+valuable thing it can say is which firmware is actually running.
+
+```
+        ((( tef668x )))
+        v1.0.0 . ats125
+
+    TEF6686 Lithio . patch v102
+
+    Tuner          ok
+    Keypad         ok
+    Touch          ok
+    Clock          ok
+    Filesystem     ok
+    Settings       ok
+```
+
+**The logo is drawn, not stored.** Three concentric arcs spreading from a point,
+drawn with LVGL arc primitives. No bitmap, so it costs no flash, scales to any
+size and stays sharp. The name is set in type beside it.
+
+**The animation is the progress indicator.** The arcs light one at a time as the
+self test passes each stage. On a failure the arcs stop and the failing line
+turns red. Nothing on this screen exists only to look busy.
+
+**No author name or callsign on it**, at least for now.
+
+**Not skippable.** It shows for exactly as long as booting takes.
+
+**Target: under two seconds from power to audio**, and measured rather than
+assumed. The PE5PVB firmware has a bare `delay(1500)` in `setup()`, which is
+dead time on every power on.
+
+### Licence
+
+GPLv3, inherited from PE5PVB. Keep the original copyright and state what
+changed.
+
+## Open
+
+Nothing. Every question raised in the design discussion is settled above.
