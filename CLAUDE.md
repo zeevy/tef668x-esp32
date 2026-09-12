@@ -25,12 +25,12 @@ or off the board photos. Do not add anything to it that was guessed.
 
 | Branch | What it is |
 |---|---|
-| `main` | Released code. What a visitor to the repo sees. Tagged releases come from here |
+| `master` | Released code. What a visitor to the repo sees. Tagged releases come from here |
 | `dev` | The working branch. Everything lands here first |
 | `feature/*`, `fix/*` | Branched off `dev`, merged back into `dev` by pull request |
 
-Work on `dev` or on a branch off it, never directly on `main`. `dev` goes into
-`main` when a release is ready, and the release workflow builds and publishes
+Work on `dev` or on a branch off it, never directly on `master`. `dev` goes into
+`master` when a release is ready, and the release workflow builds and publishes
 from the tag.
 
 CI runs on both branches and on every pull request. A red pipeline blocks the
