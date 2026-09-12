@@ -23,6 +23,16 @@
 static bool sDriven = false;
 
 void analogBegin(void) {
+  /* Once only. Attaching the meter pin to LEDC a second time is refused by
+   * the core and prints an error, and this is now called from two places:
+   * once before the radio task starts so the volume knob can be read, and
+   * once by the input layer. */
+  static bool started = false;
+  if (started) {
+    return;
+  }
+  started = true;
+
   /* No pinMode for the ADC pin. It is input only and analogRead sets up what
    * it needs. Calling pinMode on 34 to 39 as an output is a way to get
    * nothing at all. */

@@ -290,6 +290,33 @@ None of these turns itself on except the bandwidth extension, which follows the 
 | 162 | Tune from a strong station to an empty frequency and watch `wide` | It changes once, not several times a second. The readings are smoothed before anything decides on them |
 | 163 | Compare `snr` against `sig` and `usn` | It rises with signal and falls with noise. The chip does not report it, so it is worked out from those two |
 
+### The fades
+
+| # | Do this | Expect |
+|---|---|---|
+| 170 | Power the radio on and listen | The volume comes up over about a second and a half rather than starting at full |
+| 171 | Turn the knob right down, then power on | It comes up quiet, at the knob. Not loud and then quiet |
+| 172 | Turn the knob during the fade at switch on | It follows. The fade lands wherever the knob now is rather than fighting it |
+| 173 | Change band | The sound comes back over about half a second, not all at once |
+| 174 | Type a frequency and press enter | The same gentle return |
+| 175 | Turn the tuning knob one step at a time | No fade. Stepping the dial must stay instant, or the whole dial feels slow |
+| 176 | Listen closely to a band change | It slides. If it arrives in a handful of jumps the volume is not being moved often enough during the fade |
+
+### Weak signal handling and the noise blankers
+
+All of this ships switched off, matching the radio it replaces. These checks are about proving the controls work, not about whether the features should be on.
+
+| # | Do this | Expect |
+|---|---|---|
+| 164 | `GET /api/state` on a station | `cut`, `blend` and `hiblend` are what the chip is applying now, not what it was told |
+| 165 | On a strong station with everything off | All three read 0. The chip does nothing until there is no signal left |
+| 166 | `POST /api/fm -d 'cut=40&blend=40&hiblend=40'`, then tune to a station below 40 dBuV | `cut` and `blend` both move. `hiblend` needs its ceiling, which the driver sends |
+| 167 | Tune to a station above 40 dBuV | All three back to 0. A strong signal gets no processing |
+| 168 | `POST /api/fm -d 'amnb=80'` on medium wave | Accepted. This is a percentage, not a level in dBuV, and the usable range is 50 to 150 |
+| 168a | `POST /api/fm -d 'amnb=20'` | `400`. Between 1 and 49 is neither off nor usable, so it is refused rather than accepted into doing nothing |
+| 168b | `POST /api/fm -d 'cut=40'` alone, then read `/api/state` | `blend` and `hiblend` keep the values they had. Changing one of a group must not switch off the others |
+| 169 | Judge any of these by ear | Blind, and without touching the antenna. A measurement and an unblinded impression both gave the wrong answer on the noise blanker |
+
 ### The squelch
 
 Three modes, and the mode also decides what the front pot does. There is one knob, so it is the volume or the squelch and never both.

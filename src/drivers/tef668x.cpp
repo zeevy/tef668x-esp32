@@ -32,6 +32,12 @@ typedef enum {
 #define CMD_SET_BANDWIDTH 10       /**< Set or auto the channel bandwidth. */
 #define CMD_GET_QUALITY_STATUS 128 /**< Level, noise, offset, modulation. */
 #define CMD_GET_SIGNAL_STATUS 133  /**< Carries the stereo pilot flag. */
+#define CMD_SET_STHIBLEND_LEVEL 72 /**< Stereo and treble blend, by level. */
+#define CMD_SET_STHIBLEND_NOISE 73 /**< By noise. */
+#define CMD_SET_STHIBLEND_MPH 74   /**< By multipath. */
+#define CMD_SET_STHIBLEND_MAX 75   /**< Its ceiling. */
+#define CMD_GET_PROCESSING_STATUS \
+  134 /**< What the chip is doing to the audio. */
 
 /* Reception and audio shaping. Every one of these is written by the working
  * PE5PVB firmware on every start, and none of them was written here until
@@ -801,6 +807,19 @@ Tef668xError tef668xBegin(void) {
                   tef668xErrorText(quality));
   }
 
+  /* Quiet until somebody tunes it.
+   *
+   * Making the chip active starts it receiving on whatever the wake up tune
+   * left it on, which is nowhere in particular, and it plays that. On the
+   * radio it was a burst of FM noise at switch on, ending when the first real
+   * tune arrived a moment later. The radio task's first push sets the mute to
+   * what the settings say, so this only covers the gap. */
+  Tef668xError quiet = tef668xSetMute(true);
+  if (quiet != TEF668X_OK) {
+    Serial.printf("[tuner] could not mute at start up: %s\n",
+                  tef668xErrorText(quiet));
+  }
+
   uint16_t device = 0;
   uint16_t hardware = 0;
   uint16_t software = 0;
@@ -996,6 +1015,27 @@ Tef668xError tef668xReadQualityRaw(bool fm, uint8_t out[14]) {
   return query(fm ? MODULE_FM : MODULE_AM, CMD_GET_QUALITY_STATUS, out, 14);
 }
 
+Tef668xError tef668xSetAmNoiseBlanker(uint8_t startPercent) {
+  /* Mode 0 with a start of 1000 is how the reference spells off. On, it
+   * carries the start in tenths. Two commands, not one: the AM side has a
+   * second write for the audio path, and that one always carries 1000. */
+  uint16_t args[2];
+  args[0] = (uint16_t)(startPercent == 0 ? 0 : 1);
+  args[1] = (uint16_t)(startPercent == 0 ? 1000 : startPercent * 10);
+  Tef668xError err = command(MODULE_AM, CMD_SET_NOISE_BLANKER, args, 2);
+
+  args[1] = 1000;
+  Tef668xError audio = command(MODULE_AM, CMD_SET_NOISE_BLANKER_AUDIO, args, 2);
+  return err != TEF668X_OK ? err : audio;
+}
+
+Tef668xError tef668xSetFmNoiseBlanker(uint8_t startPercent) {
+  uint16_t args[2];
+  args[0] = (uint16_t)(startPercent == 0 ? 0 : 1);
+  args[1] = (uint16_t)(startPercent == 0 ? 1000 : startPercent * 10);
+  return command(MODULE_FM, CMD_SET_NOISE_BLANKER, args, 2);
+}
+
 Tef668xError tef668xSetMultipathSuppression(bool on) {
   uint16_t args[1] = {(uint16_t)(on ? 1 : 0)};
   return command(MODULE_FM, CMD_SET_MPH_SUPPRESSION, args, 1);
@@ -1019,6 +1059,95 @@ Tef668xError tef668xSetMono(bool mono) {
    * both cases in the reference firmware. */
   uint16_t args[2] = {(uint16_t)(mono ? 2 : 0), 400};
   return command(MODULE_FM, CMD_SET_STEREO_MIN, args, 2);
+}
+
+/**
+ * One of the three level, noise and multipath triples.
+ *
+ * Each is written the same way: mode 0 switches it off and mode 3 turns it on
+ * starting at the given level. The noise and multipath pair always carry the
+ * reference firmware's fixed figures, so only the level start varies.
+ */
+static Tef668xError writeBlend(uint8_t levelCmd, uint8_t noiseCmd,
+                               uint8_t mphCmd, uint8_t start,
+                               uint16_t levelSlope, uint16_t pairSlope,
+                               uint16_t pairStart) {
+  uint16_t mode = start == 0 ? 0 : 3;
+  uint16_t args[3];
+
+  args[0] = mode;
+  args[1] = (uint16_t)(start * 10);
+  args[2] = levelSlope;
+  Tef668xError err = command(MODULE_FM, levelCmd, args, 3);
+
+  /* The noise and multipath pair can take a different slope from the level
+   * one. On the stereo blend they do: 60 against level and 200 against the
+   * other two. Using one slope for all three made the blend ramp against
+   * noise at a third of the rate it should. */
+  args[1] = pairStart;
+  args[2] = pairSlope;
+  Tef668xError noise = command(MODULE_FM, noiseCmd, args, 3);
+  Tef668xError mph = command(MODULE_FM, mphCmd, args, 3);
+
+  if (err != TEF668X_OK) {
+    return err;
+  }
+  return noise != TEF668X_OK ? noise : mph;
+}
+
+Tef668xError tef668xSetWeakSignal(uint8_t highCutStart, uint8_t stereoStart,
+                                  uint8_t stHiBlendStart) {
+  /* The slopes and the noise and multipath starts are the reference's, which
+   * uses the same numbers whichever way its own settings are set. Only the
+   * level start and the mode change.
+   *
+   * The stereo blend is the one that does not use a single slope: 60 against
+   * level and 200 against noise and multipath. */
+  Tef668xError cut =
+      writeBlend(CMD_SET_HIGHCUT_LEVEL, CMD_SET_HIGHCUT_NOISE,
+                 CMD_SET_HIGHCUT_MPH, highCutStart, 300, 300, 360);
+  Tef668xError stereo =
+      writeBlend(CMD_SET_STEREO_LEVEL, CMD_SET_STEREO_NOISE, CMD_SET_STEREO_MPH,
+                 stereoStart, 60, 200, 240);
+  Tef668xError both =
+      writeBlend(CMD_SET_STHIBLEND_LEVEL, CMD_SET_STHIBLEND_NOISE,
+                 CMD_SET_STHIBLEND_MPH, stHiBlendStart, 300, 300, 360);
+
+  /* The stereo high blend also needs a ceiling, the same way the high cut
+   * does. Without it the three writes above land on a mechanism whose limit
+   * is nothing and it does nothing at all, which is exactly what the radio
+   * showed: the other two moved and this one stayed at zero. 7 kHz, matching
+   * the high cut ceiling. */
+  uint16_t ceiling[2] = {1, 7000};
+  Tef668xError max = command(MODULE_FM, CMD_SET_STHIBLEND_MAX, ceiling, 2);
+  if (both == TEF668X_OK) {
+    both = max;
+  }
+
+  if (cut != TEF668X_OK) {
+    return cut;
+  }
+  return stereo != TEF668X_OK ? stereo : both;
+}
+
+Tef668xError tef668xReadProcessing(Tef668xProcessing *out) {
+  if (out == NULL) {
+    return TEF668X_ERR_RANGE;
+  }
+  uint8_t buf[12];
+  Tef668xError err =
+      query(MODULE_FM, CMD_GET_PROCESSING_STATUS, buf, sizeof(buf));
+  if (err != TEF668X_OK) {
+    return err;
+  }
+  /* The first word is a status the reference discards. The three after it are
+   * divided by ten, which is what the reference does. What the result counts
+   * is not documented anywhere public. The last two words are the stereo band
+   * blend, which belongs to a feature this part does not have. */
+  out->highCut = (uint16_t)(word16(buf + 2) / 10);
+  out->stereo = (uint16_t)(word16(buf + 4) / 10);
+  out->stHiBlend = (uint16_t)(word16(buf + 6) / 10);
+  return TEF668X_OK;
 }
 
 Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality) {

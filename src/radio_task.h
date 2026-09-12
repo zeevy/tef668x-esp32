@@ -42,15 +42,17 @@ typedef struct {
 
 /** Everything a reader needs, copied out in one go so it cannot tear. */
 typedef struct {
-  RadioSettings settings; /**< What the radio is set to. */
-  Tef668xQuality quality; /**< The last reading from the tuner. */
-  bool qualityValid;      /**< False when the last read failed. */
-  bool tunerReady;        /**< The tuner started up. */
-  Tef668xError lastError; /**< What the tuner last complained about. */
-  uint32_t updatedMs;     /**< When this was taken, ms since boot. */
-  uint32_t sequence;      /**< Goes up every time. Spots a stalled task. */
-  uint32_t applied;       /**< How many commands the task has worked through. */
-  bool bandwidthWide;     /**< The adaptive filter is allowed to open. */
+  RadioSettings settings;       /**< What the radio is set to. */
+  Tef668xQuality quality;       /**< The last reading from the tuner. */
+  Tef668xProcessing processing; /**< What the chip is doing to the audio. */
+  bool processingValid;         /**< False when that read failed or is AM. */
+  bool qualityValid;            /**< False when the last read failed. */
+  bool tunerReady;              /**< The tuner started up. */
+  Tef668xError lastError;       /**< What the tuner last complained about. */
+  uint32_t updatedMs;           /**< When this was taken, ms since boot. */
+  uint32_t sequence;  /**< Goes up every time. Spots a stalled task. */
+  uint32_t applied;   /**< How many commands the task has worked through. */
+  bool bandwidthWide; /**< The adaptive filter is allowed to open. */
   /**
    * What the tuner was last told about the mute.
    *
@@ -76,10 +78,20 @@ typedef struct {
  * tuner still has to be reachable, because that is how a fix gets installed.
  *
  * @param plan  The regional band choices. Copied, not kept by reference.
+ * @param startFreqKHz  Where to come up, or 0 for the bottom of the FM band.
+ * @param startVolumeDb The volume to come up at, which is where the knob is
+ *                      pointing.
+ *
+ * Both are given here rather than posted as commands afterwards. The task
+ * unmutes at the end of its first push, so anything sent after that is heard:
+ * posting the frequency gave a burst of noise from the default frequency, and
+ * posting the volume gave a moment at full volume before the knob's value
+ * arrived.
  * @return true when the task started. False means out of memory, and the
  *         radio has no business continuing.
  */
-bool radioTaskStart(const BandPlanConfig *plan);
+bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
+                    int8_t startVolumeDb);
 
 /**
  * Ask the radio to do something.

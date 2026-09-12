@@ -371,6 +371,132 @@ threshold ends up 7 dB out.
 Signal figures recorded in this repository before 12 September 2026 are on the
 raw scale and are about 7 dB higher than the radio now reports.
 
+## What the tuner can do, and what this firmware asks it to
+
+Surveyed on 12 September 2026, against the feature list NXP publishes for the
+TEF668x family and against the complete command set in the working PE5PVB
+firmware. **NXP does not publish a command reference.** Only a short datasheet
+is public, so that firmware's own header is the best record of the command
+numbers and their arguments, and everything here was checked against it.
+
+| Chip feature | Command | This firmware |
+|---|---|---|
+| Tuning, FM and AM | 1 | Used |
+| Channel bandwidth, fixed or adaptive | 10 | Used |
+| RF AGC, both bands | 11 | Used, at the reference's values |
+| AM RF attenuation | 12 | Used |
+| AM co-channel detection | 14 | Used |
+| FM multipath suppression, iMS | 20 | Used, off by default |
+| FM channel equalizer, EQ | 22 | Used, off by default |
+| Noise blanker, both bands | 23, 24 | Used, off by default. A percentage, 0 or 50 to 150, not a level in dBuV |
+| FM de-emphasis | 31 | Used, 50 us |
+| FM stereo improvement, FMSI | 32 | **Not fitted.** This part reports it absent, so there is nothing to send |
+| Level offset | 39 | Used, -7.0 dB |
+| Soft mute | 45 | Used, off on FM and on for AM |
+| High cut against level, noise, multipath | 52, 53, 54 | Sent. Off unless a start level is given |
+| High cut ceiling | 55 | Used, 7 kHz |
+| Stereo blend against level, noise, multipath | 62, 63, 64 | Sent. Off unless a start level is given |
+| Forced mono | 66 | Used |
+| Stereo high blend | 72, 73, 74, 75 | Sent. Off unless a start level is given. Needs its ceiling, 75, or the other three do nothing |
+| RDS | 81 | Phase 3 |
+| MPX output | 85 | Not used. The default is the one we want |
+| Adaptive bandwidth extension | 86 | Used, follows the signal |
+| Stereo band blend | 90, 91, 92 | Belongs to FMSI, which this part does not have |
+| Quality status | 128 | Used |
+| Quality data | 129 | Not used. What it adds over 128 is not documented anywhere public |
+| Processing status | 134 | Read every poll on FM. Says how much high cut, stereo blend and stereo high blend the chip is applying now |
+| Signal status | 133 | Used, for the stereo pilot |
+| Volume, mute | Audio 10, 11 | Used |
+| Audio input select, wave generator | Audio 12, 24 | Not used. Together they make the key beep |
+| Operation mode, identification | Appl 1, 128, 130 | Used |
+| Tuner GPIO | Appl 3 | Not used. Antenna switching, reachable only through a protocol that is out of scope |
+
+### What the chip is actually applying, measured
+
+Read from the processing status, command 134, which the reference firmware
+implements and never calls. All figures FM, 12 September 2026.
+
+With the weak signal handling off, as this radio and the reference both ship:
+
+| Station | Level | Treble roll off | Stereo blend |
+|---|---|---|---|
+| 102.8 | 44.8 dBuV | none | none |
+| 106.4 | 33.4 dBuV | none | none |
+| 104.0 | 18.9 dBuV | none | none |
+| empty | below zero | none | blending |
+
+So it does nothing at all until there is no signal left. With the start level
+set to 40 dBuV, which is above every local station here:
+
+| Station | Level | Treble roll off | Stereo blend |
+|---|---|---|---|
+| 102.8 | 44.8 dBuV | 0 | 0 |
+| 106.4 | 33.4 dBuV | 47 | 92 |
+| 104.0 | 32.9 dBuV | 51 | 96 |
+
+**Those three numbers have no unit that anybody has established.** The
+reference divides each raw word by ten and never uses the result, so there is
+nothing to say what it counts. They were written down here as kHz at first,
+which was a guess and a poor one: a reading of 47 on a station being rolled
+off is not 47 kHz of audio.
+
+What they are good for is that they move. Zero means the mechanism is doing
+nothing and rising means it is, which is enough to tell a feature that is
+working from one that was never switched on. That is the whole reason for
+reading them.
+
+The mechanism works and is controllable. Whether it sounds better is a
+separate question and has not been settled.
+
+**The stereo high blend needs its ceiling set.** Commands 72, 73 and 74 do
+nothing at all unless command 75 has given it a limit. That is why it read
+zero while the other two moved.
+
+### The AM noise blanker does not show an audible benefit here
+
+Tested on shortwave 11900 kHz on 12 September 2026, because impulse noise is
+what makes shortwave tiring and the blanker is the chip's answer to it.
+
+Three attempts, and the first two were wrong:
+
+1. A single before and after measurement showed the noise reading falling from
+   221 to 81. Alternating four times showed both states wandering between 50
+   and 225, so that was drift, not the blanker.
+2. Listening with it switched on and off sounded clearly better with it on.
+   The antenna was being moved at the time, which is the same mistake again.
+3. A blind test, four pairs with the blanker in a random half of each and the
+   listener not told which. Two pairs were judged. **One of two**, which is
+   chance.
+
+So there is no evidence it helps here, and it stays off, which is also how the
+reference ships it. It is worth noting what nearly happened: a measurement, a
+listening impression and the fact that the chip offers the feature all pointed
+the same way, and all three were worthless. The blind test cost ten minutes.
+
+The reading the tuner gives for noise is continuous, and a blanker works on
+impulses, so that number may never be able to settle this question. Anything
+about this feature has to be decided by ear, blind.
+
+### The four that were doing nothing, and now can
+
+All four are wired up now. Three are still off by default, matching the
+reference, because off is where it ships and there is no evidence yet for
+changing that.
+
+- **High cut** rolls the treble off as a signal weakens.
+- **Stereo blend** moves towards mono as a signal weakens.
+- **Stereo high blend** does both together, and NXP lists it as a headline
+  feature of the part. It needs its ceiling set or the other three writes land
+  on a mechanism with no limit and do nothing, which is exactly what it did
+  at first.
+- **Processing status** says how much of each the chip is applying, and is
+  read on every poll.
+
+On a portable with a whip antenna, trading stereo separation and treble for
+less hiss is usually a good bargain, which is what these do. Whether it is a
+good bargain here is still a listening question, but it is no longer an
+invisible one.
+
 ## Open items
 
 1. ~~Whether pin 19 is really both the standby LED and SPI MISO.~~ **Closed, by

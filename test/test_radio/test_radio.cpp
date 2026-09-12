@@ -709,6 +709,182 @@ static void a_retune_sends_the_features_again(void) {
   TEST_ASSERT_TRUE(push.features);
 }
 
+static void weak_signal_handling_starts_switched_off(void) {
+  /* The same as the radio this replaces ships, which is why a radio nobody
+   * has configured does nothing at all about a weak signal. */
+  TEST_ASSERT_EQUAL_UINT8(0, r.highCutStart);
+  TEST_ASSERT_EQUAL_UINT8(0, r.stereoBlendStart);
+  TEST_ASSERT_EQUAL_UINT8(0, r.stHiBlendStart);
+  TEST_ASSERT_EQUAL_UINT8(0, r.amNoiseBlankerStart);
+  TEST_ASSERT_EQUAL_UINT8(0, r.fmNoiseBlankerStart);
+}
+
+static void the_weak_signal_levels_can_be_set_together(void) {
+  RadioCommand c = {};
+  c.kind = RADIO_SET_WEAK_SIGNAL;
+  c.weak[0] = 40;
+  c.weak[1] = 38;
+  c.weak[2] = 36;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_UINT8(40, r.highCutStart);
+  TEST_ASSERT_EQUAL_UINT8(38, r.stereoBlendStart);
+  TEST_ASSERT_EQUAL_UINT8(36, r.stHiBlendStart);
+}
+
+static void the_weak_signal_levels_are_fm_only(void) {
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  RadioCommand c = {};
+  c.kind = RADIO_SET_WEAK_SIGNAL;
+  c.weak[0] = 40;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_FM_ONLY, apply(c));
+}
+
+static void the_noise_blankers_can_be_set_from_either_band(void) {
+  /* The AM blanker is the useful half, and refusing to set it while the radio
+   * happens to be on FM would be awkward for no reason. */
+  RadioCommand c = {};
+  c.kind = RADIO_SET_NOISE_BLANKER;
+  c.blanker[0] = 100;
+  c.blanker[1] = 80;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_UINT8(100, r.amNoiseBlankerStart);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  c.blanker[0] = 120;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_UINT8(120, r.amNoiseBlankerStart);
+}
+
+static void the_noise_blanker_is_a_percentage_not_a_level(void) {
+  /* Zero for off, and fifty to a hundred and fifty usable. A value between
+   * the two switches it on to do nothing, which is the silent no-op the
+   * rules warn about, so it is refused where the rule belongs rather than
+   * only in whichever caller happens to exist. */
+  RadioCommand c = {};
+  c.kind = RADIO_SET_NOISE_BLANKER;
+
+  c.blanker[0] = 0;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+
+  c.blanker[0] = 50;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  c.blanker[0] = 150;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+
+  uint8_t before = r.amNoiseBlankerStart;
+  c.blanker[0] = 20;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, apply(c));
+  c.blanker[0] = 49;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, apply(c));
+  c.blanker[0] = 151;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, apply(c));
+  /* And a refused one changes nothing. */
+  TEST_ASSERT_EQUAL_UINT8(before, r.amNoiseBlankerStart);
+}
+
+static void changing_the_weak_signal_levels_needs_a_feature_push(void) {
+  RadioSettings before = r;
+  RadioCommand c = {};
+  c.kind = RADIO_SET_WEAK_SIGNAL;
+  c.weak[0] = 40;
+  apply(c);
+  RadioPush push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.features);
+  TEST_ASSERT_FALSE(push.retune);
+
+  before = r;
+  RadioCommand nb = {};
+  nb.kind = RADIO_SET_NOISE_BLANKER;
+  nb.blanker[0] = 100;
+  apply(nb);
+  push = radioPushNeeded(&before, &r);
+  TEST_ASSERT_TRUE(push.features);
+}
+
+/* ------------------------------------------------------------- the fade */
+
+static void the_fade_starts_below_the_target_and_ends_at_it(void) {
+  /* Not from silence. The chip takes whole dB, so a fade across the whole
+   * sixty of them in a fraction of a second can only be a series of jumps,
+   * and that is what it sounded like on the radio. */
+  TEST_ASSERT_EQUAL_INT8(-RADIO_FADE_DEPTH_DB, radioFadeVolume(0, 0, 1500));
+  TEST_ASSERT_EQUAL_INT8(0, radioFadeVolume(0, 1500, 1500));
+  TEST_ASSERT_EQUAL_INT8(0, radioFadeVolume(0, 9999, 1500));
+}
+
+static void no_step_of_the_fade_is_big_enough_to_hear_as_a_jump(void) {
+  /* The test the jerk would have failed. At the rate the radio task moves the
+   * volume during a fade, no single step may be more than a couple of dB. */
+  for (uint16_t duration = 300; duration <= 1500; duration += 600) {
+    int8_t last = radioFadeVolume(0, 0, duration);
+    for (uint32_t t = 0; t <= duration; t += RADIO_FADE_STEP_MS) {
+      int8_t v = radioFadeVolume(0, t, duration);
+      TEST_ASSERT_TRUE(v - last <= 2);
+      last = v;
+    }
+  }
+}
+
+static void a_fade_to_a_very_quiet_target_does_not_go_below_silence(void) {
+  int8_t target = (int8_t)(RADIO_VOLUME_MIN + 5);
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN, radioFadeVolume(target, 0, 1500));
+  TEST_ASSERT_EQUAL_INT8(target, radioFadeVolume(target, 1500, 1500));
+}
+
+static void the_fade_only_ever_rises(void) {
+  int8_t last = -128;
+  for (uint32_t t = 0; t <= 1500; t += 25) {
+    int8_t v = radioFadeVolume(-10, t, 1500);
+    TEST_ASSERT_TRUE(v >= last);
+    last = v;
+  }
+  TEST_ASSERT_EQUAL_INT8(-10, last);
+}
+
+static void the_fade_follows_a_target_that_moves(void) {
+  /* The knob still works while the radio is coming up. Half way through a
+   * fade to 0 dB, the knob is turned down to -30: the volume must not jump
+   * above the new target. */
+  int8_t half = radioFadeVolume(0, 750, 1500);
+  int8_t moved = radioFadeVolume(-30, 750, 1500);
+  TEST_ASSERT_TRUE(moved < half);
+  TEST_ASSERT_TRUE(moved <= -30 || moved < half);
+}
+
+static void a_target_at_silence_has_nothing_to_rise_from(void) {
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN,
+                         radioFadeVolume(RADIO_VOLUME_MIN, 0, 1500));
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN,
+                         radioFadeVolume(RADIO_VOLUME_MIN, 750, 1500));
+}
+
+static void the_fade_reaches_the_target_and_not_before(void) {
+  /* Just short of the end it is still below, and at the end it is there. */
+  TEST_ASSERT_TRUE(radioFadeVolume(0, 1499, 1500) < 0);
+  TEST_ASSERT_EQUAL_INT8(0, radioFadeVolume(0, 1500, 1500));
+}
+
+static void the_fade_never_overshoots_its_target(void) {
+  for (int8_t target = RADIO_VOLUME_MIN; target <= RADIO_VOLUME_MAX; target++) {
+    for (uint32_t t = 0; t <= 1600; t += 100) {
+      int8_t v = radioFadeVolume(target, t, 1500);
+      TEST_ASSERT_TRUE(v <= target);
+      TEST_ASSERT_TRUE(v >= RADIO_VOLUME_MIN);
+    }
+  }
+}
+
+static void no_duration_means_no_fade(void) {
+  /* So an ordinary tune, which must not fade, costs nothing. */
+  TEST_ASSERT_EQUAL_INT8(-5, radioFadeVolume(-5, 0, 0));
+}
+
+static void the_band_change_fade_is_much_shorter_than_the_one_at_start(void) {
+  /* A band change already goes silent while the tuner moves. Only the return
+   * is softened, and nobody wants to wait a second and a half for it. */
+  TEST_ASSERT_TRUE(RADIO_BAND_FADE_MS < RADIO_FADE_MS);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -763,6 +939,24 @@ int main(int, char **) {
   RUN_TEST(the_fm_features_are_refused_on_am);
   RUN_TEST(changing_a_feature_does_not_move_the_dial);
   RUN_TEST(a_retune_sends_the_features_again);
+
+  RUN_TEST(weak_signal_handling_starts_switched_off);
+  RUN_TEST(the_weak_signal_levels_can_be_set_together);
+  RUN_TEST(the_weak_signal_levels_are_fm_only);
+  RUN_TEST(the_noise_blankers_can_be_set_from_either_band);
+  RUN_TEST(the_noise_blanker_is_a_percentage_not_a_level);
+  RUN_TEST(changing_the_weak_signal_levels_needs_a_feature_push);
+
+  RUN_TEST(the_fade_starts_below_the_target_and_ends_at_it);
+  RUN_TEST(no_step_of_the_fade_is_big_enough_to_hear_as_a_jump);
+  RUN_TEST(a_fade_to_a_very_quiet_target_does_not_go_below_silence);
+  RUN_TEST(the_fade_only_ever_rises);
+  RUN_TEST(the_fade_follows_a_target_that_moves);
+  RUN_TEST(a_target_at_silence_has_nothing_to_rise_from);
+  RUN_TEST(the_fade_reaches_the_target_and_not_before);
+  RUN_TEST(the_fade_never_overshoots_its_target);
+  RUN_TEST(no_duration_means_no_fade);
+  RUN_TEST(the_band_change_fade_is_much_shorter_than_the_one_at_start);
 
   return UNITY_END();
 }

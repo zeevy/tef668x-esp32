@@ -18,8 +18,10 @@
 #include "board/board.h"
 #include "core/access_pin.h"
 #include "core/band_plan.h"
+#include "core/input.h"
 #include "core/settings.h"
 #include "core/version.h"
+#include "drivers/analog.h"
 #include "drivers/device_id.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
@@ -149,16 +151,22 @@ void setup() {
    * snapshot. */
   BandPlanConfig plan;
   bandPlanDefaults(&plan);
-  if (!radioTaskStart(&plan)) {
+  /* Where the volume knob is pointing, read before the radio task starts.
+   * The task unmutes at the end of its first push, so a volume sent after
+   * that is heard as a moment at whatever the default was, which is full. */
+  analogBegin();
+  int8_t startVolume = potVolumeDb(potRead(), NULL);
+
+  if (!radioTaskStart(&plan, kBootFrequencyKHz, startVolume)) {
     Serial.println(F("[radio] the radio task could not start"));
+    /* The tuner was muted at the end of its start up, and the task is what
+     * unmutes it. Without this the radio is silent for good, which is worse
+     * than the wrong station: a radio making no sound reads as dead. */
+    tef668xSetMute(false);
   } else {
-    RadioCommand tune = {};
-    tune.kind = RADIO_TUNE;
-    tune.freqKHz = kBootFrequencyKHz;
-    radioPost(&tune);
     char text[16];
     bandFormatFrequency(BAND_FM, kBootFrequencyKHz, text, sizeof(text));
-    Serial.printf("[radio] task started, tuning to %s %s\n", text,
+    Serial.printf("[radio] task started on %s %s\n", text,
                   bandFrequencyUnit(BAND_FM));
   }
 

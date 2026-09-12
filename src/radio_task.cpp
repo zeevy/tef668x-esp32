@@ -61,6 +61,13 @@ static Squelch sSquelch;
  */
 static bool sLastPushedMute = false;
 
+/** The volume the tuner was last told, which the fade moves on its own. */
+static int8_t sLastPushedVolume = 0;
+
+/** When the current fade started, and how long it lasts. */
+static uint32_t sFadeFromMs = 0;
+static uint16_t sFadeMs = RADIO_FADE_MS;
+
 /** Smoothed readings, for anything that decides on the signal. */
 static SignalAverage sLevelAverage;
 static SignalAverage sSnrAverage;
@@ -91,7 +98,8 @@ static int16_t sSquelchThreshold = 0;
  */
 static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
                     bool qualityValid, Tef668xError lastError, uint32_t drained,
-                    const RadioError *results) {
+                    const RadioError *results,
+                    const Tef668xProcessing *processing, bool processingValid) {
   if (xSemaphoreTake(sLock, portMAX_DELAY) != pdTRUE) {
     return false;
   }
@@ -107,6 +115,10 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
     sSnapshot.quality = *q;
   }
   sSnapshot.qualityValid = qualityValid;
+  if (processingValid && processing != NULL) {
+    sSnapshot.processing = *processing;
+  }
+  sSnapshot.processingValid = processingValid;
   sSnapshot.tunerReady = tef668xCapabilities() != NULL;
   sSnapshot.lastError = lastError;
   sSnapshot.bandwidthWide = sBandwidthWide;
@@ -135,15 +147,23 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
  * @param to    What it should be set to.
  */
 /**
- * The three FM features, which the AM side does not have.
+ * Everything the tuner is told about how to receive, beyond the dial.
  *
  * Written on every retune as well as on a change, because crossing to the AM
  * side and back puts the chip through its active mode again and what it keeps
  * across that is not documented.
  */
 static Tef668xError pushFeatures(const RadioSettings *s) {
+  /* The blankers come first, because they are the only part of this that
+   * applies on the AM bands. Everything below returns early there. */
+  Tef668xError blanker = tef668xSetAmNoiseBlanker(s->amNoiseBlankerStart);
+  Tef668xError fmBlanker = tef668xSetFmNoiseBlanker(s->fmNoiseBlankerStart);
+  if (blanker == TEF668X_OK) {
+    blanker = fmBlanker;
+  }
+
   if (bandModulation(s->band) != MODULATION_FM) {
-    return TEF668X_OK;
+    return blanker;
   }
   /* All three go out whatever happens to the first, and the first error is
    * what gets reported. Stopping at a failure would leave the other two
@@ -153,10 +173,18 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
   Tef668xError err = tef668xSetMultipathSuppression(s->multipathSuppression);
   Tef668xError eq = tef668xSetChannelEqualizer(s->equalizer);
   Tef668xError mono = tef668xSetMono(s->forcedMono);
+  Tef668xError weak = tef668xSetWeakSignal(s->highCutStart, s->stereoBlendStart,
+                                           s->stHiBlendStart);
   if (err != TEF668X_OK) {
     return err;
   }
-  return eq != TEF668X_OK ? eq : mono;
+  if (eq != TEF668X_OK) {
+    return eq;
+  }
+  if (mono != TEF668X_OK) {
+    return mono;
+  }
+  return weak != TEF668X_OK ? weak : blanker;
 }
 
 static Tef668xError pushToTuner(const RadioSettings *from,
@@ -242,8 +270,17 @@ static Tef668xError pushToTuner(const RadioSettings *from,
 static void radioTask(void *arg) {
   (void)arg;
 
-  RadioSettings settings;
-  radioDefaults(&settings, &sPlan);
+  /* Taken from the snapshot, which radioTaskStart has already filled in with
+   * the defaults and the frequency the radio is to come up on. Calling
+   * radioDefaults again here would throw that away, which is what left the
+   * radio unmuting on the bottom of the FM band and then retuning. */
+  sFadeFromMs = millis();
+  sFadeMs = RADIO_FADE_MS;
+  /* The first pass through the loop has already had its fade started, by the
+   * opening push below. Starting another one there would drop the volume the
+   * moment the radio came up. */
+  bool firstPass = true;
+  RadioSettings settings = sSnapshot.settings;
 
   /* The AM side has no automatic bandwidth, so a band that starts there needs
    * one chosen before the first push. */
@@ -252,12 +289,19 @@ static void radioTask(void *arg) {
     settings.bandwidthKHz = 4;
   }
 
-  /* Nothing has been sent to the tuner yet, so everything is. */
-  Tef668xError lastError = pushToTuner(NULL, &settings);
+  /* Nothing has been sent to the tuner yet, so everything is, and the volume
+   * starts at the bottom of the fade rather than at the target. */
+  RadioSettings opening = settings;
+  opening.volumeDb = radioFadeVolume(settings.volumeDb, 0, RADIO_FADE_MS);
+  sLastPushedVolume = opening.volumeDb;
+  Tef668xError lastError = pushToTuner(NULL, &opening);
   bool pushFailed = lastError != TEF668X_OK;
   Tef668xQuality quality;
   memset(&quality, 0, sizeof(quality));
-  publish(&settings, &quality, false, lastError, 0, NULL);
+  Tef668xProcessing processing;
+  memset(&processing, 0, sizeof(processing));
+  bool processingOk = false;
+  publish(&settings, &quality, false, lastError, 0, NULL, &processing, false);
 
   const TickType_t period = pdMS_TO_TICKS(RADIO_POLL_INTERVAL_MS);
   TickType_t nextPoll = xTaskGetTickCount() + period;
@@ -283,6 +327,25 @@ static void radioTask(void *arg) {
     TickType_t now = xTaskGetTickCount();
     TickType_t wait = (int32_t)(nextPoll - now) > 0 ? nextPoll - now : 0;
 
+    /* While a fade is running the loop has to come round far more often than
+     * the poll interval, or the fade is delivered in as many steps as there
+     * are polls. A band change fade is four tenths of a second, which at the
+     * poll rate is four of them, and four steps is a jerk rather than a
+     * fade. */
+    /* Finished fades are put away rather than left to age. Left alone,
+     * millis() minus the start climbs for forty nine days and then wraps back
+     * through zero, and the radio would fade for no reason. */
+    if (sFadeMs != 0 && (uint32_t)(millis() - sFadeFromMs) >= sFadeMs) {
+      sFadeMs = 0;
+    }
+    bool fading = sFadeMs != 0;
+    if (fading) {
+      TickType_t step = pdMS_TO_TICKS(RADIO_FADE_STEP_MS);
+      if (wait > step) {
+        wait = step;
+      }
+    }
+
     if (drained >= RADIO_QUEUE_DEPTH) {
       /* Every slot is already owed to a command that could not be published.
        * Hold the cadence rather than spinning, and take no more until these
@@ -294,10 +357,10 @@ static void radioTask(void *arg) {
       /* The first read waits, the rest take whatever is already there, so a
        * burst of commands costs one retune rather than one each. `drained`
        * can never pass the end of `results`, which is what publish reads. */
-      bool first = true;
+      bool waited = false;
       while (drained < RADIO_QUEUE_DEPTH &&
-             xQueueReceive(sQueue, &item, first ? wait : 0) == pdTRUE) {
-        first = false;
+             xQueueReceive(sQueue, &item, waited ? 0 : wait) == pdTRUE) {
+        waited = true;
         /* Recorded whether or not the state machine took it. The caller
          * waiting on this one wants to know the radio has dealt with it, and
          * a refusal is dealing with it. */
@@ -320,7 +383,32 @@ static void radioTask(void *arg) {
     heard.muted = wanted.muted || !sSquelch.open;
     RadioSettings wasHeard = settings;
     wasHeard.muted = sLastPushedMute;
+    wasHeard.volumeDb = sLastPushedVolume;
     RadioPush push = radioPushNeeded(&wasHeard, &heard);
+
+    /* The fade starts before the push that needs it, not after.
+     *
+     * Starting it afterwards let the retune go out carrying the full volume,
+     * so the radio unmuted loud, dropped twenty five dB on the next pass, and
+     * then ramped back. That is the opposite of the point, and it is subtle
+     * enough to survive a listening test: it still ends in a ramp.
+     *
+     * Judged on push.retune rather than on which commands arrived, because a
+     * tune the state machine refused, or a band command naming the band the
+     * radio is already on, moves nothing and should fade nothing. */
+    if (push.retune && !firstPass) {
+      sFadeFromMs = millis();
+      sFadeMs = RADIO_BAND_FADE_MS;
+    }
+
+    /* The volume the tuner is actually given, which while a fade runs is on
+     * its way up to the target. The target is read every time round, so the
+     * knob still works during one. */
+    heard.volumeDb =
+        radioFadeVolume(wanted.volumeDb, millis() - sFadeFromMs, sFadeMs);
+    if (heard.volumeDb != wasHeard.volumeDb) {
+      push.volume = true;
+    }
 
     /* No `changed` guard here. The squelch can move the mute with no command
      * having arrived at all, and a push that only happens when something was
@@ -332,6 +420,7 @@ static void radioTask(void *arg) {
       lastError = pushToTuner(pushFailed ? NULL : &wasHeard, &heard);
       pushFailed = lastError != TEF668X_OK;
       sLastPushedMute = heard.muted;
+      sLastPushedVolume = heard.volumeDb;
       if (push.retune) {
         /* The readings from before the dial moved say nothing about where it
          * is now, and the chip has been through its active mode, which may
@@ -377,6 +466,11 @@ static void radioTask(void *arg) {
        * averages meant a strong FM station came back from a spell on medium
        * wave with the filter held narrow for about two seconds while the
        * smoothing forgot the AM numbers. */
+      /* What the chip is actually doing with the audio, which is FM only and
+       * is the only way to tell a blend that is working from one that was
+       * never switched on. */
+      processingOk = fm && tef668xReadProcessing(&processing) == TEF668X_OK;
+
       if (qualityOk && fm) {
         /* Smoothed, because one reading of this tuner jumps far more than the
          * signal does and the filter would open and shut several times a
@@ -432,7 +526,10 @@ static void radioTask(void *arg) {
       }
     }
 
-    if (publish(&settings, &quality, qualityOk, lastError, drained, results)) {
+    firstPass = false;
+
+    if (publish(&settings, &quality, qualityOk, lastError, drained, results,
+                &processing, processingOk)) {
       owed = 0;
     } else {
       /* The commands were applied but nobody was told. Keep them, so the
@@ -445,7 +542,8 @@ static void radioTask(void *arg) {
   }
 }
 
-bool radioTaskStart(const BandPlanConfig *plan) {
+bool radioTaskStart(const BandPlanConfig *plan, uint32_t startFreqKHz,
+                    int8_t startVolumeDb) {
   if (sTask != NULL) {
     return true;
   }
@@ -457,6 +555,21 @@ bool radioTaskStart(const BandPlanConfig *plan) {
 
   memset(&sSnapshot, 0, sizeof(sSnapshot));
   radioDefaults(&sSnapshot.settings, &sPlan);
+
+  /* Where it comes up, before the task takes its first look. The task's first
+   * push ends with an unmute, so anything tuned after that is heard as a
+   * burst of whatever was on the default frequency first. */
+  if (startFreqKHz != 0) {
+    RadioCommand tune = {};
+    tune.kind = RADIO_TUNE;
+    tune.freqKHz = startFreqKHz;
+    radioApply(&sSnapshot.settings, &sPlan, &tune);
+  }
+
+  RadioCommand volume = {};
+  volume.kind = RADIO_SET_VOLUME;
+  volume.volumeDb = startVolumeDb;
+  radioApply(&sSnapshot.settings, &sPlan, &volume);
   sPosted = 0;
 
   /* Open. A zeroed squelch is a shut one, and the radio would come up silent

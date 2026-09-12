@@ -94,6 +94,23 @@ typedef struct {
   bool multipathSuppression;
   bool equalizer;  /**< Channel equalizer, EQ on that screen. FM only. */
   bool forcedMono; /**< Stereo refused on purpose, not the automatic blend. */
+  /* Weak signal handling. Each is a level in dBuV below which that mechanism
+   * starts working, and 0 switches it off. The reference firmware ships all
+   * three off, which is why a radio that has never been told otherwise does
+   * nothing about a weak signal at all. */
+  uint8_t highCutStart;     /**< Roll the treble off below this. */
+  uint8_t stereoBlendStart; /**< Blend towards mono below this. */
+  uint8_t stHiBlendStart;   /**< Do both together below this. */
+  /* The noise blankers, which take out impulse noise rather than hiss.
+   *
+   * A percentage, not a level in dBuV: 0 switches it off, and the usable
+   * range is 50 to 150. Everything else in the reference's menu beside these
+   * two is in dBuV, which is how they came to be written as dBuV here, given
+   * a range that accepted numbers the feature cannot use and refused numbers
+   * it can. Both ship off, and the AM one is the main lever against the
+   * crackle on medium wave and shortwave. */
+  uint8_t amNoiseBlankerStart; /**< AM impulse noise blanker. */
+  uint8_t fmNoiseBlankerStart; /**< FM impulse noise blanker. */
 } RadioSettings;
 
 /**
@@ -135,7 +152,9 @@ typedef enum {
   RADIO_TOGGLE_MUTE,         /**< Mute if playing, unmute if muted. */
   RADIO_SET_MPH_SUPPRESSION, /**< Multipath suppression on or off. */
   RADIO_SET_EQUALIZER,       /**< Channel equalizer on or off. */
-  RADIO_SET_MONO             /**< Force mono, or allow stereo. */
+  RADIO_SET_MONO,            /**< Force mono, or allow stereo. */
+  RADIO_SET_WEAK_SIGNAL,     /**< The three weak signal start levels. */
+  RADIO_SET_NOISE_BLANKER    /**< The AM and FM impulse noise blankers. */
 } RadioCommandKind;
 
 /** One thing to do. Only the field its kind names is read. */
@@ -149,6 +168,8 @@ typedef struct {
   int8_t volumeDb;       /**< RADIO_SET_VOLUME. */
   bool muted;            /**< RADIO_SET_MUTE. */
   bool on;               /**< The three FM feature commands. */
+  uint8_t weak[3];       /**< RADIO_SET_WEAK_SIGNAL: cut, blend, both. */
+  uint8_t blanker[2];    /**< RADIO_SET_NOISE_BLANKER: AM then FM. */
   TuneMode tuneMode;     /**< RADIO_SET_TUNE_MODE. */
 } RadioCommand;
 
@@ -162,6 +183,7 @@ typedef enum {
   RADIO_ERR_BANDWIDTH, /**< Out of range, or not allowed on this band. */
   RADIO_ERR_VOLUME,    /**< Outside what the chip takes. */
   RADIO_ERR_TUNE_MODE, /**< Not a mode, or not one this band allows. */
+  RADIO_ERR_RANGE,     /**< A value outside what that setting accepts. */
   RADIO_ERR_UNKNOWN    /**< Not a command. */
 } RadioError;
 
@@ -194,6 +216,65 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan);
  */
 RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
                       const RadioCommand *command);
+
+/**
+ * How long the volume takes to come up at switch on, in milliseconds.
+ *
+ * The radio is otherwise at full listening volume from the first moment it
+ * unmutes, which is startling in a quiet room and is the first thing anybody
+ * notices about it.
+ */
+#define RADIO_FADE_MS 1500
+
+/**
+ * How long it takes to come back after a band change.
+ *
+ * Much shorter than the one at switch on. A band change already goes silent
+ * while the tuner moves, and this only softens the return.
+ *
+ * Band changes and jumps only, never an ordinary tune. Turning the knob is a
+ * tune as well, and a fade on each click would make the whole dial feel slow.
+ *
+ * Six hundred milliseconds rather than four. The chip takes whole dB, so the
+ * number of steps a fade can have is the number of times the volume is moved
+ * during it, and at four hundred that was twenty steps across twenty five dB.
+ * Audible as steps. Six hundred gives thirty, each under a dB.
+ */
+#define RADIO_BAND_FADE_MS 600
+
+/**
+ * How far below the target a fade starts, in dB.
+ *
+ * Not the whole way from silence. The chip takes whole dB, so a fade across
+ * sixty of them in four tenths of a second can only ever be a series of
+ * jumps, and that is what it sounded like. Twenty five dB is far enough to
+ * hear as a fade and close enough that each step is small.
+ */
+#define RADIO_FADE_DEPTH_DB 25
+
+/**
+ * How often the volume is moved while a fade runs, in milliseconds.
+ *
+ * The radio task otherwise wakes on its hundred millisecond poll, which gives
+ * a band change fade four steps in total. Twenty gives twenty.
+ */
+#define RADIO_FADE_STEP_MS 20
+
+/**
+ * The volume to use while the radio is starting.
+ *
+ * Rises from silence to the target over RADIO_FADE_MS. The target is read
+ * every time rather than captured at the start, so the knob still works
+ * during the fade: turning it down while the radio comes up does what a
+ * person would expect, and the fade simply lands somewhere quieter.
+ *
+ * @param targetDb    Where the volume is going, which is where the knob says.
+ * @param elapsedMs   How long since the fade started.
+ * @param durationMs  How long the fade lasts. 0 means no fade at all.
+ * @return The volume to set now. Equals targetDb once the fade is over.
+ */
+int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
+                       uint16_t durationMs);
 
 /** Which parts of the tuner have to be told about a change. */
 typedef struct {

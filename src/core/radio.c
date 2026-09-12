@@ -75,6 +75,8 @@ const char *radioErrorText(RadioError error) {
       return "that bandwidth is not allowed here";
     case RADIO_ERR_VOLUME:
       return "that volume is outside what the chip takes";
+    case RADIO_ERR_RANGE:
+      return "that value is outside what the setting takes";
     case RADIO_ERR_TUNE_MODE:
       return "that tuning mode is not available here";
     default:
@@ -266,6 +268,34 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       settings->muted = !settings->muted;
       return RADIO_OK;
 
+    case RADIO_SET_WEAK_SIGNAL:
+      if (bandModulation(settings->band) != MODULATION_FM) {
+        return RADIO_ERR_FM_ONLY;
+      }
+      settings->highCutStart = command->weak[0];
+      settings->stereoBlendStart = command->weak[1];
+      settings->stHiBlendStart = command->weak[2];
+      return RADIO_OK;
+
+    case RADIO_SET_NOISE_BLANKER:
+      /* Both bands, and settable from either, because the AM one is the
+       * useful half and refusing it while on FM would be awkward for no
+       * reason.
+       *
+       * The range is checked here rather than only in the caller that
+       * happens to exist today. These are percentages: 0 for off, and 50 to
+       * 150 usable. Between the two is neither, and a value there switches
+       * the blanker on to do nothing. */
+      for (int i = 0; i < 2; i++) {
+        if (command->blanker[i] != 0 &&
+            (command->blanker[i] < 50 || command->blanker[i] > 150)) {
+          return RADIO_ERR_RANGE;
+        }
+      }
+      settings->amNoiseBlankerStart = command->blanker[0];
+      settings->fmNoiseBlankerStart = command->blanker[1];
+      return RADIO_OK;
+
     case RADIO_SET_MPH_SUPPRESSION:
     case RADIO_SET_EQUALIZER:
     case RADIO_SET_MONO:
@@ -296,6 +326,33 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
   }
 }
 
+int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
+                       uint16_t durationMs) {
+  if (durationMs == 0 || elapsedMs >= durationMs) {
+    return targetDb;
+  }
+
+  /* From a fixed depth below the target up to it, in a straight line.
+   * Straight is right here: the volume is already in dB, so a straight line
+   * in dB is a curve to the ear, which is the shape a fade wants. */
+  int32_t from = (int32_t)targetDb - RADIO_FADE_DEPTH_DB;
+  if (from < RADIO_VOLUME_MIN) {
+    from = RADIO_VOLUME_MIN;
+  }
+
+  int32_t span = (int32_t)targetDb - from;
+  int32_t along = (span * (int32_t)elapsedMs) / durationMs;
+  int32_t now = from + along;
+
+  if (now > targetDb) {
+    now = targetDb;
+  }
+  if (now < RADIO_VOLUME_MIN) {
+    now = RADIO_VOLUME_MIN;
+  }
+  return (int8_t)now;
+}
+
 RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
   RadioPush push;
   push.retune = true;
@@ -324,7 +381,12 @@ RadioPush radioPushNeeded(const RadioSettings *from, const RadioSettings *to) {
    * a band change loses them, so a retune re-sends them. */
   push.features =
       push.retune || from->multipathSuppression != to->multipathSuppression ||
-      from->equalizer != to->equalizer || from->forcedMono != to->forcedMono;
+      from->equalizer != to->equalizer || from->forcedMono != to->forcedMono ||
+      from->highCutStart != to->highCutStart ||
+      from->stereoBlendStart != to->stereoBlendStart ||
+      from->stHiBlendStart != to->stHiBlendStart ||
+      from->amNoiseBlankerStart != to->amNoiseBlankerStart ||
+      from->fmNoiseBlankerStart != to->fmNoiseBlankerStart;
   return push;
 }
 

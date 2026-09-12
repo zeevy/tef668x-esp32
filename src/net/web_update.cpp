@@ -677,6 +677,15 @@ static void appendRadioState(String &out) {
       out += snap.settings.forcedMono ? F("true") : F("false");
       out += F(",\"snr\":");
       out += String(snap.quality.snrDb);
+      if (snap.processingValid) {
+        /* What the chip is applying now, not what it was told. */
+        out += F(",\"cut\":");
+        out += String(snap.processing.highCut);
+        out += F(",\"blend\":");
+        out += String(snap.processing.stereo);
+        out += F(",\"hiblend\":");
+        out += String(snap.processing.stHiBlend);
+      }
       out += F(",\"wide\":");
       out += snap.bandwidthWide ? F("true") : F("false");
 
@@ -878,6 +887,9 @@ static String buildState(void) {
  * | `mono` | Stereo refused on purpose | |
  * | `snr` | Signal to noise, worked out and not read from the chip | dB |
  * | `wide` | The adaptive filter is allowed to open | |
+ * | `cut` | The treble roll off the chip is applying now | no known unit |
+ * | `blend` | The stereo blend it is applying now | no known unit |
+ * | `hiblend` | The combined blend | no known unit |
  * | `sql` | Off, Auto or Manual | |
  * | `sqlOpen` | The squelch is letting sound through | |
  * | `sqlAt` | The manual threshold. Manual only | tenths of a dBuV |
@@ -1467,8 +1479,25 @@ static void handleApiSquelch(void) {
 /**
  * POST /api/fm. The FM features the tuner has and nothing turns on by itself.
  *
- * Takes any of `ims`, `eq` and `mono`, each 0 or 1. All three are FM ideas
- * and are refused on the AM bands, where the chip has nowhere to put them.
+ * Takes any of:
+ *
+ * | Argument | Range | What it is |
+ * |---|---|---|
+ * | `ims` | 0 or 1 | Multipath suppression. FM only |
+ * | `eq` | 0 or 1 | Channel equalizer. FM only |
+ * | `mono` | 0 or 1 | Refuse stereo on purpose. FM only |
+ * | `cut` | dBuV, 0 for off | Roll the treble off below this. FM only |
+ * | `blend` | dBuV, 0 for off | Blend towards mono below this. FM only |
+ * | `hiblend` | dBuV, 0 for off | Do both together below this. FM only |
+ * | `amnb` | per cent, 0 or 50 to 150 | AM impulse noise blanker |
+ * | `fmnb` | per cent, 0 or 50 to 150 | FM impulse noise blanker |
+ *
+ * `cut`, `blend` and `hiblend` go to the chip together, and so do `amnb` and
+ * `fmnb`. Whichever of a group is not given keeps the value it has, so
+ * changing one does not switch off the others.
+ *
+ * The first six are FM ideas and are refused on the AM bands, where the chip
+ * has nowhere to put them. The blankers work on both.
  *
  * `ims` is multipath suppression, which the old radio badges as iMS and which
  * is what makes a station suffering reflections listenable. `eq` is the
@@ -1485,7 +1514,11 @@ static String apiFmState(void) {
   }
   return String("iMS ") + (now.settings.multipathSuppression ? "on" : "off") +
          ", EQ " + (now.settings.equalizer ? "on" : "off") + ", " +
-         (now.settings.forcedMono ? "mono" : "stereo");
+         (now.settings.forcedMono ? "mono" : "stereo") + ", weak signal cut " +
+         now.settings.highCutStart + " blend " + now.settings.stereoBlendStart +
+         " hiblend " + now.settings.stHiBlendStart + ", blanker am " +
+         now.settings.amNoiseBlankerStart + " fm " +
+         now.settings.fmNoiseBlankerStart;
 }
 
 static void handleApiFm(void) {
@@ -1523,8 +1556,84 @@ static void handleApiFm(void) {
     given[i] = true;
     count++;
   }
-  if (count == 0) {
-    apiFail(400, "Give ims, eq or mono, each 0 or 1.");
+  /* The three weak signal start levels, in dBuV, 0 for off. All three move
+   * together, because sending one without the others would mean remembering
+   * the rest here. */
+  bool wantWeak = sServer.hasArg("cut") || sServer.hasArg("blend") ||
+                  sServer.hasArg("hiblend");
+  long weak[3] = {0, 0, 0};
+  if (wantWeak) {
+    /* Started from what the radio is set to, not from zero. These three go to
+     * the chip together, so filling the missing ones with zero would switch
+     * off whichever the caller did not mention. Asking to change one thing
+     * must not quietly change two others. */
+    RadioSnapshot now;
+    if (!radioGetSnapshot(&now)) {
+      /* Without the current values there is nothing to seed the untouched
+       * members from, and sending zeros would switch them off. Refusing is
+       * the only honest answer. */
+      apiFail(503, "The radio is busy. Try again in a moment.");
+      return;
+    }
+    weak[0] = now.settings.highCutStart;
+    weak[1] = now.settings.stereoBlendStart;
+    weak[2] = now.settings.stHiBlendStart;
+    const char *names[3] = {"cut", "blend", "hiblend"};
+    for (int i = 0; i < 3; i++) {
+      if (!sServer.hasArg(names[i])) {
+        continue;
+      }
+      if (!apiNumber(names[i], &weak[i], 0, 60)) {
+        return;
+      }
+      /* The reference's own menu offers 0 or 20 to 60 dBuV. Below 20 the
+       * mechanism starts at a level no signal reaches, so it is switched on
+       * and does nothing, which is the silent no-op the rules warn about. */
+      if (weak[i] != 0 && weak[i] < 20) {
+        apiFail(400, String(names[i]) +
+                         " is a level in dBuV: 0 to switch it off, or 20 to "
+                         "60.");
+        return;
+      }
+    }
+  }
+
+  /* The noise blankers, which take impulse noise out rather than hiss. The
+   * AM one is the lever for medium wave and shortwave. */
+  bool wantBlanker = sServer.hasArg("amnb") || sServer.hasArg("fmnb");
+  long blanker[2] = {0, 0};
+  if (wantBlanker) {
+    /* The same, and the same reason. */
+    RadioSnapshot now;
+    if (!radioGetSnapshot(&now)) {
+      apiFail(503, "The radio is busy. Try again in a moment.");
+      return;
+    }
+    blanker[0] = now.settings.amNoiseBlankerStart;
+    blanker[1] = now.settings.fmNoiseBlankerStart;
+    const char *names[2] = {"amnb", "fmnb"};
+    for (int i = 0; i < 2; i++) {
+      if (!sServer.hasArg(names[i])) {
+        continue;
+      }
+      if (!apiNumber(names[i], &blanker[i], 0, 150)) {
+        return;
+      }
+      /* A percentage, and the chip's usable range starts at 50. Anything
+       * between 1 and 49 is not off and not usable either, so it is refused
+       * rather than accepted into doing nothing. */
+      if (blanker[i] != 0 && blanker[i] < 50) {
+        apiFail(400, String(names[i]) +
+                         " is a percentage: 0 to switch it off, or 50 to 150.");
+        return;
+      }
+    }
+  }
+
+  if (count == 0 && !wantWeak && !wantBlanker) {
+    apiFail(400,
+            "Give ims, eq or mono as 0 or 1, cut, blend or hiblend as a level "
+            "in dBuV, or amnb or fmnb as a percentage.");
     return;
   }
 
@@ -1553,6 +1662,39 @@ static void handleApiFm(void) {
       apiFail(posted == RADIO_POST_DONE ? 400 : 503,
               String(features[i].name) + ": " + reason + ". It is now " +
                   apiFmState());
+      return;
+    }
+  }
+
+  if (wantBlanker) {
+    RadioCommand cmd = {};
+    cmd.kind = RADIO_SET_NOISE_BLANKER;
+    cmd.blanker[0] = (uint8_t)blanker[0];
+    cmd.blanker[1] = (uint8_t)blanker[1];
+    RadioError why = RADIO_OK;
+    if (radioPostAndSettle(&cmd, API_SETTLE_MS, &why) != RADIO_POST_DONE ||
+        why != RADIO_OK) {
+      apiFail(400,
+              String("noise blanker: ") +
+                  (why != RADIO_OK ? radioErrorText(why) : "not confirmed") +
+                  ". It is now " + apiFmState());
+      return;
+    }
+  }
+
+  if (wantWeak) {
+    RadioCommand cmd = {};
+    cmd.kind = RADIO_SET_WEAK_SIGNAL;
+    cmd.weak[0] = (uint8_t)weak[0];
+    cmd.weak[1] = (uint8_t)weak[1];
+    cmd.weak[2] = (uint8_t)weak[2];
+    RadioError why = RADIO_OK;
+    if (radioPostAndSettle(&cmd, API_SETTLE_MS, &why) != RADIO_POST_DONE ||
+        why != RADIO_OK) {
+      apiFail(400,
+              String("weak signal: ") +
+                  (why != RADIO_OK ? radioErrorText(why) : "not confirmed") +
+                  ". It is now " + apiFmState());
       return;
     }
   }

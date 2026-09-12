@@ -179,6 +179,32 @@ Tef668xError tef668xSetVolume(int8_t decibels);
 Tef668xError tef668xSetMute(bool muted);
 
 /**
+ * The AM noise blanker, which removes impulse noise rather than hiss.
+ *
+ * Off as this radio ships, because that is how the reference ships. It is the
+ * main thing the chip offers against the crackle that makes medium wave and
+ * shortwave tiring to listen to, so it is worth trying before concluding that
+ * a band is simply noisy.
+ *
+ * The start is a **percentage, not a level in dBuV**, and the reference's own
+ * menu offers 0 or 50 to 150. Everything else in that menu is in dBuV, which
+ * is how this was written as dBuV at first and given a range that accepted
+ * numbers the feature cannot use and refused numbers it can.
+ *
+ * @param startPercent  0 to switch it off, otherwise 50 to 150.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetAmNoiseBlanker(uint8_t startPercent);
+
+/**
+ * The FM noise blanker. Same idea, other band.
+ *
+ * @param startPercent  0 to switch it off, otherwise 50 to 150.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetFmNoiseBlanker(uint8_t startPercent);
+
+/**
  * Multipath suppression, which the old firmware and its screen call iMS.
  *
  * FM only. It is the feature that makes a station suffering reflections
@@ -239,6 +265,57 @@ Tef668xError tef668xSetMono(bool mono);
  *       that wrap is one of the cases the captures were kept for.
  */
 Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality);
+
+/**
+ * Weak signal handling: how far to back off as a signal gets worse.
+ *
+ * Three separate mechanisms, each with a level at which it starts. A start of
+ * 0 switches that one off, which is how the reference firmware ships all
+ * three. Levels are in dBuV.
+ *
+ * @param highCutStart    Roll the treble off below this.
+ * @param stereoStart     Blend towards mono below this.
+ * @param stHiBlendStart  Do both together below this.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xSetWeakSignal(uint8_t highCutStart, uint8_t stereoStart,
+                                  uint8_t stHiBlendStart);
+
+/** What the chip is doing to the audio right now, rather than what it was told. */
+typedef struct {
+  /*
+   * Three numbers with no unit that anybody has established.
+   *
+   * The reference firmware divides each raw word by ten and calls them
+   * highcut, stereo and sthiblend, and then never uses them, so there is
+   * nothing to say what the result counts. They were written here as kHz,
+   * which was a guess, and a reading of 47 on a station being rolled off is
+   * not 47 kHz of audio.
+   *
+   * What they are good for is watching them move: zero means the mechanism
+   * is doing nothing, and rising means it is. That is enough to tell a
+   * feature that is working from one that was never switched on, which is
+   * why this read exists. Do not put a unit on them until one is known.
+   */
+  uint16_t highCut;   /**< The treble roll off, as the chip reports it. */
+  uint16_t stereo;    /**< The stereo blend. */
+  uint16_t stHiBlend; /**< The combined blend. */
+} Tef668xProcessing;
+
+/**
+ * Read what the chip is currently applying.
+ *
+ * Not what it was told: what it has decided to do about the signal in front
+ * of it. The blend and roll off features move continuously with the signal,
+ * so without this there is no way to tell a feature that is working from one
+ * that was never switched on. FM only.
+ *
+ * The reference firmware implements this read and never calls it.
+ *
+ * @param out  Receives the readings.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xReadProcessing(Tef668xProcessing *out);
 
 /**
  * Read the raw quality bytes, exactly as they came off the wire.
