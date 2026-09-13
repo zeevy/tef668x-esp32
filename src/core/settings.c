@@ -45,6 +45,9 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       /* Written out by hand, like the versions before it. */
       return 140;
     case 5:
+      /* Written out by hand, like the versions before it. */
+      return 144;
+    case 6:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -78,6 +81,8 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
     case 4:
       return offsetof(Settings, softMuteMs);
     case 5:
+      return offsetof(Settings, beepStart);
+    case 6:
       return sizeof(Settings);
     default:
       return 0;
@@ -161,6 +166,11 @@ void settingsDefaults(Settings *s) {
   s->softMuteMs = RADIO_SOFT_MUTE_MS;
   s->beepKey = (uint8_t)BEEP_OFF;
   s->beepEdge = 0;
+
+  /* Version 6. On, because a radio that says it is awake is the one beep
+   * worth having by default: it is the answer to "did it come on", which is
+   * a question the other beeps are not asked. */
+  s->beepStart = 1;
 }
 
 bool settingsValid(const Settings *s) {
@@ -244,7 +254,8 @@ bool settingsValid(const Settings *s) {
   if (s->softMuteMs > 500) {
     return false;
   }
-  if (s->beepKey >= (uint8_t)BEEP_MODE_COUNT || s->beepEdge > 1) {
+  if (s->beepKey >= (uint8_t)BEEP_MODE_COUNT || s->beepEdge > 1 ||
+      s->beepStart > 1) {
     return false;
   }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||

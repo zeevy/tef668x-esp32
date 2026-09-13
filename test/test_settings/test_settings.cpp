@@ -325,6 +325,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** And version 4. */
 #define V4_SIZE 140
 
+/** And version 5, which is the same length as version 6. */
+#define V5_SIZE 144
+
 /**
  * Build a version 2 blob out of a current one.
  *
@@ -486,6 +489,41 @@ static void a_version_4_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
 }
 
+static void a_version_5_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* Version 6 is the same length as version 5, because beepStart fits in the
+   * two bytes version 5 left as padding. So the length says nothing here and
+   * the version is the only thing that tells them apart, which is the case
+   * worth a test of its own. */
+  TEST_ASSERT_EQUAL_size_t(142, offsetof(Settings, beepStart));
+  TEST_ASSERT_EQUAL_size_t(V5_SIZE, sizeof(Settings));
+
+  Settings source;
+  settingsDefaults(&source);
+  source.softMuteMs = 250;
+  source.beepKey = (uint8_t)BEEP_KEYS;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V5_SIZE);
+  blob[142] = 0xAB; /* Padding, as far as version 5 was concerned. */
+  blob[143] = 0xCD;
+  uint16_t version = 5;
+  uint16_t size = V5_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V5_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT16(250, out.softMuteMs);
+  TEST_ASSERT_EQUAL_UINT8((uint8_t)BEEP_KEYS, out.beepKey);
+
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.beepStart, out.beepStart);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
 static void the_polish_settings_have_ranges(void) {
   Settings s;
   settingsDefaults(&s);
@@ -510,6 +548,10 @@ static void the_polish_settings_have_ranges(void) {
 
   s.beepKey = (uint8_t)BEEP_KEYS;
   s.beepEdge = 9;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  settingsDefaults(&s);
+  s.beepStart = 2;
   TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
@@ -691,6 +733,7 @@ int main(int, char **) {
   RUN_TEST(the_version_3_fields_never_moved);
   RUN_TEST(a_new_field_inside_old_padding_is_not_read_from_it);
   RUN_TEST(a_version_4_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_5_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(the_polish_settings_have_ranges);
   RUN_TEST(a_pot_calibration_is_judged_on_the_loud_end);
   RUN_TEST(a_scan_sensitivity_outside_the_range_is_refused);

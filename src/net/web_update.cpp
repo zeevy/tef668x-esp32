@@ -708,6 +708,8 @@ static String radioForms(void) {
                       "data-api='/api/settings'");
     out += formSelect("bpe", "Band edge beep", offOn, zeroOne, 2, st->beepEdge,
                       "data-api='/api/settings'");
+    out += formSelect("bps", "Chime at start up", offOn, zeroOne, 2,
+                      st->beepStart, "data-api='/api/settings'");
   }
   out +=
       F("</div><p class='small text-secondary mt-2 mb-0'>The ramp takes "
@@ -2081,6 +2083,8 @@ static void handleApiSettingsGet(void) {
   out += st->beepKey;
   out += F(",\"bpe\":");
   out += st->beepEdge;
+  out += F(",\"bps\":");
+  out += st->beepStart;
   out += F("}");
   sServer.send(200, "application/json", out);
 }
@@ -2145,6 +2149,7 @@ static void handleApiSettingsPost(void) {
       {"smu", 0, 500, false},
       {"bpk", 0, (long)BEEP_MODE_COUNT - 1, false},
       {"bpe", 0, 1, false},
+      {"bps", 0, 1, false},
   };
   /* Sized from the table, not from a number written beside it. A seventh row
    * would otherwise run off the end of all three of these with no warning. */
@@ -2173,7 +2178,7 @@ static void handleApiSettingsPost(void) {
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
             "Give ssid, pin, region, spacing, encoder, direction, fmsens, "
-            "amsens, smu, bpk or bpe, or any mix of them.");
+            "amsens, smu, bpk, bpe or bps, or any mix of them.");
     return;
   }
 

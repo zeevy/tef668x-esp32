@@ -1120,13 +1120,18 @@ Tef668xError tef668xTone(bool on, int16_t amplitude, uint16_t freqHz,
     err = tone;
   }
 
-  if (!on) {
-    /* Always attempted, whatever the tone write did. A radio left with its
-     * audio path pointing at a silent generator is a radio that has gone
-     * dead, and it would not be obvious why. */
-    Tef668xError back = command(MODULE_AUDIO, CMD_AUDIO_SET_INPUT, source, 1);
+  /* The path goes back to the tuner whenever this call is not leaving a tone
+   * sounding: on the way off, and also on the way on if anything failed. A
+   * half started tone would otherwise leave the audio pointing at a generator
+   * that is not running, which is a radio that is on, tuned, unmuted and
+   * silent with nothing to say why.
+   *
+   * Attempted whatever the writes above did, for the same reason. */
+  if (!on || err != TEF668X_OK) {
+    uint16_t back[1] = {AUDIO_INPUT_TUNER};
+    Tef668xError restored = command(MODULE_AUDIO, CMD_AUDIO_SET_INPUT, back, 1);
     if (err == TEF668X_OK) {
-      err = back;
+      err = restored;
     }
   }
   return err;

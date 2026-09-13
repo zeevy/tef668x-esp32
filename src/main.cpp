@@ -50,6 +50,19 @@ bool settingsWereLoaded(void) {
   return gSettingsLoaded;
 }
 
+/**
+ * The tone the radio comes up with, and how long it lasts.
+ *
+ * Longer than any of the other beeps, so that it is a chime rather than a
+ * tick and is not mistaken for a key press. The pitch is the same 2000 Hz the
+ * rest use, which is the reference firmware's figure on this chip.
+ */
+#define START_BEEP_HZ 2000
+/** How long, in milliseconds. */
+#define START_BEEP_MS 400
+/** How loud, in tenths of a dB below full scale. */
+#define START_BEEP_AMPLITUDE (-50)
+
 /** How the tuner start up went, so the banner and the web page can say. */
 static Tef668xError gTunerError = TEF668X_ERR_NOT_READY;
 
@@ -182,6 +195,31 @@ void setup() {
   int8_t startVolume = gSettings.startVolumeDb;
   if (gSettings.squelchMode != (uint8_t)SQUELCH_MANUAL) {
     startVolume = potVolumeDb(potRead(), &pot);
+  }
+
+  /* The radio says it is awake, before it says anything else.
+   *
+   * It cannot come any earlier. The tone generator is inside the tuner, so
+   * there is nothing to beep with until the patch has gone in and the chip is
+   * active. This is also the last moment it can be done directly: from the
+   * next few lines the tuner belongs to the radio task.
+   *
+   * The output is muted at the end of tef668xBegin, so the mute comes off for
+   * the tone and goes back on afterwards. Nothing of the station is heard in
+   * between, because the audio path is switched to the generator for the
+   * length of the tone and back at the end of it. */
+  if (gSettings.beepStart != 0 && gTunerError == TEF668X_OK) {
+    tef668xSetVolume(startVolume);
+    tef668xSetMute(false);
+    if (tef668xTone(true, START_BEEP_AMPLITUDE, START_BEEP_HZ, START_BEEP_HZ) ==
+        TEF668X_OK) {
+      delay(START_BEEP_MS);
+    }
+    /* Whether or not the tone started. Turning it off is also what puts the
+     * audio path back on the tuner, so skipping it after a failure is how a
+     * radio ends up silent. */
+    tef668xTone(false, 0, 0, 0);
+    tef668xSetMute(true);
   }
 
   if (!radioTaskStart(&gSettings, &plan, startVolume)) {

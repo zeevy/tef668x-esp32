@@ -455,6 +455,11 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 282b | Turn the knob or press a button during the second between the ramp and the restart | Nothing comes back. Once the hush has run the radio stops writing to the tuner, or the knob would put the volume straight back and two tasks would be on the I2C bus at once |
 | 283 | Set every one of them off, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake |
 | 284 | Change any of them and power cycle | They come back as set |
+| 285 | Power cycle with Chime at start up on | A single longer tone as it comes up, before any station audio. It cannot come earlier than that: the tone generator is inside the tuner, so there is nothing to beep with until the patch has gone in |
+| 286 | Listen to what follows the chime | The station fades in afterwards, as it always did. The chime must not leave the audio muted or leave the path on the generator |
+| 287 | Set Chime at start up off and power cycle | Silent until the station arrives |
+| 288 | Power cycle with the volume knob right down | The chime is quiet too. It is played at the volume the radio is about to come up at, so it also tells you how loud the knob is set |
+| 289 | Power cycle with the tuner disconnected or failing to start | No chime, and the radio still comes up and is reachable. A chime that needs the tuner must not become a reason the radio does not boot |
 
 ### The web pages
 

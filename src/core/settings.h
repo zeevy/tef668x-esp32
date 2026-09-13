@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 5
+#define SETTINGS_VERSION 6
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -117,6 +117,16 @@ typedef struct {
   uint16_t softMuteMs;
   uint8_t beepKey;  /**< Which presses make a sound. See BeepMode. */
   uint8_t beepEdge; /**< Beep when the dial wraps at a band edge. 0 or 1. */
+
+  /* Version 6. */
+  /**
+   * Sound a longer tone at start up, once the tuner is ready. 0 or 1.
+   *
+   * It cannot come any earlier than that: the tone generator is inside the
+   * tuner, so there is nothing to beep with until the tuner has been patched
+   * and made active.
+   */
+  uint8_t beepStart;
 } Settings;
 
 /**

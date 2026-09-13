@@ -26,7 +26,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
 | Squelch | Off, automatic or manual, with the pot as the threshold in manual |
 | Settings | Kept across a power cycle, including the station it comes up on |
-| Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. Key and band edge beeps through the tuner's own tone generator |
+| Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. A chime at start up, and key and band edge beeps, through the tuner's own tone generator |
 | Control API | Every control the radio has, over HTTP. See below |
 
 Not built yet: touch, LVGL, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 4 to 6.
@@ -78,6 +78,7 @@ Every key in a document and every argument in a request is three characters or f
 | `edr` | encoder direction | `fsn` | FM seek sensitivity | `asn` | AM seek sensitivity |
 | `sbd` | band it comes up on | `sfq` | frequency it comes up on | `svl` | volume it comes up at |
 | `smu` | mute ramp, ms | `bpk` | which presses beep | `bpe` | band edge beep |
+| `bps` | chime at start up | | | | |
 | `bep` | a tone is sounding | | | | |
 | `abw` | AM bandwidth | `sid` | network name | `pss` | a passphrase is stored |
 
