@@ -89,7 +89,11 @@ The largest phase.
 - The panel set: signal meter, modulation meter, RDS block, quality block,
   clock, spectrum thumbnail, memory name, tuning offset, bandwidth.
 - Per band layouts. FM and OIRT share one, LW MW and SW share another.
-- Menu, with encoder and touch as two input devices on one UI.
+- Menu, with encoder and touch as two input devices on one UI. **It opens on a
+  long press of the knob.** MODE long press is taken: it cycles iMS and the
+  channel equalizer. BAND long press opens the RDS screen. The knob held at
+  power on is the recovery screen, decision 19, which is read during start up
+  rather than as a long press, so the two do not clash.
 - Boot screen with the self test.
 - Recovery screen.
 

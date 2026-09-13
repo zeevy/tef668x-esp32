@@ -1643,7 +1643,8 @@ typedef enum {
   API_SAY_TUNE,      /**< The band and frequency it reached. */
   API_SAY_BANDWIDTH, /**< The bandwidth it reached. */
   API_SAY_MODE,      /**< The tuning mode it reached. */
-  API_SAY_MUTE       /**< Whether it is muted. */
+  API_SAY_MUTE,      /**< Whether it is muted. */
+  API_SAY_FEATURES   /**< Which of the four iMS and EQ states it reached. */
 } ApiSay;
 
 /** How long a request waits for the radio task to carry a command out. */
@@ -1709,6 +1710,13 @@ static void apiSubmit(const RadioCommand *command, const String &said,
         break;
       case API_SAY_MUTE:
         answer = now.settings.muted ? String("muted") : String("unmuted");
+        break;
+      case API_SAY_FEATURES:
+        /* Both named, on or off, so the reply says which of the four states
+         * it landed in rather than only that something moved. */
+        answer = String("iMS ") +
+                 (now.settings.multipathSuppression ? "on" : "off") + ", EQ " +
+                 (now.settings.equalizer ? "on" : "off");
         break;
       case API_SAY_TEXT:
       default:
@@ -2413,10 +2421,13 @@ static void handleApiSave(void) {
 /**
  * POST /api/cycle. The next one, whatever it is now.
  *
- * Takes `what`: `band`, `bandwidth`, `mode` or `mute`. This is what the BAND,
- * BW and MODE buttons and the push on the knob send, so a script can drive
- * the radio the way a hand does. Decision 24: if the panel can do it, the API
- * can do it.
+ * Takes `wht`: `band`, `bandwidth`, `mode`, `mute` or `features`. This is
+ * what the BAND, BW and MODE buttons and the push on the knob send, so a
+ * script can drive the radio the way a hand does. Decision 24: if the panel
+ * can do it, the API can do it.
+ *
+ * `features` walks the four combinations of iMS and the channel equalizer,
+ * which is the MODE long press.
  *
  * The radio works out the next value from its own state rather than being
  * told one. A caller that read the state, worked out the next value and sent
@@ -2428,7 +2439,7 @@ static void handleApiCycle(void) {
     return;
   }
   if (!sServer.hasArg("wht")) {
-    apiFail(400, "Give what, one of band bandwidth mode mute.");
+    apiFail(400, "Give wht, one of band bandwidth mode mute features.");
     return;
   }
   String want = sServer.arg("wht");
@@ -2442,6 +2453,9 @@ static void handleApiCycle(void) {
   } else if (want == "bandwidth") {
     cmd.kind = RADIO_CYCLE_BANDWIDTH;
     say = API_SAY_BANDWIDTH;
+  } else if (want == "features") {
+    cmd.kind = RADIO_CYCLE_FM_FEATURES;
+    say = API_SAY_FEATURES;
   } else if (want == "mode") {
     cmd.kind = RADIO_CYCLE_TUNE_MODE;
     say = API_SAY_MODE;
@@ -2450,8 +2464,8 @@ static void handleApiCycle(void) {
     say = API_SAY_MUTE;
   } else {
     apiFail(400,
-            "That is not something to cycle. Use band, bandwidth, mode "
-            "or mute.");
+            "That is not something to cycle. Use band, bandwidth, mode, "
+            "mute or features.");
     return;
   }
   apiSubmit(&cmd, String("cycled ") + want, say);

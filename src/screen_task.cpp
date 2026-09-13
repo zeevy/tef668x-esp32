@@ -73,6 +73,11 @@ void screenTaskPoll(void) {
   state.stereo =
       snap.qualityValid && snap.quality.stereo && !snap.settings.forcedMono;
   state.muted = snap.settings.muted;
+  /* Only on FM, where they do something. Showing them on medium wave would
+   * say the radio is applying something the tuner has nowhere to put. */
+  bool fm = bandModulation(snap.settings.band) == MODULATION_FM;
+  state.ims = fm && snap.settings.multipathSuppression;
+  state.eq = fm && snap.settings.equalizer;
   state.tunerReady = snap.tunerReady;
   /* What the tuner last refused. Without it the screen can show a station the
    * radio is not actually on, with nothing to say so. */

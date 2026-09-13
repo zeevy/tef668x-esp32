@@ -197,10 +197,20 @@ typedef enum {
    * the keypad sent an FM bandwidth of 56 kHz to a radio that had just
    * arrived on medium wave, where the widest filter is 8 kHz.
    */
-  RADIO_CYCLE_BAND,          /**< The next band, wrapping round. */
-  RADIO_CYCLE_BANDWIDTH,     /**< The next bandwidth this band offers. */
-  RADIO_CYCLE_TUNE_MODE,     /**< The next mode this band offers. */
-  RADIO_TOGGLE_MUTE,         /**< Mute if playing, unmute if muted. */
+  RADIO_CYCLE_BAND,      /**< The next band, wrapping round. */
+  RADIO_CYCLE_BANDWIDTH, /**< The next bandwidth this band offers. */
+  RADIO_CYCLE_TUNE_MODE, /**< The next mode this band offers. */
+  RADIO_TOGGLE_MUTE,     /**< Mute if playing, unmute if muted. */
+  /**
+   * The next combination of iMS and the channel equalizer.
+   *
+   * Off, then iMS, then EQ, then both, then off again. One command for two
+   * settings, so a caller with a single control can reach all four states
+   * without working out the next one itself and racing the radio.
+   *
+   * Refused on the AM bands, where the tuner has nowhere to put either.
+   */
+  RADIO_CYCLE_FM_FEATURES,
   RADIO_SET_MPH_SUPPRESSION, /**< Multipath suppression on or off. */
   RADIO_SET_EQUALIZER,       /**< Channel equalizer on or off. */
   RADIO_SET_MONO,            /**< Force mono, or allow stereo. */

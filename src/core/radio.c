@@ -395,6 +395,21 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       settings->muted = !settings->muted;
       return RADIO_OK;
 
+    case RADIO_CYCLE_FM_FEATURES: {
+      if (bandModulation(settings->band) != MODULATION_FM) {
+        return RADIO_ERR_FM_ONLY;
+      }
+      /* Counted as a two bit number, iMS in the low bit and EQ in the high
+       * one, so the four combinations come round in a fixed order and the
+       * button always moves to a different one. */
+      uint8_t state = (uint8_t)((settings->multipathSuppression ? 1 : 0) |
+                                (settings->equalizer ? 2 : 0));
+      state = (uint8_t)((state + 1) & 3);
+      settings->multipathSuppression = (state & 1) != 0;
+      settings->equalizer = (state & 2) != 0;
+      return RADIO_OK;
+    }
+
     case RADIO_SET_WEAK_SIGNAL:
       if (bandModulation(settings->band) != MODULATION_FM) {
         return RADIO_ERR_FM_ONLY;

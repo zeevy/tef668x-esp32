@@ -236,6 +236,13 @@ static void cycleAndNote(RadioCommandKind kind, const char *what) {
       snprintf(text, sizeof(text), "%s",
                now.settings.muted ? "muted" : "unmuted");
       break;
+    case RADIO_CYCLE_FM_FEATURES:
+      /* Both named every time, on or off, so the button says which of the
+       * four states it landed in rather than only what changed. */
+      snprintf(text, sizeof(text), "iMS %s, EQ %s",
+               now.settings.multipathSuppression ? "on" : "off",
+               now.settings.equalizer ? "on" : "off");
+      break;
     default:
       snprintf(text, sizeof(text), "%s", what != NULL ? what : "done");
       break;
@@ -268,6 +275,14 @@ static void onBandwidth(ButtonEvent event) {
 static void onMode(ButtonEvent event) {
   if (event == BUTTON_SHORT) {
     cycleAndNote(RADIO_CYCLE_TUNE_MODE, NULL);
+    return;
+  }
+  if (event == BUTTON_LONG) {
+    /* iMS and the channel equalizer, the two features the radio this
+     * replaces gives their own badge. One gesture for two settings, and the
+     * radio says which of the four it reached, because a cycle with no
+     * feedback leaves a person counting presses. */
+    cycleAndNote(RADIO_CYCLE_FM_FEATURES, NULL);
   }
 }
 

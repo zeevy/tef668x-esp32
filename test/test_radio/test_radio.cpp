@@ -790,6 +790,87 @@ static void a_weak_signal_level_no_signal_reaches_is_refused(void) {
   TEST_ASSERT_EQUAL_UINT8(60, s.stHiBlendStart);
 }
 
+static void the_feature_cycle_walks_all_four_combinations(void) {
+  /* One button gesture for two settings, so it has to reach every state and
+   * always move to a different one. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_CYCLE_FM_FEATURES;
+
+  struct {
+    bool ims;
+    bool eq;
+  } want[] = {{true, false}, {false, true}, {true, true}, {false, false}};
+
+  for (size_t i = 0; i < sizeof(want) / sizeof(want[0]); i++) {
+    TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+    TEST_ASSERT_EQUAL_INT(want[i].ims, s.multipathSuppression);
+    TEST_ASSERT_EQUAL_INT(want[i].eq, s.equalizer);
+  }
+
+  /* And round again, from wherever it was left. */
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_TRUE(s.multipathSuppression);
+}
+
+static void the_feature_cycle_is_fm_only(void) {
+  /* The tuner has nowhere to put either on the AM side, so the command says
+   * so rather than appearing to work.
+   *
+   * Both are switched on first, on FM, so the refusal has something to
+   * damage. Starting from the defaults would pass even if the AM branch
+   * cleared them on its way out. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_CYCLE_FM_FEATURES;
+  for (int i = 0; i < 3; i++) {
+    TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  }
+  TEST_ASSERT_TRUE(s.multipathSuppression);
+  TEST_ASSERT_TRUE(s.equalizer);
+
+  RadioCommand band = {};
+  band.kind = RADIO_SET_BAND;
+  band.band = BAND_MW;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &band));
+
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_FM_ONLY, radioApply(&s, &plan, &cmd));
+  /* Both survive the refusal. A command that is refused changes nothing. */
+  TEST_ASSERT_TRUE(s.multipathSuppression);
+  TEST_ASSERT_TRUE(s.equalizer);
+
+  /* And coming back to FM carries on from where it was. */
+  band.band = BAND_FM;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &band));
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_FALSE(s.multipathSuppression);
+  TEST_ASSERT_FALSE(s.equalizer);
+}
+
+static void cycling_the_features_needs_a_feature_push(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings a;
+  radioDefaults(&a, &plan);
+  RadioSettings b = a;
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_CYCLE_FM_FEATURES;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&b, &plan, &cmd));
+
+  RadioPush push = radioPushNeeded(&a, &b);
+  TEST_ASSERT_TRUE(push.features);
+  TEST_ASSERT_FALSE(push.retune);
+}
+
 static void the_weak_signal_levels_are_fm_only(void) {
   apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
   RadioCommand c = {};
@@ -1338,6 +1419,9 @@ int main(int, char **) {
   RUN_TEST(weak_signal_handling_starts_switched_off);
   RUN_TEST(the_weak_signal_levels_can_be_set_together);
   RUN_TEST(a_weak_signal_level_no_signal_reaches_is_refused);
+  RUN_TEST(the_feature_cycle_walks_all_four_combinations);
+  RUN_TEST(the_feature_cycle_is_fm_only);
+  RUN_TEST(cycling_the_features_needs_a_feature_push);
   RUN_TEST(the_weak_signal_levels_are_fm_only);
   RUN_TEST(the_noise_blankers_can_be_set_from_either_band);
   RUN_TEST(the_noise_blanker_is_a_percentage_not_a_level);

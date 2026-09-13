@@ -403,6 +403,27 @@ Everything the radio is set to now lives in one place. `POST /api/save` writes i
 | 259 | Put the squelch in manual after calibrating | The whole knob is usable as a threshold, not just part of it |
 | 260 | Nothing to do. This unit has no analogue meter fitted, confirmed by looking on 12 September 2026 and again on 13 September. Pin 27 is still driven, because the pin map comes from a firmware that runs on boards in this family that do have one | |
 
+### iMS and the channel equalizer, from the button
+
+Both are FM reception features, and both are about multipath: the signal arriving by more than one path, direct plus reflections. iMS suppresses the smearing that causes. EQ corrects the frequency response the reflections notch out. Neither is a tone control.
+
+MODE long press walks the four combinations. BAND long and the knob held long are reserved for the RDS screen and the menu, both of which arrive in phase 4 and neither of which does anything yet.
+
+**On a clean strong station expect to hear nothing.** That is the right answer, not a broken feature. The difference shows on a station that is suffering.
+
+| # | Do this | Expect |
+|---|---|---|
+| 261 | Long press MODE four times on FM | It walks off, iMS, EQ, both, and back to off. The panel says which |
+| 262 | Short press MODE | Still the tuning mode, unchanged. The long press must not disturb it |
+| 263 | Watch the panel through the cycle | `iMS` and `EQ` appear and disappear beside `stereo`. Nothing is pushed off the row |
+| 264 | Long press MODE on medium wave | It says it only works on FM. Nothing changes, and the panel shows neither |
+| 265 | `POST /api/cycle -d 'wht=features'` | The same four states in the same order, and the reply names which one |
+| 265a | Mute the radio with iMS and EQ on | `muted` is the only thing in the fault colour. iMS and EQ stay in their own colour, because they have not gone wrong |
+| 266 | Set iMS on the web page, then long press MODE | The cycle carries on from what the page set, not from where it was before |
+| 267 | Turn iMS on and off on a station with obvious multipath, blind | Judged by ear, order picked at random, revealed afterwards. A station in a city with buildings in the way, not a clean local one |
+| 268 | The same for EQ | The same rules. A null result is a result: record it as unproven rather than shipping it as working |
+| 269 | Turn both on, save, power cycle | They come back on, and the panel says so |
+
 ### The web pages
 
 Four pages instead of one. The split is not only tidiness: one page held every form, and it was the largest String the web server ever built.

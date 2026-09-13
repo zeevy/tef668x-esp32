@@ -22,7 +22,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Reception | iMS, the channel equalizer, forced mono, the weak signal blends, both noise blankers and the de-emphasis |
 | Band plan | FM, OIRT, LW, MW and SW, with every step size and both band edges |
 | Panel | The band, the frequency, the signal, stereo, mute and the last fault, on the ILI9341 |
-| Controls | The tuning knob, the keypad and the volume pot, all sharing one path into the tuner with the API |
+| Controls | The tuning knob, the BAND, BW and MODE buttons, the keypad and the volume pot, all sharing one path into the tuner with the API |
 | Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
 | Squelch | Off, automatic or manual, with the pot as the threshold in manual |
 | Settings | Kept across a power cycle, including the station it comes up on |

@@ -67,6 +67,7 @@ enum {
   FIELD_FREQUENCY,
   FIELD_SIGNAL,
   FIELD_FLAGS,
+  FIELD_MUTE,
   FIELD_FAULT,
   FIELD_COUNT
 };
@@ -100,7 +101,11 @@ static void layout(void) {
   row = (int16_t)(row + large + 24);
   place(FIELD_SIGNAL, MARGIN, row, full, &kSmallFont, false);
   row = (int16_t)(row + small + 8);
-  place(FIELD_FLAGS, MARGIN, row, full, &kSmallFont, false);
+  /* Mute has a box of its own on the same row, at the right. It is drawn in
+   * the fault colour, and sharing a box would paint iMS and EQ the same, so a
+   * muted radio would look as though those had gone wrong. */
+  place(FIELD_FLAGS, MARGIN, row, half, &kSmallFont, false);
+  place(FIELD_MUTE, (int16_t)(MARGIN + half), row, half, &kSmallFont, true);
   row = (int16_t)(row + small + 8);
   place(FIELD_FAULT, MARGIN, row, full, &kSmallFont, false);
 }
@@ -229,9 +234,10 @@ void screenShow(const ScreenState *state) {
   draw(FIELD_SIGNAL, signal, state->tunerReady ? kText : kBad);
 
   char flags[LINE_MAX];
-  snprintf(flags, sizeof(flags), "%s%s", state->stereo ? "stereo " : "",
-           state->muted ? "muted" : "");
-  draw(FIELD_FLAGS, flags, state->muted ? kBad : kGood);
+  snprintf(flags, sizeof(flags), "%s%s%s", state->ims ? "iMS " : "",
+           state->eq ? "EQ " : "", state->stereo ? "stereo" : "");
+  draw(FIELD_FLAGS, flags, kGood);
+  draw(FIELD_MUTE, state->muted ? "muted" : "", kBad);
 
   draw(FIELD_FAULT, state->fault, kBad);
 }

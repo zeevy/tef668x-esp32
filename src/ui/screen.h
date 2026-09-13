@@ -33,7 +33,12 @@ typedef struct {
    * screen has to describe what comes out of the speaker.
    */
   bool stereo;
-  bool muted;        /**< Audio is off. */
+  bool muted; /**< Audio is off. */
+  /* The two FM reception features, shown because the only control for them
+   * is a button that cycles four combinations. A control with no feedback
+   * leaves the person counting presses. */
+  bool ims;          /**< Multipath suppression is on. */
+  bool eq;           /**< The channel equalizer is on. */
   bool tunerReady;   /**< The tuner started up. */
   const char *fault; /**< What went wrong, or NULL when nothing did. */
 } ScreenState;
