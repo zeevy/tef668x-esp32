@@ -41,8 +41,9 @@ static inline Colour displayColour(uint8_t r, uint8_t g, uint8_t b) {
 /**
  * Start the panel.
  *
- * Sets the SPI pins up, resets the panel, sends its initialisation sequence,
- * clears it to black and turns the backlight on.
+ * Sets the SPI pins up, resets the panel, sends its initialisation sequence
+ * and clears it to black. The backlight is left off: the caller decides how
+ * it comes up, so that it can be faded rather than snapped on.
  *
  * @return false when the panel did not come up. Nothing can be read back from
  *         this panel, so this only catches what can be seen from here.

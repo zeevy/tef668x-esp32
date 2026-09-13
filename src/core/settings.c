@@ -11,6 +11,7 @@
  * mode is checked against that enum and not against a number written here,
  * because a number written here goes wrong silently the day the enum gains a
  * member. */
+#include "backlight.h"
 #include "band_plan.h"
 #include "input.h"
 #include "radio.h"
@@ -48,6 +49,12 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       /* Written out by hand, like the versions before it. */
       return 144;
     case 6:
+      /* The same 144 bytes version 5 wrote. Version 6 added one byte,
+       * `beepStart`, and it went into padding version 5 already had, so the
+       * struct did not grow. The two are told apart by the version field,
+       * which is what that field is for. */
+      return 144;
+    case 7:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -83,6 +90,11 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
     case 5:
       return offsetof(Settings, beepStart);
     case 6:
+      /* `backlightPercent` sits at offset 143, in the single byte version 6
+       * wrote as padding after `beepStart`. The same case as `potRawMin`
+       * above, and the reason this table is separate from the size one. */
+      return offsetof(Settings, backlightPercent);
+    case 7:
       return sizeof(Settings);
     default:
       return 0;
@@ -169,6 +181,15 @@ void settingsDefaults(Settings *s) {
 
   /* Version 6. On, unlike the other beeps. See decision 27. */
   s->beepStart = 1;
+
+  /* Version 7. The panel full on, the fade at boot on, the dim off. See
+   * decision 28: a fade is only noticed when it is missing, and a panel that
+   * goes dark on its own reads as a fault to anybody who did not ask for
+   * it. */
+  s->backlightPercent = 100;
+  s->backlightDimPercent = 20;
+  s->backlightDimAfterS = 0;
+  s->backlightFade = 1;
 }
 
 bool settingsValid(const Settings *s) {
@@ -254,6 +275,18 @@ bool settingsValid(const Settings *s) {
   }
   if (s->beepKey >= (uint8_t)BEEP_MODE_COUNT || s->beepEdge > 1 ||
       s->beepStart > 1) {
+    return false;
+  }
+  /* Bright enough to read by. A panel driven to nothing while the radio is
+   * being used is a panel that looks broken, and the only control for it is
+   * the page that has just gone dark. The dim level has no floor, because
+   * that one is left on purpose and any input brings it back. */
+  if (s->backlightPercent < BACKLIGHT_MIN_AWAKE || s->backlightPercent > 100) {
+    return false;
+  }
+  if (s->backlightDimPercent > 100 ||
+      s->backlightDimAfterS > BACKLIGHT_DIM_AFTER_MAX_S ||
+      s->backlightFade > 1) {
     return false;
   }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||

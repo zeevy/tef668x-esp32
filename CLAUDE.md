@@ -13,7 +13,9 @@ under way. The radio joins Wi-Fi, updates itself over the air with rollback,
 brings the TEF6686 up with its patch, tunes FM and AM, shows what it is doing
 on the panel, and is worked from the knob, the keypad and the volume pot as
 well as from a browser and the HTTP control API. It seeks for stations, holds a
-squelch, and keeps its settings across a power cycle.
+squelch, and keeps its settings across a power cycle. The panel light fades up
+at start up, and can dim after the radio is left alone, though that one ships
+off.
 
 Still to come: touch, LVGL, RDS, memory channels, the volume AGC, telemetry,
 the spectrum and the clock. Those are phases 4 to 6 in
@@ -23,7 +25,7 @@ This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty seven design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty eight design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.
@@ -131,7 +133,8 @@ board/     One header per board. Pin map, display driver, which inputs and
 drivers/   tef668x, display, touch, encoder, keypad, rtc, battery.
            Each behind an interface. No globals.
 core/      Tuner state machine, RDS decoder, band plan, memory channels,
-           settings, volume AGC. No hardware, no UI. Builds and runs on a PC.
+           settings, panel brightness, volume AGC. No hardware, no UI. Builds
+           and runs on a PC.
 ui/        LVGL screens and menus. Talks to core through an API only.
 net/       Wi-Fi, web server, OTA, NTP, telemetry.
 ```

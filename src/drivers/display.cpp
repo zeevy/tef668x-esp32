@@ -273,7 +273,11 @@ bool displayBegin(void) {
                     BACKLIGHT_CHANNEL);
 
   displayFill(0, 0, sWidth, sHeight, 0);
-  displayBacklight(100);
+  /* Left dark. The panel is cleared first so there is nothing to see, and
+   * whoever started it decides how the light comes up. Turning it on here
+   * would put a frame of whatever the controller powered up holding on the
+   * glass before the fade had a chance to start. */
+  displayBacklight(0);
   return true;
 }
 

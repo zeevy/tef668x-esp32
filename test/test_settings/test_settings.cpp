@@ -5,6 +5,7 @@
  */
 #include <unity.h>
 
+#include "core/backlight.h"
 #include "core/band_plan.h"
 #include "core/input.h"
 #include "core/radio.h"
@@ -325,8 +326,11 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** And version 4. */
 #define V4_SIZE 140
 
-/** And version 5, which is the same length as version 6. */
+/** And version 5. */
 #define V5_SIZE 144
+
+/** And version 6, which is the same length as version 5. */
+#define V6_SIZE 144
 
 /**
  * Build a version 2 blob out of a current one.
@@ -495,7 +499,6 @@ static void a_version_5_blob_gets_the_defaults_for_what_it_never_had(void) {
    * the version is the only thing that tells them apart, which is the case
    * worth a test of its own. */
   TEST_ASSERT_EQUAL_size_t(142, offsetof(Settings, beepStart));
-  TEST_ASSERT_EQUAL_size_t(V5_SIZE, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -522,6 +525,83 @@ static void a_version_5_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT8(fresh.beepStart, out.beepStart);
   TEST_ASSERT_TRUE(settingsValid(&out));
   TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void a_version_6_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* backlightPercent sits at 143, in the one byte version 6 wrote as padding
+   * after beepStart. Copying a version 6 blob by its written length would
+   * take that field out of the old padding, which is what
+   * settingsFieldEndOfVersion exists to stop. */
+  TEST_ASSERT_EQUAL_size_t(143, offsetof(Settings, backlightPercent));
+  TEST_ASSERT_EQUAL_size_t(V6_SIZE + 4, sizeof(Settings));
+
+  Settings source;
+  settingsDefaults(&source);
+  source.softMuteMs = 120;
+  source.beepStart = 0;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V6_SIZE);
+  blob[143] = 0xEE; /* Padding, as far as version 6 was concerned. */
+  uint16_t version = 6;
+  uint16_t size = V6_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V6_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT16(120, out.softMuteMs);
+  TEST_ASSERT_EQUAL_UINT8(0, out.beepStart);
+
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.backlightPercent, out.backlightPercent);
+  TEST_ASSERT_EQUAL_UINT8(fresh.backlightDimPercent, out.backlightDimPercent);
+  TEST_ASSERT_EQUAL_UINT8(fresh.backlightDimAfterS, out.backlightDimAfterS);
+  TEST_ASSERT_EQUAL_UINT8(fresh.backlightFade, out.backlightFade);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void the_panel_light_settings_have_ranges(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  /* The boundary, one below and one above. Anything under the floor is a
+   * panel nobody can read while they are using the radio, and the only
+   * control for it is the page that has just gone dark. */
+  s.backlightPercent = BACKLIGHT_MIN_AWAKE;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightPercent = BACKLIGHT_MIN_AWAKE - 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.backlightPercent = 100;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightPercent = 101;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  /* The dim level has no floor. It is left on purpose and any input brings
+   * the panel back, so nothing can be stranded by it. */
+  settingsDefaults(&s);
+  s.backlightDimPercent = 0;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightDimPercent = 100;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightDimPercent = 101;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  settingsDefaults(&s);
+  s.backlightDimAfterS = 0; /* Never dim is a real choice. */
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightDimAfterS = BACKLIGHT_DIM_AFTER_MAX_S;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.backlightDimAfterS = BACKLIGHT_DIM_AFTER_MAX_S + 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  settingsDefaults(&s);
+  s.backlightFade = 2;
+  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 static void the_polish_settings_have_ranges(void) {
@@ -734,6 +814,8 @@ int main(int, char **) {
   RUN_TEST(a_new_field_inside_old_padding_is_not_read_from_it);
   RUN_TEST(a_version_4_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_5_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_6_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(the_panel_light_settings_have_ranges);
   RUN_TEST(the_polish_settings_have_ranges);
   RUN_TEST(a_pot_calibration_is_judged_on_the_loud_end);
   RUN_TEST(a_scan_sensitivity_outside_the_range_is_refused);

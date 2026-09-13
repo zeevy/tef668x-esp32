@@ -190,9 +190,7 @@ static void formatSignal(const ScreenState *state, char *out, size_t outLen) {
     snprintf(out, outLen, "no reading");
     return;
   }
-  char level[12];
-  signalFormatLevel(state->signalTenths, level, sizeof(level));
-  snprintf(out, outLen, "%s dBuV", level);
+  snprintf(out, outLen, "%d dBuV", (int)state->signalDbuV);
 }
 
 void screenShow(const ScreenState *state) {

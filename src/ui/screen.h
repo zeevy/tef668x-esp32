@@ -22,8 +22,17 @@ typedef struct {
   const char *frequency; /**< Already formatted, such as "102.80". */
   const char *unit;      /**< "MHz" or "kHz". */
   const char *mode;      /**< The tuning mode in words. */
-  int16_t signalTenths;  /**< Signal level in tenths of a dBuV. */
-  bool signalValid;      /**< False when the last reading failed. */
+  /**
+   * Signal level in whole dBuV.
+   *
+   * Whole, not tenths. A tenth of a dB is below anything a person acts on,
+   * and a screen printing one changes its last digit ten times a second on a
+   * station that is not moving, which reads as flicker. The layer above
+   * decides the number and holds it still; see SignalDisplay in
+   * core/signal.h.
+   */
+  int16_t signalDbuV;
+  bool signalValid; /**< False when the last reading failed. */
   /**
    * You are hearing stereo.
    *

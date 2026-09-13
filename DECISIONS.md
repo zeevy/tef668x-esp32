@@ -759,6 +759,26 @@ The residual risk, written down because RULES.md asks for it: a radio updated fr
 
 Checklist row 283 says that with every one of these switched off the radio behaves as it did before the polish was added. That still holds, but it now means switching four things off rather than three.
 
+### 28. The fade at boot is on by default, the dim is not
+
+The same split as decision 27, applied to the panel instead of to the sound, and for the same reason.
+
+The panel fades up at start up on every radio. The drop to a dim level after the radio is left alone ships off, and a person has to set a number of seconds to switch it on.
+
+A fade up is only noticed when it is missing. Nobody looks at a radio coming on and thinks the light took four tenths of a second, and nobody can misread it, because it ends at the brightness they expect. It is also the one moment when the panel has something to show, the boot banner, and a fade reveals it rather than the panel arriving first and the text filling in after.
+
+A dim is different. It happens when nobody is looking, it looks exactly like a panel that has failed, and the person it happens to did not ask for it. On a portable that is worse, not better: a radio in a bag with a dark screen reads as a flat battery. So it is a thing somebody switches on for themselves, with a delay they choose.
+
+The wake is instant and never a fade, which is the other half of the same decision. Any input brings full brightness back with no ramp: the knob, any of the four buttons, any keypad key, and a real turn of the volume pot. A person who has just pressed a key is already looking at the panel, so a fade there is only a delay between the press and being able to read the answer. Turning the dim off from the web page also brings a panel that had already dropped straight back, because nothing else would: a dimmed panel is only lifted by an input.
+
+Both fades are one second, up and down, and both are even in perceived brightness rather than in duty. Neither number is a taste. The fade up was four tenths of a second first, matching the chime, and on the radio it could not be told from the light switching on in a blind comparison. A feature nobody can see is the thing this ticket's notes warn about, so the length was measured instead: 400 ms reads as a snap, 1000 ms reads as a fade, 2500 ms is obviously slow. The backlight section of HARDWARE.md has the working.
+
+The brightness settings act the moment they are written rather than at the next start. A brightness can only be chosen by looking at the panel set to it, and a setting that could not be seen until the radio had been left alone for a minute could not be chosen at all.
+
+The residual risk, written down because RULES.md asks for it: `backlightPercent` has a floor of 5 per cent and no way to reach 0. A panel driven to nothing while the radio is in use is a panel that looks broken, and the only control for it is the web page that has just gone dark. The dim level has no floor, because that one is left on purpose and any input brings it back.
+
+Checklist row 283 says that with every one of these switched off the radio behaves as it did before the polish was added. That still holds. The panel light adds one more thing to switch off, the fade, and the dim is already off on a radio nobody has told otherwise.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

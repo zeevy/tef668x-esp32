@@ -6,6 +6,7 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
+#include "core/backlight.h"
 #include "core/band_plan.h"
 #include "core/input.h"
 #include "core/signal.h"
@@ -16,6 +17,7 @@
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
+#include "screen_task.h"
 
 #include <Update.h>
 #include <WebServer.h>
@@ -716,6 +718,26 @@ static String radioForms(void) {
         "the click off a mute, the squelch closing and a bandwidth "
         "change. It also runs before a reboot or a firmware update. The "
         "beeps are off unless you want them.</p></details>");
+
+  /* The panel light. Beside the sounds because it is the same kind of thing:
+   * none of it changes what the radio receives. */
+  out +=
+      F("<details class='mt-2'><summary class='small text-secondary' "
+        "style='cursor:pointer'>The panel light</summary>"
+        "<div class='row g-2 mt-1'>");
+  out += formNumber("blt", "Brightness, per cent", BACKLIGHT_MIN_AWAKE, 100,
+                    st->backlightPercent, "data-api='/api/settings'");
+  out += formNumber("bdm", "Dimmed, per cent", 0, 100, st->backlightDimPercent,
+                    "data-api='/api/settings'");
+  out += formNumber("bds", "Dim after, seconds", 0, BACKLIGHT_DIM_AFTER_MAX_S,
+                    st->backlightDimAfterS, "data-api='/api/settings'");
+  out += formSelect("blf", "Fade up at start", offOn, zeroOne, 2,
+                    st->backlightFade, "data-api='/api/settings'");
+  out +=
+      F("</div><p class='small text-secondary mt-2 mb-0'>Brightness "
+        "changes as soon as you apply it, so you can look at the panel "
+        "and pick one. Dim after 0 never dims. The knob, a button and a "
+        "key all bring it straight back.</p></details>");
 
   if (!onFm) {
     out +=
@@ -1426,9 +1448,10 @@ static void appendRadioState(String &out) {
       /* Tenths go out as tenths, not as a decimal string, so nothing has to
        * parse a float and no precision is lost on the way. */
       snprintf(sig, sizeof(sig),
-               ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"off\":%d"
+               ",\"sig\":%d,\"sav\":%d,\"usn\":%u,\"wam\":%u,\"off\":%d"
                ",\"bw\":%u,\"mod\":%d,\"st\":%s,\"plt\":%s",
-               q.levelDbuVTenths, (unsigned)q.usnTenths,
+               q.levelDbuVTenths, snap.levelSmoothedTenths,
+               (unsigned)q.usnTenths,
                bandModulation(snap.settings.band) == MODULATION_FM
                    ? (unsigned)q.multipathTenths
                    : (unsigned)q.coChannelTenths,
@@ -1565,6 +1588,22 @@ static String buildState(void) {
   out += String(ESP.getFreeHeap());
   out += F(",\"up\":");
   out += String(millis() / 1000UL);
+  /* What the panel light is doing. A dim and a wake are both silent, so
+   * without this the only way to check either is to sit and watch the
+   * radio. */
+  uint8_t lit = 0;
+  bool dimmed = screenTaskBacklightState(&lit);
+  out += F(",\"pnl\":{\"lit\":");
+  out += String((int)lit);
+  out += F(",\"dim\":");
+  out += dimmed ? F("true") : F("false");
+  /* What the panel is actually showing for the signal, which is not the
+   * smoothed level: the screen holds its number until the level moves a
+   * whole dB away. Without this the only way to check that it sits still is
+   * to stand at the radio and watch. */
+  out += F(",\"sdb\":");
+  out += String((int)screenTaskSignalShown());
+  out += F("}");
   out += F(",");
   appendInputState(out);
   out += F(",");
@@ -1596,6 +1635,14 @@ static String buildState(void) {
  * | `hep` | Free heap | bytes |
  * | `up` | Time since boot | seconds |
  *
+ * Inside `pnl`, the panel light:
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `lit` | How bright the panel is now | percent |
+ * | `dim` | It has been left alone long enough to have dropped | |
+ * | `sdb` | The signal number on the panel, held still | whole dBuV |
+ *
  * Inside `tuner`, when the tuner started:
  *
  * | Key | Full name | Unit |
@@ -1605,7 +1652,8 @@ static String buildState(void) {
  * | `fsi` | Has FM stereo improvement | |
  * | `frd` | Has full search RDS | |
  * | `dr` | Has digital radio | |
- * | `sig` | Signal level | tenths of a dBuV |
+ * | `sig` | Signal level, the reading as it came off the chip | tenths of a dBuV |
+ * | `sav` | The same level smoothed, which is what the panel shows | tenths of a dBuV |
  * | `usn` | Ultrasonic noise | tenths of a percent |
  * | `wam` | Multipath, what the chip calls weighted AM | tenths of a percent |
  * | `off` | How far off centre the station is | tenths of a kHz |
@@ -2011,6 +2059,7 @@ static void handleApiMode(void) {
  * | `fmnb`, `amnb` | The stored noise blanker percentages |
  * | `dem` | The stored FM de-emphasis, in microseconds |
  * | `abw` | The width the AM bands come up on |
+ * | `blt`, `bdm`, `bds`, `blf` | The panel light |
  *
  * These are what is stored, which is not always what the radio is set to now.
  * /api/state says what it is set to now. POST /api/save makes the two agree.
@@ -2085,6 +2134,14 @@ static void handleApiSettingsGet(void) {
   out += st->beepEdge;
   out += F(",\"bps\":");
   out += st->beepStart;
+  out += F(",\"blt\":");
+  out += st->backlightPercent;
+  out += F(",\"bdm\":");
+  out += st->backlightDimPercent;
+  out += F(",\"bds\":");
+  out += st->backlightDimAfterS;
+  out += F(",\"blf\":");
+  out += st->backlightFade;
   out += F("}");
   sServer.send(200, "application/json", out);
 }
@@ -2107,6 +2164,10 @@ static void handleApiSettingsGet(void) {
  * | `smu` | 0 to 500 | at once | The mute and squelch ramp, in ms. 0 is off |
  * | `bpk` | 0 to 3 | at once | Which presses beep |
  * | `bpe` | 0 or 1 | at once | Beep at a band edge |
+ * | `blt` | 5 to 100 | at once | Panel brightness, per cent |
+ * | `bdm` | 0 to 100 | at once | Panel brightness once left alone |
+ * | `bds` | 0 to 240 | at once | Seconds before it dims. 0 never |
+ * | `blf` | 0 or 1 | at start | Fade the panel up rather than snap it on |
  *
  * The table above and `stored[]` in the handler have to agree. The handler
  * counts its own field list against that table and refuses the request if
@@ -2158,6 +2219,12 @@ static void handleApiSettingsPost(void) {
       {"bpk", 0, (long)BEEP_MODE_COUNT - 1, false},
       {"bpe", 0, 1, false},
       {"bps", 0, 1, true},
+      {"blt", BACKLIGHT_MIN_AWAKE, 100, false},
+      {"bdm", 0, 100, false},
+      {"bds", 0, BACKLIGHT_DIM_AFTER_MAX_S, false},
+      /* At start, because the only thing it changes is how the panel comes
+       * up, and that has already happened by the time anybody can set it. */
+      {"blf", 0, 1, true},
   };
   /* Sized from the table, not from a number written beside it. A seventh row
    * would otherwise run off the end of all three of these with no warning. */
@@ -2185,8 +2252,8 @@ static void handleApiSettingsPost(void) {
 
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
-            "Give sid, pin, rgn, spc, enc, edr, fsn, asn, smu, bpk, bpe or "
-            "bps, or any mix of them.");
+            "Give sid, pin, rgn, spc, enc, edr, fsn, asn, smu, bpk, bpe, "
+            "bps, blt, bdm, bds or blf, or any mix of them.");
     return;
   }
 
@@ -2206,7 +2273,11 @@ static void handleApiSettingsPost(void) {
       NULL,
       &pending.beepKey,
       &pending.beepEdge,
-      &pending.beepStart};
+      &pending.beepStart,
+      &pending.backlightPercent,
+      &pending.backlightDimPercent,
+      &pending.backlightDimAfterS,
+      &pending.backlightFade};
   /* The compiler checks the two tables are the same length. An entry left
    * out is otherwise value initialised to NULL and silently does nothing,
    * which is how the chime came to be unswitchable. */
@@ -2275,6 +2346,11 @@ static void handleApiSettingsPost(void) {
     radioSetSoftMuteMs(pending.softMuteMs);
     radioSetEdgeBeep(pending.beepEdge != 0);
     inputSetBeeps((BeepMode)pending.beepKey);
+    /* The panel light changes while the person is looking at it, which is the
+     * only way a brightness can be chosen. */
+    BacklightConfig backlight;
+    backlightFromSettings(&pending, &backlight);
+    screenTaskSetBacklight(&backlight);
   }
 
   String said;

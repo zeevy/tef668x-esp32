@@ -179,7 +179,7 @@ gate_coverage() {
     return 1
   fi
 
-  gcovr "${args[@]}" --fail-under-line "$COVERAGE_FLOOR" 2>&1 | tail -10
+  gcovr "${args[@]}" --fail-under-line "$COVERAGE_FLOOR" 2>&1 | tail -30
   return ${PIPESTATUS[0]}
 }
 

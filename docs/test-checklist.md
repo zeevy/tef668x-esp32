@@ -460,7 +460,7 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 282a | Upload over espota, which needs the PIN and the same subnet. See the note below | The same as 282. This is a different path from `/update` and needed its own row |
 | 282b | Turn the knob or press a button during the second between the ramp and the restart | Nothing comes back. Once the hush has run the radio stops writing to the tuner, or the knob would put the volume straight back and two tasks would be on the I2C bus at once |
 | 282c | Start an espota upload and kill it partway, then listen | The audio comes back on its own, on a fade. An update hushes the radio the moment the transfer starts, and a transfer that breaks has no reboot coming to undo that. Check by ear: `mut` and `hmu` in the state document both read false either way, so the document cannot tell you |
-| 283 | Set all four off, the ramp, both beeps and the chime, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake. The chime is the one that ships on, which is decision 27 |
+| 283 | Set all five off, the ramp, both beeps, the chime and the panel fade, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake. The chime and the panel fade are the two that ship on, which is decisions 27 and 28. The panel dim ships off, so there is nothing to switch off there |
 | 284 | Change any of them and power cycle | They come back as set |
 | 285 | Power cycle with Chime at start up on | A single longer tone as it comes up, before any station audio. It cannot come earlier than that: the tone generator is inside the tuner, so there is nothing to beep with until the patch has gone in |
 | 286 | Listen to what follows the chime | The station fades in afterwards, as it always did. The chime must not leave the audio muted or leave the path on the generator |
@@ -478,6 +478,60 @@ python3 ~/.platformio/packages/framework-arduinoespressif32/tools/espota.py \
 That gets past authentication, and then the radio opens a connection back to the machine running the command, at the address and port espota advertises. If that connection never arrives the tool waits ten seconds and reports `No response from device`. On 13 September 2026 it got that far and no further, with the radio on 192.168.30.152 and the machine on 192.168.10.118: the local firewall permits incoming connections to python and stealth mode is off, and the firewall between the two subnets forwards one way only, so the radio cannot open a connection back. `POST /update` has no such requirement and works from anywhere on the network, which is why it is the one the other rows use.
 
 What this row adds over 282 is one thing only: that ArduinoOTA's `onStart` callback fires. Both routes call the same `radioHush()`, at `ota_service.cpp:25` and `web_update.cpp:2981`, so everything after that moment is shared code. Run it from a machine on the radio's own subnet.
+
+### The panel light
+
+The rest of ticket 19, and the same rule: nothing here changes what the radio receives. The controls are on `/radio` under The panel light.
+
+**Start with the API half.** `GET /api/state` now carries `pnl`, with `lit` for how bright the panel is and `dim` for whether it has been left alone long enough to drop. A dim and a wake are both silent, so without that the only way to check either is to sit and watch the radio.
+
+```bash
+R=http://tef668x.local
+curl -s $R/api/state | python3 -c 'import json,sys; print(json.load(sys.stdin)["pnl"])'
+```
+
+| # | Do this | Expect |
+|---|---|---|
+| 295 | Power cycle with Fade up at start on, and watch the panel | The light comes up over about a second, not as a snap. The boot banner is already on the glass as it does, so the fade reveals it rather than the text filling in after. A second is measured, not chosen: four tenths could not be told from the light switching on in a blind comparison. See the backlight section of HARDWARE.md |
+| 295a | If you cannot tell 295 from a snap, do it blind | Switch Fade up at start off for one boot and on for the next, without looking at which is which, and say which one faded. An impression of a fade you were expecting to see is not evidence. This is how the four tenths of a second version was caught doing nothing visible |
+| 296 | Set Fade up at start to Off, save, power cycle | The light snaps on. That is what Off has to mean. This one is read at start up, so it needs the power cycle to show |
+| 297 | Set Brightness to 30 and apply | The panel dims straight away, while you are looking at it. A brightness that only took effect at the next start could not be chosen at all |
+| 298 | Set Brightness back to 100 and apply | Full again, at once |
+| 299 | `POST /api/settings -d 'blt=4'` | `400`, and nothing stored. 5 per cent is the floor, and it is measured rather than round: it is the lowest setting at which the frequency could still be read off this panel in daylight. Below it the only control for a panel nobody can read is the page that has just gone dark |
+| 300 | `POST /api/settings -d 'blt=5'` then `-d 'blt=100'` | `200` both times. The boundary itself is allowed, one below is not |
+| 301 | `POST /api/settings -d 'bds=241'` | `400`. Four minutes is the longest delay |
+| 302 | Set Dim after to 10 seconds and leave the radio alone, with Dimmed at the default 20 | After ten seconds the panel drops to about a fifth brightness, over about a second. Gradual, not a step |
+| 302a | Read the frequency on the dimmed panel | Still comfortable to read, not merely visible. 20 per cent sits just above the comfortable floor measured on this panel, which is 18. See the backlight section of HARDWARE.md |
+| 303 | Read `pnl` while it is dimmed | `dim` is true and `lit` is the Dimmed setting. This is the check that tells a dim too subtle to see from one that never ran |
+| 304 | Turn the knob one click | Full brightness comes straight back, with no fade. Read `pnl` again: `dim` is false and `lit` is back to the Brightness setting |
+| 305 | Repeat 302 and wake it with a panel button instead | The same. BAND, BW, MODE and the knob press all count |
+| 306 | Repeat 302 and wake it with a keypad key | The same |
+| 307 | Repeat 302 and wake it by turning the volume pot | The same. Only a real turn counts: the pot is read twenty times a second and never sits perfectly still, so counting every reading would mean the radio was never left alone |
+| 308 | With Dim after at 10, keep turning the knob every few seconds for a minute | It never dims. Every input starts the clock again |
+| 309 | Press a key while the panel is partway through dropping | It goes straight back to full. It must not carry on darkening under the hand of the person pressing |
+| 310 | Set Dimmed to 0 and let it dim, then press any key | The panel goes completely dark and comes straight back. Nothing is stranded by it, which is why the dim level has no floor and the brightness does |
+| 310a | Leave the radio alone for a minute with Dim after at 0, then set it to 10 and apply | The panel stays full for ten more seconds and then dims. The delay is measured from when you changed it, not against a radio that was already idle. Setting it from the browser would otherwise drop the panel the instant you pressed Apply |
+| 310b | With Dim after at 10, wait nine seconds and change it to 30 | It dims thirty seconds after the change, not one second after it |
+| 311 | While the panel is dimmed, set Dim after to 0 and apply | The panel comes straight back to full. Nothing else would lift it: a dimmed panel is only raised by an input, and changing a setting from a browser is not one |
+| 312 | While the panel is dimmed, change Dimmed to 60 and apply | It moves to the new level and stays dimmed |
+| 313 | Set Dim after to 0 and leave the radio for five minutes | It never dims. 0 means never, and that is what a radio nobody has told otherwise ships with |
+| 314 | Change every panel setting, save, power cycle | They all come back as set |
+| 315 | Power cycle a radio that was on the firmware before this one | Brightness 100, Dimmed 20, Dim after 0, Fade up on. A stored settings blob from version 6 is four bytes shorter, and what it never had has to come back as the default rather than out of the old padding |
+
+### The smoothed signal meter
+
+`GET /api/state` now carries both readings inside `tuner`: `sig` is the level exactly as it came off the chip, and `sav` is the same level smoothed. The panel and the analogue meter show `sav`. A sweep wants the reading it took, and a person wants the signal.
+
+| # | Do this | Expect |
+|---|---|---|
+| 316 | Tune to a steady FM station and watch the number on the panel | It reads as whole dBuV with no decimal point, and it sits still. Measured on FM 106.40 with the signal steady: the raw reading swings about 3 dB, the smoothing takes that to about 1.6, and whole dB with hysteresis gives one change in twenty four seconds. Smoothing alone was not enough, because a decimal place moved the last digit ten times a second whatever the number underneath was doing |
+| 316a | If the number does move, check whether the signal is moving first | `pnl.sdb` is what the panel shows and `tun.sav` is the smoothed level behind it. Poll both. The number following a signal that really moved is the meter working, not failing. On the same station an hour later `sav` ranged 28.6 to 33.6 dBuV on its own and the panel changed eleven times in thirty two seconds, correctly. Only a number moving while `sav` stays inside about a dB is a fault |
+| 317 | Nothing to do on this unit | The smoothed level also drives the analogue S-meter on pin 27, but **no meter is fitted here**, checked by looking at the board on 12 September 2026 and recorded in HARDWARE.md. The pin is driven anyway, because the pin map comes from a firmware that runs on boards in this family that do have one. So the needle half of this change is written but unproven, and it stays unproven until a board with a meter is in hand |
+| 318 | Poll `sig` and `sav` together for ten seconds | `sig` jumps about and `sav` follows it slowly. If the two are always equal the smoothing is not running |
+| 319 | Tune from a strong station to an empty channel, such as 106.40 then 105.00 | The panel number falls to the new level at once and does not sit at the old station's figure. Use an empty channel, not another station: two stations of similar strength prove nothing, and this row was first run between two that both read about 24 dBuV. An empty FM channel here reads about -10 dBuV with the noise in the hundreds |
+| 320 | Change band from FM to medium wave and back | The same. The average is started again on every retune and at the end of a seek, so the first reading from the new station is taken as the answer rather than averaged in with the old one. For the tenth of a second before that reading arrives, `sig` and `sav` both still describe where the dial was, which is deliberate: a zero would read as a real level of 0.0 dBuV |
+| 321 | Seek across the FM band | The number moves as the sweep passes stations, and settles quickly once it stops |
+| 322 | Tune to an empty channel and read `sig` and `sav` | Both sit near -10 dBuV rather than holding the last station's figure. A failed read is a different thing and shows `no reading` on the panel, but an I2C read cannot be made to fail on demand, so that path is covered by the tests rather than here. What this row checks is that a reading which arrived and happens to be low is shown as low |
 
 ### Every page control actually does something
 

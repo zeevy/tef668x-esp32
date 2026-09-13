@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 6
+#define SETTINGS_VERSION 7
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -127,6 +127,26 @@ typedef struct {
    * and made active.
    */
   uint8_t beepStart;
+
+  /* Version 7. The panel. Every one of these acts the moment it is written,
+   * because the only way to choose a brightness is to look at the panel set
+   * to it. A setting that could not be seen until the radio had been left
+   * alone for a minute could not be chosen at all. */
+  uint8_t backlightPercent; /**< How bright the panel is in use. 5 to 100. */
+  /**
+   * How bright it goes once the radio is left alone. 0 to 100.
+   *
+   * A value at or above backlightPercent means the dim does nothing.
+   */
+  uint8_t backlightDimPercent;
+  /**
+   * How long the radio is left alone before it dims, in seconds. 0 never.
+   *
+   * Off by default. See decision 28.
+   */
+  uint8_t backlightDimAfterS;
+  /** Fade the panel up at start up rather than snapping it on. 0 or 1. */
+  uint8_t backlightFade;
 } Settings;
 
 /**

@@ -153,7 +153,7 @@ From `TFT_eSPI/User_Setup.h` in the PE5PVB fork of the library.
 MOSI and SCK are the ESP32 VSPI defaults, 23 and 18. MISO would be 19, which is
 also listed as the standby LED. **That conflict does not have to be settled.**
 Nothing reads back from the panel, so this firmware never wires MISO. See
-decision 26.
+decision 25.
 
 ### What the panel actually needed, found by looking at it
 
@@ -175,6 +175,114 @@ correctly. Measured with a bar of each side by side, so the screen uses black.
 
 The colour order line above says RGB, which is the name of that setting in
 TFT_eSPI. In the controller's own terms it is the `BGR` bit being set.
+
+### The backlight, and how dim it can go and still be read
+
+Pin 2 drives the backlight through PWM. This firmware runs it at 5 kHz with 8
+bits of duty, and treats the setting as a percentage, so 20 per cent is a duty
+of 51 out of 255.
+
+Measured on 13 September 2026, in daylight through a window, with the radio on
+FM 106.40 and the plain text screen showing the frequency. The brightness was
+stepped down from 70 per cent to 5 in eight stages over the web API, six
+seconds each, and each stage was looked at.
+
+| Brightness | What the frequency looked like |
+|---|---|
+| 70 to 18 per cent | Comfortable to read |
+| 12 per cent | Between the two |
+| 8 per cent | The number can still be identified |
+| 5 per cent | Visible, with a little effort |
+
+So the panel is legible all the way down to 5 per cent in daylight. Two numbers
+come out of this. The dim level a radio ships with is 20 per cent, which sits
+just above the comfortable floor, so a panel that has dimmed can still be read
+at a glance rather than only made out. And the floor on the in use brightness
+is 5 per cent, because that is the lowest setting still usable rather than a
+round number: below it the only control for a panel nobody can read is the web
+page that has just gone dark.
+
+### How long a brightness change has to take to read as a fade
+
+Measured on 13 September 2026, on the same panel and in the same daylight.
+
+A fade at start up was built at four tenths of a second first, to match the
+length of the start up chime. It could not be told from the light simply
+switching on. That was checked properly rather than by impression: the fade
+was switched on for one boot and off for another, in an order picked at random
+and not looked at until afterwards, and the two boots were indistinguishable.
+Repeated with the ramp reshaped to be even in perceived brightness rather than
+in duty, and the answer was the same.
+
+| Fade length | How it reads |
+|---|---|
+| 400 ms | Cannot be told from the light switching on |
+| 1000 ms | Reads as a fade |
+| 2500 ms | Obviously slow |
+
+So the fades are one second, up and down. The two had been written as four
+tenths up and one second down, on the reasoning that a fade up is waited for
+and a dim is not. The measurement says four tenths is not a fade at all on
+this panel, so both are a second now.
+
+**The ramp is even in perceived brightness, not in duty.** An eye's response to
+light is near enough the square root of it, so a straight line in duty spends
+almost all its travel in a range that already looks bright. With the frequency
+readable at 5 per cent, a straight line from 0 to 100 is clearly lit about
+twenty milliseconds in. Interpolating the square root and squaring it back
+puts the slow part of the travel down at the bottom, where a change can be
+seen. That alone was not enough to make four tenths of a second visible, but
+it is the right shape and it stays.
+
+Taken in one light on one day, which is the limit of it. Daylight through a
+window is the harder case than a dark room, so a dim level chosen here should
+hold indoors at night. Direct sun has not been tried.
+
+### How much the signal reading moves on a station that is not moving
+
+Measured on 13 September 2026 on FM 106.40, sixty readings over twenty four
+seconds, with the aerial and the radio left alone.
+
+| | Spread | Standard deviation |
+|---|---|---|
+| `sig`, the reading off the chip | 3.2 dB | 0.60 |
+| `sav`, the same after the one second average | 1.6 dB | 0.44 |
+
+The average takes out about half of it. What is left is mostly the signal
+really moving rather than noise, which is why a longer average helps far less
+than it looks like it should: replaying the same capture through a three
+second average changed the spread from 2.5 dB to 2.3 and cost up to three
+seconds of lag.
+
+**Smoothing the value is not the same as steadying the screen.** At one
+decimal place the last digit still changed on forty of fifty nine consecutive
+readings. Replaying the capture into a screen showing whole dB gave twelve
+changes in twenty four seconds, and whole dB held until the level moves a
+whole dB away gave one. That last one is what the panel does.
+
+| What the screen does | Changes in 24 seconds |
+|---|---|
+| One decimal place, smoothed | about 40 |
+| Whole dB, smoothed | 12 |
+| Whole dB, smoothed, held until it moves 1 dB | 1 |
+| Whole dB, three second average, held | 2 |
+
+An empty FM channel here reads about -10 dBuV with the ultrasonic noise in the
+hundreds, against 25 to 36 dBuV on a local station, so a level alone separates
+the two easily.
+
+### The volume pot never sits still, and that is why the dim works
+
+Measured on 13 September 2026, over half a minute with nobody touching the
+radio: `inp.pot` wandered between 3254 and 3258, four counts out of 4095.
+
+That is small, but it is not nothing, and it decides whether the panel ever
+dims. The idle clock is restarted by any input, and the volume pot is read
+twenty times a second. A radio that counted every reading as an input would
+never be idle and would never dim, with nothing anywhere saying why. Only a
+move past the deadband in `core/input.h` counts, which this wander does not
+reach. Confirmed by watching the panel stay dimmed for twenty eight seconds
+while the reading moved over that range.
 
 **Touch is fitted and working.** An `XPT2046` in SOIC is on the main board,
 marked `XPT2046 ABDDCB`, next to the PCA9555, and touch input works on this unit

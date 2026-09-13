@@ -43,8 +43,44 @@ typedef struct {
 
 /** Everything a reader needs, copied out in one go so it cannot tear. */
 typedef struct {
-  RadioSettings settings;       /**< What the radio is set to. */
-  Tef668xQuality quality;       /**< The last reading from the tuner. */
+  RadioSettings settings; /**< What the radio is set to. */
+  Tef668xQuality quality; /**< The last reading from the tuner. */
+  /**
+   * The signal level, smoothed, in tenths of a dBuV.
+   *
+   * For anything a person looks at. One reading of this tuner moves several
+   * dB between polls on a signal that is not moving, so a meter or a number
+   * driven off `quality.levelDbuVTenths` jumps far more than the signal
+   * does. Both are published rather than one replacing the other: a sweep
+   * wants the reading it took, and a person wants the signal.
+   *
+   * It is the same running average core/signal.h applies before any of the
+   * radio's own decisions. The average is started again on a retune and at
+   * the end of a seek, so the first reading from the new station is taken as
+   * the answer rather than averaged in with the old one.
+   *
+   * Starting the average again does not change this field. It holds the last
+   * value a reading produced until the next reading arrives, which is what
+   * `quality` beside it does, so the two are always from the same read. For
+   * the one poll interval after a retune both still describe where the dial
+   * was. Zeroing it instead would put a level of 0.0 dBuV on the panel, and
+   * a reading of zero is a real reading, so that would be a worse lie than a
+   * tenth of a second of an old one.
+   */
+  int16_t levelSmoothedTenths;
+  /**
+   * Whether that level was read at the station this snapshot describes.
+   *
+   * False for the round or two between a retune and the next reading. The
+   * dial moves as soon as the command is worked through, but the reading
+   * keeps its own hundred millisecond cadence, so there is a snapshot
+   * carrying the new frequency and the previous station's level.
+   *
+   * Anything that holds a value still has to know. A screen that resets its
+   * held reading on the frequency changing, and is then handed the old
+   * station's level, latches that instead of the new one and sits there.
+   */
+  bool levelSmoothedValid;
   Tef668xProcessing processing; /**< What the chip is doing to the audio. */
   bool processingValid;         /**< False when that read failed or is AM. */
   bool qualityValid;            /**< False when the last read failed. */

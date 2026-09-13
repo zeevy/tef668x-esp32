@@ -91,6 +91,20 @@ static uint16_t sFadeMs = RADIO_FADE_MS;
 static SignalAverage sLevelAverage;
 static SignalAverage sSnrAverage;
 
+/**
+ * The same smoothing again, for anything a person looks at.
+ *
+ * A second average rather than a reading of the first one, because the first
+ * is fed on the FM side only: the bandwidth extension it drives is an FM
+ * feature, and AM readings in it held a strong FM station's filter narrow for
+ * about two seconds after coming back from medium wave. A meter has to keep
+ * working on both sides, so this one takes every reading that arrives.
+ */
+static SignalAverage sDisplayLevelAverage;
+static int16_t sLevelSmoothed = 0;
+/** Whether that level was read where the dial is now. See the snapshot. */
+static bool sLevelSmoothedValid = false;
+
 /** What the bandwidth extension was last set to. */
 static bool sBandwidthWide = false;
 static bool sBandwidthKnown = false;
@@ -228,6 +242,8 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
     sSnapshot.quality = *q;
   }
   sSnapshot.qualityValid = qualityValid;
+  sSnapshot.levelSmoothedTenths = sLevelSmoothed;
+  sSnapshot.levelSmoothedValid = sLevelSmoothedValid;
   if (processingValid && processing != NULL) {
     sSnapshot.processing = *processing;
   }
@@ -784,6 +800,8 @@ static void radioTask(void *arg) {
          * have taken the bandwidth option with it. Both start again. */
         signalAverageReset(&sLevelAverage);
         signalAverageReset(&sSnrAverage);
+        signalAverageReset(&sDisplayLevelAverage);
+        sLevelSmoothedValid = false;
         sBandwidthKnown = false;
       }
     }
@@ -848,6 +866,8 @@ static void radioTask(void *arg) {
          * began on a noise channel. */
         signalAverageReset(&sLevelAverage);
         signalAverageReset(&sSnrAverage);
+        signalAverageReset(&sDisplayLevelAverage);
+        sLevelSmoothedValid = false;
         sBandwidthKnown = false;
         squelchInit(&sSquelch);
         /* Fade in, the same as a band change, so a station does not arrive
@@ -867,6 +887,15 @@ static void radioTask(void *arg) {
     if ((int32_t)(now - nextPoll) >= 0) {
       bool fm = bandModulation(settings.band) == MODULATION_FM;
       qualityOk = tef668xReadQuality(fm, &quality) == TEF668X_OK;
+      if (qualityOk) {
+        /* Every band and every reading that arrived. A failed read leaves the
+         * struct holding the last one, and feeding that in again would count
+         * the same sample twice and make the meter creep towards a number
+         * nothing measured. */
+        sLevelSmoothed =
+            signalAverage(&sDisplayLevelAverage, quality.levelDbuVTenths);
+        sLevelSmoothedValid = true;
+      }
 
       /* The squelch gets a say on every fresh reading, and only on a fresh
        * one. Running it again between readings would make its hold measure
@@ -1011,6 +1040,9 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   squelchInit(&sSquelch);
   signalAverageReset(&sLevelAverage);
   signalAverageReset(&sSnrAverage);
+  signalAverageReset(&sDisplayLevelAverage);
+  sLevelSmoothed = 0;
+  sLevelSmoothedValid = false;
   sBandwidthKnown = false;
   sSquelchMode = SQUELCH_OFF;
   if (settings != NULL && settings->squelchMode < SQUELCH_MODE_COUNT) {

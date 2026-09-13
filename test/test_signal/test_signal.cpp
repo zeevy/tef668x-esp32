@@ -152,6 +152,134 @@ static void a_null_average_gives_the_sample_back(void) {
 
 /* ------------------------------------------------------- formatting */
 
+/* ------------------------------------------------- the number on the screen */
+
+static void the_first_reading_is_shown_as_it_stands(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, 243, true));
+}
+
+static void a_steady_level_never_changes_the_number(void) {
+  /* The swing measured on FM 106.40 on 13 September 2026 was about 1.6 dB on
+   * the smoothed level. Nothing inside that may move the digit. */
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, 240, true));
+  const int16_t swing[] = {233, 249, 236, 245, 238, 247, 241, 235, 244};
+  for (size_t i = 0; i < sizeof(swing) / sizeof(swing[0]); i++) {
+    TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, swing[i], true));
+  }
+}
+
+static void it_takes_a_whole_db_to_move_the_number(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 300, true);
+  /* Nine tenths away is not enough. */
+  TEST_ASSERT_EQUAL_INT16(30, signalDisplayLevel(&d, 309, true));
+  TEST_ASSERT_EQUAL_INT16(30, signalDisplayLevel(&d, 291, true));
+  /* A whole dB away is. */
+  TEST_ASSERT_EQUAL_INT16(31, signalDisplayLevel(&d, 310, true));
+  TEST_ASSERT_EQUAL_INT16(30, signalDisplayLevel(&d, 300, true));
+  TEST_ASSERT_EQUAL_INT16(29, signalDisplayLevel(&d, 290, true));
+}
+
+static void the_boundary_and_either_side_of_it(void) {
+  /* The value on the boundary, one below and one above, which is the rule in
+   * RULES.md for anything with a threshold in it. */
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 400, true);
+  TEST_ASSERT_EQUAL_INT16(40, signalDisplayLevel(&d, 409, true));
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 400, true);
+  TEST_ASSERT_EQUAL_INT16(41, signalDisplayLevel(&d, 410, true));
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 400, true);
+  TEST_ASSERT_EQUAL_INT16(41, signalDisplayLevel(&d, 411, true));
+}
+
+static void a_negative_level_rounds_the_right_way(void) {
+  /* A dead band really does read a little below zero, so the sign has to be
+   * taken before the division or minus five tenths becomes zero. */
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  TEST_ASSERT_EQUAL_INT16(-1, signalDisplayLevel(&d, -5, true));
+  memset(&d, 0, sizeof(d));
+  TEST_ASSERT_EQUAL_INT16(-2, signalDisplayLevel(&d, -21, true));
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, -100, true);
+  TEST_ASSERT_EQUAL_INT16(-11, signalDisplayLevel(&d, -110, true));
+}
+
+static void resetting_takes_the_next_reading_as_it_stands(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 500, true);
+  /* Half a dB away, so without the reset it would still show 50. */
+  TEST_ASSERT_EQUAL_INT16(50, signalDisplayLevel(&d, 505, true));
+  signalDisplayReset(&d);
+  TEST_ASSERT_EQUAL_INT16(51, signalDisplayLevel(&d, 505, true));
+  signalDisplayReset(NULL); /* Must not crash. */
+}
+
+static void a_station_change_waits_for_the_reading_to_catch_up(void) {
+  /* The dial and the reading do not move together. The frequency changes as
+   * soon as the command is worked through and the reading follows about a
+   * tenth of a second later, so there is a moment carrying the new station
+   * and the old level. Starting again on that moment latches the station
+   * just left, and two stations a dB apart then leave the old number on the
+   * screen for good. */
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 244, true); /* On a station reading 24.4. */
+  TEST_ASSERT_EQUAL_INT16(24, d.shownDb);
+
+  signalDisplayStationChanged(&d);
+  /* The old station's level arrives once more, marked as not caught up. */
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, 244, false));
+  /* Now the new station's reading, only half a dB away from the old one. */
+  TEST_ASSERT_EQUAL_INT16(25, signalDisplayLevel(&d, 249, true));
+}
+
+static void a_station_change_holds_the_old_number_meanwhile(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 300, true);
+  signalDisplayStationChanged(&d);
+  /* Several rounds before the reading catches up. The screen must not blink
+   * or jump about while it waits. */
+  for (int i = 0; i < 5; i++) {
+    TEST_ASSERT_EQUAL_INT16(30, signalDisplayLevel(&d, 100, false));
+  }
+  TEST_ASSERT_EQUAL_INT16(10, signalDisplayLevel(&d, 100, true));
+}
+
+static void a_station_change_before_any_reading_is_safe(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayStationChanged(&d);
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, 243, false));
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(&d, 243, true));
+  signalDisplayStationChanged(NULL); /* Must not crash. */
+}
+
+static void resetting_clears_a_pending_station_change(void) {
+  SignalDisplay d;
+  memset(&d, 0, sizeof(d));
+  signalDisplayLevel(&d, 300, true);
+  signalDisplayStationChanged(&d);
+  signalDisplayReset(&d);
+  /* No longer waiting, so a reading marked stale is taken as it stands. */
+  TEST_ASSERT_EQUAL_INT16(10, signalDisplayLevel(&d, 100, false));
+}
+
+static void a_null_display_still_gives_a_number(void) {
+  TEST_ASSERT_EQUAL_INT16(24, signalDisplayLevel(NULL, 243, true));
+  TEST_ASSERT_EQUAL_INT16(25, signalDisplayLevel(NULL, 245, true));
+}
+
 static void a_level_just_below_zero_keeps_its_sign(void) {
   /* Dividing minus five tenths by ten gives zero, so a level a little below
    * zero reads as 0.0 unless the sign is taken before the value is split. A
@@ -204,6 +332,18 @@ int main(int, char **) {
   RUN_TEST(it_follows_a_real_change);
   RUN_TEST(resetting_makes_the_next_sample_the_answer_again);
   RUN_TEST(a_null_average_gives_the_sample_back);
+
+  RUN_TEST(the_first_reading_is_shown_as_it_stands);
+  RUN_TEST(a_steady_level_never_changes_the_number);
+  RUN_TEST(it_takes_a_whole_db_to_move_the_number);
+  RUN_TEST(the_boundary_and_either_side_of_it);
+  RUN_TEST(a_negative_level_rounds_the_right_way);
+  RUN_TEST(resetting_takes_the_next_reading_as_it_stands);
+  RUN_TEST(a_station_change_waits_for_the_reading_to_catch_up);
+  RUN_TEST(a_station_change_holds_the_old_number_meanwhile);
+  RUN_TEST(a_station_change_before_any_reading_is_safe);
+  RUN_TEST(resetting_clears_a_pending_station_change);
+  RUN_TEST(a_null_display_still_gives_a_number);
 
   RUN_TEST(a_level_just_below_zero_keeps_its_sign);
   RUN_TEST(an_ordinary_level_reads_as_it_should);

@@ -98,6 +98,15 @@ static BeepMode sBeepMode = BEEP_OFF;
  */
 #define BEEP_LONG_MS 200
 
+/**
+ * How many things a person has done to this radio, counted for inputActivity.
+ *
+ * Separate from the counts in InputStatus, which are per source and are there
+ * for the diagnostic page. This one answers a different question, which is
+ * whether the radio has been left alone.
+ */
+static uint32_t sActivity = 0;
+
 /** What the knob was last doing, so a change of job can be acted on. */
 static SquelchMode sJob = SQUELCH_OFF;
 static bool sJobKnown = false;
@@ -179,6 +188,7 @@ static void pollEncoder(uint32_t nowMs) {
     return;
   }
   sStatus.clicks += (uint32_t)(clicks < 0 ? -clicks : clicks);
+  sActivity++;
 
   /* One acceleration decision for the batch, then multiplied by how many
    * clicks were in it.
@@ -328,6 +338,7 @@ static void pollButtons(uint32_t nowMs) {
       continue;
     }
     sStatus.presses++;
+    sActivity++;
     /* A long press only, and longer than a keypad tick so the two are told
      * apart by ear. A short press needs nothing: the band changes, the filter
      * changes, the sound stops, and the result is the feedback. A long press
@@ -441,6 +452,7 @@ static void pollKeypad(uint32_t nowMs) {
     return;
   }
   sStatus.presses++;
+  sActivity++;
   if (sBeepMode >= BEEP_KEYS) {
     /* Every key, including the ones that go on to be refused. The beep says
      * the press was seen, which is the question a person is asking when they
@@ -519,6 +531,13 @@ static void pollPot(uint32_t nowMs) {
    * potCalibrateSample gives up on its own after a couple of minutes, so a
    * calibration somebody walked away from cannot leave the knob dead. */
   if (sCal.active) {
+    /* Somebody is standing at the radio sweeping the knob end to end, so
+     * every poll counts as them using it. Without this the return below
+     * skips the activity count and the panel dims under their hand halfway
+     * through the calibration they are doing. potCalibrateSample gives up on
+     * its own after a couple of minutes, so this cannot hold the panel lit
+     * for a radio somebody walked away from. */
+    sActivity++;
     if (potCalibrateSample(&sCal, raw, nowMs)) {
       return;
     }
@@ -527,8 +546,15 @@ static void pollPot(uint32_t nowMs) {
     sPotKnown = false;
   }
 
-  if (!jobChanged && sPotKnown && !potMoved(sPot, raw, &sPotCfg)) {
+  bool moved = potMoved(sPot, raw, &sPotCfg);
+  if (!jobChanged && sPotKnown && !moved) {
     return;
+  }
+  /* Only a real turn counts as somebody using the radio. The reading is taken
+   * twenty times a second and never sits perfectly still, so counting every
+   * one of them would mean the radio was never left alone. */
+  if (sPotKnown && moved) {
+    sActivity++;
   }
   sPot = raw;
   sPotKnown = true;
@@ -612,6 +638,10 @@ bool inputPotCalibrating(uint16_t *rawMin, uint16_t *rawMax) {
     *rawMax = sCal.rawMax;
   }
   return sCal.active;
+}
+
+uint32_t inputActivity(void) {
+  return sActivity;
 }
 
 void inputPoll(void) {

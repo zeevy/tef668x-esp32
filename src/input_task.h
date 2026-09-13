@@ -63,6 +63,22 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction);
 void inputPoll(void);
 
 /**
+ * How many times a person has touched the radio.
+ *
+ * Counts a knob click, a button press, a key press, and a turn of the volume
+ * pot far enough to be a real turn rather than converter noise. Nothing the
+ * web, the tuner or a seek did on its own is in here.
+ *
+ * A caller that wants to know whether the radio has been left alone watches
+ * this one number instead of each source. It only goes up, and it wraps after
+ * about four thousand million events, which a caller comparing it against
+ * what it last saw does not care about.
+ *
+ * @return The count since boot.
+ */
+uint32_t inputActivity(void);
+
+/**
  * What the input layer has seen.
  *
  * Without a screen this is the only way to tell a dead switch from a wrong

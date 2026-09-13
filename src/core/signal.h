@@ -91,6 +91,85 @@ typedef struct {
 int16_t signalAverage(SignalAverage *avg, int16_t sample);
 
 /**
+ * How far the level has to move from the number on the screen before that
+ * number changes, in tenths of a dB.
+ *
+ * Measured on this radio on 13 September 2026, on FM 106.40 at about 24 dBuV
+ * over twenty four seconds. Replaying that capture, a screen showing whole dB
+ * off the smoothed level changed twelve times with no hysteresis and once
+ * with this. A longer average was tried against it and did worse: three
+ * seconds gave two changes and cost up to three seconds of lag.
+ *
+ * It is the distance from the shown value, so with the half dB of rounding
+ * the level has to move a whole dB before the digit follows.
+ */
+#define SIGNAL_DISPLAY_HYSTERESIS_TENTHS 5
+
+/**
+ * The signal level as a person reads it. Zero it before first use.
+ *
+ * Smoothing the value is not enough on its own to make a screen sit still.
+ * The smoothed level still moves a tenth or two between readings, and a
+ * screen printing a decimal place changes the last digit ten times a second,
+ * which reads as flicker whatever the number underneath is doing. So the
+ * screen is given whole dB, and the whole dB is held until the level has
+ * moved clear of it.
+ *
+ * A tenth of a dB is below anything a person acts on. The tenths are still
+ * in the state document, where a script wants them.
+ */
+typedef struct {
+  int16_t shownDb; /**< The whole dBuV currently on the screen. */
+  bool started;    /**< A first reading has been taken. */
+  /**
+   * The dial has moved and the reading has not caught up yet.
+   *
+   * The two do not move together. The dial moves as soon as the command is
+   * worked through; the reading keeps its own cadence. So there is a moment
+   * where the frequency is the new one and the level is still the old
+   * station's, and starting again on the frequency alone would latch the
+   * station that was just left.
+   */
+  bool waitingForStation;
+} SignalDisplay;
+
+/**
+ * Turn a smoothed level into the number to put on the screen.
+ *
+ * @param d              The display state.
+ * @param smoothedTenths The smoothed level, in tenths of a dBuV.
+ * @param fresh          Whether that level was read where the dial is now.
+ *                       A caller with no way to tell passes true.
+ * @return The level to show, in whole dBuV. With d NULL it is the reading
+ *         rounded to whole dB, with nothing held.
+ */
+int16_t signalDisplayLevel(SignalDisplay *d, int16_t smoothedTenths,
+                           bool fresh);
+
+/**
+ * The dial has moved.
+ *
+ * The number on the screen is kept until a reading arrives from where the
+ * dial now is, and that reading is then taken as it stands rather than
+ * having to climb out of the old station's hysteresis band. Two stations a
+ * dB apart would otherwise leave the screen showing the one you left.
+ *
+ * @param d  The display state.
+ */
+void signalDisplayStationChanged(SignalDisplay *d);
+
+/**
+ * Forget what is on the screen, so the next reading is taken as it stands.
+ *
+ * For a fresh start rather than a change of station, such as the screen
+ * coming up. signalDisplayStationChanged is the one to use when the dial
+ * moves, because it waits for the reading to catch up.
+ *
+ * @param d  The display state.
+ */
+void signalDisplayReset(SignalDisplay *d);
+
+/**
  * Forget everything this average has seen.
  *
  * For when the readings stop meaning what they did, such as a change of band

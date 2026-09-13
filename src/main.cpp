@@ -17,6 +17,7 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
+#include "core/backlight.h"
 #include "core/band_plan.h"
 #include "core/input.h"
 #include "core/radio.h"
@@ -156,8 +157,14 @@ void setup() {
   /* The panel first, so there is something to look at while the rest starts.
    * It was after the tuner at first, and the radio could be heard before
    * anything appeared on the screen, which reads as a fault rather than as a
-   * fast start. The panel needs nothing else to be up. */
-  screenTaskBegin();
+   * fast start. The panel needs nothing else to be up.
+   *
+   * The light comes up inside this call. Start up carries on for seconds
+   * after it, through the tuner patch and the Wi-Fi join, so a fade driven
+   * from the loop would leave the panel dark for all of it. */
+  BacklightConfig backlight;
+  backlightFromSettings(&gSettings, &backlight);
+  screenTaskBegin(&backlight);
 
   /* The tuner takes a patch over I2C before it will do anything, so this is
    * where that happens. It is independent of the network, and a failure must
