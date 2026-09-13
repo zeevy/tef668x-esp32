@@ -740,7 +740,7 @@ Nothing here can brick the radio. A check that fails leaves the radio playing ex
 
 **None of this is on the display.** The panel shows the band, the frequency, the signal, stereo, mute and the last fault, and nothing else. The RDS block is part of the screen work in phase 4. So every check here reads `tun.rds` from `GET /api/state`, and the rows that need the radio in hand need it for the knob, the seek button or the power switch, never for something to look at on the panel.
 
-Rows 365 to 375 and 382 to 386 can be done from a browser or a terminal alone, except row 385 which needs the power switch. Rows 376 to 381 need somebody at the radio as well.
+Rows 365 to 375 and 382 to 388 can be done from a browser or a terminal alone, except row 385 which needs the power switch. Rows 376 to 381 need somebody at the radio as well.
 
 ```bash
 R=http://tef668x.local
@@ -774,4 +774,6 @@ curl -s $R/api/rds/raw | head -5
 | 383 | With `rds=0`, watch `tun.seq` over ten seconds on an FM station | It advances about 100 times, not about 320. That is the radio task back to ten rounds a second instead of thirty, which is the whole reason the switch exists |
 | 384 | Set `rds=1` again and wait ten seconds | The name and text come back, decoded from nothing. `grp` starts again from zero rather than carrying on from before it was switched off |
 | 385 | Set `rds=0`, power cycle, and read `tun.rds` | Still off. Then set `rds=1` and power cycle again, and it is still on. The setting survives, and version 10 of the settings struct is the same 196 bytes version 9 was |
-| 386 | Read `tun.rds.ct` on any station | There is no `ct` field. No station reachable here sends the time. If one ever does, the hour shown must be the local hour, not UTC. India is 5.5 hours ahead, so a clock that reads about half a working day slow is the offset not being applied |
+| 386 | `GET /api/settings` and read `cut`, `bld` and `hbl` | All three are 0. The weak signal handling ships off, decision 32. A stored value here that nobody measured rolls the treble off during ordinary listening, which is how 35 came to be in this radio |
+| 387 | Tune a station reading under 35 dBuV, set `cut=35` with `POST /api/fm`, and read `tun.cut` | It is no longer 0, and how far above depends on the gap: about 9 when the signal is 2.6 dB below the start, about 70 when it is 10 dB below. The curve is in HARDWARE.md. Set `cut=0` again and it returns to 0. This is the check that the setting reaches the chip at all |
+| 388 | Read `tun.rds.ct` on any station | There is no `ct` field. No station reachable here sends the time. If one ever does, the hour shown must be the local hour, not UTC. India is 5.5 hours ahead, so a clock that reads about half a working day slow is the offset not being applied |

@@ -855,6 +855,20 @@ The block error tolerance the reference firmware offers as "Show RDS errors" is 
 
 The residual risks, written down because RULES.md asks for it. A station that rotates its name has each name published in turn and nothing says it is a rotation, so once the RDS block reaches the screen in phase 4 it will read as a radio that cannot make up its mind; stitching a long name together out of the passes is a phase 4 question and is ticketed. And no station reachable from here sends an alternative frequency list, sends the time, or changes its identifier under the dial, so those three paths are proved against groups written by hand rather than against a broadcast.
 
+### 32. The weak signal handling ships off, and a start value has to be measured before it is set
+
+All three weak signal starts, the high cut, the stereo blend and the combined blend, ship at 0, which is off. That is what `settingsDefaults` has always done and what the reference firmware ships.
+
+This is written down because it stopped being true on the radio without anyone deciding it. The high cut start sat at 35 dBuV in this unit's stored settings, put there while testing the weak signal features and then kept by decision 29, which writes the radio's settings down on its own. Nothing measured 35 and neither this file nor HARDWARE.md justified it.
+
+**Why 35 was wrong even before asking whether it sounds better.** The roll off is a continuous function of how far the signal is below the start, measured in HARDWARE.md: about 70 per cent when the signal is 10 dB below. Local stations run 25 to 47 dBuV, so a start of 35 sits in the middle of ordinary listening rather than below it. Four of the six local FM stations were being rolled off, two of them past 70 per cent.
+
+**Whether the roll off is audible is still not known**, and the attempts are recorded in HARDWARE.md rather than hidden. Blind listening on music says nothing, because this speaker hides a treble shelf in music, which the de-emphasis work had already established. A microphone measurement of hiss found the treble consistently a few dB lower with the roll off on, three runs including one reversed, but a normal room is too noisy to give a number worth keeping.
+
+So the decision does not rest on audibility. It rests on this: a value that changes what the radio does, that nobody measured, against a default of off. If a start is wanted later, the number has to come from a measurement of where a signal genuinely needs the treble rolled off to stay listenable, and the roll off curve in HARDWARE.md says what any candidate value would actually do.
+
+The residual risk, written down because RULES.md asks for it: a genuinely weak station may be hissier than it needs to be, and nobody here has established whether the chip's roll off would help. What is given up is a feature that was never shown to work, and what is gained is that nothing rolls the treble off during normal listening without a reason.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

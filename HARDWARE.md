@@ -743,6 +743,61 @@ less hiss is usually a good bargain, which is what these do. Whether it is a
 good bargain here is still a listening question, but it is no longer an
 invisible one.
 
+### What the weak signal high cut actually does
+
+Measured on 13 September 2026 for ticket 27, because this radio had the high
+cut start stored at 35 dBuV and nothing had ever measured that number.
+
+**The roll off is a continuous function of how far the signal sits below the
+start, not a switch at the start.** Read from the processing status, command
+134, on two stations at about 24 dBuV while the start was moved:
+
+| Start, dBuV | Level, dBuV | Roll off reported |
+|---|---|---|
+| 0 | 24.7 | 0 |
+| 20 | 24.3 | 0 |
+| 25 | 22.7 | 19 |
+| 30 | 24.3 | 42 |
+| 35 | 24.4 | 70 |
+| 40 | 24.7 | 82 |
+| 50 | 24.9 | 97 |
+| 60 | 24.8 | 100 |
+
+It saturates at 100 and reaches about 70 when the signal is 10 dB below the
+start. That the top of the scale is exactly 100 is the first evidence anyone
+here has for what these processing numbers count, and it points at a
+percentage of the maximum roll off. It is still not written down anywhere
+public, so it is evidence and not a unit.
+
+**What that means for a start value.** Local stations run about 25 to 47 dBuV
+depending on the aerial, so any start inside that range rolls the treble off
+during ordinary listening rather than only on a weak signal. At 35, four of
+the six local FM stations were being rolled off, two of them past 70.
+
+**Whether it is audible was not settled.** Three attempts:
+
+- Three blind A/B rounds on a station playing music, at 52 per cent roll off.
+  All three came back as no difference. That is the method the de-emphasis
+  section above already records as not working, because this speaker rolls the
+  top off a song enough to hide a treble shelf, so it proves little.
+- Recording the speaker with a laptop microphone, one condition per take. Two
+  supposedly identical silent takes differed by 11.9 dB, which is larger than
+  the effect. Not usable.
+- Recording one continuous take and switching the setting halfway, so both
+  halves share the same room. Three runs, one with the order reversed. The
+  band above 5 kHz measured 4.5, 1.7 and 3.8 dB lower with the roll off at
+  100. The direction was the same every time, but the full band control swung
+  from -4.6 to +5.2 dB across the runs, which is the room and not the radio.
+
+So the roll off probably does take a few dB off the treble at the speaker, and
+a normal room is too noisy to say how much. What is certain is that the chip
+applies it, because the chip reports it.
+
+**There is no audio path back into the ESP32.** The tuner feeds a TPA6211A1
+straight to the speaker, and the three ADC pins are the squelch pot, the
+battery sense and the crystal sense. Anything that needs to hear the audio has
+to listen to the speaker from outside.
+
 ### What the RDS decoder in the chip does, measured
 
 Read over `GET /api/rds/raw` on 13 September 2026. The captures and the full working are in `test/fixtures/rds/README.md`.
