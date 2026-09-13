@@ -82,7 +82,9 @@ This is the phase that justifies the architecture. Every item runs under
   September 2026.
 
 Done when: the core builds and passes its tests on a laptop with no hardware
-attached.
+attached. **Done.** The AGC calculation is part of that and passes its tests,
+but nothing calls it yet. Wiring it to the audio needs settings and a way to
+watch it, so that is phase 4.
 
 ## Phase 4: the user interface
 

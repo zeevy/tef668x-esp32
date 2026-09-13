@@ -33,7 +33,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Control API | Every control the radio has, over HTTP. See below |
 | RDS | Station name, radio text, programme type, identifier and the traffic flags, all of them seen on air here. Every field is published only once it has been received twice the same way, so a name that is still arriving is never shown as though it were the name, and a field the radio cannot answer is missing rather than empty. The alternative frequencies and the clock are decoded and tested, but no station reachable from here sends either, so neither has been seen on the radio |
 
-Not built yet: the volume AGC is written and tested but not yet wired to the audio, so the radio does not change volume on its own. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
+Not built yet: the volume AGC is written and tested but not yet wired to the audio, so the radio does not level the volume between stations. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
 
 ## The control API
 

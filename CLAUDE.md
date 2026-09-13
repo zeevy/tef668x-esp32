@@ -8,11 +8,11 @@ Firmware for radio receivers built around the NXP TEF668x tuner and an ESP32.
 The first target is the ATS-125, a portable with an ILI9341 320x240 touch
 display.
 
-**Status: it works as a radio.** Phases 0 to 2 are done and phase 3 is all but
-finished. The radio joins Wi-Fi, updates itself over the air with rollback,
-brings the TEF6686 up with its patch, tunes FM and AM, shows what it is doing
-on the panel, and is worked from the knob, the keypad and the volume pot as
-well as from a browser and the HTTP control API. It seeks for stations, holds a
+**Status: it works as a radio.** Phases 0 to 3 are done. The radio joins
+Wi-Fi, updates itself over the air with rollback, brings the TEF6686 up with
+its patch, tunes FM and AM, shows what it is doing on the panel, and is worked
+from the knob, the keypad and the volume pot as well as from a browser and the
+HTTP control API. It seeks for stations, holds a
 squelch, and writes its settings down on its own so it comes back where you
 left it. Each band keeps its own frequency, filter width, step and tuning mode.
 The panel light fades up at start up, and can dim after the radio is left
@@ -29,10 +29,10 @@ no local station sends either, so neither has been seen on the radio. The
 decoder can be switched off with `rds` in the settings, which takes the radio
 task on FM from a round every 31 ms back to every 99 ms.
 
-All that is left in phase 3 is the volume AGC, which is written and tested but
-nothing calls it yet, so the radio does not change volume on its own. Then touch, LVGL,
-telemetry, the spectrum and the clock, which are phases 4 to 6 in
-[ROADMAP.md](ROADMAP.md).
+The volume AGC is written and tested but nothing calls it yet, so the radio
+does not level the volume between stations. Wiring it needs settings and a way
+to watch it, so it is ticket 34 in phase 4. Then touch, LVGL, telemetry, the
+spectrum and the clock, which are phases 4 to 6 in [ROADMAP.md](ROADMAP.md).
 
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
