@@ -745,6 +745,20 @@ The reason for `POST /api/save` rather than a stored value beside every live one
 
 The volume belongs to the knob, and a stored volume arguing with the knob at every start up is exactly what this refuses. There is one exception, and it is the reason the exception is safe: in manual squelch the knob is the squelch control and never touches the volume, so in that one mode nothing on the radio says how loud to be. `startVolumeDb` is stored for that case and read in no other. Without it a radio left in manual squelch comes up at whatever the threshold maps to, which is full volume at one end of the travel and silence at the other.
 
+### 27. The start up chime is on by default, the other beeps are not
+
+Every other beep ships off: key presses, long presses and the band edge. The chime at start up ships on.
+
+That is inconsistent on purpose, and the reason is what each one answers.
+
+The other beeps confirm something a person just did. They already know they pressed the key, so the beep adds confidence rather than information, and whether it is worth hearing every time is a matter of taste. Off is the safe default for anything in that class, because a radio that makes a noise nobody asked for is worse than one that is quiet.
+
+The chime answers something else: whether the radio came on at all. That question is asked by somebody who has pressed the power button and is waiting, and it is the one moment when silence and a fault look the same. It also arrives before the station does, so it is the only sound that says the tuner was patched and made active successfully.
+
+The residual risk, written down because RULES.md asks for it: a radio updated from version 5 starts chiming without anybody having asked. It is one tone of four tenths of a second, it is switchable on the Radio page under Sounds and fades, and `POST /api/settings -d 'bps=0'` turns it off.
+
+Checklist row 283 says that with every one of these switched off the radio behaves as it did before the polish was added. That still holds, but it now means switching four things off rather than three.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

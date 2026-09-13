@@ -453,13 +453,27 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 282 | Upload firmware from the System page while listening | The same. The reboot path is shared |
 | 282a | Upload over the air with `pio run -e ats125 -t upload --upload-port <ip>` | The same. This is a different path and needed its own call |
 | 282b | Turn the knob or press a button during the second between the ramp and the restart | Nothing comes back. Once the hush has run the radio stops writing to the tuner, or the knob would put the volume straight back and two tasks would be on the I2C bus at once |
-| 283 | Set every one of them off, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake |
+| 283 | Set all four off, the ramp, both beeps and the chime, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake. The chime is the one that ships on, which is decision 27 |
 | 284 | Change any of them and power cycle | They come back as set |
 | 285 | Power cycle with Chime at start up on | A single longer tone as it comes up, before any station audio. It cannot come earlier than that: the tone generator is inside the tuner, so there is nothing to beep with until the patch has gone in |
 | 286 | Listen to what follows the chime | The station fades in afterwards, as it always did. The chime must not leave the audio muted or leave the path on the generator |
-| 287 | Set Chime at start up off and power cycle | Silent until the station arrives |
+| 287 | Set Chime at start up off and power cycle | Silent until the station arrives. Check it again after that power cycle: a switch that says Saved and changes nothing is how this one went wrong the first time |
 | 288 | Power cycle with the volume knob right down | The chime is quiet too. It is played at the volume the radio is about to come up at, so it also tells you how loud the knob is set |
 | 289 | Power cycle with the tuner disconnected or failing to start | No chime, and the radio still comes up and is reachable. A chime that needs the tuner must not become a reason the radio does not boot |
+
+### Every page control actually does something
+
+The keys and arguments were shortened to three letters. Four tables of argument names inside the handlers were missed by that rename, so the page posted the new name and the handler looked for the old one. Two of them failed **silently**: the endpoint answered 200 and reported the value unchanged.
+
+This is the check that would have caught it, and it is worth running after any rename.
+
+| # | Do this | Expect |
+|---|---|---|
+| 290 | For each control on `/radio`, change it and read the reply | The reply names the new value, not the old one. A 200 that reports the old value is a control that did nothing |
+| 291 | `POST /api/fm -d 'bld=30'` then `-d 'hbl=35'` | The reply shows blend 30 and hiblend 35. These two were the silent ones |
+| 292 | `POST /api/fm -d 'mno=1'` then `mno=0` | stereo and mono in the reply. This one at least answered 400 when it was wrong |
+| 293 | `POST /api/settings -d 'rgn=4'` | `200`. The band plan controls were posting a name the handler did not know |
+| 294 | Compare the names in `README.md` against the tables in `web_update.cpp` | They agree. The documents were right and the code was not |
 
 ### The web pages
 

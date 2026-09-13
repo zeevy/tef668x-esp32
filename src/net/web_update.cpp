@@ -2140,16 +2140,16 @@ static void handleApiSettingsPost(void) {
     long high;
     bool atStart;
   } stored[] = {
-      {"region", 0, (long)FM_REGION_COUNT - 1, true},
-      {"spacing", 0, (long)MW_SPACING_10K, true},
-      {"encoder", 0, (long)ENCODER_OPTICAL, true},
-      {"direction", 0, (long)ENCODER_REVERSED, true},
-      {"fmsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
-      {"amsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
+      {"rgn", 0, (long)FM_REGION_COUNT - 1, true},
+      {"spc", 0, (long)MW_SPACING_10K, true},
+      {"enc", 0, (long)ENCODER_OPTICAL, true},
+      {"edr", 0, (long)ENCODER_REVERSED, true},
+      {"fsn", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
+      {"asn", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
       {"smu", 0, 500, false},
       {"bpk", 0, (long)BEEP_MODE_COUNT - 1, false},
       {"bpe", 0, 1, false},
-      {"bps", 0, 1, false},
+      {"bps", 0, 1, true},
   };
   /* Sized from the table, not from a number written beside it. A seventh row
    * would otherwise run off the end of all three of these with no warning. */
@@ -2177,8 +2177,8 @@ static void handleApiSettingsPost(void) {
 
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
-            "Give ssid, pin, region, spacing, encoder, direction, fmsens, "
-            "amsens, smu, bpk, bpe or bps, or any mix of them.");
+            "Give sid, pin, rgn, spc, enc, edr, fsn, asn, smu, bpk, bpe or "
+            "bps, or any mix of them.");
     return;
   }
 
@@ -2197,7 +2197,14 @@ static void handleApiSettingsPost(void) {
       &pending.amScanSensitivity,
       NULL,
       &pending.beepKey,
-      &pending.beepEdge};
+      &pending.beepEdge,
+      &pending.beepStart};
+  /* The compiler checks the two tables are the same length. An entry left
+   * out is otherwise value initialised to NULL and silently does nothing,
+   * which is how the chime came to be unswitchable. */
+  static_assert(
+      sizeof(fields) / sizeof(fields[0]) == sizeof(stored) / sizeof(stored[0]),
+      "every row of stored needs a slot in fields");
   for (int i = 0; i < kStored; i++) {
     if (given[i] && fields[i] != NULL) {
       *fields[i] = (uint8_t)values[i];
@@ -2270,9 +2277,7 @@ static void handleApiSettingsPost(void) {
     if (said.length() > 0) {
       said += F(" ");
     }
-    said +=
-        F("The band plan and the knob are read at start up, so reboot "
-          "for those to take effect.");
+    said += F("Read at start up, so reboot for that to take effect.");
   }
   if (wantPin) {
     if (said.length() > 0) {
@@ -2710,7 +2715,7 @@ static void handleApiFm(void) {
   } features[] = {
       {"ims", RADIO_SET_MPH_SUPPRESSION},
       {"eq", RADIO_SET_EQUALIZER},
-      {"mono", RADIO_SET_MONO},
+      {"mno", RADIO_SET_MONO},
   };
 
   /* Every argument is read and checked before any command is sent, so a
@@ -2755,7 +2760,7 @@ static void handleApiFm(void) {
     weak[0] = now.settings.highCutStart;
     weak[1] = now.settings.stereoBlendStart;
     weak[2] = now.settings.stHiBlendStart;
-    const char *names[3] = {"cut", "blend", "hiblend"};
+    const char *names[3] = {"cut", "bld", "hbl"};
     for (int i = 0; i < 3; i++) {
       if (!sServer.hasArg(names[i])) {
         continue;
@@ -2788,7 +2793,7 @@ static void handleApiFm(void) {
     }
     blanker[0] = now.settings.amNoiseBlankerStart;
     blanker[1] = now.settings.fmNoiseBlankerStart;
-    const char *names[2] = {"amnb", "fmnb"};
+    const char *names[2] = {"anb", "fnb"};
     for (int i = 0; i < 2; i++) {
       if (!sServer.hasArg(names[i])) {
         continue;

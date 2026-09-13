@@ -167,9 +167,7 @@ void settingsDefaults(Settings *s) {
   s->beepKey = (uint8_t)BEEP_OFF;
   s->beepEdge = 0;
 
-  /* Version 6. On, because a radio that says it is awake is the one beep
-   * worth having by default: it is the answer to "did it come on", which is
-   * a question the other beeps are not asked. */
+  /* Version 6. On, unlike the other beeps. See decision 27. */
   s->beepStart = 1;
 }
 

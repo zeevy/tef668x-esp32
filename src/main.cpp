@@ -197,29 +197,41 @@ void setup() {
     startVolume = potVolumeDb(potRead(), &pot);
   }
 
-  /* The radio says it is awake, before it says anything else.
+  /* A tone at start up, once the tuner is ready.
    *
    * It cannot come any earlier. The tone generator is inside the tuner, so
-   * there is nothing to beep with until the patch has gone in and the chip is
+   * there is nothing to sound until the patch has gone in and the chip is
    * active. This is also the last moment it can be done directly: from the
    * next few lines the tuner belongs to the radio task.
    *
-   * The output is muted at the end of tef668xBegin, so the mute comes off for
-   * the tone and goes back on afterwards. Nothing of the station is heard in
-   * between, because the audio path is switched to the generator for the
-   * length of the tone and back at the end of it. */
+   * The order keeps the station inaudible throughout. The tone is started
+   * first, which switches the audio path to the generator, and only then is
+   * the mute lifted. Coming out, the mute goes back on before the tone is
+   * stopped, because stopping it puts the path back on the tuner. Doing
+   * either the other way round lets one I2C command's worth of untuned FM
+   * noise out, which is what the mute at the end of tef668xBegin exists to
+   * prevent. */
   if (gSettings.beepStart != 0 && gTunerError == TEF668X_OK) {
-    tef668xSetVolume(startVolume);
-    tef668xSetMute(false);
-    if (tef668xTone(true, START_BEEP_AMPLITUDE, START_BEEP_HZ, START_BEEP_HZ) ==
-        TEF668X_OK) {
+    /* Checked, because a failed volume write leaves the chip on its power up
+     * default of full scale and the chime would be far louder than the radio
+     * is about to be. */
+    bool volumeOk = tef668xSetVolume(startVolume) == TEF668X_OK;
+    if (volumeOk && tef668xTone(true, START_BEEP_AMPLITUDE, START_BEEP_HZ,
+                                START_BEEP_HZ) == TEF668X_OK) {
+      tef668xSetMute(false);
       delay(START_BEEP_MS);
+      tef668xSetMute(true);
     }
-    /* Whether or not the tone started. Turning it off is also what puts the
-     * audio path back on the tuner, so skipping it after a failure is how a
-     * radio ends up silent. */
-    tef668xTone(false, 0, 0, 0);
-    tef668xSetMute(true);
+    /* Whether or not any of that worked, and tried again if it fails.
+     * Stopping the tone is also what puts the audio path back on the tuner,
+     * and nothing else in this firmware ever writes that register, so a radio
+     * left pointing at the generator stays silent until the next reboot. */
+    for (int i = 0; i < 3; i++) {
+      if (tef668xTone(false, 0, 0, 0) == TEF668X_OK) {
+        break;
+      }
+      delay(5);
+    }
   }
 
   if (!radioTaskStart(&gSettings, &plan, startVolume)) {
