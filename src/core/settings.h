@@ -25,7 +25,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 8
+#define SETTINGS_VERSION 9
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -164,6 +164,29 @@ typedef struct {
   uint16_t bandBandwidthKHz[BAND_COUNT]; /**< Filter width, per band. */
   uint16_t bandStepKHz[BAND_COUNT];      /**< Step size, per band. */
   uint8_t bandTuneMode[BAND_COUNT];      /**< See TuneMode, per band. */
+
+  /* Version 9. */
+  /**
+   * The level an FM signal has to reach for the auto squelch, in dBuV.
+   *
+   * 0 switches the floor off and leaves the squelch judging on noise,
+   * multipath and offset alone, which is what the reference firmware does
+   * and what this radio did before the floor existed.
+   *
+   * It is a setting because it is the fragile number. The channel beside a
+   * strong station is what it rejects, and how strong that channel reads
+   * depends on where you are and what is on air: measured here it moved
+   * three dB in a few hours, and the usable window between the loudest
+   * shoulder and the weakest station is a handful of dB. Somebody in another
+   * place will need to move it, and a number nobody can reach is a number
+   * that goes wrong quietly.
+   *
+   * Whole dBuV rather than tenths, and 0 meaning off, to match every other
+   * setting here. The cost is that a floor of exactly 0.0 dBuV cannot be
+   * asked for, which is no loss: a dead channel on this radio reads below
+   * zero, so 0.0 rejects nothing a station would fail.
+   */
+  uint8_t fmSquelchFloor;
 } Settings;
 
 /**

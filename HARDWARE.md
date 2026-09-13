@@ -334,6 +334,63 @@ With the start at 0 the reading holds steady at 0.
 So the standing rule for any listening test on this radio: read `cut`, `bld`
 and `hbl` in `/api/state` first and make sure all three are 0.
 
+### The shoulder of a strong station looks exactly like a station
+
+Measured on 13 September 2026. This is why the auto squelch has a level floor
+and why the floor is judged on a smoothed reading.
+
+The channel either side of a strong station is not empty. The sidebands of the
+station next door reach into it, so the tuner reports low ultrasonic noise and
+low multipath there, which is everything the squelch looks at. On 102.0 MHz,
+beside 101.9, the reading passed the noise and multipath test on 10 of 12
+samples, and the audio sat open on a channel with nothing worth hearing.
+
+**Level separates them and stability separates them better.** A station holds
+its level. A shoulder does not.
+
+| Channel | What it is | Raw level, dBuV | Smoothed by the radio |
+|---|---|---|---|
+| stations | six of them | 16.4 to 42.2 | 25.3 to 41.3 |
+| 102000 | shoulder of 101.9 | 1.1 to 13.2 | 4.6 to 6.8 |
+| 91000 | shoulder of 91.1 | 4.9 to 24.8 | 13.0 to 16.2 |
+| 105000 | genuinely empty | -2.5 to 9.0 | 0.7 to 3.5 |
+
+The raw level on a shoulder reaches 24.8 dBuV, above the 19.6 dBuV of the
+weakest station in the seek sweep, so a floor on the reading alone cannot
+separate them. Smoothed, the shoulders fall to 16.2 and below while a station
+barely moves.
+
+**The smoothing has to be the radio's own.** `signalAverage` forgets per
+reading, not per millisecond, so a capture taken at three readings a second
+smooths over three and a third seconds where the radio smooths over one. An
+earlier attempt fitted the floor to a replay of a three hertz capture and got
+a shoulder figure of 18.2 dBuV, which is not a number this radio ever
+produces. The radio's own smoothed level is captured alongside the raw one
+instead.
+
+**What it did on the radio.** Before, 23 of 25 readings open with four
+changes of state. After, measured the same way over thirty readings:
+
+| Channel | Open | Changes of state |
+|---|---|---|
+| 102.0, shoulder | 0 of 30 | 0 |
+| 91.0, shoulder | 0 of 30 | 0 |
+| 105.0, empty | 0 of 30 | 0 |
+| 92.7, station | 30 of 30 | 0 |
+| 101.9, station | 30 of 30 | 0 |
+
+**Opening is still quick.** Tuning from a shut shoulder straight to a station,
+the audio opened 0.30, 0.31 and 0.41 seconds after the tune command over three
+trials, including the HTTP round trip and the tuner settling. It was 0.17 to
+0.25 s before opening required two of the last three readings, so about 0.15 s
+of that is the price of not opening on one reading. The level average is
+started again on every retune, without which it would be about a second.
+
+The working, the capture and the honest limits are in
+`test/fixtures/squelch/README.md`. The margin between the highest smoothed
+shoulder reading and the lowest station reading is about 1.4 dB across two
+days, which is not comfortable, and a third day of measuring is worth doing.
+
 ### The volume pot never sits still, and that is why the dim works
 
 Measured on 13 September 2026, over half a minute with nobody touching the

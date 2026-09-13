@@ -278,6 +278,19 @@ void radioSetSoftMuteMs(uint16_t ms);
 void radioSetEdgeBeep(bool on);
 
 /**
+ * The level an FM signal has to reach before the auto squelch opens.
+ *
+ * The channel beside a strong station passes every other test the squelch
+ * applies, because the sidebands of the station next door really are in the
+ * channel. Only level separates them, and how strong that channel reads
+ * depends on where the radio is, so this is settable rather than fixed.
+ *
+ * @param dbuv  The floor in whole dBuV, or 0 to judge on noise, multipath
+ *              and offset alone.
+ */
+void radioSetSquelchFloor(uint8_t dbuv);
+
+/**
  * Take the audio down and mute, then return.
  *
  * For a reboot or a firmware update, so neither ends in a click. Blocks for

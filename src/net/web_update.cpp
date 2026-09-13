@@ -10,6 +10,7 @@
 #include "core/band_plan.h"
 #include "core/input.h"
 #include "core/signal.h"
+#include "core/squelch.h"
 #include "core/version.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
@@ -684,12 +685,20 @@ static String radioForms(void) {
                       st->fmScanSensitivity, "data-api='/api/settings'");
     out += formSelect("asn", "AM", sensNames, sensValues, 6,
                       st->amScanSensitivity, "data-api='/api/settings'");
+    out += formNumber("sqf", "Squelch floor, dBuV", 0,
+                      SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV, st->fmSquelchFloor,
+                      "data-api='/api/settings'");
   }
   out +=
       F("</div><p class='small text-secondary mt-2 mb-0'>Higher settles "
         "for a weaker signal and stops more often on things that are not "
-        "stations. This one takes effect at once, with no reboot."
-        "</p></details>");
+        "stations. This one takes effect at once, with no reboot.</p>"
+        "<p class='small text-secondary mt-2 mb-0'>The squelch floor is what "
+        "keeps the automatic squelch shut on the channel beside a strong "
+        "station, which looks like a station to everything except the "
+        "level. 0 switches it off. Raise it if the radio opens on nothing "
+        "next to a strong station, lower it if it mutes a weak station you "
+        "can hear.</p></details>");
 
   /* The polish. Folded away because none of it changes what the radio
    * receives, and because a beep is the sort of thing somebody switches on
@@ -2090,6 +2099,7 @@ static void handleApiMode(void) {
  * | `dem` | The stored FM de-emphasis, in microseconds |
  * | `abw` | The width the AM bands come up on |
  * | `blt`, `bdm`, `bds`, `blf` | The panel light |
+ * | `sqf` | The auto squelch level floor in dBuV, 0 for off |
  *
  * These are what is stored, which is not always what the radio is set to now.
  * /api/state says what it is set to now. POST /api/save makes the two agree.
@@ -2164,6 +2174,8 @@ static void handleApiSettingsGet(void) {
   out += st->beepEdge;
   out += F(",\"bps\":");
   out += st->beepStart;
+  out += F(",\"sqf\":");
+  out += st->fmSquelchFloor;
   out += F(",\"blt\":");
   out += st->backlightPercent;
   out += F(",\"bdm\":");
@@ -2189,6 +2201,7 @@ static void handleApiSettingsGet(void) {
  * | `enc` | 0 or 1 | at start | Which encoder is fitted, standard or optical |
  * | `edr` | 0 or 1 | at start | Normal, or reversed |
  * | `bps` | 0 or 1 | at start | Chime when the radio comes on |
+ * | `sqf` | 0 to 40 | at once | Auto squelch FM level floor, dBuV. 0 is off |
  * | `fsn` | 1 to 6 | at once | How fussy seek is on FM. Higher finds weaker |
  * | `asn` | 1 to 6 | at once | The same on the AM bands |
  * | `smu` | 0 to 500 | at once | The mute and squelch ramp, in ms. 0 is off |
@@ -2249,6 +2262,7 @@ static void handleApiSettingsPost(void) {
       {"bpk", 0, (long)BEEP_MODE_COUNT - 1, false},
       {"bpe", 0, 1, false},
       {"bps", 0, 1, true},
+      {"sqf", 0, SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV, false},
       {"blt", BACKLIGHT_MIN_AWAKE, 100, false},
       {"bdm", 0, 100, false},
       {"bds", 0, BACKLIGHT_DIM_AFTER_MAX_S, false},
@@ -2283,7 +2297,7 @@ static void handleApiSettingsPost(void) {
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
             "Give sid, pin, rgn, spc, enc, edr, fsn, asn, smu, bpk, bpe, "
-            "bps, blt, bdm, bds or blf, or any mix of them.");
+            "bps, sqf, blt, bdm, bds or blf, or any mix of them.");
     return;
   }
 
@@ -2304,6 +2318,7 @@ static void handleApiSettingsPost(void) {
       &pending.beepKey,
       &pending.beepEdge,
       &pending.beepStart,
+      &pending.fmSquelchFloor,
       &pending.backlightPercent,
       &pending.backlightDimPercent,
       &pending.backlightDimAfterS,
@@ -2376,6 +2391,7 @@ static void handleApiSettingsPost(void) {
      * nothing for a change to be unfair to. */
     radioSetSoftMuteMs(pending.softMuteMs);
     radioSetEdgeBeep(pending.beepEdge != 0);
+    radioSetSquelchFloor(pending.fmSquelchFloor);
     inputSetBeeps((BeepMode)pending.beepKey);
     /* The panel light changes while the person is looking at it, which is the
      * only way a brightness can be chosen. */

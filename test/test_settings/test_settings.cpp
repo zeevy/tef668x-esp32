@@ -11,6 +11,7 @@
 #include "core/radio.h"
 #include "core/seek.h"
 #include "core/settings.h"
+#include "core/squelch.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -335,6 +336,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** And version 7. */
 #define V7_SIZE 148
 
+/** And version 8, which is the same length as version 9. */
+#define V8_SIZE 196
+
 /**
  * Build a version 2 blob out of a current one.
  *
@@ -613,6 +617,56 @@ static void a_stored_tuning_mode_outside_the_enum_is_refused(void) {
   TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
+static void a_version_8_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* fmSquelchFloor sits at 193, inside the three bytes version 8 wrote as
+   * padding after its last per band array. Version 9 is therefore the same
+   * length as version 8, and the version field is the only thing telling
+   * them apart, which is the case worth a test of its own. */
+  TEST_ASSERT_EQUAL_size_t(193, offsetof(Settings, fmSquelchFloor));
+  TEST_ASSERT_EQUAL_size_t(V8_SIZE, sizeof(Settings));
+
+  Settings source;
+  settingsDefaults(&source);
+  source.startFreqKHz = 91100;
+  source.bandFreqKHz[BAND_MW] = 738;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V8_SIZE);
+  blob[193] = 0xAB; /* Padding, as far as version 8 was concerned. */
+  blob[194] = 0xCD;
+  blob[195] = 0xEF;
+  uint16_t version = 8;
+  uint16_t size = V8_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V8_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT32(91100, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT32(738, out.bandFreqKHz[BAND_MW]);
+
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.fmSquelchFloor, out.fmSquelchFloor);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void the_squelch_floor_has_a_range(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_EQUAL_UINT8(SQUELCH_FM_LEVEL_FLOOR_DBUV, s.fmSquelchFloor);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  s.fmSquelchFloor = 0; /* Off is a real choice. */
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmSquelchFloor = SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.fmSquelchFloor = SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV + 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
 static void the_panel_light_settings_have_ranges(void) {
   Settings s;
   settingsDefaults(&s);
@@ -865,6 +919,8 @@ int main(int, char **) {
   RUN_TEST(a_version_5_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_6_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_7_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_8_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(the_squelch_floor_has_a_range);
   RUN_TEST(a_stored_tuning_mode_outside_the_enum_is_refused);
   RUN_TEST(the_panel_light_settings_have_ranges);
   RUN_TEST(the_polish_settings_have_ranges);

@@ -24,7 +24,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Panel | The band, the frequency, the signal, stereo, mute and the last fault, on the ILI9341. The signal is smoothed and shown in whole dB, so it sits still |
 | Controls | The tuning knob, the BAND, BW and MODE buttons, the keypad and the volume pot, all sharing one path into the tuner with the API |
 | Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
-| Squelch | Off, automatic or manual, with the pot as the threshold in manual |
+| Squelch | Off, automatic or manual, with the pot as the threshold in manual. Automatic stays shut on the channel beside a strong station, which looks like a station to everything except the level. The level floor is a setting, because how loud that channel reads depends on where you are |
 | Settings | Kept across a power cycle, and written down on their own ten seconds after you stop changing anything |
 | Per band | Each band remembers its own frequency, filter width, step size and tuning mode, and all of it survives a power cycle |
 | Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. A chime at start up, and key and band edge beeps, through the tuner's own tone generator |
@@ -48,7 +48,7 @@ curl -s -b jar -d 'bnd=MW'    $R/api/band
 
 The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
 
-Everything the radio is set to is held in one place and changed through the endpoints above, which act at once. `POST /api/save` writes what it is set to now into NVS, so it comes up that way next time. `GET /api/settings` says what is stored, which is not always what it is set to now, and `POST /api/settings` takes the fourteen that are not part of what the radio is tuned to. Six of them are read at start up and a change needs a reboot: the FM band plan `rgn`, the medium wave spacing `spc`, which encoder is fitted `enc` and which way round `edr`, whether the radio chimes when it comes on `bps`, and whether the panel fades up `blf`. The other eight act at once: the seek sensitivities `fsn` and `asn`, the mute and squelch ramp in milliseconds `smu`, which presses beep `bpk`, the band edge beep `bpe`, the panel brightness `blt`, the brightness it dims to `bdm`, and how many seconds of being left alone come first `bds`. The reply says which of the two happened.
+Everything the radio is set to is held in one place and changed through the endpoints above, which act at once. `POST /api/save` writes what it is set to now into NVS, so it comes up that way next time. `GET /api/settings` says what is stored, which is not always what it is set to now, and `POST /api/settings` takes the fifteen that are not part of what the radio is tuned to. Six of them are read at start up and a change needs a reboot: the FM band plan `rgn`, the medium wave spacing `spc`, which encoder is fitted `enc` and which way round `edr`, whether the radio chimes when it comes on `bps`, and whether the panel fades up `blf`. The other nine act at once: the seek sensitivities `fsn` and `asn`, the mute and squelch ramp in milliseconds `smu`, which presses beep `bpk`, the band edge beep `bpe`, the auto squelch level floor in dBuV `sqf`, the panel brightness `blt`, the brightness it dims to `bdm`, and how many seconds of being left alone come first `bds`. The reply says which of the two happened.
 
 The panel settings act at once on purpose. A brightness can only be chosen by looking at the panel set to it, so one that waited for a reboot could not be chosen at all. `bds` at 0 never dims, which is what a radio nobody has told otherwise ships with. See decision 28.
 
@@ -83,6 +83,7 @@ Every key in a document and every argument in a request is three characters or f
 | `edr` | encoder direction | `fsn` | FM seek sensitivity | `asn` | AM seek sensitivity |
 | `sbd` | band it comes up on | `sfq` | frequency it comes up on | `svl` | volume it comes up at |
 | `smu` | mute ramp, ms | `bpk` | which presses beep | `bpe` | band edge beep |
+| `sqf` | auto squelch level floor, dBuV | | | | |
 | `bps` | chime at start up | `blt` | panel brightness | `bdm` | brightness when dimmed |
 | `bds` | seconds before it dims | `blf` | fade the panel up | `pnl` | the panel light block |
 | `lit` | how bright it is now | `dim` | it has dimmed | `sdb` | signal on the panel |

@@ -58,6 +58,9 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       /* Written out by hand, like the versions before it. */
       return 148;
     case 8:
+      /* Written out by hand, like the versions before it. */
+      return 196;
+    case 9:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -100,6 +103,8 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
     case 7:
       return offsetof(Settings, bandFreqKHz);
     case 8:
+      return offsetof(Settings, fmSquelchFloor);
+    case 9:
       return sizeof(Settings);
     default:
       return 0;
@@ -205,6 +210,10 @@ void settingsDefaults(Settings *s) {
     s->bandStepKHz[i] = 0;
     s->bandTuneMode[i] = 0;
   }
+
+  /* Version 9. Measured on this radio, and the working is in
+   * test/fixtures/squelch/README.md. */
+  s->fmSquelchFloor = SQUELCH_FM_LEVEL_FLOOR_DBUV;
 }
 
 bool settingsValid(const Settings *s) {
@@ -313,6 +322,11 @@ bool settingsValid(const Settings *s) {
     if (s->bandTuneMode[i] >= (uint8_t)TUNE_MODE_COUNT) {
       return false;
     }
+  }
+  /* A floor above anything the band produces would mute every station, so
+   * the range stops well short of that. 0 switches it off. */
+  if (s->fmSquelchFloor > SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV) {
+    return false;
   }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||
       s->fmScanSensitivity > SEEK_SENSITIVITY_MAX ||

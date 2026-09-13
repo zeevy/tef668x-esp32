@@ -279,6 +279,7 @@ void setup() {
 
   /* The polish, all of it switchable off in the settings. */
   radioSetSoftMuteMs(gSettings.softMuteMs);
+  radioSetSquelchFloor(gSettings.fmSquelchFloor);
   radioSetEdgeBeep(gSettings.beepEdge != 0);
   inputSetBeeps((BeepMode)gSettings.beepKey);
 

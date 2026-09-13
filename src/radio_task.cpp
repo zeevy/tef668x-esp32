@@ -120,6 +120,17 @@ static bool sBandwidthKnown = false;
 
 static SquelchMode sSquelchMode = SQUELCH_OFF;
 
+/**
+ * The squelch thresholds. Only the level floor is settable; the rest are the
+ * measured defaults.
+ *
+ * Written from other tasks and copied out by the radio task under sLock, the
+ * same as the squelch mode and threshold beside it. Copied rather than read
+ * in place, so that one decision sees one consistent set however many fields
+ * become settable later.
+ */
+static SquelchConfig sSquelchCfg;
+
 /* ------------------------------------------------------------------ seek --
  *
  * Owned by the radio task and touched from nowhere else, except the config,
@@ -802,6 +813,13 @@ static void radioTask(void *arg) {
         signalAverageReset(&sSnrAverage);
         signalAverageReset(&sDisplayLevelAverage);
         sLevelSmoothedValid = false;
+        /* The squelch keeps its own average of the level and it means
+         * nothing here any more. Left running, landing on a station from the
+         * shoulder of another one would hold the audio shut for about a
+         * second while the average climbed, which is the front of the
+         * station gone. Only the average is started again: whether the audio
+         * is open carries across a retune. */
+        squelchRetuned(&sSquelch);
         sBandwidthKnown = false;
       }
     }
@@ -909,13 +927,19 @@ static void radioTask(void *arg) {
 
       SquelchMode mode;
       int16_t threshold;
+      /* Copied out, not read in place. The thresholds are written from other
+       * tasks, and squelchUpdate reads them several times while it decides,
+       * so a copy is what makes that decision see one consistent set. */
+      SquelchConfig cfg;
       if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
         mode = sSquelchMode;
         threshold = sSquelchThreshold;
+        cfg = sSquelchCfg;
         xSemaphoreGive(sLock);
       } else {
         mode = sSquelchMode;
         threshold = sSquelchThreshold;
+        cfg = sSquelchCfg;
       }
       /* Only a reading that arrived, and only from the FM side.
        *
@@ -955,7 +979,7 @@ static void radioTask(void *arg) {
        * the hold and the hysteresis on noise. The squelch is started again
        * when the seek stops. */
       if (!sSeeking) {
-        squelchUpdate(&sSquelch, NULL, mode, settings.band, &reading, threshold,
+        squelchUpdate(&sSquelch, &cfg, mode, settings.band, &reading, threshold,
                       millis());
       }
 
@@ -1038,6 +1062,13 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   /* Open. A zeroed squelch is a shut one, and the radio would come up silent
    * and stay that way until the first reading arrived. */
   squelchInit(&sSquelch);
+  squelchDefaults(&sSquelchCfg);
+  if (settings != NULL) {
+    sSquelchCfg.fmLevelFloorTenths =
+        settings->fmSquelchFloor == 0
+            ? SQUELCH_LEVEL_FLOOR_OFF
+            : (int16_t)(settings->fmSquelchFloor * 10);
+  }
   signalAverageReset(&sLevelAverage);
   signalAverageReset(&sSnrAverage);
   signalAverageReset(&sDisplayLevelAverage);
@@ -1221,6 +1252,20 @@ void radioResume(void) {
 
 void radioSetSoftMuteMs(uint16_t ms) {
   sSoftMuteMs = ms;
+}
+
+void radioSetSquelchFloor(uint8_t dbuv) {
+  int16_t tenths = dbuv == 0 ? SQUELCH_LEVEL_FLOOR_OFF : (int16_t)(dbuv * 10);
+  if (sLock != NULL && xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    sSquelchCfg.fmLevelFloorTenths = tenths;
+    xSemaphoreGive(sLock);
+    return;
+  }
+  /* The lock is only ever held long enough to copy a struct, so this is not
+   * reached in practice. Writing anyway beats dropping the change: a single
+   * aligned store cannot tear, and the radio task reads it on its next
+   * round. */
+  sSquelchCfg.fmLevelFloorTenths = tenths;
 }
 
 void radioSetEdgeBeep(bool on) {
