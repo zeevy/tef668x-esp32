@@ -1,7 +1,4 @@
-/**
- * @file screen_task.cpp
- * @brief Implementation of the screen glue.
- */
+/* Implementation of the screen glue. */
 #include "screen_task.h"
 
 #include "board/board.h"
@@ -16,7 +13,7 @@
 #include <Arduino.h>
 #include <stdio.h>
 
-/**
+/*
  * How often the screen is looked at, in milliseconds.
  *
  * The radio publishes ten times a second, so anything faster than this only
@@ -25,7 +22,7 @@
  */
 #define SCREEN_POLL_MS 40
 
-/**
+/*
  * How often the panel light is stepped during the fade at boot, in ms.
  *
  * The fade runs inside screenTaskBegin, so this is a plain delay and nothing
@@ -37,12 +34,12 @@
 static bool sReady = false;
 static uint32_t sLastPollMs = 0;
 
-/** The panel light, and what it was last set to, so it is not rewritten. */
+/* The panel light, and what it was last set to, so it is not rewritten. */
 static Backlight sBacklight;
 static uint8_t sLastWritten = 0;
 static bool sLastWrittenKnown = false;
 
-/**
+/*
  * The signal number on the screen, and what it was last shown for.
  *
  * Held still rather than redrawn from every reading. The band and frequency
@@ -55,10 +52,10 @@ static uint32_t sShownFreqKHz = 0;
 static BandId sShownBand = BAND_FM;
 static bool sShownStationKnown = false;
 
-/** The activity count last seen, so a change of it counts as one wake. */
+/* The activity count last seen, so a change of it counts as one wake. */
 static uint32_t sLastActivity = 0;
 
-/**
+/*
  * Whether the loop has run once yet.
  *
  * Start up carries on for seconds after the panel is lit, through the tuner
@@ -70,7 +67,6 @@ static uint32_t sLastActivity = 0;
  */
 static bool sFirstPoll = true;
 
-/** Send a level to the panel, but only when it has actually moved. */
 static void writeBacklight(uint8_t percent) {
   if (sLastWrittenKnown && percent == sLastWritten) {
     return;

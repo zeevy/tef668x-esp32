@@ -1,6 +1,5 @@
-/**
- * @file input_task.h
- * @brief The knob, the buttons and the keypad, turned into radio commands.
+/*
+ * The knob, the buttons and the keypad, turned into radio commands.
  *
  * This sits outside the five layers for the same reason radio_task.h does. It
  * is a composition root: the one place allowed to know about `core/` and
@@ -22,47 +21,43 @@
 
 #include "core/input.h"
 
-/** How many typed digits are kept before the rest are ignored. */
+/* How many typed digits are kept before the rest are ignored. */
 #define INPUT_DIGITS_MAX 8
 
-/** How long the description of the last event can be, with its terminator. */
+/* How long the description of the last event can be, with its terminator. */
 #define INPUT_EVENT_MAX 40
 
-/** What the input layer has seen, for a diagnostic page. */
+/* What the input layer has seen, for a diagnostic page. */
 typedef struct {
-  bool keypadPresent;              /**< The expander answered at start up. */
-  uint32_t clicks;                 /**< Knob clicks since boot. */
-  uint32_t presses;                /**< Button and key events since boot. */
-  char lastEvent[INPUT_EVENT_MAX]; /**< The last one in words, such as
+  bool keypadPresent;              /* The expander answered at start up. */
+  uint32_t clicks;                 /* Knob clicks since boot. */
+  uint32_t presses;                /* Button and key events since boot. */
+  char lastEvent[INPUT_EVENT_MAX]; /* The last one in words, such as
                                     *   "BAND long". */
-  uint32_t lastEventMs; /**< When that was, ms since boot. 0 for never. */
-  char typed[INPUT_DIGITS_MAX + 1]; /**< Digits keyed and not yet entered. */
-  uint16_t pot;                     /**< The volume pot, 0 to 4095. */
-  int8_t potDb;                     /**< What that was turned into, in dB. */
-  uint16_t lines;   /**< The keypad's sixteen lines. A 0 bit is a key held. */
-  uint16_t linesOk; /**< Non zero once the lines have been read at all. */
+  uint32_t lastEventMs; /* When that was, ms since boot. 0 for never. */
+  char typed[INPUT_DIGITS_MAX + 1]; /* Digits keyed and not yet entered. */
+  uint16_t pot;                     /* The volume pot, 0 to 4095. */
+  int8_t potDb;                     /* What that was turned into, in dB. */
+  uint16_t lines;   /* The keypad's sixteen lines. A 0 bit is a key held. */
+  uint16_t linesOk; /* Non zero once the lines have been read at all. */
 } InputStatus;
 
-/**
+/*
  * Set the knob, the buttons and the keypad up.
  *
  * A missing keypad is not a failure. The expander is on the same I2C bus as
  * the tuner, and a radio whose keypad is not fitted still has to work.
- *
- * @param kind       Which encoder is fitted.
- * @param direction  Which way round it is wired.
- * @return true when the keypad answered as well.
  */
 bool inputBegin(EncoderKind kind, EncoderDirection direction);
 
-/**
+/*
  * Read everything once and act on what changed.
  *
  * Call this from loop(). It never blocks and it never talks to the tuner.
  */
 void inputPoll(void);
 
-/**
+/*
  * How many times a person has touched the radio.
  *
  * Counts a knob click, a button press, a key press, and a turn of the volume
@@ -73,29 +68,20 @@ void inputPoll(void);
  * this one number instead of each source. It only goes up, and it wraps after
  * about four thousand million events, which a caller comparing it against
  * what it last saw does not care about.
- *
- * @return The count since boot.
  */
 uint32_t inputActivity(void);
 
-/**
+/*
  * What the input layer has seen.
  *
  * Without a screen this is the only way to tell a dead switch from a wrong
  * pin number, so it exists before the display does rather than after.
- *
- * @param out  Receives the status.
  */
 void inputStatusGet(InputStatus *out);
 
-/**
- * Use these ends of travel for the knob.
- *
- * @param cfg  The mapping. NULL puts the built in defaults back.
- */
 void inputSetPotConfig(const PotConfig *cfg);
 
-/**
+/*
  * Whether a key press and a band edge make a sound.
  *
  * Both off by default. A beep is noticed every time it happens, so it is not
@@ -103,12 +89,10 @@ void inputSetPotConfig(const PotConfig *cfg);
  *
  * The band edge beep is not here. Only the radio knows the dial wrapped, so
  * that one is radioSetEdgeBeep.
- *
- * @param mode  Which presses make a sound. See BeepMode.
  */
 void inputSetBeeps(BeepMode mode);
 
-/**
+/*
  * Start learning how far the knob actually turns.
  *
  * While this is running the knob sets neither the volume nor the squelch. It
@@ -117,29 +101,10 @@ void inputSetBeeps(BeepMode mode);
  */
 void inputPotCalibrateStart(void);
 
-/**
- * Stop learning, and say what was seen.
- *
- * @param rawMin  Receives the lowest reading. May be NULL.
- * @param rawMax  Receives the highest. May be NULL.
- * @return true when the knob was swept far enough to be worth keeping. False
- *         means it barely moved, and the caller should keep what it had
- *         rather than store a travel of nothing.
- */
 bool inputPotCalibrateFinish(uint16_t *rawMin, uint16_t *rawMax);
 
-/**
- * Give up, keeping whatever was in use before.
- */
 void inputPotCalibrateCancel(void);
 
-/**
- * Whether a calibration is running, and how far the knob has reached.
- *
- * @param rawMin  Receives the lowest so far. May be NULL.
- * @param rawMax  Receives the highest so far. May be NULL.
- * @return true while it is running.
- */
 bool inputPotCalibrating(uint16_t *rawMin, uint16_t *rawMax);
 
 #endif /* INPUT_TASK_H */

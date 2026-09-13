@@ -1,7 +1,4 @@
-/**
- * @file test_squelch.cpp
- * @brief Tests for the squelch. Runs on a PC.
- */
+/* Tests for the squelch. Runs on a PC. */
 #include <unity.h>
 
 #include <stdint.h>
@@ -20,7 +17,6 @@ void setUp(void) {
 }
 void tearDown(void) {}
 
-/** A reading good enough to listen to on either band. */
 static SquelchReading good(void) {
   SquelchReading r;
   r.valid = true;
@@ -31,7 +27,6 @@ static SquelchReading good(void) {
   return r;
 }
 
-/** A reading that is nothing but noise. */
 static SquelchReading bad(void) {
   SquelchReading r;
   r.valid = true;
@@ -366,7 +361,7 @@ static void nulls_do_not_crash(void) {
 
 /* ------------------------------------------ replayed from the real capture */
 
-/**
+/*
  * Judge every reading for one frequency the way the radio would.
  *
  * The capture was taken about three times a second and the radio judges the
@@ -375,11 +370,6 @@ static void nulls_do_not_crash(void) {
  * millisecond, so replaying the raw column through it applies a far heavier
  * average than the radio does. The capture carries the radio's own smoothed
  * level instead, and that is what the floor is judged against here.
- *
- * @param khz      Which frequency's readings to replay.
- * @param openOut  Receives how many readings the audio was open for.
- * @param changes  Receives how many times it opened or shut.
- * @return How many readings there were.
  */
 static int replay(uint32_t khz, int *openOut, int *changes) {
   SquelchConfig conf;
@@ -494,7 +484,6 @@ static void an_empty_channel_is_shut(void) {
 
 /* ---------------------------------------------------- the floor itself */
 
-/** One steady reading, repeated, which is what a station looks like. */
 static bool steadyLevel(int16_t levelTenths, int rounds) {
   SquelchConfig conf;
   squelchDefaults(&conf);

@@ -1,7 +1,6 @@
-/**
- * @file test_band_plan.cpp
- * @brief Tests for the band plan. Every edge, every step, both wraps.
- *        Runs on a PC.
+/*
+ * Tests for the band plan. Every edge, every step, both wraps.
+ * Runs on a PC.
  */
 #include <unity.h>
 
@@ -16,7 +15,6 @@ void setUp(void) {
 }
 void tearDown(void) {}
 
-/** Shorthand, because every test needs the limits. */
 static void limits(BandId band, uint32_t *lo, uint32_t *hi) {
   TEST_ASSERT_TRUE(bandLimits(band, &cfg, lo, hi));
 }

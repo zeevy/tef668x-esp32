@@ -1,10 +1,7 @@
-/**
- * @file seek.c
- * @brief Implementation of the seek stop decision.
- */
+/* Implementation of the seek stop decision. */
 #include "seek.h"
 
-/**
+/*
  * Noise and multipath limits, per step of sensitivity.
  *
  * The noise step is the reference firmware's own: its seek compares against
@@ -20,7 +17,7 @@
  * at its loose end.
  */
 #define SEEK_NOISE_PER_STEP 30
-/**
+/*
  * The multipath limit per step of sensitivity, tenths of a per cent.
  *
  * 320 at the default, which is looser than the reference firmware's fixed
@@ -46,12 +43,11 @@
  * 26.7 dBuV or better, and the two nearest things that are not stations read
  * -1.8 and -5.0. The gap is wide and the floor sits in the middle of it.
  */
-/** Where the level floor starts before sensitivity is taken off it. */
+/* Where the level floor starts before sensitivity is taken off it. */
 #define SEEK_LEVEL_BASE_TENTHS 220
-/** How much of the floor each step of sensitivity gives away. */
+/* How much of the floor each step of sensitivity gives away. */
 #define SEEK_LEVEL_PER_STEP 30
 
-/** Sensitivity, held inside the range the radio offers. */
 static uint8_t clampSensitivity(uint8_t sensitivity) {
   if (sensitivity < SEEK_SENSITIVITY_MIN) {
     return SEEK_SENSITIVITY_MIN;

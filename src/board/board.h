@@ -1,6 +1,5 @@
-/**
- * @file board.h
- * @brief Picks the board header from the build flag and checks it is complete.
+/*
+ * Picks the board header from the build flag and checks it is complete.
  *
  * Every board gets one header with its pin map and its feature flags. Nothing
  * outside board/ ever tests for a board name, it tests for a feature flag.

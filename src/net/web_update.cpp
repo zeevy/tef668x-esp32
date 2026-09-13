@@ -1,7 +1,4 @@
-/**
- * @file web_update.cpp
- * @brief Implementation of the status page, the setup form and the uploader.
- */
+/* Implementation of the status page, the setup form and the uploader. */
 #include "web_update.h"
 
 #include "board/board.h"
@@ -15,6 +12,7 @@
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
 #include "input_task.h"
+#include "memory_store.h"
 #include "net/rollback.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
@@ -32,32 +30,30 @@ static uint32_t sAccessPin = 0;
 static AccessPinGate sGate;
 static uint32_t sRequests = 0;
 
-/** Hex session token, or empty when nobody is signed in. */
+/* Hex session token, or empty when nobody is signed in. */
 static char sSessionToken[33] = "";
 
-/** Millisecond count the session stops being accepted at. */
+/* Millisecond count the session stops being accepted at. */
 static uint32_t sSessionExpiresMs = 0;
 
-/** Set while an upload is running and the client was not signed in. */
+/* Set while an upload is running and the client was not signed in. */
 static bool sUploadRejected = false;
 
-/** Set once a multipart part carrying a file has actually been seen. */
+/* Set once a multipart part carrying a file has actually been seen. */
 static bool sUploadStarted = false;
 
-/** Set on the first write failure, so the rest of the body is taken quietly. */
+/* Set on the first write failure, so the rest of the body is taken quietly. */
 static bool sUploadFailed = false;
 
-/** Reboot once the reply has gone out, rather than cutting it off. */
+/* Reboot once the reply has gone out, rather than cutting it off. */
 static bool sRebootAfterReply = false;
 
 /* ------------------------------------------------------------------ helpers */
 
-/** True when the radio is serving its own access point. */
 static bool inSetupMode(void) {
   return wifiState() == WIFI_STATE_ACCESS_POINT;
 }
 
-/** Replace HTML metacharacters, so a network name cannot inject markup. */
 static String escapeHtml(const char *raw) {
   String out;
   for (const char *p = raw; *p != '\0'; p++) {
@@ -85,16 +81,13 @@ static String escapeHtml(const char *raw) {
   return out;
 }
 
-/**
+/*
  * Escape a string so it can go inside a JSON string.
  *
  * A network name is chosen by whoever runs the network, so it can hold a
  * quote or a backslash and there is nothing wrong with that. Without this the
  * whole document stops parsing, which is how a missing quote broke every
  * reader of /status.json once already.
- *
- * @param raw  The text. Never NULL.
- * @return The escaped text, without the surrounding quotes.
  */
 static String jsonEscape(const char *raw) {
   String out;
@@ -116,7 +109,6 @@ static String jsonEscape(const char *raw) {
   return out;
 }
 
-/** Make a fresh session token from the hardware random number generator. */
 static void newSession(void) {
   static const char kHex[] = "0123456789abcdef";
   for (int i = 0; i < 32; i += 8) {
@@ -129,13 +121,11 @@ static void newSession(void) {
   sSessionExpiresMs = millis() + WEB_SESSION_TTL_SECONDS * 1000UL;
 }
 
-/** Forget the session, so the cookie stops working. */
 static void dropSession(void) {
   sSessionToken[0] = '\0';
   sSessionExpiresMs = 0;
 }
 
-/** Compare two equal length strings without leaking where they differ. */
 static bool constantTimeEqual(const char *a, const char *b, size_t len) {
   uint8_t diff = 0;
   for (size_t i = 0; i < len; i++) {
@@ -144,7 +134,6 @@ static bool constantTimeEqual(const char *a, const char *b, size_t len) {
   return diff == 0;
 }
 
-/** True when this request carries a live session cookie. */
 static bool signedIn(void) {
   if (sSessionToken[0] == '\0') {
     return false;
@@ -177,14 +166,6 @@ static bool signedIn(void) {
   return constantTimeEqual(token.c_str(), sSessionToken, 32);
 }
 
-/**
- * Gate for anything that changes the radio.
- *
- * @param allowInSetupMode  True for saving Wi-Fi credentials, which has to
- *                          work on the access point or there is no way back.
- * @return true when the request may go ahead. Sends the refusal itself when
- *         it may not.
- */
 static bool requireAuth(bool allowInSetupMode) {
   if (allowInSetupMode && inSetupMode()) {
     return true;
@@ -198,7 +179,7 @@ static bool requireAuth(bool allowInSetupMode) {
 
 /* --------------------------------------------------------------- the pages */
 
-/**
+/*
  * Shared page head.
  *
  * Bootstrap 5 comes from a CDN, which is what makes this readable on a phone
@@ -208,16 +189,8 @@ static bool requireAuth(bool allowInSetupMode) {
  * the page falls back to, and it has to be enough on its own. Phase 5 moves
  * Bootstrap onto the filesystem and drops the CDN.
  */
-/**
- * Shared page head.
- *
- * @param title   What goes in the browser tab.
- * @param active  Which page this is, as its path, so the nav can mark it.
- *                NULL for the short result pages, which get no nav.
- */
 static String pageHead(const char *title, const char *active = NULL);
 
-/** One entry in the nav bar. */
 static String navLink(const char *path, const char *label, const char *active) {
   bool here = active != NULL && strcmp(path, active) == 0;
   String out = F("<a href='");
@@ -325,7 +298,6 @@ static String pageHead(const char *title, const char *active) {
   return out;
 }
 
-/** Shared page tail. */
 static const char *pageTail(bool scripted = false) {
   if (!scripted) {
     /* Only the Radio page has controls that need it, and shipping it on the
@@ -339,12 +311,12 @@ static const char *pageTail(bool scripted = false) {
    * Three behaviours, and no framework:
    *
    *   data-post   a button that posts once, with data-args, or with the
-   *               value of the field named by data-from
+   * value of the field named by data-from
    *   data-now    a control that posts the moment it changes. data-send=label
-   *               sends the option's text rather than its value, because
-   *               /api/band and /api/squelch take names
+   * sends the option's text rather than its value, because
+   * /api/band and /api/squelch take names
    *   data-apply  a button that gathers every data-api field in its own card
-   *               and posts one request per endpoint
+   * and posts one request per endpoint
    *
    * The reply is plain text and goes into the line at the top, as text, never
    * as markup. A hostile reply would be shown, not run.
@@ -409,7 +381,6 @@ static const char *pageTail(bool scripted = false) {
          "</script></div></body></html>";
 }
 
-/** One labelled select, with the value the radio holds already chosen. */
 static String formSelect(const char *name, const char *label,
                          const char *const *options, const long *values,
                          int count, long current, const char *attrs) {
@@ -435,7 +406,6 @@ static String formSelect(const char *name, const char *label,
   return out;
 }
 
-/** One labelled number box. */
 static String formNumber(const char *name, const char *label, long low,
                          long high, long current, const char *attrs) {
   String out;
@@ -457,7 +427,6 @@ static String formNumber(const char *name, const char *label, long low,
   return out;
 }
 
-/** Open a card. An Apply button only gathers fields inside its own card. */
 static String cardOpen(const char *title) {
   String out =
       F("<div class='card mb-3' data-card><div class='card-body "
@@ -467,12 +436,11 @@ static String cardOpen(const char *title) {
   return out;
 }
 
-/** Close a card. */
 static const char *cardClose(void) {
   return "</div></div>";
 }
 
-/**
+/*
  * The Radio page.
  *
  * Four cards. The first works the radio, which is what a page called Radio is
@@ -813,15 +781,6 @@ static String radioForms(void) {
   out += cardClose();
   return out;
 }
-/**
- * The PIN form, shown on any page a caller is not signed in to.
- *
- * @param next  Where to go after signing in, so a person who opened the Radio
- *              page gets the Radio page rather than being dropped on Home.
- *              Checked against the known pages before it is used, because a
- *              redirect target that comes from the request and is not checked
- *              is an open redirect.
- */
 static String signInForm(const char *next) {
   String out = cardOpen("Access PIN");
   out +=
@@ -840,7 +799,7 @@ static String signInForm(const char *next) {
   return out;
 }
 
-/**
+/*
  * Where a sign in may send the browser afterwards.
  *
  * Only the four pages this firmware serves. Anything else, including an
@@ -856,7 +815,6 @@ static const char *safeNext(const String &want) {
   return "/";
 }
 
-/** The red banner for a radio anyone on the network can take over. */
 static String defaultPinBanner(void) {
   if (!accessPinIsDefault(sAccessPin)) {
     return String();
@@ -870,7 +828,6 @@ static String defaultPinBanner(void) {
       "<a href='/network' style='color:#ffb4a2'>Network</a> page.</div>");
 }
 
-/** The Wi-Fi form. Different words on the access point, same form. */
 static String wifiForm(void) {
   String out = cardOpen("Wi-Fi");
   if (inSetupMode()) {
@@ -900,7 +857,7 @@ static String wifiForm(void) {
   return out;
 }
 
-/**
+/*
  * Home. What the radio is and where it is, and nothing that changes it.
  *
  * The four pages exist because one page held the lot, and that page was the
@@ -979,7 +936,6 @@ static void handleRoot(void) {
   sServer.send(200, "text/html", out);
 }
 
-/** Radio. Everything about how it receives. */
 static void handleRadioPage(void) {
   sRequests++;
   String out = pageHead("Radio", "/radio");
@@ -994,7 +950,6 @@ static void handleRadioPage(void) {
   sServer.send(200, "text/html", out);
 }
 
-/** Network. The Wi-Fi it joins and the PIN that guards it. */
 static void handleNetworkPage(void) {
   sRequests++;
   String out = pageHead("Network", "/network");
@@ -1020,7 +975,6 @@ static void handleNetworkPage(void) {
   sServer.send(200, "text/html", out);
 }
 
-/** System. The image it runs, and what it is doing for memory. */
 static void handleSystemPage(void) {
   sRequests++;
   String out = pageHead("System", "/system");
@@ -1089,7 +1043,6 @@ static void handleSystemPage(void) {
   sServer.send(200, "text/html", out);
 }
 
-/** A short page that says what happened and links back. */
 static void sendResult(int code, const char *title, const char *message,
                        bool bad) {
   String out = pageHead(title);
@@ -1103,7 +1056,6 @@ static void sendResult(int code, const char *title, const char *message,
   sServer.send(code, "text/html", out);
 }
 
-/** Check a submitted PIN and hand out a session cookie. */
 static void handleAuth(void) {
   sRequests++;
   uint32_t now = millis();
@@ -1147,7 +1099,6 @@ static void handleAuth(void) {
   sServer.send(303, "text/plain", "");
 }
 
-/** Save Wi-Fi credentials and try them straight away. */
 static void handleWifi(void) {
   sRequests++;
   if (!requireAuth(true)) {
@@ -1190,7 +1141,6 @@ static void handleWifi(void) {
   wifiRetryNow(sSettings);
 }
 
-/** Take the uploaded image, chunk by chunk. */
 static void handleUploadData(void) {
   /* WebServer calls this same callback for two different things. For a
    * multipart upload it fills _currentUpload first. For any other POST body it
@@ -1254,7 +1204,6 @@ static void handleUploadData(void) {
   }
 }
 
-/** Reply once the whole upload has been taken. */
 static void handleUploadDone(void) {
   sRequests++;
   bool rejected = sUploadRejected;
@@ -1291,7 +1240,6 @@ static void handleUploadDone(void) {
   sRebootAfterReply = true;
 }
 
-/** Change the access PIN. */
 static void handleSetPin(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1329,7 +1277,6 @@ static void handleSetPin(void) {
              accessPinIsDefault(wanted));
 }
 
-/** Reboot on request. */
 static void handleReboot(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1339,7 +1286,7 @@ static void handleReboot(void) {
   sRebootAfterReply = true;
 }
 
-/**
+/*
  * Append everything about the radio and its tuner, as JSON fields.
  *
  * One builder, used by both /api/state and /status.json, so the two
@@ -1347,8 +1294,6 @@ static void handleReboot(void) {
  * match. The caller supplies the braces and any leading comma.
  *
  * The field names are documented on handleStatusJson.
- *
- * @param out  The reply being built.
  */
 static void appendRadioState(String &out) {
   const Tef668xCapabilities *tuner = tef668xCapabilities();
@@ -1387,12 +1332,14 @@ static void appendRadioState(String &out) {
         snprintf(tuned, sizeof(tuned),
                  ",\"bnd\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"unt\":\"%s\""
                  ",\"stp\":%u,\"vol\":%d,\"mut\":%s,\"tmd\":\"%s\""
-                 ",\"seq\":%u",
+                 ",\"mem\":%d,\"seq\":%u",
                  bandName(snap.settings.band), (unsigned)snap.settings.freqKHz,
                  freqText, bandFrequencyUnit(snap.settings.band),
                  (unsigned)snap.settings.stepKHz, snap.settings.volumeDb,
                  snap.settings.muted ? "true" : "false",
-                 tuneModeName(snap.settings.tuneMode), (unsigned)snap.sequence);
+                 tuneModeName(snap.settings.tuneMode),
+                 snap.memorySlot == MEMORY_NO_SLOT ? 0 : snap.memorySlot + 1,
+                 (unsigned)snap.sequence);
         out += tuned;
       }
       /* What the tuner last refused. Without this the page can show a station
@@ -1511,7 +1458,7 @@ static void appendRadioState(String &out) {
   }
 }
 
-/**
+/*
  * The input layer, as one JSON field.
  *
  * There is no display yet, so this is the only way to tell a dead switch from
@@ -1528,8 +1475,6 @@ static void appendRadioState(String &out) {
  * | `typ` | Digits keyed and not yet entered |
  * | `pot` | The volume knob, 0 to 4095 |
  * | `pdb` | The volume that reading was turned into, in dB |
- *
- * @param out  The reply being built.
  */
 static void appendInputState(String &out) {
   InputStatus in;
@@ -1568,7 +1513,7 @@ static void appendInputState(String &out) {
   out += F("}");
 }
 
-/**
+/*
  * Build the whole state document, device and tuner together.
  *
  * One builder for both /status.json and /api/state. They are the same
@@ -1576,8 +1521,6 @@ static void appendInputState(String &out) {
  * the scripts in tools/ read, /api/state is the name the control API uses.
  * Two names for one document is better than two documents, which is what a
  * subset would become the first time a field is added to only one of them.
- *
- * @return The JSON, ready to send.
  */
 static String buildState(void) {
   String out;
@@ -1632,6 +1575,13 @@ static String buildState(void) {
   out += F(",\"idl\":");
   out += String(save.idleMs);
   out += F("}");
+  /* The channel list. A write that quietly fails leaves a radio that looks
+   * normal and forgets every channel at the next power cycle. */
+  out += F(",\"chn\":{\"n\":");
+  out += String(memoryStoreCount());
+  out += F(",\"bad\":");
+  out += memoryStoreFailed() ? F("true") : F("false");
+  out += F("}");
   out += F(",");
   appendInputState(out);
   out += F(",");
@@ -1640,7 +1590,7 @@ static String buildState(void) {
   return out;
 }
 
-/**
+/*
  * The radio's state as JSON, for scripts and for the test checklist.
  *
  * Keys are short on purpose. They are the names already used on the radio's
@@ -1742,12 +1692,10 @@ static void handleStatusJson(void) {
  * Reads are open. Writes need the PIN.
  * ------------------------------------------------------------------------ */
 
-/** Reply with a plain reason and a status code, never a bare 500. */
 static void apiFail(int code, const String &why) {
   sServer.send(code, "text/plain", why + "\n");
 }
 
-/** How the radio is set now, for a caller that wants to say what changed. */
 static String apiDescribe(const RadioSettings *s) {
   char text[16];
   bandFormatFrequency(s->band, s->freqKHz, text, sizeof(text));
@@ -1755,20 +1703,20 @@ static String apiDescribe(const RadioSettings *s) {
          bandFrequencyUnit(s->band);
 }
 
-/** Which part of the settled state a reply should describe. */
+/* Which part of the settled state a reply should describe. */
 typedef enum {
-  API_SAY_TEXT = 0,  /**< Whatever the caller passed in. */
-  API_SAY_TUNE,      /**< The band and frequency it reached. */
-  API_SAY_BANDWIDTH, /**< The bandwidth it reached. */
-  API_SAY_MODE,      /**< The tuning mode it reached. */
-  API_SAY_MUTE,      /**< Whether it is muted. */
-  API_SAY_FEATURES   /**< Which of the four iMS and EQ states it reached. */
+  API_SAY_TEXT = 0,  /* Whatever the caller passed in. */
+  API_SAY_TUNE,      /* The band and frequency it reached. */
+  API_SAY_BANDWIDTH, /* The bandwidth it reached. */
+  API_SAY_MODE,      /* The tuning mode it reached. */
+  API_SAY_MUTE,      /* Whether it is muted. */
+  API_SAY_FEATURES   /* Which of the four iMS and EQ states it reached. */
 } ApiSay;
 
-/** How long a request waits for the radio task to carry a command out. */
+/* How long a request waits for the radio task to carry a command out. */
 #define API_SETTLE_MS 500
 
-/**
+/*
  * Check a command, carry it out, and say what happened.
  *
  * The one place a request turns into a command. Every endpoint below ends
@@ -1778,12 +1726,6 @@ typedef enum {
  * requests back to back gets the second one judged against the state before
  * the first, which refuses things that are allowed and reports frequencies the
  * radio is not on.
- *
- * @param command  What to do.
- * @param said     What to tell the caller when it worked.
- * @param say      Which part of the settled state to answer with instead.
- *                 Reporting what was asked for rather than what was reached
- *                 is how a refused command came to answer 200.
  */
 static void apiSubmit(const RadioCommand *command, const String &said,
                       ApiSay say = API_SAY_TEXT) {
@@ -1845,7 +1787,6 @@ static void apiSubmit(const RadioCommand *command, const String &said,
   sServer.send(200, "text/plain", answer + "\n");
 }
 
-/** Read a whole number argument, saying so plainly when it is not one. */
 static bool apiNumber(const char *name, long *out, long low, long high) {
   if (!sServer.hasArg(name)) {
     apiFail(400, String("Give ") + name + ".");
@@ -1867,7 +1808,7 @@ static bool apiNumber(const char *name, long *out, long low, long high) {
   return true;
 }
 
-/**
+/*
  * GET /api/state. The whole of the radio, open to read.
  *
  * The same document as /status.json, from the same builder.
@@ -1877,7 +1818,6 @@ static void handleApiState(void) {
   sServer.send(200, "application/json", buildState());
 }
 
-/** POST /api/tune. A frequency in kilohertz, on any band. */
 static void handleApiTune(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1916,7 +1856,6 @@ static void handleApiTune(void) {
             API_SAY_TUNE);
 }
 
-/** POST /api/step. Whole steps up or down, by the current step size. */
 static void handleApiStep(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1936,7 +1875,6 @@ static void handleApiStep(void) {
   apiSubmit(&cmd, String("stepped ") + steps, API_SAY_TUNE);
 }
 
-/** POST /api/band. By name, as the radio itself shows it. */
 static void handleApiBand(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1967,7 +1905,6 @@ static void handleApiBand(void) {
   apiSubmit(&cmd, String("band ") + bandName(band), API_SAY_TUNE);
 }
 
-/** POST /api/bandwidth. In kilohertz, or 0 on FM to let the tuner choose. */
 static void handleApiBandwidth(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -1986,7 +1923,6 @@ static void handleApiBandwidth(void) {
             API_SAY_BANDWIDTH);
 }
 
-/** POST /api/step-size. Which step the knob moves by. */
 static void handleApiStepSize(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -2002,7 +1938,6 @@ static void handleApiStepSize(void) {
   apiSubmit(&cmd, String("step ") + khz + " kHz");
 }
 
-/** POST /api/volume. In decibels. */
 static void handleApiVolume(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -2018,7 +1953,6 @@ static void handleApiVolume(void) {
   apiSubmit(&cmd, String("volume ") + db + " dB");
 }
 
-/** POST /api/mute. on=1 to mute, on=0 to unmute. */
 static void handleApiMute(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -2034,7 +1968,6 @@ static void handleApiMute(void) {
   apiSubmit(&cmd, on ? String("muted") : String("unmuted"), API_SAY_MUTE);
 }
 
-/** POST /api/mode. What the knob does: Manual, Auto, Memory, Meter band. */
 static void handleApiMode(void) {
   sRequests++;
   if (!requireAuth(false)) {
@@ -2071,7 +2004,7 @@ static void handleApiMode(void) {
   apiSubmit(&cmd, String("mode ") + tuneModeName(mode), API_SAY_MODE);
 }
 
-/**
+/*
  * GET /api/settings. What is stored, without the secrets.
  *
  * Behind the PIN in both directions. The struct holds the Wi-Fi passphrase
@@ -2188,7 +2121,7 @@ static void handleApiSettingsGet(void) {
   sServer.send(200, "application/json", out);
 }
 
-/**
+/*
  * POST /api/settings. The things that are stored and not tuned.
  *
  * Takes `sid` with an optional `pwd`, and `pin`, and the ten settings that
@@ -2445,7 +2378,7 @@ static void handleApiSettingsPost(void) {
   }
 }
 
-/**
+/*
  * POST /api/pot. Learn how far this unit's volume knob turns.
  *
  * Takes `action`: `start`, `finish` or `cancel`.
@@ -2526,7 +2459,7 @@ static void handleApiPot(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
-/**
+/*
  * POST /api/beep. Sound the tuner's own tone generator.
  *
  * Takes `ms`, 1 to 3000, and optionally `hz` and `hz2`, each 100 to 15000.
@@ -2569,7 +2502,251 @@ static void handleApiBeep(void) {
   sServer.send(200, "text/plain", String("beeping for ") + ms + " ms\n");
 }
 
-/**
+/* -------------------------------------------------------- memory channels */
+
+static bool apiSlot(int *out, bool required) {
+  if (!required && !sServer.hasArg("slot")) {
+    *out = MEMORY_NO_SLOT;
+    return true;
+  }
+  long slot = 0;
+  if (!apiNumber("slot", &slot, 1, MEMORY_SLOT_COUNT)) {
+    return false;
+  }
+  *out = (int)slot - 1;
+  return true;
+}
+
+static void handleApiMemoryCsv(void) {
+  sRequests++;
+  sServer.sendHeader("Content-Disposition",
+                     "attachment; filename=\"channels.csv\"");
+  sServer.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  sServer.send(200, "text/csv", "");
+  sServer.sendContent(memoryCsvHeader());
+  char line[MEMORY_CSV_LINE_MAX];
+  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
+    size_t need = memoryStoreLine(i, line, sizeof(line));
+    if (need == 0 || need >= sizeof(line)) {
+      continue;
+    }
+    sServer.sendContent(line);
+  }
+  sServer.sendContent("");
+}
+
+/*
+ * POST /api/memory. What to do comes in `do`.
+ *
+ * | `do` | What it does |
+ * |---|---|
+ * | `store` | Write what the radio is playing into a slot, or the first free one |
+ * | `set` | Write a slot from `khz`, and `bw` and `name` if given |
+ * | `clear` | Empty one slot |
+ * | `recall` | Tune to a slot |
+ * | `wipe` | Empty every slot |
+ */
+static void handleApiMemoryPost(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("do")) {
+    apiFail(400, "Give do=store, set, clear, recall or wipe.");
+    return;
+  }
+  String what = sServer.arg("do");
+  /* Checked before anything else is read, so an action nobody recognises is
+   * answered with that rather than with a complaint about a missing slot. */
+  if (what != "store" && what != "set" && what != "clear" && what != "recall" &&
+      what != "wipe") {
+    apiFail(400, "do has to be store, set, clear, recall or wipe.");
+    return;
+  }
+
+  if (what == "wipe") {
+    if (!memoryStoreWipe()) {
+      apiFail(503, "The channel list could not be reached.");
+      return;
+    }
+    sServer.send(200, "text/plain", "Every channel cleared.\n");
+    return;
+  }
+
+  int slot = MEMORY_NO_SLOT;
+  if (!apiSlot(&slot, what != "store")) {
+    return;
+  }
+
+  if (what == "clear") {
+    if (!memoryStoreClearSlot(slot)) {
+      apiFail(503, "The channel list could not be reached.");
+      return;
+    }
+    sServer.send(200, "text/plain",
+                 String("Channel ") + (slot + 1) + " cleared.\n");
+    return;
+  }
+
+  if (what == "recall") {
+    MemoryChannel c;
+    if (!memoryStoreRead(slot, &c)) {
+      apiFail(404, String("Channel ") + (slot + 1) + " is empty.");
+      return;
+    }
+    BandPlanConfig plan;
+    if (radioTaskPlan(&plan) && !memoryChannelTunable(&c, &plan)) {
+      apiFail(409, String("Channel ") + (slot + 1) + " says " +
+                       bandName((BandId)c.band) +
+                       " but that frequency is not on that band here. Change "
+                       "the channel or the band plan.");
+      return;
+    }
+    RadioCommand cmd = {};
+    cmd.kind = RADIO_RECALL;
+    cmd.memorySlot = (int16_t)slot;
+    apiSubmit(&cmd, String("recalled ") + (slot + 1), API_SAY_TUNE);
+    return;
+  }
+
+  MemoryChannel c;
+  memset(&c, 0, sizeof(c));
+  /* What is in the slot now, so a request that gives only the frequency keeps
+   * the name and the width that are already there. Writing a fresh channel
+   * would wipe the name of anybody correcting a frequency. */
+  bool had = slot != MEMORY_NO_SLOT && memoryStoreRead(slot, &c);
+
+  if (what == "store") {
+    RadioSnapshot snap;
+    if (!radioGetSnapshot(&snap)) {
+      apiFail(503, "The radio is not running.");
+      return;
+    }
+    /* Storing what is playing replaces the slot outright. The frequency, the
+     * band and the width all come off the radio, and keeping the old name on
+     * a different station would be worse than losing it. */
+    memset(&c, 0, sizeof(c));
+    had = false;
+    c.band = (uint8_t)snap.settings.band;
+    c.freqKHz = snap.settings.freqKHz;
+    c.bandwidthKHz = snap.settings.bandwidthKHz;
+    if (slot == MEMORY_NO_SLOT) {
+      slot = memoryStoreFirstFree();
+      if (slot == MEMORY_NO_SLOT) {
+        apiFail(409, "Every channel is taken. Name a slot to overwrite.");
+        return;
+      }
+    }
+  } else if (what == "set") {
+    long khz = 0;
+    if (!apiNumber("khz", &khz, 1, 30000000L)) {
+      return;
+    }
+    BandPlanConfig plan;
+    if (!radioTaskPlan(&plan)) {
+      apiFail(503, "The radio is not running.");
+      return;
+    }
+    BandId band;
+    if (!bandForFrequency(&plan, (uint32_t)khz, &band)) {
+      apiFail(400, "That frequency is in no band.");
+      return;
+    }
+    if (!had || c.band != (uint8_t)band) {
+      /* A frequency that moves the channel to another band cannot keep the
+       * old band's filter width, and there is no width the new band is known
+       * to want, so it goes back to letting the radio choose. */
+      c.bandwidthKHz = 0;
+    }
+    c.band = (uint8_t)band;
+    c.freqKHz = (uint32_t)khz;
+    if (sServer.hasArg("bw")) {
+      long bw = 0;
+      if (!apiNumber("bw", &bw, 0, 400)) {
+        return;
+      }
+      c.bandwidthKHz = (uint16_t)bw;
+    }
+  }
+
+  if (sServer.hasArg("name")) {
+    String name = sServer.arg("name");
+    /* Checked before it is stored so the reason can name the character. The
+     * validity check refuses this too, but it cannot say which of four rules
+     * the name broke. */
+    strncpy(c.name, name.c_str(), MEMORY_NAME_LEN - 1);
+    c.name[MEMORY_NAME_LEN - 1] = '\0';
+  }
+
+  if (!memoryChannelValid(&c)) {
+    /* Only the name and the width can still be wrong here, since the band and
+     * the frequency were checked above. Saying which two saves the caller
+     * guessing among four fields. */
+    apiFail(400,
+            "That channel cannot be stored. The name has to be plain text, "
+            "and the bandwidth has to be one this band offers.");
+    return;
+  }
+  if (!memoryStoreWrite(slot, &c)) {
+    apiFail(503, "The channel list could not be reached.");
+    return;
+  }
+  char text[16];
+  bandFormatFrequency((BandId)c.band, c.freqKHz, text, sizeof(text));
+  sServer.send(200, "text/plain",
+               String("Channel ") + (slot + 1) + " is " +
+                   bandName((BandId)c.band) + " " + text + " " +
+                   bandFrequencyUnit((BandId)c.band) + "\n");
+}
+
+/*
+ * POST /api/memory/import. The file is the body, the mode is in the query.
+ *
+ * `mode=merge` fills the empty slots only. `mode=replace` throws the list
+ * away and loads the file, and refuses the whole file if one line cannot be
+ * read, so a bad file never leaves a half loaded list.
+ */
+static void handleApiMemoryImport(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  MemoryImportMode mode = MEMORY_IMPORT_MERGE;
+  if (sServer.hasArg("mode")) {
+    String text = sServer.arg("mode");
+    if (text == "replace") {
+      mode = MEMORY_IMPORT_REPLACE;
+    } else if (text != "merge") {
+      apiFail(400, "mode has to be merge or replace.");
+      return;
+    }
+  }
+  if (!sServer.hasArg("plain")) {
+    /* The server only fills `plain` when the content type is not
+     * application/x-www-form-urlencoded, which is what curl -d sends unless
+     * it is told otherwise. Saying so here saves the caller working out why
+     * a file they did send looks missing. */
+    apiFail(400,
+            "Send the CSV as the body of the request, with a content type of "
+            "text/csv.");
+    return;
+  }
+  String body = sServer.arg("plain");
+  MemoryImportResult result;
+  if (!memoryStoreImport(mode, body.c_str(), body.length(), &result)) {
+    apiFail(400, String("Line ") + result.firstBadLine +
+                     " could not be read, so nothing was changed.");
+    return;
+  }
+  String said = String(result.imported) + " of " + result.lines +
+                " lines imported, " + result.skipped + " refused, " +
+                result.kept + " already taken, " + result.truncated +
+                " names cut short";
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
+}
+
+/*
  * POST /api/seek. Hunt for the next station.
  *
  * Takes `dir`: `up` or `down`. Returns as soon as the seek has started, not
@@ -2608,7 +2785,7 @@ static void handleApiSeek(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
-/**
+/*
  * POST /api/save. Keep what the radio is set to now.
  *
  * Takes nothing. It reads the radio's own state and writes the parts worth
@@ -2670,7 +2847,7 @@ static void handleApiSave(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
-/**
+/*
  * POST /api/cycle. The next one, whatever it is now.
  *
  * Takes `wht`: `band`, `bandwidth`, `mode`, `mute` or `features`. This is
@@ -2723,7 +2900,7 @@ static void handleApiCycle(void) {
   apiSubmit(&cmd, String("cycled ") + want, say);
 }
 
-/**
+/*
  * POST /api/squelch. What decides whether the audio is open.
  *
  * Takes `mode`: `off`, `auto` or `manual`.
@@ -2789,7 +2966,7 @@ static void handleApiSquelch(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
-/**
+/*
  * POST /api/fm. The FM features the tuner has and nothing turns on by itself.
  *
  * Takes any of:
@@ -2825,7 +3002,6 @@ static void handleApiSquelch(void) {
  *
  * The bandwidth extension is not here. It follows the signal on its own.
  */
-/** The three FM features as they actually are, read back from the radio. */
 static String apiFmState(void) {
   RadioSnapshot now;
   if (!radioGetSnapshot(&now)) {
@@ -3055,7 +3231,6 @@ static void handleApiFm(void) {
   sServer.send(200, "text/plain", said + "\n");
 }
 
-/** Anything else. */
 static void handleNotFound(void) {
   sRequests++;
   sServer.sendHeader("Location", "/");
@@ -3101,6 +3276,9 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/seek", HTTP_POST, handleApiSeek);
   sServer.on("/api/beep", HTTP_POST, handleApiBeep);
   sServer.on("/api/pot", HTTP_POST, handleApiPot);
+  sServer.on("/api/memory", HTTP_POST, handleApiMemoryPost);
+  sServer.on("/api/memory.csv", HTTP_GET, handleApiMemoryCsv);
+  sServer.on("/api/memory/import", HTTP_POST, handleApiMemoryImport);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);

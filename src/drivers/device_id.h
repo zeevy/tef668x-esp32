@@ -1,6 +1,5 @@
-/**
- * @file device_id.h
- * @brief Reads the radio's own MAC address.
+/*
+ * Reads the radio's own MAC address.
  *
  * `WiFi.macAddress(mac)` cannot be used for this. In Arduino core 3.x it goes
  * to `NetworkInterface::macAddress()`, which returns NULL and writes nothing
@@ -19,13 +18,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/**
- * Read the station MAC address.
- *
- * @param mac  Receives six bytes. Zeroed first, so a failed read leaves a
- *             known value rather than stack rubbish.
- * @return true when the read worked.
- */
 bool deviceMacRead(uint8_t mac[6]);
 
 #endif /* DRIVERS_DEVICE_ID_H */

@@ -1,7 +1,4 @@
-/**
- * @file autosave.c
- * @brief Implementation of when to write the settings down.
- */
+/* Implementation of when to write the settings down. */
 #include "autosave.h"
 
 #include <stddef.h>

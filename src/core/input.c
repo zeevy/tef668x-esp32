@@ -1,14 +1,11 @@
-/**
- * @file input.c
- * @brief Implementation of the knob and button state machines.
- */
+/* Implementation of the knob and button state machines. */
 #include "input.h"
 
 #include <stddef.h>
 
 /* ---------------------------------------------------------------- encoder */
 
-/**
+/*
  * What each pair of readings means.
  *
  * The index is the old two bits followed by the new two bits. A valid step
@@ -20,7 +17,7 @@
 static const int8_t kTransitions[16] = {0,  -1, 1, 0, 1, 0, 0,  -1,
                                         -1, 0,  0, 1, 0, 1, -1, 0};
 
-/**
+/*
  * How many transitions make one click.
  *
  * The optical variant puts out more edges for the same movement, so it needs

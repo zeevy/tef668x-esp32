@@ -1,6 +1,5 @@
-/**
- * @file squelch.h
- * @brief When to silence the audio between stations.
+/*
+ * When to silence the audio between stations.
  *
  * Pure logic, no hardware. Given a reading and a mode it says open or shut,
  * which is what makes the awkward parts testable on a PC: the hold that stops
@@ -37,23 +36,17 @@
 extern "C" {
 #endif
 
-/** What decides whether the audio is open. */
+/* What decides whether the audio is open. */
 typedef enum {
-  SQUELCH_OFF = 0, /**< Always open. The pot is the volume. */
-  SQUELCH_AUTO,    /**< From the signal quality. The pot is the volume. */
-  SQUELCH_MANUAL,  /**< From a threshold, which the pot sets. */
+  SQUELCH_OFF = 0, /* Always open. The pot is the volume. */
+  SQUELCH_AUTO,    /* From the signal quality. The pot is the volume. */
+  SQUELCH_MANUAL,  /* From a threshold, which the pot sets. */
   SQUELCH_MODE_COUNT
 } SquelchMode;
 
-/**
- * The mode in words.
- *
- * @param mode  Which mode.
- * @return Its name, or an empty string when it is not a mode. Never NULL.
- */
 const char *squelchModeName(SquelchMode mode);
 
-/**
+/*
  * The FM level floor this radio ships with, in whole dBuV.
  *
  * Measured, and the working is in test/fixtures/squelch/README.md. It sits
@@ -63,7 +56,7 @@ const char *squelchModeName(SquelchMode mode);
  */
 #define SQUELCH_FM_LEVEL_FLOOR_DBUV 15
 
-/**
+/*
  * The highest floor a person may ask for, in whole dBuV.
  *
  * Every station measured on this radio reads above 19.6 dBuV, so a floor
@@ -73,10 +66,10 @@ const char *squelchModeName(SquelchMode mode);
  */
 #define SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV 40
 
-/** Put in fmLevelFloorTenths to switch the level floor off entirely. */
+/* Put in fmLevelFloorTenths to switch the level floor off entirely. */
 #define SQUELCH_LEVEL_FLOOR_OFF INT16_MIN
 
-/**
+/*
  * How many readings the level average needs before the floor is applied.
  *
  * The average takes its first reading as the answer outright, so until a few
@@ -100,7 +93,7 @@ const char *squelchModeName(SquelchMode mode);
  */
 #define SQUELCH_LEVEL_SETTLE 3
 
-/**
+/*
  * How many of the last few readings have to be good to open the audio.
  *
  * One is not enough. The channel beside a strong station produces isolated
@@ -122,19 +115,18 @@ const char *squelchModeName(SquelchMode mode);
  */
 #define SQUELCH_OPEN_READINGS 2
 
-/** How far back to look for them. */
+/* How far back to look for them. */
 #define SQUELCH_OPEN_WINDOW 3
 
-/** What a reading has to beat for the audio to open. */
+/* What a reading has to beat for the audio to open. */
 typedef struct {
-  uint16_t
-      fmNoiseTenths; /**< FM ultrasonic noise limit, tenths of a percent. */
-  uint16_t fmMultipathTenths; /**< FM multipath limit. */
-  uint16_t fmOffsetTenths;    /**< How far off centre FM may sit, tenths kHz. */
-  uint16_t amNoiseTenths;     /**< AM noise limit. */
-  uint16_t amOffsetTenths;    /**< How far off centre AM may sit. */
-  uint16_t holdMs;            /**< How long a bad reading must last to shut. */
-  /**
+  uint16_t fmNoiseTenths; /* FM ultrasonic noise limit, tenths of a percent. */
+  uint16_t fmMultipathTenths; /* FM multipath limit. */
+  uint16_t fmOffsetTenths;    /* How far off centre FM may sit, tenths kHz. */
+  uint16_t amNoiseTenths;     /* AM noise limit. */
+  uint16_t amOffsetTenths;    /* How far off centre AM may sit. */
+  uint16_t holdMs;            /* How long a bad reading must last to shut. */
+  /*
    * The level an FM signal has to reach, in tenths of a dBuV.
    *
    * SQUELCH_LEVEL_FLOOR_OFF switches it off. A sentinel rather than 0,
@@ -149,7 +141,7 @@ typedef struct {
   int16_t fmLevelFloorTenths;
 } SquelchConfig;
 
-/**
+/*
  * The thresholds this radio ships with.
  *
  * From the working PE5PVB firmware, at its default sensitivity of 4. Its
@@ -167,14 +159,12 @@ typedef struct {
  * The FM level floor is this radio's own, measured here and not taken from
  * that firmware, which has no such gate and chatters on the shoulder of a
  * strong station because of it. See test/fixtures/squelch/README.md.
- *
- * @param out  Receives the defaults.
  */
 void squelchDefaults(SquelchConfig *out);
 
-/** What the squelch has seen. Call squelchInit before first use. */
+/* What the squelch has seen. Call squelchInit before first use. */
 typedef struct {
-  /**
+  /*
    * The level, smoothed, which is what the FM level floor is judged on.
    *
    * A station holds its level steady and the shoulder of a station does not.
@@ -187,9 +177,9 @@ typedef struct {
    * into a number the floor can be set against.
    */
   SignalAverage level;
-  /** How many readings have gone into that average, held at the settle. */
+  /* How many readings have gone into that average, held at the settle. */
   uint8_t levelSamples;
-  /**
+  /*
    * Whether each of the last few readings was good, newest in bit 0.
    *
    * Only the lowest SQUELCH_OPEN_WINDOW bits are read. A history rather than
@@ -197,27 +187,25 @@ typedef struct {
    * side of a limit can still open the audio.
    */
   uint8_t goodHistory;
-  bool open;        /**< The audio is open now. */
-  uint32_t badMs;   /**< When the reading first went bad. */
-  bool waiting;     /**< A bad reading is being held before shutting. */
-  uint32_t lostMs;  /**< When the readings started failing. */
-  bool lost;        /**< Readings are failing now. */
-  SquelchMode mode; /**< The mode the hold was started under. */
-  BandId band;      /**< The band it was started on. */
+  bool open;        /* The audio is open now. */
+  uint32_t badMs;   /* When the reading first went bad. */
+  bool waiting;     /* A bad reading is being held before shutting. */
+  uint32_t lostMs;  /* When the readings started failing. */
+  bool lost;        /* Readings are failing now. */
+  SquelchMode mode; /* The mode the hold was started under. */
+  BandId band;      /* The band it was started on. */
 } Squelch;
 
-/**
+/*
  * Set a squelch up, open.
  *
  * Open, not shut, and not merely zeroed. A zeroed squelch is a shut one, and
  * a radio that starts shut and has not yet had a reading it can judge is a
  * radio that comes up silent for no reason it can explain.
- *
- * @param s  The squelch. Cleared.
  */
 void squelchInit(Squelch *s);
 
-/**
+/*
  * The dial has moved, so the readings from before it say nothing.
  *
  * Starts the level average again without touching whether the audio is open.
@@ -227,38 +215,23 @@ void squelchInit(Squelch *s);
  *
  * squelchInit does this too. This exists for a plain retune, where the audio
  * should carry on as it was rather than being reopened.
- *
- * @param s  The squelch.
  */
 void squelchRetuned(Squelch *s);
 
-/** One reading, as much of it as the squelch cares about. */
+/* One reading, as much of it as the squelch cares about. */
 typedef struct {
-  bool valid;               /**< The reading came back. False shuts nothing. */
-  int16_t levelTenths;      /**< Signal level, tenths of a dBuV. */
-  uint16_t noiseTenths;     /**< Ultrasonic noise. */
-  uint16_t multipathTenths; /**< Multipath. FM only. */
-  int16_t offsetTenths;     /**< How far off centre, tenths of a kHz. */
+  bool valid;               /* The reading came back. False shuts nothing. */
+  int16_t levelTenths;      /* Signal level, tenths of a dBuV. */
+  uint16_t noiseTenths;     /* Ultrasonic noise. */
+  uint16_t multipathTenths; /* Multipath. FM only. */
+  int16_t offsetTenths;     /* How far off centre, tenths of a kHz. */
 } SquelchReading;
 
-/**
- * Work out whether the audio should be open.
- *
- * @param s          The squelch.
- * @param cfg        The thresholds. NULL means the defaults.
- * @param mode       Which mode.
- * @param band       Which band, which decides the rule Auto uses.
- * @param reading    What the tuner says.
- * @param thresholdTenths  For Manual, the level the signal has to beat, in
- *                   tenths of a dBuV.
- * @param nowMs      The millisecond count now.
- * @return true when the audio should be open.
- */
 bool squelchUpdate(Squelch *s, const SquelchConfig *cfg, SquelchMode mode,
                    BandId band, const SquelchReading *reading,
                    int16_t thresholdTenths, uint32_t nowMs);
 
-/**
+/*
  * Turn a pot reading into a manual squelch threshold.
  *
  * The bottom of the travel is always open and the top is the highest level
@@ -269,11 +242,6 @@ bool squelchUpdate(Squelch *s, const SquelchConfig *cfg, SquelchMode mode,
  * would sit at "always open" for the first stretch and hit the ceiling before
  * the end. Pass 0 and 0 for the full converter range, which is what an
  * uncalibrated radio uses.
- *
- * @param raw     The pot reading.
- * @param rawMin  What the knob reads at the quiet end, or 0 for the default.
- * @param rawMax  What it reads at the loud end, or 0 for the default.
- * @return The threshold in tenths of a dBuV.
  */
 int16_t squelchThresholdFromPot(uint16_t raw, uint16_t rawMin, uint16_t rawMax);
 

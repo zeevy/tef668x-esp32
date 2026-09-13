@@ -1,15 +1,12 @@
-/**
- * @file backlight.c
- * @brief Implementation of the panel brightness.
- */
+/* Implementation of the panel brightness. */
 #include "backlight.h"
 
 #include <stddef.h>
 
-/** The brightness a panel comes up at when nobody has said otherwise. */
+/* The brightness a panel comes up at when nobody has said otherwise. */
 #define BACKLIGHT_DEFAULT_FULL 100
 
-/**
+/*
  * The dim level a panel drops to, as a percentage.
  *
  * Measured on this radio rather than chosen. Stepping the panel from 70 per
@@ -23,7 +20,7 @@
  */
 #define BACKLIGHT_DEFAULT_DIM 20
 
-/**
+/*
  * How long the radio is left alone before it dims, in seconds. 0 never.
  *
  * Off, for the same reason the key beeps are off and decision 27 says the
@@ -33,19 +30,15 @@
  */
 #define BACKLIGHT_DEFAULT_DIM_AFTER_S 0
 
-/** Clamp a percentage to something the panel can be set to. */
 static uint8_t clampPercent(uint8_t percent) {
   return percent > 100 ? 100 : percent;
 }
 
-/**
+/*
  * Whole number square root, by the usual bit at a time method.
  *
  * Here so the fade can work in a perceptual scale without floating point on a
  * path that runs every time round the loop.
- *
- * @param v  The value.
- * @return The largest whole number whose square is not more than v.
  */
 static uint32_t isqrt32(uint32_t v) {
   uint32_t root = 0;
@@ -65,7 +58,7 @@ static uint32_t isqrt32(uint32_t v) {
   return root;
 }
 
-/**
+/*
  * A brightness on the scale an eye reads it on, 0 to 1000.
  *
  * The square root of the duty, times a hundred to keep the precision in whole
@@ -76,7 +69,7 @@ static uint32_t perceived(uint8_t percent) {
   return isqrt32((uint32_t)clampPercent(percent) * 10000UL);
 }
 
-/**
+/*
  * Where a fade should be by now, given where it started and where it ends.
  *
  * Even in what an eye sees, not in what the panel is driven with. That is not
@@ -105,7 +98,6 @@ static uint8_t fadeLevel(const Backlight *b, uint32_t nowMs) {
   return (uint8_t)(((uint32_t)at * (uint32_t)at) / 10000UL);
 }
 
-/** Begin a fade from wherever it is now to `to`, over `ms`. */
 static void startFade(Backlight *b, uint8_t to, uint16_t ms, uint32_t nowMs) {
   to = clampPercent(to);
   if (ms == 0 || to == b->level) {
@@ -119,13 +111,11 @@ static void startFade(Backlight *b, uint8_t to, uint16_t ms, uint32_t nowMs) {
   b->fadeStartMs = nowMs;
 }
 
-/** Go straight to a level, cancelling anything that was running. */
 static void jumpTo(Backlight *b, uint8_t to) {
   b->level = clampPercent(to);
   b->fadeMs = 0;
 }
 
-/** What the panel should settle at, given whether it has been left alone. */
 static uint8_t restingLevel(const Backlight *b) {
   if (!b->dimmed) {
     return clampPercent(b->cfg.fullPercent);

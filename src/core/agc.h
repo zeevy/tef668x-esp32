@@ -1,6 +1,5 @@
-/**
- * @file agc.h
- * @brief Evening out how loud one station is against the next.
+/*
+ * Evening out how loud one station is against the next.
  *
  * Stations are transmitted at different modulation depths, so one sounds
  * louder than the next at the same volume setting. The tuner reports the
@@ -34,19 +33,19 @@
 extern "C" {
 #endif
 
-/** Quietest target a person may ask for, in modulation percent. */
+/* Quietest target a person may ask for, in modulation percent. */
 #define AGC_TARGET_MIN 30
 
-/** Loudest. Above this there is nothing left to bring down. */
+/* Loudest. Above this there is nothing left to bring down. */
 #define AGC_TARGET_MAX 80
 
-/** The most the AGC will ever turn a station down, in dB. */
+/* The most the AGC will ever turn a station down, in dB. */
 #define AGC_MAX_CUT (-12)
 
-/** The most boost a person may ask for, in dB. */
+/* The most boost a person may ask for, in dB. */
 #define AGC_BOOST_MAX 8
 
-/**
+/*
  * Below this the station is silent and the reading says nothing.
  *
  * A speech pause is not a quiet station, and averaging silence in would drag
@@ -55,7 +54,7 @@ extern "C" {
  */
 #define AGC_MOD_MIN 10
 
-/**
+/*
  * Above this the reading is not believable.
  *
  * Real over modulation reaches 153 per cent in the captures, so this is well
@@ -68,10 +67,10 @@ extern "C" {
  */
 #define AGC_MOD_MAX 200
 
-/** The signal has to reach this, in dBuV, before a reading is measured. */
+/* The signal has to reach this, in dBuV, before a reading is measured. */
 #define AGC_MIN_SIGNAL 8
 
-/**
+/*
  * Above this ultrasonic noise the reading is noise, not audio. FM only.
  *
  * In tenths of a per cent, matching the driver. Noise reads as heavy
@@ -97,25 +96,25 @@ extern "C" {
  */
 #define AGC_MAX_NOISE_TENTHS 140
 
-/** Updates with nothing measurable before the gain is walked back to zero. */
+/* Updates with nothing measurable before the gain is walked back to zero. */
 #define AGC_IDLE_TICKS 50
 
-/** Updates needed before the gain is allowed to move at all. */
+/* Updates needed before the gain is allowed to move at all. */
 #define AGC_MIN_TICKS 5
 
-/** Updates after a tune that use the fast average. */
+/* Updates after a tune that use the fast average. */
 #define AGC_SETTLE_TICKS 20
 
-/** Fast average weight, one part in this. */
+/* Fast average weight, one part in this. */
 #define AGC_FAST_DIV 4
 
-/** Slow average weight, one part in this. */
+/* Slow average weight, one part in this. */
 #define AGC_SLOW_DIV 64
 
-/** dB the gain moves per update. */
+/* dB the gain moves per update. */
 #define AGC_STEP_DB 1
 
-/**
+/*
  * How far out the gain has to be before it moves, in dB.
  *
  * Wider than one step on purpose. Without it the gain toggles by a dB every
@@ -124,9 +123,9 @@ extern "C" {
  */
 #define AGC_DEADBAND_DB 2
 
-/** What the AGC is aiming for and how far it may go. */
+/* What the AGC is aiming for and how far it may go. */
 typedef struct {
-  /**
+  /*
    * The modulation depth to bring every station towards, as a percentage.
    *
    * 0 switches the AGC off. A lower target evens the stations out more,
@@ -135,7 +134,7 @@ typedef struct {
    * to the person listening, which is why it is a number and not a switch.
    */
   uint8_t targetPercent;
-  /**
+  /*
    * The most the AGC may add to a quiet station, in dB. 0 is cut only.
    *
    * Cutting alone brings the loud stations down to the target and leaves the
@@ -148,14 +147,14 @@ typedef struct {
   uint8_t boostDb;
 } AgcConfig;
 
-/** One reading, as much of it as the AGC cares about. */
+/* One reading, as much of it as the AGC cares about. */
 typedef struct {
-  bool valid;                /**< The reading came back. */
-  int16_t modulationPercent; /**< Modulation depth. Signed: see AGC_MOD_MAX. */
-  int16_t levelTenths;       /**< Signal level, tenths of a dBuV. */
-  uint16_t noiseTenths;      /**< Ultrasonic noise, tenths of a per cent. FM. */
-  bool fm;                   /**< The noise test only means something on FM. */
-  /**
+  bool valid;                /* The reading came back. */
+  int16_t modulationPercent; /* Modulation depth. Signed: see AGC_MOD_MAX. */
+  int16_t levelTenths;       /* Signal level, tenths of a dBuV. */
+  uint16_t noiseTenths;      /* Ultrasonic noise, tenths of a per cent. FM. */
+  bool fm;                   /* The noise test only means something on FM. */
+  /*
    * The audio is playing and the dial is still.
    *
    * A seek walking the band, a shut squelch and a deliberate mute all mean
@@ -163,7 +162,7 @@ typedef struct {
    * about all three and the AGC does not, so it is told.
    */
   bool listening;
-  /**
+  /*
    * This reading came off the chip, rather than being the last one again.
    *
    * The AGC runs on a steady cadence and the tuner is not always read at the
@@ -181,9 +180,9 @@ typedef struct {
   bool fresh;
 } AgcReading;
 
-/** What the AGC has seen. Zero it before first use. */
+/* What the AGC has seen. Zero it before first use. */
 typedef struct {
-  /**
+  /*
    * The running average of the modulation, in thousandths of a per cent.
    *
    * Slow on purpose, or the gain would follow the music and pump. For the
@@ -199,85 +198,57 @@ typedef struct {
    * anything the chip reports.
    */
   int32_t averageMilli;
-  uint8_t ticks; /**< Usable updates since the last tune, held at the cap. */
-  uint8_t idle;  /**< Updates with nothing to measure, held at the cap. */
-  int8_t gainDb; /**< What the AGC is adding now. */
+  uint8_t ticks; /* Usable updates since the last tune, held at the cap. */
+  uint8_t idle;  /* Updates with nothing to measure, held at the cap. */
+  int8_t gainDb; /* What the AGC is adding now. */
 } Agc;
 
-/**
- * Start an AGC, adding nothing.
- *
- * @param a  The AGC. Cleared.
- */
 void agcInit(Agc *a);
 
-/**
+/*
  * The dial has moved, so everything measured before it says nothing.
  *
  * The average starts again and the settling runs fast for a while, which is
  * what makes a new station reach its level in about two seconds. The gain
  * itself is left where it is: walking it to zero on every retune would be
  * heard as the volume jumping about as the dial crosses the band.
- *
- * @param a  The AGC.
  */
 void agcRetuned(Agc *a);
 
-/**
+/*
  * Take one reading and say what gain to apply.
  *
  * Call it on a steady cadence. The settling, the release and the step rate
  * are all counted in calls, not in milliseconds, so a caller that changes its
  * rate changes how fast the AGC moves.
- *
- * @param a    The AGC.
- * @param cfg  The target and the boost. NULL, or a target of 0, means off.
- * @param r    The reading. NULL counts as nothing measurable.
- * @return The gain to add to the volume, in dB. 0 when the AGC is off.
  */
 int8_t agcUpdate(Agc *a, const AgcConfig *cfg, const AgcReading *r);
 
-/**
- * The gain the AGC is adding now, without taking a reading.
- *
- * @param a  The AGC.
- * @return The gain in dB. 0 for NULL.
- */
 int8_t agcGain(const Agc *a);
 
-/**
+/*
  * The gain the average is asking for, before the step rate and the deadband.
  *
  * Exposed because it is the number the whole thing turns on, and a caller
  * that shows only the gain cannot tell a station that has settled from one
  * that is still moving towards its level.
- *
- * @param a    The AGC.
- * @param cfg  The target and the boost.
- * @return The wanted gain in dB, or 0 when there is no usable average yet.
  */
 int8_t agcWantedGain(const Agc *a, const AgcConfig *cfg);
 
-/**
+/*
  * The running average of the modulation, in tenths of a per cent.
  *
  * The stored form is finer than this, for reasons on the field itself. This
  * is the number a person or a capture would recognise.
- *
- * @param a  The AGC.
- * @return The average in tenths of a per cent. 0 for NULL.
  */
 int16_t agcAverageTenths(const Agc *a);
 
-/**
+/*
  * Whether the average is worth acting on yet.
  *
  * A couple of samples are not a loudness measurement, and acting on them
  * means a loud or quiet moment at the instant of tuning sends the gain the
  * wrong way, which is heard as a swoop.
- *
- * @param a  The AGC.
- * @return true once enough usable readings have arrived.
  */
 bool agcSettled(const Agc *a);
 

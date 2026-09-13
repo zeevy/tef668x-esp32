@@ -1,6 +1,5 @@
-/**
- * @file font_small.h
- * @brief Generated bitmap font, 16px. Do not edit by hand.
+/*
+ * Generated bitmap font, 16px. Do not edit by hand.
  *
  * Made by tools/make_font.py from Roboto Condensed at weight 400,
  * which is the face docs/design.html settled on for the screen. Roboto is Apache
@@ -19,7 +18,7 @@
 
 #include "font.h"
 
-/** The pixels of every glyph, one after another. */
+/* The pixels of every glyph, one after another. */
 static const uint8_t kSmallBits[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x60, 0x60, 0x60,
@@ -200,7 +199,7 @@ static const uint8_t kSmallBits[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
 
-/** Where each glyph starts and how wide it is. */
+/* Where each glyph starts and how wide it is. */
 static const FontGlyph kSmallGlyphs[] = {
     {0, 4},     /* ' ' */
     {18, 4},    /* '!' */
@@ -299,7 +298,7 @@ static const FontGlyph kSmallGlyphs[] = {
     {2088, 9},  /* '~' */
 };
 
-/** 16px Roboto Condensed, printable ASCII. */
+/* 16px Roboto Condensed, printable ASCII. */
 static const Font kSmallFont = {
     kSmallBits, kSmallGlyphs, 18, 32, 126,
 };

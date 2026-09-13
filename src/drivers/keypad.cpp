@@ -1,7 +1,4 @@
-/**
- * @file keypad.cpp
- * @brief Implementation of the PCA9555 keypad.
- */
+/* Implementation of the PCA9555 keypad. */
 #include "keypad.h"
 
 #include "board/board.h"
@@ -11,13 +8,13 @@
 
 #include "i2c_bus.h"
 
-/** Input port 0. Reading from here gives both bytes, low byte first. */
+/* Input port 0. Reading from here gives both bytes, low byte first. */
 #define PCA9555_INPUT_0 0x00
 
-/** Configuration port 0. A one makes a line an input. */
+/* Configuration port 0. A one makes a line an input. */
 #define PCA9555_CONFIG_0 0x06
 
-/**
+/*
  * Which key each line carries.
  *
  * Read off the working PE5PVB firmware, which runs on this board, with one
@@ -35,7 +32,7 @@ static const int8_t kKeyForLine[16] = {
 
 static bool sPresent = false;
 
-/** Which key is being held, so one press is reported once. */
+/* Which key is being held, so one press is reported once. */
 static int8_t sHeld = KEYPAD_NONE;
 
 bool keypadBegin(void) {

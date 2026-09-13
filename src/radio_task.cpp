@@ -1,10 +1,8 @@
-/**
- * @file radio_task.cpp
- * @brief Implementation of the radio task, its queue and its snapshot.
- */
+/* Implementation of the radio task, its queue and its snapshot. */
 #include "radio_task.h"
 
 #include "core/signal.h"
+#include "memory_store.h"
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
@@ -13,13 +11,13 @@
 #include <freertos/task.h>
 #include <string.h>
 
-/** Core 0 is the radio's. Core 1 runs the UI and the network. */
+/* Core 0 is the radio's. Core 1 runs the UI and the network. */
 #define RADIO_TASK_CORE 0
 
-/** Above the Arduino loop, so a busy web server cannot starve the tuner. */
+/* Above the Arduino loop, so a busy web server cannot starve the tuner. */
 #define RADIO_TASK_PRIORITY 3
 
-/** Enough for the driver, the band plan and a little room. */
+/* Enough for the driver, the band plan and a little room. */
 #define RADIO_TASK_STACK 4096
 
 /*
@@ -34,7 +32,7 @@
  * Callers that need an answer use radioPostAndSettle, which waits for the
  * task's own verdict. Nothing crosses the task boundary but plain data.
  */
-/** What travels on the queue: a command, and nothing else. */
+/* What travels on the queue: a command, and nothing else. */
 typedef RadioCommand QueueItem;
 
 static TaskHandle_t sTask = NULL;
@@ -43,16 +41,26 @@ static SemaphoreHandle_t sLock = NULL;
 static RadioSnapshot sSnapshot;
 static BandPlanConfig sPlan;
 
-/** How many commands have been put on the queue. Guarded by sLock. */
+/* How many commands have been put on the queue. Guarded by sLock. */
 static uint32_t sPosted;
 
-/**
+/*
+ * Which stored channel the radio is sitting on, or MEMORY_NO_SLOT.
+ *
+ * Only the radio task touches it. It is worked out again whenever the band
+ * or the frequency moves, so it says what is true rather than only what
+ * memory mode last did: tuning by hand onto a stored channel shows its slot,
+ * and tuning off one clears it.
+ */
+static int sMemorySlot = MEMORY_NO_SLOT;
+
+/*
  * The squelch. Only the radio task touches the state; the mode and the
  * threshold are set from other tasks and are guarded by sLock.
  */
 static Squelch sSquelch;
 
-/**
+/*
  * The mute the tuner was last told, which is not what the settings say.
  *
  * The settings hold what the person asked for. The tuner holds that or
@@ -61,10 +69,10 @@ static Squelch sSquelch;
  */
 static bool sLastPushedMute = false;
 
-/** The volume the tuner was last told, which the fade moves on its own. */
+/* The volume the tuner was last told, which the fade moves on its own. */
 static int8_t sLastPushedVolume = 0;
 
-/**
+/*
  * The filter width the tuner was last told.
  *
  * Tracked separately from the settings for the same reason the mute is: a
@@ -73,7 +81,7 @@ static int8_t sLastPushedVolume = 0;
  */
 static uint16_t sLastPushedBandwidth = 0;
 
-/**
+/*
  * A round left something for the next one to finish quickly.
  *
  * The filter goes out on the round the ramp reaches the bottom, and the fade
@@ -83,15 +91,15 @@ static uint16_t sLastPushedBandwidth = 0;
  */
 static bool sWakeSoon = false;
 
-/** When the current fade started, and how long it lasts. */
+/* When the current fade started, and how long it lasts. */
 static uint32_t sFadeFromMs = 0;
 static uint16_t sFadeMs = RADIO_FADE_MS;
 
-/** Smoothed readings, for anything that decides on the signal. */
+/* Smoothed readings, for anything that decides on the signal. */
 static SignalAverage sLevelAverage;
 static SignalAverage sSnrAverage;
 
-/**
+/*
  * The same smoothing again, for anything a person looks at.
  *
  * A second average rather than a reading of the first one, because the first
@@ -102,13 +110,64 @@ static SignalAverage sSnrAverage;
  */
 static SignalAverage sDisplayLevelAverage;
 static int16_t sLevelSmoothed = 0;
-/** Whether that level was read where the dial is now. See the snapshot. */
+/*
+ * Put the radio on a stored channel.
+ *
+ * The one place a slot becomes a frequency, shared by the knob in memory mode
+ * and by RADIO_RECALL, so the two cannot come to mean different things.
+ */
+static RadioError recallChannel(RadioSettings *wanted, int slot) {
+  MemoryChannel channel;
+  if (!memoryStoreRead(slot, &channel)) {
+    return RADIO_ERR_NO_CHANNEL;
+  }
+  /* Checked here and not only by whoever chose the slot, so the knob and the
+   * API agree about which slots can be reached. A tune goes by frequency
+   * alone and the band plan picks the band for it, so a channel whose
+   * frequency is not on the band it names would land somewhere else, with
+   * that band's step size, while the list went on reporting the band it
+   * says. */
+  if (!memoryChannelTunable(&channel, &sPlan)) {
+    return RADIO_ERR_CHANNEL_BAND;
+  }
+  /* A channel list runs across the bands, so walking it moves band. Decision
+   * 29 gives every band its own tuning mode and a tune across an edge puts
+   * that band's mode back, which would drop the radio out of memory mode on
+   * the first channel that is not on this band. Recalling a channel is not a
+   * person choosing a tuning mode, so whatever mode they were in is kept. */
+  TuneMode was = wanted->tuneMode;
+  RadioCommand tune = {};
+  tune.kind = RADIO_TUNE;
+  tune.freqKHz = channel.freqKHz;
+  RadioError result = radioApply(wanted, &sPlan, &tune);
+  if (result != RADIO_OK) {
+    return result;
+  }
+  /* Unless the new band does not have that mode. Meter band stepping only
+   * exists on shortwave, so a channel that leaves it cannot keep it. */
+  if (radioTuneModeAllowed(was, wanted->band)) {
+    wanted->tuneMode = was;
+  }
+  /* A width of 0 is the channel saying it has no opinion, so whatever the
+   * band is already set to is left alone. A width the band does not offer is
+   * left alone too: the channel is still worth tuning, and the tune has
+   * already happened. */
+  if (channel.bandwidthKHz != 0) {
+    RadioCommand width = {};
+    width.kind = RADIO_SET_BANDWIDTH;
+    width.bandwidthKHz = channel.bandwidthKHz;
+    radioApply(wanted, &sPlan, &width);
+  }
+  return RADIO_OK;
+}
+
+/* Whether that level was read where the dial is now. See the snapshot. */
 static bool sLevelSmoothedValid = false;
 
-/** What the bandwidth extension was last set to. */
+/* What the bandwidth extension was last set to. */
 static bool sBandwidthWide = false;
 static bool sBandwidthKnown = false;
-/**
+/*
  * How long publish waits for the lock before giving up.
  *
  * Bounded rather than forever. The readers hold it only long enough to copy a
@@ -120,7 +179,7 @@ static bool sBandwidthKnown = false;
 
 static SquelchMode sSquelchMode = SQUELCH_OFF;
 
-/**
+/*
  * The squelch thresholds. Only the level floor is settable; the rest are the
  * measured defaults.
  *
@@ -176,7 +235,7 @@ static uint16_t sBeepHz2 = 2000;
  * task every round, so it is not the compiler's to cache. */
 static volatile bool sHushed = false;
 
-/**
+/*
  * The tone, in hertz, and how loud, in tenths of a dB below full scale.
  *
  * The reference firmware's figures, which it uses for its band edge beep on
@@ -184,9 +243,9 @@ static volatile bool sHushed = false;
  * loud that it is startling.
  */
 #define RADIO_BEEP_HZ 2000
-/** How loud, in tenths of a dB below full scale. */
+/* How loud, in tenths of a dB below full scale. */
 #define RADIO_BEEP_AMPLITUDE (-50)
-/** How long a beep lasts. The reference firmware's figure. */
+/* How long a beep lasts. The reference firmware's figure. */
 #define RADIO_BEEP_MS 50
 
 /* Whether the dial wrapping at a band edge makes a sound. Off unless asked. */
@@ -206,7 +265,7 @@ static uint32_t sDuckFromMs = 0;
 static bool sDucking = false;
 static int8_t sDuckFromDb = 0;
 
-/**
+/*
  * How long to wait after a retune before the reading means anything.
  *
  * The reference firmware's own figure, from the delay in its seek loop. It
@@ -216,7 +275,7 @@ static int8_t sDuckFromDb = 0;
 #define SEEK_SETTLE_MS 50
 static int16_t sSquelchThreshold = 0;
 
-/**
+/*
  * Copy the working state out to where readers can see it.
  *
  * The count of commands worked through moves in the same locked step as the
@@ -228,11 +287,6 @@ static int16_t sSquelchThreshold = 0;
  * order and the queue is first in first out, so the n'th command drained this
  * time round is ticket `applied + 1 + n`, and a waiter can find its own
  * result rather than inferring one from the state that followed.
- *
- * @param drained  How many commands were taken off the queue this time round.
- * @param results  What the state machine made of each, in the same order.
- * @return false when the lock could not be taken, in which case nothing was
- *         published and the caller still owes these drains.
  */
 static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
                     bool qualityValid, Tef668xError lastError, uint32_t drained,
@@ -269,13 +323,14 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.seekFound = sSeekFound;
   sSnapshot.squelchOpen = sSquelch.open;
   sSnapshot.squelchThresholdTenths = sSquelchThreshold;
+  sSnapshot.memorySlot = (int16_t)sMemorySlot;
   sSnapshot.updatedMs = millis();
   sSnapshot.sequence++;
   xSemaphoreGive(sLock);
   return true;
 }
 
-/**
+/*
  * Everything the tuner is told about how to receive, beyond the dial.
  *
  * Written on every retune as well as on a change, because crossing to the AM
@@ -320,17 +375,13 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
   return deemp != TEF668X_OK ? deemp : blanker;
 }
 
-/**
+/*
  * Tell the tuner what the settings now say, and only what changed.
  *
  * Order matters on a retune. Mute first so nothing bursts out while the
  * frequency moves, and unmute last. Only on a retune: a volume change that
  * muted and unmuted around itself would chop the audio, and the volume knob
  * sends one of those every fiftieth of a second while it is being turned.
- *
- * @param from  What the tuner was last told, or NULL to send everything.
- * @param to    What it should be set to.
- * @return TEF668X_OK, or the first thing that went wrong.
  */
 static Tef668xError pushToTuner(const RadioSettings *from,
                                 const RadioSettings *to) {
@@ -440,7 +491,7 @@ static Tef668xError pushToTuner(const RadioSettings *from,
   return TEF668X_OK;
 }
 
-/**
+/*
  * How many channels one full pass of a band is.
  *
  * So a seek across a band with nothing on it ends instead of going round for
@@ -456,7 +507,6 @@ static uint32_t seekChannelsIn(BandId band, uint16_t stepKHz) {
   return (hi - lo) / stepKHz + 1;
 }
 
-/** Begin a seek. The task walks the dial from the next loop round. */
 static void seekBegin(const RadioSettings *from, bool up) {
   sSeeking = true;
   sSeekUp = up;
@@ -468,7 +518,7 @@ static void seekBegin(const RadioSettings *from, bool up) {
   }
 }
 
-/**
+/*
  * Stop a seek, whether it found something or not.
  *
  * Called from the drain loop for any other command, which is what makes seek
@@ -481,7 +531,6 @@ static void seekEnd(bool found) {
   sSeekFound = found;
 }
 
-/** The radio task. Owns the tuner for the life of the radio. */
 static void radioTask(void *arg) {
   (void)arg;
 
@@ -519,6 +568,15 @@ static void radioTask(void *arg) {
   bool processingOk = false;
   publish(&settings, &quality, false, lastError, 0, NULL, &processing, false);
 
+  /* What the stored slot was last worked out for. 0 is not a frequency any
+   * band has, so the first round always works it out. */
+  uint32_t lastMemoryFreqKHz = 0;
+  BandId lastMemoryBand = settings.band;
+  /* The list itself can move under a dial that has not. Storing the station
+   * already playing has to show its slot straight away, not only once the
+   * dial has been turned off it and back. */
+  uint32_t lastMemoryGeneration = 0;
+
   const TickType_t period = pdMS_TO_TICKS(RADIO_POLL_INTERVAL_MS);
   TickType_t nextPoll = xTaskGetTickCount() + period;
   bool qualityOk = false;
@@ -533,6 +591,10 @@ static void radioTask(void *arg) {
      * two are faded differently, so which one moved the dial has to be known
      * rather than worked out from the frequency afterwards. */
     bool jumped = false;
+    /* Which slot a recall this round landed on. Kept rather than worked out
+     * from the frequency afterwards, because two slots may hold the same
+     * station and the one asked for is the one the radio is on. */
+    int recalled = MEMORY_NO_SLOT;
     QueueItem item;
     uint32_t drained = owed;
     RadioError results[RADIO_QUEUE_DEPTH];
@@ -612,7 +674,49 @@ static void radioTask(void *arg) {
         } else if (item.kind == RADIO_SEEK) {
           seekBegin(&wanted, item.up);
           results[drained++] = RADIO_OK;
+        } else if (item.kind == RADIO_RECALL) {
+          if (sSeeking) {
+            seekEnd(false);
+          }
+          sSeekFound = false;
+          results[drained++] = recallChannel(&wanted, item.memorySlot);
+          if (results[drained - 1] == RADIO_OK) {
+            jumped = true;
+            recalled = item.memorySlot;
+          }
+        } else if (item.kind == RADIO_STEP && item.steps != 0 &&
+                   wanted.tuneMode == TUNE_MODE_MEMORY) {
+          /* In memory mode the knob walks the stored list, not the dial. The
+           * step is turned into a tune here rather than in the caller,
+           * because only the radio knows which slot it is on and a caller
+           * that read that, worked out the next one and sent it would be
+           * racing the radio for the answer. */
+          if (sSeeking) {
+            seekEnd(false);
+          }
+          sSeekFound = false;
+          int slot = sMemorySlot;
+          int32_t moves = item.steps < 0 ? -(int32_t)item.steps : item.steps;
+          /* A walk longer than the list repeats itself, so there is nothing
+           * to gain past one lap. Without this a fast spin of the knob sends
+           * thousands of steps, each one taking the list's lock and reading
+           * all 99 slots, and the radio task holds up its own cadence to do
+           * work whose answer it already had. */
+          if (moves > MEMORY_SLOT_COUNT) {
+            moves = MEMORY_SLOT_COUNT;
+          }
+          slot = memoryStoreStep(&sPlan, slot, item.steps > 0, (int)moves);
+          results[drained++] = recallChannel(&wanted, slot);
+          if (results[drained - 1] == RADIO_OK) {
+            jumped = true;
+            recalled = slot;
+          }
         } else {
+          /* This command may move the dial, so the slot a recall earlier in
+           * this same drain landed on no longer describes where the radio
+           * is. Without this the panel shows a slot number for a station the
+           * radio is not on. */
+          recalled = MEMORY_NO_SLOT;
           /* Anything else stops a seek where it stands. A person reaching
            * for the knob while the radio is hunting means stop, and so does
            * a script sending a tune.
@@ -642,6 +746,35 @@ static void radioTask(void *arg) {
             }
           }
         }
+      }
+    }
+
+    /* Worked out again whenever the dial has moved, and only then, so the
+     * lock is taken once per retune rather than ten times a second. It says
+     * where the radio is rather than what memory mode last did, so a station
+     * reached with the keypad shows its slot if it has one. */
+    if (sSeeking) {
+      /* A seek moves the dial every round, and while it runs the radio is
+       * walking noise rather than sitting on a channel. Looking the slot up
+       * each time would take the list's lock hundreds of times a second to
+       * answer about a frequency nobody is listening to. Clearing the
+       * remembered frequency makes the first round after it stops look it up
+       * again. */
+      sMemorySlot = MEMORY_NO_SLOT;
+      lastMemoryFreqKHz = 0;
+    } else if (recalled != MEMORY_NO_SLOT) {
+      lastMemoryFreqKHz = wanted.freqKHz;
+      lastMemoryBand = wanted.band;
+      lastMemoryGeneration = memoryStoreGeneration();
+      sMemorySlot = recalled;
+    } else {
+      uint32_t generation = memoryStoreGeneration();
+      if (wanted.freqKHz != lastMemoryFreqKHz ||
+          wanted.band != lastMemoryBand || generation != lastMemoryGeneration) {
+        lastMemoryFreqKHz = wanted.freqKHz;
+        lastMemoryBand = wanted.band;
+        lastMemoryGeneration = generation;
+        sMemorySlot = memoryStoreFind((uint8_t)wanted.band, wanted.freqKHz);
       }
     }
 
@@ -1046,6 +1179,10 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   }
 
   memset(&sSnapshot, 0, sizeof(sSnapshot));
+  /* Zero is slot 0, which reads as channel 1, and the task has not looked
+   * anything up yet. Until it does, the honest answer is that the radio is on
+   * no stored channel. */
+  sSnapshot.memorySlot = MEMORY_NO_SLOT;
 
   /* Everything a person chose, before the task takes its first look. The
    * task's first push ends with an unmute, so anything changed after that is
@@ -1118,17 +1255,12 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   return false;
 }
 
-/**
+/*
  * Put a command on the queue and say which one it was.
  *
  * The number and the queue move together under the lock, so a ticket is never
  * handed out for a command that was not queued, and two callers at once
  * cannot be given the same one.
- *
- * @param item    The command, already copied.
- * @param ticket  Receives the count this command will be at once the task has
- *                worked through it. May be NULL.
- * @return false when the queue is full.
  */
 static bool post(const QueueItem *item, uint32_t *ticket) {
   if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) != pdTRUE) {

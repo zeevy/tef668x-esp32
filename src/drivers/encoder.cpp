@@ -1,31 +1,28 @@
-/**
- * @file encoder.cpp
- * @brief Implementation of the encoder and panel button pins.
- */
+/* Implementation of the encoder and panel button pins. */
 #include "encoder.h"
 
 #include "board/board.h"
 
 #include <Arduino.h>
 
-/** The decoder. Only the interrupt touches it. */
+/* The decoder. Only the interrupt touches it. */
 static Encoder sEncoder;
 
-/** Clicks turned and not yet taken. Shared with the interrupt. */
+/* Clicks turned and not yet taken. Shared with the interrupt. */
 static volatile int32_t sClicks = 0;
 
-/** Guards the click count against the interrupt on the other core. */
+/* Guards the click count against the interrupt on the other core. */
 static portMUX_TYPE sMux = portMUX_INITIALIZER_UNLOCKED;
 
-/** Which pin each button is on, in PanelButton order. */
+/* Which pin each button is on, in PanelButton order. */
 static const uint8_t kButtonPins[PANEL_BUTTON_COUNT] = {
     PIN_BUTTON_BAND, PIN_BUTTON_BW, PIN_BUTTON_MODE, PIN_ENCODER_BUTTON};
 
-/** Their names, in the same order. */
+/* Their names, in the same order. */
 static const char *const kButtonNames[PANEL_BUTTON_COUNT] = {"BAND", "BW",
                                                              "MODE", "PUSH"};
 
-/**
+/*
  * Both encoder lines changed, or one of them did.
  *
  * Marked IRAM_ATTR, but be clear about what that does and does not buy here.
@@ -56,7 +53,7 @@ static void IRAM_ATTR onEncoderEdge(void) {
   }
 }
 
-/** True once the interrupts have been attached at least once. */
+/* True once the interrupts have been attached at least once. */
 static bool sArmed = false;
 
 void encoderBegin(EncoderKind kind, EncoderDirection direction) {

@@ -1,7 +1,4 @@
-/**
- * @file screen.cpp
- * @brief Implementation of the plain text screen.
- */
+/* Implementation of the plain text screen. */
 #include "screen.h"
 
 #include "core/signal.h"
@@ -28,10 +25,10 @@ static const Colour kDim = displayColour(0x6C, 0x7A, 0x89);
 static const Colour kGood = displayColour(0x31, 0xC2, 0x9C);
 static const Colour kBad = displayColour(0xFF, 0x8A, 0x72);
 
-/** Gap from the edge of the panel, in pixels. */
+/* Gap from the edge of the panel, in pixels. */
 #define MARGIN 12
 
-/**
+/*
  * How long a remembered line can be, with its terminator.
  *
  * Longer than the longest string any field can hold. Shorter than that and a
@@ -41,7 +38,7 @@ static const Colour kBad = displayColour(0xFF, 0x8A, 0x72);
  */
 #define LINE_MAX 64
 
-/**
+/*
  * One field on the screen.
  *
  * Each owns a fixed box. Redrawing means painting the whole box over and then
@@ -51,16 +48,16 @@ static const Colour kBad = displayColour(0xFF, 0x8A, 0x72);
  * time the number changes width. On the radio that shows as "kHz MHzzHz".
  */
 typedef struct {
-  int16_t x;            /**< Left edge of the box. */
-  int16_t y;            /**< Top edge. */
-  uint16_t w;           /**< Width. */
-  const Font *font;     /**< Which font. */
-  bool alignRight;      /**< Sit the text against the right of the box. */
-  char drawn[LINE_MAX]; /**< What is on the panel now. */
-  bool valid;           /**< Something has been drawn in this box. */
+  int16_t x;            /* Left edge of the box. */
+  int16_t y;            /* Top edge. */
+  uint16_t w;           /* Width. */
+  const Font *font;     /* Which font. */
+  bool alignRight;      /* Sit the text against the right of the box. */
+  char drawn[LINE_MAX]; /* What is on the panel now. */
+  bool valid;           /* Something has been drawn in this box. */
 } Field;
 
-/** Every field, in the order they appear down the screen. */
+/* Every field, in the order they appear down the screen. */
 enum {
   FIELD_BAND = 0,
   FIELD_MODE,
@@ -74,7 +71,6 @@ enum {
 
 static Field sFields[FIELD_COUNT];
 
-/** Set one field up. */
 static void place(int which, int16_t x, int16_t y, uint16_t w, const Font *font,
                   bool alignRight) {
   Field *f = &sFields[which];
@@ -86,7 +82,6 @@ static void place(int which, int16_t x, int16_t y, uint16_t w, const Font *font,
   f->alignRight = alignRight;
 }
 
-/** Lay the boxes out for the panel size, which is known only at run time. */
 static void layout(void) {
   uint16_t panel = displayWidth();
   uint16_t small = kSmallFont.height;
@@ -110,7 +105,7 @@ static void layout(void) {
   place(FIELD_FAULT, MARGIN, row, full, &kSmallFont, false);
 }
 
-/**
+/*
  * Draw a field, if what it says has changed.
  *
  * Text wider than its box is cut to fit. Two fields share the top row, so a
@@ -180,7 +175,6 @@ void screenMessage(const char *line1, const char *line2) {
   }
 }
 
-/** The signal level in words, sign and all. */
 static void formatSignal(const ScreenState *state, char *out, size_t outLen) {
   if (!state->tunerReady) {
     snprintf(out, outLen, "no tuner");

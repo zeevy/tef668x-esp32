@@ -1,7 +1,4 @@
-/**
- * @file test_radio.cpp
- * @brief Tests for the radio state machine. Runs on a PC.
- */
+/* Tests for the radio state machine. Runs on a PC. */
 #include <unity.h>
 
 #include <stdint.h>
@@ -19,7 +16,6 @@ void setUp(void) {
 }
 void tearDown(void) {}
 
-/** Shorthand for applying one command. */
 static RadioError apply(RadioCommand c) {
   return radioApply(&r, &plan, &c);
 }

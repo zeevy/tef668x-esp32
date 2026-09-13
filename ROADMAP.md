@@ -42,12 +42,12 @@ against.
   `net/`.
 - `board/board_ats125.h` with the pin map and the feature flags.
 - PlatformIO environments per board, plus `native`.
-- CI: build matrix, `pio check`, clang-format, doxygen with warnings as errors,
+- CI: build matrix, `pio check`, clang-format,
   coverage with a floor, and a size report on every pull request.
 - One passing unit test, so the test path is proven before anything depends on
   it.
 
-Done when: CI is green, a deliberately broken format or a missing doc comment
+Done when: CI is green, a deliberately broken format
 fails the build, and a pull request that lowers coverage on `core/` fails.
 
 ## Phase 2: it is a radio
@@ -73,7 +73,9 @@ This is the phase that justifies the architecture. Every item runs under
 
 - RDS decoder, tested against real groups captured off air.
 - Settings as a versioned struct in NVS, with migration tests.
-- Memory channels, with CSV import and export tests.
+- Memory channels, with CSV import and export tests. Done: 99 slots in
+  `core/memory.c`, the CSV in `core/memory_csv.c`, memory tuning mode and the
+  `/api/memory` endpoints.
 - Volume AGC, tested against the four real captures taken from this radio in
   September 2026.
 

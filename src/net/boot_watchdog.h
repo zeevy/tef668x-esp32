@@ -1,6 +1,5 @@
-/**
- * @file boot_watchdog.h
- * @brief Restarts the radio if setup never finishes.
+/*
+ * Restarts the radio if setup never finishes.
  *
  * Rollback only helps if the radio gets as far as rebooting. An image that
  * hangs inside setup, before the main loop ever runs, would sit there in the
@@ -19,13 +18,11 @@
 
 #include <stdint.h>
 
-/** How long setup gets before the radio is restarted. */
+/* How long setup gets before the radio is restarted. */
 #define BOOT_WATCHDOG_TIMEOUT_MS 45000UL
 
-/** Arm the timer. Call as the first statement in setup. */
 void bootWatchdogArm(void);
 
-/** Disarm the timer. Call once setup has finished. */
 void bootWatchdogDisarm(void);
 
 #endif /* NET_BOOT_WATCHDOG_H */

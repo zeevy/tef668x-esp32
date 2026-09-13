@@ -1,6 +1,5 @@
-/**
- * @file radio_task.h
- * @brief The radio task, the command queue into it, and the snapshot out of it.
+/*
+ * The radio task, the command queue into it, and the snapshot out of it.
  *
  * This is decision 7 made real. The radio owns core 0 and the tuner, and
  * nothing else touches that chip. Everything else runs on core 1 and talks to
@@ -21,31 +20,32 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/memory.h"
 #include "core/radio.h"
 #include "core/seek.h"
 #include "core/squelch.h"
 #include "drivers/tef668x.h"
 
-/** How often the task reads the tuner, in milliseconds. */
+/* How often the task reads the tuner, in milliseconds. */
 #define RADIO_POLL_INTERVAL_MS 100
 
-/** How many commands can be waiting before a caller is told to try later. */
+/* How many commands can be waiting before a caller is told to try later. */
 #define RADIO_QUEUE_DEPTH 8
 
-/** How many command outcomes the snapshot remembers. One per queue slot. */
+/* How many command outcomes the snapshot remembers. One per queue slot. */
 #define RADIO_OUTCOMES RADIO_QUEUE_DEPTH
 
-/** What the state machine made of one command. */
+/* What the state machine made of one command. */
 typedef struct {
-  uint32_t ticket;   /**< Which command this was. 0 means an unused slot. */
-  RadioError result; /**< RADIO_OK, or why it was refused. */
+  uint32_t ticket;   /* Which command this was. 0 means an unused slot. */
+  RadioError result; /* RADIO_OK, or why it was refused. */
 } RadioOutcome;
 
-/** Everything a reader needs, copied out in one go so it cannot tear. */
+/* Everything a reader needs, copied out in one go so it cannot tear. */
 typedef struct {
-  RadioSettings settings; /**< What the radio is set to. */
-  Tef668xQuality quality; /**< The last reading from the tuner. */
-  /**
+  RadioSettings settings; /* What the radio is set to. */
+  Tef668xQuality quality; /* The last reading from the tuner. */
+  /*
    * The signal level, smoothed, in tenths of a dBuV.
    *
    * For anything a person looks at. One reading of this tuner moves several
@@ -68,7 +68,7 @@ typedef struct {
    * tenth of a second of an old one.
    */
   int16_t levelSmoothedTenths;
-  /**
+  /*
    * Whether that level was read at the station this snapshot describes.
    *
    * False for the round or two between a retune and the next reading. The
@@ -81,16 +81,16 @@ typedef struct {
    * station's level, latches that instead of the new one and sits there.
    */
   bool levelSmoothedValid;
-  Tef668xProcessing processing; /**< What the chip is doing to the audio. */
-  bool processingValid;         /**< False when that read failed or is AM. */
-  bool qualityValid;            /**< False when the last read failed. */
-  bool tunerReady;              /**< The tuner started up. */
-  Tef668xError lastError;       /**< What the tuner last complained about. */
-  uint32_t updatedMs;           /**< When this was taken, ms since boot. */
-  uint32_t sequence;  /**< Goes up every time. Spots a stalled task. */
-  uint32_t applied;   /**< How many commands the task has worked through. */
-  bool bandwidthWide; /**< The adaptive filter is allowed to open. */
-  /**
+  Tef668xProcessing processing; /* What the chip is doing to the audio. */
+  bool processingValid;         /* False when that read failed or is AM. */
+  bool qualityValid;            /* False when the last read failed. */
+  bool tunerReady;              /* The tuner started up. */
+  Tef668xError lastError;       /* What the tuner last complained about. */
+  uint32_t updatedMs;           /* When this was taken, ms since boot. */
+  uint32_t sequence;            /* Goes up every time. Spots a stalled task. */
+  uint32_t applied;   /* How many commands the task has worked through. */
+  bool bandwidthWide; /* The adaptive filter is allowed to open. */
+  /*
    * What the tuner was last told about the mute.
    *
    * Not the same as settings.muted, which is what the person asked for. The
@@ -99,9 +99,9 @@ typedef struct {
    * between these two is the first thing worth seeing.
    */
   bool tunerMuted;
-  SquelchMode squelchMode; /**< What decides whether the audio is open. */
-  bool squelchOpen;        /**< Whether the squelch is letting sound through. */
-  /**
+  SquelchMode squelchMode; /* What decides whether the audio is open. */
+  bool squelchOpen;        /* Whether the squelch is letting sound through. */
+  /*
    * A seek is running, so the dial is moving on its own.
    *
    * Worth publishing rather than leaving the caller to guess from a
@@ -109,63 +109,57 @@ typedef struct {
    * person spinning the knob shows the same thing for both.
    */
   bool seeking;
-  /** The last seek found a station. False means it came back empty. */
+  /* The last seek found a station. False means it came back empty. */
   bool seekFound;
-  /** A tone is sounding now. */
+  /* A tone is sounding now. */
   bool beeping;
-  int16_t squelchThresholdTenths; /**< What Manual is set to. */
-  /** What came of the last few commands, so a caller can be told the truth
+  int16_t squelchThresholdTenths; /* What Manual is set to. */
+  /*
+   * Which stored channel the radio is on, or MEMORY_NO_SLOT, counted from 0.
+   *
+   * Worked out from the band and the frequency, not from what memory mode
+   * last did, so it is true however the radio got there. A station reached
+   * with the keypad that happens to be stored shows its slot.
+   */
+  int16_t memorySlot;
+  /* What came of the last few commands, so a caller can be told the truth
    *  about its own one rather than about the state that followed it. */
   RadioOutcome outcomes[RADIO_OUTCOMES];
 } RadioSnapshot;
 
-/**
+/*
  * Start the radio task.
  *
  * Brings the tuner up, then pins a task to core 0 that owns it. Returns once
  * the task is running, whether or not the tuner came up: a radio with a dead
  * tuner still has to be reachable, because that is how a fix gets installed.
  *
- * @param settings  The stored settings. Everything a person has chosen comes
- *                  from here: the band and frequency to come up on, the FM
- *                  features, the blend levels, the blankers and the squelch
- *                  mode. NULL means the defaults.
- * @param plan  The regional band choices, from radioPlanFromSettings. Copied,
- *              not kept by reference.
- * @param startVolumeDb The volume to come up at, which is where the knob is
- *                      pointing.
- *
  * All of it is given here rather than posted as commands afterwards. The task
  * unmutes at the end of its first push, so anything sent after that is heard:
  * posting the frequency gave a burst of noise from the default frequency, and
  * posting the volume gave a moment at full volume before the knob's value
  * arrived.
- * @return true when the task started. False means out of memory, and the
- *         radio has no business continuing.
  */
 bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
                     int8_t startVolumeDb);
 
-/**
+/*
  * Ask the radio to do something.
  *
  * Safe from any task. Returns as soon as the command is queued, not when it
  * has been carried out, so a caller that needs to see the result reads a
  * snapshot afterwards.
- *
- * @param command  What to do.
- * @return false when the queue is full or the task is not running.
  */
 bool radioPost(const RadioCommand *command);
 
-/** What came of asking the radio to do something and waiting for it. */
+/* What came of asking the radio to do something and waiting for it. */
 typedef enum {
-  RADIO_POST_DONE, /**< The radio has worked through it. */
-  RADIO_POST_BUSY, /**< The queue was full. Nothing was taken. */
-  RADIO_POST_SLOW  /**< Taken, but not carried out inside the wait. */
+  RADIO_POST_DONE, /* The radio has worked through it. */
+  RADIO_POST_BUSY, /* The queue was full. Nothing was taken. */
+  RADIO_POST_SLOW  /* Taken, but not carried out inside the wait. */
 } RadioPostResult;
 
-/**
+/*
  * Ask the radio to do something, and wait until it has been done.
  *
  * The same queue as radioPost, but it returns only once the task has taken
@@ -185,53 +179,37 @@ typedef enum {
  * it. What it made of it comes back in `result`, which is the state machine's
  * own answer about this exact command rather than a guess made beforehand
  * against a state that may since have moved.
- *
- * @param command  What to do.
- * @param waitMs   How long to wait for the task to get to it.
- * @param result   Receives RADIO_OK, or why the radio refused it. Only
- *                 meaningful on RADIO_POST_DONE. May be NULL.
- * @return RADIO_POST_DONE, RADIO_POST_BUSY when there was no room on the
- *         queue, or RADIO_POST_SLOW when the wait ran out.
  */
 RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
                                    RadioError *result);
 
-/**
+/*
  * The band plan the radio task is working to.
  *
  * A caller that has to work out which band a frequency is in must use this
  * one, not its own defaults. The two agree today and would stop agreeing the
  * moment the plan comes from settings, and then the answer given to a caller
  * would be about a different band from the one the radio tuned.
- *
- * @param out  Receives a copy of the plan.
- * @return false when the task is not running, in which case nothing is
- *         written.
  */
 bool radioTaskPlan(BandPlanConfig *out);
 
-/**
+/*
  * Choose what decides whether the audio is open.
  *
  * Safe from any task.
- *
- * @param mode  Off, Auto or Manual.
  */
 void radioSetSquelchMode(SquelchMode mode);
 
-/**
+/*
  * Start hunting for the next station.
  *
  * Returns as soon as the command is queued. The seek itself takes as long as
  * it takes, up to one full pass of the band, and the snapshot says while it
  * is running. Any other command stops it where it stands.
- *
- * @param up  true to hunt upwards in frequency.
- * @return true when the command was queued.
  */
 bool radioSeek(bool up);
 
-/**
+/*
  * Sound a short tone.
  *
  * Safe from any task. Returns as soon as it is queued. The tone is played
@@ -240,57 +218,39 @@ bool radioSeek(bool up);
  * A radio that is muted stays silent: the tone goes through the same output
  * mute as everything else, and lifting the mute to beep at somebody who asked
  * for quiet would be the wrong way round.
- *
- * @param ms  How long, in milliseconds. Zero does nothing.
- * @return true when the command was queued.
  */
 bool radioBeep(uint16_t ms);
 
-/**
- * Sound a tone of a given pitch, or two pitches at once.
- *
- * @param ms   How long, in milliseconds. Zero does nothing.
- * @param hz   The tone.
- * @param hz2  The second tone. The same as hz for one tone.
- * @return true when the command was queued.
- */
 bool radioBeepAt(uint16_t ms, uint16_t hz, uint16_t hz2);
 
-/**
+/*
  * How long the audio ramps down before it is cut, in milliseconds.
  *
  * Zero cuts instantly, which is what switching the ramp off has to mean.
  * Safe from any task.
- *
- * @param ms  The ramp length.
  */
 void radioSetSoftMuteMs(uint16_t ms);
 
-/**
+/*
  * Whether the dial wrapping at a band edge makes a sound.
  *
  * Decided here rather than by the caller that turns the knob, because only
  * the radio knows the dial wrapped: the encoder sends a number of steps and
  * never learns where they landed.
- *
- * @param on  true to beep at the edges.
  */
 void radioSetEdgeBeep(bool on);
 
-/**
+/*
  * The level an FM signal has to reach before the auto squelch opens.
  *
  * The channel beside a strong station passes every other test the squelch
  * applies, because the sidebands of the station next door really are in the
  * channel. Only level separates them, and how strong that channel reads
  * depends on where the radio is, so this is settable rather than fixed.
- *
- * @param dbuv  The floor in whole dBuV, or 0 to judge on noise, multipath
- *              and offset alone.
  */
 void radioSetSquelchFloor(uint8_t dbuv);
 
-/**
+/*
  * Take the audio down and mute, then return.
  *
  * For a reboot or a firmware update, so neither ends in a click. Blocks for
@@ -307,7 +267,7 @@ void radioSetSquelchFloor(uint8_t dbuv);
  */
 void radioHush(void);
 
-/**
+/*
  * Let the radio speak again after radioHush.
  *
  * For a caller that hushed the radio for a restart that then did not happen.
@@ -321,43 +281,26 @@ void radioHush(void);
  */
 void radioResume(void);
 
-/**
+/*
  * How fussy seek is about what counts as a station.
  *
  * Safe from any task. Takes effect on the next seek, not on one already
  * running.
- *
- * @param cfg  The sensitivities. NULL puts the defaults back.
  */
 void radioSetSeekConfig(const SeekConfig *cfg);
 
-/**
- * Set the threshold Manual mode works to.
- *
- * @param tenths  The level a signal has to beat, in tenths of a dBuV.
- */
 void radioSetSquelchThreshold(int16_t tenths);
 
-/**
+/*
  * What the squelch is set to now.
  *
  * Read from where it is kept, not from the snapshot. The snapshot is only
  * republished ten times a second, so a caller that sets the mode and then
  * reads it back from there gets the value from before it was set. That is
  * how the API came to answer "Off" to a request that turned it to Auto.
- *
- * @param thresholdTenths  Receives the manual threshold. May be NULL.
- * @return The mode.
  */
 SquelchMode radioSquelchMode(int16_t *thresholdTenths);
 
-/**
- * Take a copy of the radio's state.
- *
- * @param out  Receives the snapshot.
- * @return false when the task is not running, in which case nothing is
- *         written.
- */
 bool radioGetSnapshot(RadioSnapshot *out);
 
 #endif /* RADIO_TASK_H */

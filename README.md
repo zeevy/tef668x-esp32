@@ -7,7 +7,7 @@ an ILI9341 320x240 touch display. The code is structured so other TEF668x radios
 can be added as a board header and a build environment, without touching the
 application.
 
-> **Status: it works as a radio.** It tunes FM and AM, shows what it is doing on the panel, and is worked from the knob, the keypad and the volume pot, or from a browser and the HTTP control API. It seeks for stations, holds a squelch, and comes back up where you left it without being told to save. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
+> **Status: it works as a radio.** It tunes FM and AM, shows what it is doing on the panel, and is worked from the knob, the keypad and the volume pot, or from a browser and the HTTP control API. It seeks for stations, holds a squelch, keeps ninety nine memory channels you can walk with the knob, and comes back up where you left it without being told to save. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
 
 ## What works today
 
@@ -29,9 +29,10 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Per band | Each band remembers its own frequency, filter width, step size and tuning mode, and all of it survives a power cycle |
 | Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. A chime at start up, and key and band edge beeps, through the tuner's own tone generator |
 | Panel light | Fades up at start up, dims after the radio is left alone, and comes straight back on the knob, a button, a key or the volume pot. Brightness, dim level and delay are all settings, and the dim ships off |
+| Memory channels | Ninety nine of them, each with a band, a frequency, a filter width and a name. Memory tuning mode walks the list with the knob, across the bands, skipping the empty slots. The whole list goes in and out as CSV, so a bandplan can be built in a spreadsheet |
 | Control API | Every control the radio has, over HTTP. See below |
 
-Not built yet: the RDS decoder, memory channels and the volume AGC, which are the rest of phase 3. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
+Not built yet: the RDS decoder, which is the rest of phase 3, and the volume AGC is written and tested but not yet wired to the audio. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
 
 ## The control API
 
@@ -46,7 +47,21 @@ curl -s -b jar -d 'stp=-1'   $R/api/step # one step down
 curl -s -b jar -d 'bnd=MW'    $R/api/band
 ```
 
-The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/memory`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
+
+### Memory channels
+
+`GET /api/memory.csv` gives the whole list as a file. Open, like the dashboard.
+
+`POST /api/memory` takes `do=store` to write what is playing into a slot, or into the lowest free one when no `slot` is given; `do=set` with `slot` and `khz`, and `bw` and `name` if you want them, where anything left out keeps what the slot already had; `do=clear`; `do=recall`; and `do=wipe`. Slots are counted from 1 to 99, the way they are shown.
+
+`POST /api/memory/import` takes the file as the body and `mode=merge` or `mode=replace` in the query. **Send a content type of `text/csv`.** The web server treats a body of `application/x-www-form-urlencoded`, which is what `curl -d` sends by default, as form fields rather than as a body, so without the header the request is refused for having no file in it. Merge fills the empty slots only and skips a line it cannot read. Replace throws the list away and loads the file, and refuses the whole file if one line cannot be read, so a bad file never leaves a half loaded list. The reply counts what happened either way.
+
+```bash
+curl -s $R/api/memory.csv > channels.csv
+curl -s -b /tmp/jar --data-binary @channels.csv -H 'Content-Type: text/csv' \
+     "$R/api/memory/import?mode=replace"
+```
 
 Everything the radio is set to is held in one place and changed through the endpoints above, which act at once. `POST /api/save` writes what it is set to now into NVS, so it comes up that way next time. `GET /api/settings` says what is stored, which is not always what it is set to now, and `POST /api/settings` takes the fifteen that are not part of what the radio is tuned to. Six of them are read at start up and a change needs a reboot: the FM band plan `rgn`, the medium wave spacing `spc`, which encoder is fitted `enc` and which way round `edr`, whether the radio chimes when it comes on `bps`, and whether the panel fades up `blf`. The other nine act at once: the seek sensitivities `fsn` and `asn`, the mute and squelch ramp in milliseconds `smu`, which presses beep `bpk`, the band edge beep `bpe`, the auto squelch level floor in dBuV `sqf`, the panel brightness `blt`, the brightness it dims to `bdm`, and how many seconds of being left alone come first `bds`. The reply says which of the two happened.
 
@@ -220,7 +235,7 @@ tools/check.sh
 ```
 
 That builds, runs the unit tests, checks coverage on `core/` against a floor,
-runs static analysis, checks formatting and doc comments, and prints the image
+runs static analysis, checks formatting, and prints the image
 size. CI runs the same script, so a green run locally means the same thing.
 
 [RULES.md](RULES.md) has the way of working, [DECISIONS.md](DECISIONS.md) has

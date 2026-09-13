@@ -1,15 +1,12 @@
-/**
- * @file settings_nvs.cpp
- * @brief NVS backing for the settings struct.
- */
+/* NVS backing for the settings struct. */
 #include "settings_nvs.h"
 
 #include <Preferences.h>
 
-/** NVS namespace. Kept short, NVS allows fifteen characters. */
+/* NVS namespace. Kept short, NVS allows fifteen characters. */
 static const char *kNamespace = "tef668x";
 
-/** The one key the whole struct lives under. */
+/* The one key the whole struct lives under. */
 static const char *kKey = "settings";
 
 bool settingsNvsLoad(Settings *out) {

@@ -323,14 +323,20 @@ factory reset. A session cookie after entry avoids retyping it.
 All 99 slots in a table in the browser. Edit frequency, band, bandwidth and name
 inline, reorder by dragging, delete, and import or export CSV.
 
-Import offers both modes:
+**The CSV conversion runs on the radio, in `core/memory_csv.c`.** This was the other way round when the decision was first written, with the browser doing the conversion so the ESP32 never had to. It was changed on 13 September 2026, in phase 3, for three reasons. The parser and the writer cost about 1.5 kB of flash and no permanent RAM, which is not the saving it looked like. Everything that decides anything belongs in `core/` where it is tested on a PC, and both RULES.md and the phase 3 ticket ask for exactly that test. And decision 24 says the API can do whatever the screen can do: with the conversion on the radio, `GET /api/memory.csv` and `POST /api/memory/import` load and save a bandplan from `curl` with no browser at all.
+
+The browser still holds the editor. It sends the file and shows what came back.
+
+Import offers both modes, and they refuse differently:
 
 | Mode | Behaviour |
 |---|---|
-| Merge | Fills empty slots only, leaves existing channels alone |
-| Replace | Wipes the list and loads the file. Asks for confirmation first |
+| Merge | Fills empty slots only, leaves existing channels alone. A line that cannot be read is counted and skipped, and the rest of the file still lands, because a merge can only add |
+| Replace | Wipes the list and loads the file. Every line is read before anything is written, so one line that cannot be read means nothing is changed and the reply says which line. Wiping a list and then stopping part way through a bad file would lose channels with no way back |
 
-The CSV conversion runs in the browser, not on the ESP32.
+A name longer than the sixteen characters a slot holds is cut short and counted rather than refused. The name is what a person reads and nothing tunes by it, so losing a channel over a long name would cost more than it saves. Counted, because a name that came back shorter than it went in is the kind of quiet difference this firmware is careful about.
+
+A name may hold any printable ASCII character, including the ones a spreadsheet reads as a formula. This radio has one user, who types the name and opens the exported file, so there is nobody for a formula to be aimed at, and refusing `-Fm` as a station name would cost more than it saves. Printable ASCII is the limit because a control character would split one exported line into two and the file would read back as a different list. That also means a name cannot be written in Telugu or Hindi today, which is a real limit and follows the panel font rather than this rule.
 
 Why it earns its place: entering a frequency and a name with a rotary encoder is
 the most tedious thing on the radio. A keyboard turns ten minutes into one. CSV
@@ -798,6 +804,24 @@ Ten seconds is measured, not chosen. Over 154 seconds of ordinary use the gaps b
 Three things keep the flash safe, and all three are checked rather than assumed. It only writes when what the radio is set to actually differs from what is stored, so the IDF's own skip-identical behaviour never has to be relied on. It never writes while a seek is running, because the dial moves every fifty milliseconds during one and none of those channels is a station anybody chose. And a write, from here or from the manual save, starts the wait again, so the two cannot take turns writing.
 
 The residual risk, written down because RULES.md asks for it: a station tuned and then switched off within about ten seconds is still lost. That is the deliberate trade against flash wear rather than an oversight, and checklist row 330 exists so it is a known limit rather than a surprise.
+
+### 30. The channel list is its own key in NVS, and the knob walks it
+
+**Not part of the settings struct.** Ninety nine channels are 2376 bytes against 340 for the settings, and the settings are written every time a station is left alone for ten seconds, which is decision 29. So the list has its own NVS key, written only when a channel changes and only once a run of edits has gone quiet.
+
+A stored blob of any other length is from a firmware whose channel struct was a different shape, and is ignored rather than read with the fields in the wrong places.
+
+**A channel is band, frequency, filter width and name.** Sixteen characters of name. A width of 0 means the channel has no opinion and the band keeps whatever it is set to, which is what a list written by hand in a spreadsheet will carry.
+
+**Stored and tunable are different questions.** A channel is checked for structure when it is stored, and against the band plan only when it is used, because changing the FM region moves the band edges under a channel that was correct when it was written. Memory mode steps over a channel it cannot reach rather than stopping on it and refusing to move.
+
+**In memory mode the knob walks the list, not the dial.** It skips empty slots, wraps at both ends, and carries the band and the width with it. The step becomes a tune inside the radio task, because only the radio knows which slot it is on. Recalling a slot over HTTP goes through the same code, so the knob and the API cannot come to mean different things. The tuning mode is kept across the tune: a list runs across the bands, and decision 29's per band mode would otherwise drop the radio out of memory mode on the first channel that is not on this band.
+
+**The slot the radio reports is worked out from the band and the frequency**, so tuning to a stored station with the keypad shows its slot. A recall reports the slot that was asked for, because two slots may hold the same station.
+
+**Nothing writes to flash from the radio task**, the same split decision 29 uses. A write that fails is retried and `chn.bad` in `GET /api/state` says so.
+
+The residual risk: the list sits in RAM for the life of the radio, 2376 bytes whether or not anything is stored. That is the price of the knob stepping to the next channel without a flash read.
 
 ### Licence
 

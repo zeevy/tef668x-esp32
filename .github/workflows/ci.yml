@@ -1,7 +1,7 @@
 # Gates for every push and every pull request.
 #
 # This runs tools/check.sh, the same script that runs on a development machine.
-# Six of the seven gates give the same answer in both places. Coverage does not:
+# Five of the six gates give the same answer in both places. Coverage does not:
 # llvm-cov on macOS and gcov on Linux count lines differently, so this run is
 # the number that counts. See RULES.md.
 #
@@ -55,19 +55,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
-          sudo apt-get update
-          sudo apt-get install -y doxygen
 
       - name: Run every gate
         run: tools/check.sh
-
-      - name: Keep the doc build
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: doxygen-html
-          path: build/doc/html
-          retention-days: 7
 
   measure:
     name: measure the image

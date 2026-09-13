@@ -1,7 +1,4 @@
-/**
- * @file band_plan.c
- * @brief The band table and the arithmetic that moves around it.
- */
+/* The band table and the arithmetic that moves around it. */
 #include "band_plan.h"
 
 #include <stdio.h>
@@ -15,15 +12,15 @@ static const uint16_t kStepsSw[] = {1, 5};
 static const uint16_t kStepsOirt[] = {10, 30};
 static const uint16_t kStepsFm[] = {50, 100, 200};
 
-/** One row of the band table, before the regional config is applied. */
+/* One row of the band table, before the regional config is applied. */
 typedef struct {
-  const char *name;        /**< Short name shown on screen. */
-  uint32_t lowKHz;         /**< Low edge before the region is applied. */
-  uint32_t highKHz;        /**< High edge before the region is applied. */
-  const uint16_t *steps;   /**< Allowed step sizes in kHz, lowest first. */
-  size_t stepCount;        /**< How many entries steps has. */
-  uint16_t defaultStepKHz; /**< The step used until someone changes it. */
-  Modulation modulation;   /**< AM or FM. */
+  const char *name;        /* Short name shown on screen. */
+  uint32_t lowKHz;         /* Low edge before the region is applied. */
+  uint32_t highKHz;        /* High edge before the region is applied. */
+  const uint16_t *steps;   /* Allowed step sizes in kHz, lowest first. */
+  size_t stepCount;        /* How many entries steps has. */
+  uint16_t defaultStepKHz; /* The step used until someone changes it. */
+  Modulation modulation;   /* AM or FM. */
 } BandRow;
 
 /*
@@ -76,17 +73,15 @@ static const SwMeterBand kMeterBands[] = {
     {15, 18900, 19020}, {13, 21450, 21850}, {11, 25670, 26100},
 };
 
-/** How many shortwave meter bands the table holds. */
+/* How many shortwave meter bands the table holds. */
 #define METER_BAND_COUNT (sizeof(kMeterBands) / sizeof(kMeterBands[0]))
 
-/** The config to use when the caller passed NULL. */
 static BandPlanConfig defaultConfig(void) {
   BandPlanConfig c;
   bandPlanDefaults(&c);
   return c;
 }
 
-/** True when this is a real band. */
 static bool validBand(BandId band) {
   return band >= 0 && band < BAND_COUNT;
 }
@@ -130,7 +125,6 @@ bool bandLimits(BandId band, const BandPlanConfig *config, uint32_t *lowKHz,
   return true;
 }
 
-/** The step list for a band, which medium wave changes with its spacing. */
 static const uint16_t *stepsFor(BandId band, const BandPlanConfig *c,
                                 size_t *count) {
   if (band == BAND_MW && c->mwSpacing == MW_SPACING_10K) {
@@ -327,11 +321,6 @@ const SwMeterBand *swMeterBandFor(uint32_t freqKHz) {
   return NULL;
 }
 
-/**
- * Which meter band a frequency sits in, by index.
- *
- * @return The index, or METER_BAND_COUNT when it is between two bands.
- */
 static size_t meterBandIndexFor(uint32_t freqKHz) {
   for (size_t i = 0; i < METER_BAND_COUNT; i++) {
     if (freqKHz >= kMeterBands[i].lowKHz && freqKHz <= kMeterBands[i].highKHz) {
@@ -426,7 +415,6 @@ static const uint16_t kBandwidthsFm[] = {0,   56,  64,  72,  84,  97,
                                          217, 236, 254, 287, 311};
 static const uint16_t kBandwidthsAm[] = {3, 4, 6, 8};
 
-/** Which list a band uses, and how long it is. */
 static const uint16_t *bandwidthList(BandId band, size_t *count) {
   if (!validBand(band)) {
     *count = 0;

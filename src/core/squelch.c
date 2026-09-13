@@ -1,13 +1,10 @@
-/**
- * @file squelch.c
- * @brief Implementation of the squelch.
- */
+/* Implementation of the squelch. */
 #include "squelch.h"
 
 #include <stddef.h>
 #include <string.h>
 
-/**
+/*
  * The level an FM signal has to reach, in tenths of a dBuV.
  *
  * Measured on this radio on 13 September 2026, and the working is in
@@ -37,10 +34,10 @@
  */
 #define SQUELCH_FM_LEVEL_FLOOR_TENTHS (SQUELCH_FM_LEVEL_FLOOR_DBUV * 10)
 
-/** The lowest a manual threshold goes: always open. */
+/* The lowest a manual threshold goes: always open. */
 #define MANUAL_MIN_TENTHS (-100)
 
-/** The highest it goes, which is above anything the chip reports. */
+/* The highest it goes, which is above anything the chip reports. */
 #define MANUAL_MAX_TENTHS 920
 
 const char *squelchModeName(SquelchMode mode) {
@@ -106,7 +103,6 @@ int16_t squelchThresholdFromPot(uint16_t raw, uint16_t rawMin,
   return (int16_t)(MANUAL_MIN_TENTHS + (along * span) / width);
 }
 
-/** How many of the last SQUELCH_OPEN_WINDOW readings were good. */
 static uint8_t goodInWindow(const Squelch *s) {
   uint8_t n = 0;
   for (uint8_t i = 0; i < SQUELCH_OPEN_WINDOW; i++) {
@@ -117,7 +113,6 @@ static uint8_t goodInWindow(const Squelch *s) {
   return n;
 }
 
-/** Whether one reading is good enough to listen to. */
 static bool readingIsGood(const SquelchConfig *cfg, SquelchMode mode,
                           BandId band, const SquelchReading *reading,
                           int16_t thresholdTenths, int16_t smoothedTenths,

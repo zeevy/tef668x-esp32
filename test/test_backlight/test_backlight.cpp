@@ -1,6 +1,5 @@
-/**
- * @file test_backlight.cpp
- * @brief Tests for the panel light. Runs on a PC.
+/*
+ * Tests for the panel light. Runs on a PC.
  *
  * Everything here is about timing, which is what cannot be checked by looking
  * at a radio. A dim that never fires and a wake that never arrives both look
@@ -17,7 +16,6 @@
 void setUp(void) {}
 void tearDown(void) {}
 
-/** A config with the fade, the dim and a known set of levels. */
 static BacklightConfig cfg(uint8_t full, uint8_t dim, uint32_t afterMs,
                            uint16_t fadeUpMs) {
   BacklightConfig c;

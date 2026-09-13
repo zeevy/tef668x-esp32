@@ -1,7 +1,4 @@
-/**
- * @file settings_task.cpp
- * @brief Implementation of keeping the stored settings up to date.
- */
+/* Implementation of keeping the stored settings up to date. */
 #include "settings_task.h"
 
 #include "core/autosave.h"
@@ -13,7 +10,7 @@
 #include <Arduino.h>
 #include <string.h>
 
-/**
+/*
  * How often the settings are compared, in milliseconds.
  *
  * Two struct comparisons and a snapshot copy, so it is cheap, but there is
@@ -27,7 +24,7 @@ static Settings *sLive = NULL;
 static AutoSave sWhen;
 static uint32_t sLastPollMs = 0;
 
-/**
+/*
  * The candidate as it was on the previous look.
  *
  * Kept so that "something moved since last time" can be answered separately

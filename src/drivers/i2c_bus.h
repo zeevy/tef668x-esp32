@@ -1,6 +1,5 @@
-/**
- * @file i2c_bus.h
- * @brief The one I2C bus, and the lock that stops two tasks talking at once.
+/*
+ * The one I2C bus, and the lock that stops two tasks talking at once.
  *
  * The tuner, the keypad expander and the clock all sit on the same two pins.
  * The radio task on core 0 reads the tuner, and the loop task on core 1 reads
@@ -22,28 +21,18 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/**
+/*
  * Start the bus and make the lock.
  *
  * Safe to call again. The first caller sets the pins and the clock rate.
- *
- * @param hz  The clock rate in hertz.
  */
 void i2cBusBegin(uint32_t hz);
 
-/**
- * Take the bus.
- *
- * @param waitMs  How long to wait for it.
- * @return false when it could not be taken, in which case the caller must not
- *         touch Wire and must not call i2cBusGive.
- */
 bool i2cBusTake(uint32_t waitMs);
 
-/** Give the bus back. Call once for every i2cBusTake that returned true. */
 void i2cBusGive(void);
 
-/** How long a driver should wait for the bus before giving up, in ms. */
+/* How long a driver should wait for the bus before giving up, in ms. */
 #define I2C_BUS_WAIT_MS 100
 
 #endif /* DRIVERS_I2C_BUS_H */

@@ -1,7 +1,6 @@
-/**
- * @file main.cpp
- * @brief Phase 0. A minimal image whose only job is to be able to replace
- *        itself.
+/*
+ * Phase 0. A minimal image whose only job is to be able to replace
+ * itself.
  *
  * The ATS-125 has an FT232R that is not wired for auto reset, so every serial
  * upload needs someone at the radio holding BOOT and tapping RESET. This image
@@ -31,6 +30,7 @@
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
 #include "input_task.h"
+#include "memory_store.h"
 #include "net/boot_watchdog.h"
 #include "net/ota_service.h"
 #include "net/rollback.h"
@@ -40,20 +40,20 @@
 #include "screen_task.h"
 #include "settings_task.h"
 
-/** The live settings, loaded once at boot and written back when they change. */
+/* The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
 
-/** The PIN this radio is using. */
+/* The PIN this radio is using. */
 static uint32_t gAccessPin = 0;
 
-/** Whether the stored settings were read back. False means they were lost. */
+/* Whether the stored settings were read back. False means they were lost. */
 static bool gSettingsLoaded = false;
 
 bool settingsWereLoaded(void) {
   return gSettingsLoaded;
 }
 
-/**
+/*
  * The tone the radio comes up with, and how long it lasts.
  *
  * Longer than any of the other beeps, so that it is a chime rather than a
@@ -61,19 +61,18 @@ bool settingsWereLoaded(void) {
  * rest use, which is the reference firmware's figure on this chip.
  */
 #define START_BEEP_HZ 2000
-/** How long, in milliseconds. */
+/* How long, in milliseconds. */
 #define START_BEEP_MS 400
-/** How loud, in tenths of a dB below full scale. */
+/* How loud, in tenths of a dB below full scale. */
 #define START_BEEP_AMPLITUDE (-50)
 
-/** How the tuner start up went, so the banner and the web page can say. */
+/* How the tuner start up went, so the banner and the web page can say. */
 static Tef668xError gTunerError = TEF668X_ERR_NOT_READY;
 
 Tef668xError tunerStartError(void) {
   return gTunerError;
 }
 
-/** Print everything someone standing at the serial port needs to know. */
 static void printBanner(void) {
   char pin[ACCESS_PIN_DIGITS + 1];
   accessPinFormat(gAccessPin, pin);
@@ -136,7 +135,6 @@ static void printBanner(void) {
   Serial.println();
 }
 
-/** Bring the radio up. Runs once, and everything here has to finish. */
 void setup() {
   /* First of all, so an image that hangs anywhere below still restarts and
    * gets rolled back instead of needing the cable. */
@@ -243,6 +241,11 @@ void setup() {
     }
   }
 
+  /* Before the radio task, because it looks the stored list up on its first
+   * round to say which slot the radio came up on. */
+  memoryStoreBegin();
+  Serial.printf("[memory] %d stored channels\n", memoryStoreCount());
+
   if (!radioTaskStart(&gSettings, &plan, startVolume)) {
     Serial.println(F("[radio] the radio task could not start"));
     /* The tuner was muted at the end of its start up, and the task is what
@@ -308,12 +311,12 @@ void setup() {
   bootWatchdogDisarm();
 }
 
-/** Service the network, the updater and the self check. Runs forever. */
 void loop() {
   /* First, so a turn of the knob is acted on before anything slower runs. */
   inputPoll();
   screenTaskPoll();
   settingsTaskPoll();
+  memoryStorePoll();
 
   wifiLoop();
   otaLoop();

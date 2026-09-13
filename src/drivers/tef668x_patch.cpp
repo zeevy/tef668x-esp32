@@ -1,6 +1,5 @@
-/**
- * @file tef668x_patch.cpp
- * @brief The tuner's own firmware, as data.
+/*
+ * The tuner's own firmware, as data.
  *
  * See tef668x_patch.h for where this came from and why it is here.
  *
@@ -1034,7 +1033,7 @@ static const uint8_t kLut205[] = {
     0xB1, 0x35, 0xB1, 0x3B, 0xB1, 0x97, 0xB3, 0x03,
 };
 
-/** Every patch this firmware carries. */
+/* Every patch this firmware carries. */
 static const Tef668xPatch kPatches[] = {
     {102, kPatch102, sizeof(kPatch102), kLut102, sizeof(kLut102)},
     {205, kPatch205, sizeof(kPatch205), kLut205, sizeof(kLut205)},

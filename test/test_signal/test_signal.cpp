@@ -1,7 +1,4 @@
-/**
- * @file test_signal.cpp
- * @brief Tests for the derived signal figures. Runs on a PC.
- */
+/* Tests for the derived signal figures. Runs on a PC. */
 #include <unity.h>
 
 #include <stdint.h>

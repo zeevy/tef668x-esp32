@@ -1,7 +1,4 @@
-/**
- * @file display.cpp
- * @brief Implementation of the ILI9341 panel driver.
- */
+/* Implementation of the ILI9341 panel driver. */
 #include "display.h"
 
 #include "board/board.h"
@@ -9,7 +6,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-/**
+/*
  * How fast the panel is clocked, in hertz.
  *
  * 7.5 MHz is what the working PE5PVB firmware uses on this board, recorded in
@@ -20,7 +17,7 @@
  */
 #define DISPLAY_SPI_HZ 7500000
 
-/**
+/*
  * How the panel is turned. 1 and 3 are the two landscape views.
  *
  * Settled by looking at the radio, which is the only way. The wrong values
@@ -30,21 +27,21 @@
 #define DISPLAY_ROTATION 1
 
 /* ILI9341 commands, only the ones used here. */
-#define ILI9341_SWRESET 0x01 /**< Reset the panel in software. */
-#define ILI9341_SLPOUT 0x11  /**< Come out of sleep. */
-#define ILI9341_DISPON 0x29  /**< Turn the display on. */
-#define ILI9341_CASET 0x2A   /**< Set the column range of the next write. */
-#define ILI9341_PASET 0x2B   /**< Set the row range of the next write. */
-#define ILI9341_RAMWR 0x2C   /**< The pixels follow. */
-#define ILI9341_MADCTL 0x36  /**< Scan order and colour order. */
-#define ILI9341_PIXFMT 0x3A  /**< How many bits a pixel is. */
-#define ILI9341_INVON 0x21   /**< Invert the colours. */
+#define ILI9341_SWRESET 0x01 /* Reset the panel in software. */
+#define ILI9341_SLPOUT 0x11  /* Come out of sleep. */
+#define ILI9341_DISPON 0x29  /* Turn the display on. */
+#define ILI9341_CASET 0x2A   /* Set the column range of the next write. */
+#define ILI9341_PASET 0x2B   /* Set the row range of the next write. */
+#define ILI9341_RAMWR 0x2C   /* The pixels follow. */
+#define ILI9341_MADCTL 0x36  /* Scan order and colour order. */
+#define ILI9341_PIXFMT 0x3A  /* How many bits a pixel is. */
+#define ILI9341_INVON 0x21   /* Invert the colours. */
 
 /* MADCTL bits: how the panel is scanned, and in which colour order. */
-#define MADCTL_MY 0x80  /**< Mirror the rows. */
-#define MADCTL_MX 0x40  /**< Mirror the columns. */
-#define MADCTL_MV 0x20  /**< Swap rows and columns, which is landscape. */
-#define MADCTL_BGR 0x08 /**< Blue first, not red. */
+#define MADCTL_MY 0x80  /* Mirror the rows. */
+#define MADCTL_MX 0x40  /* Mirror the columns. */
+#define MADCTL_MV 0x20  /* Swap rows and columns, which is landscape. */
+#define MADCTL_BGR 0x08 /* Blue first, not red. */
 
 static SPIClass sSpi(VSPI);
 static SPISettings sSettings(DISPLAY_SPI_HZ, MSBFIRST, SPI_MODE0);
@@ -56,23 +53,23 @@ static bool sReady = false;
 static uint16_t sWidth = DISPLAY_WIDTH;
 static uint16_t sHeight = DISPLAY_HEIGHT;
 
-/** The backlight channel. Channel 0 is free; the tuner uses no PWM. */
+/* The backlight channel. Channel 0 is free; the tuner uses no PWM. */
 #define BACKLIGHT_CHANNEL 0
-#define BACKLIGHT_HZ 5000 /**< Well above anything an eye can see flicker. */
-#define BACKLIGHT_BITS 8  /**< 256 steps of brightness. */
+#define BACKLIGHT_HZ 5000 /* Well above anything an eye can see flicker. */
+#define BACKLIGHT_BITS 8  /* 256 steps of brightness. */
 
-/**
+/*
  * A scratch buffer, big enough for one glyph of the largest font.
  *
  * One SPI transaction per glyph rather than one per row. Static rather than on
  * the stack because the loop task's stack is not large and a 5KB frame in a
  * drawing call is how a stack overflow arrives later, in some unrelated place.
  */
-#define GLYPH_MAX_W 64 /**< The widest glyph either font has. */
-#define GLYPH_MAX_H 40 /**< The tallest. The large font is 31. */
+#define GLYPH_MAX_W 64 /* The widest glyph either font has. */
+#define GLYPH_MAX_H 40 /* The tallest. The large font is 31. */
 static Colour sGlyph[GLYPH_MAX_W * GLYPH_MAX_H];
 
-/**
+/*
  * Take the SPI bus for one operation.
  *
  * Each drawing call takes it and gives it back. Holding it open for the life
@@ -84,12 +81,10 @@ static void busTake(void) {
   sSpi.beginTransaction(sSettings);
 }
 
-/** Give the bus back. One for every busTake. */
 static void busGive(void) {
   sSpi.endTransaction();
 }
 
-/** Send one command byte. */
 static void writeCommand(uint8_t cmd) {
   digitalWrite(PIN_TFT_DC, LOW);
   digitalWrite(PIN_TFT_CS, LOW);
@@ -97,7 +92,6 @@ static void writeCommand(uint8_t cmd) {
   digitalWrite(PIN_TFT_CS, HIGH);
 }
 
-/** Send a command and its data bytes. */
 static void writeCommandData(uint8_t cmd, const uint8_t *data, size_t len) {
   writeCommand(cmd);
   if (len == 0) {
@@ -111,7 +105,7 @@ static void writeCommandData(uint8_t cmd, const uint8_t *data, size_t len) {
   digitalWrite(PIN_TFT_CS, HIGH);
 }
 
-/**
+/*
  * Say which rectangle the pixels that follow belong to.
  *
  * The panel takes the window first and then a stream of pixels, which is what
@@ -129,13 +123,6 @@ static void setWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
   writeCommand(ILI9341_RAMWR);
 }
 
-/**
- * Clip a rectangle to the panel.
- *
- * @return false when nothing of it is on screen, in which case nothing should
- *         be drawn. Without this a negative x wraps into a huge unsigned
- *         window and the panel is asked for a rectangle off the end of itself.
- */
 static bool clip(int16_t *x, int16_t *y, uint16_t *w, uint16_t *h) {
   if (*w == 0 || *h == 0) {
     return false;
@@ -296,7 +283,7 @@ uint16_t displayHeight(void) {
   return sHeight;
 }
 
-/**
+/*
  * How many pixels are sent per burst.
  *
  * One byte at a time costs about two microseconds each, so clearing the panel
@@ -364,7 +351,7 @@ void displayPush(int16_t x, int16_t y, uint16_t w, uint16_t h,
   busGive();
 }
 
-/**
+/*
  * Which glyph a character is, or -1 when the font does not have it.
  *
  * The large font holds the digits, a full stop and a space, in that order,

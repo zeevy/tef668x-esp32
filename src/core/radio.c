@@ -1,12 +1,8 @@
-/**
- * @file radio.c
- * @brief Implementation of the radio state machine.
- */
+/* Implementation of the radio state machine. */
 #include "radio.h"
 
 #include <string.h>
 
-/** Where each band parks when it is first selected, in kHz. */
 static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
   uint32_t lo = 0;
   uint32_t hi = 0;
@@ -18,7 +14,7 @@ static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
   return lo;
 }
 
-/**
+/*
  * Put the settings in order after the band has changed.
  *
  * The step size, the tuning mode and the bandwidth all mean different things
@@ -27,7 +23,6 @@ static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
  * bandwidth of zero, and zero on the AM side is not a width at all, so the
  * tuner refuses it and the radio goes quiet.
  */
-/** What a band uses when nobody has ever set it. */
 static uint16_t bandOwnBandwidth(BandId band) {
   /* Zero on FM is the tuner choosing the width itself, which is what an FM
    * band wants until told otherwise. There is no such mode on the AM side. */
@@ -36,7 +31,6 @@ static uint16_t bandOwnBandwidth(BandId band) {
              : (uint16_t)RADIO_AM_DEFAULT_BANDWIDTH_KHZ;
 }
 
-/** Put away what this band was left set to, before leaving it. */
 static void rememberBand(RadioSettings *s) {
   if (s->band >= BAND_COUNT) {
     return;
@@ -116,6 +110,10 @@ const char *radioErrorText(RadioError error) {
       return "that value is outside what the setting takes";
     case RADIO_ERR_TUNE_MODE:
       return "that tuning mode is not available here";
+    case RADIO_ERR_NO_CHANNEL:
+      return "no stored channel to move to";
+    case RADIO_ERR_CHANNEL_BAND:
+      return "that channel is not on the band it says";
     default:
       return "not a command";
   }
@@ -338,7 +336,6 @@ bool radioTuneModeAllowed(TuneMode mode, BandId band) {
   return true;
 }
 
-/** Move by whole steps, using whichever rule the tuning mode implies. */
 static uint32_t stepBy(const RadioSettings *s, const BandPlanConfig *plan,
                        int16_t steps) {
   uint32_t freq = s->freqKHz;
@@ -552,6 +549,11 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
        * something the radio does over the next few seconds, so the task owns
        * it. Accepted here so that a caller posting it is told the radio took
        * the command, which it did. */
+      return RADIO_OK;
+
+    case RADIO_RECALL:
+      /* Nothing to apply either. The channel list is not in this struct, so
+       * the task reads the slot and turns it into a tune. */
       return RADIO_OK;
 
     case RADIO_SET_DEEMPHASIS:

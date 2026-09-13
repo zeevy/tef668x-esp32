@@ -1,7 +1,4 @@
-/**
- * @file input_task.cpp
- * @brief Implementation of the input layer.
- */
+/* Implementation of the input layer. */
 #include "input_task.h"
 
 #include "core/squelch.h"
@@ -14,24 +11,24 @@
 #include <stdio.h>
 #include <string.h>
 
-/** The four buttons, in PanelButton order. */
+/* The four buttons, in PanelButton order. */
 static Button sButtons[PANEL_BUTTON_COUNT];
 
-/** How fast the knob is being turned. */
+/* How fast the knob is being turned. */
 static Acceleration sAcceleration;
 
-/** Digits keyed and not yet entered. */
+/* Digits keyed and not yet entered. */
 static char sTyped[INPUT_DIGITS_MAX + 1];
 static uint8_t sTypedLen = 0;
 
-/** When the last digit was keyed, so a half typed number does not sit
+/* When the last digit was keyed, so a half typed number does not sit
  *  there for ever waiting for an enter that is not coming. */
 static uint32_t sTypedMs = 0;
 
-/** A part typed number is dropped after this long with no new digit. */
+/* A part typed number is dropped after this long with no new digit. */
 #define TYPED_TIMEOUT_MS 5000
 
-/**
+/*
  * How often the keypad is read, in milliseconds.
  *
  * The keypad sits on the tuner's I2C bus, so every read here is a read the
@@ -40,7 +37,7 @@ static uint32_t sTypedMs = 0;
  */
 #define KEYPAD_POLL_MS 20
 
-/**
+/*
  * How long a button press waits for the radio, in milliseconds.
  *
  * Long enough for a retune, which is five I2C writes with a settle after
@@ -48,7 +45,7 @@ static uint32_t sTypedMs = 0;
  */
 #define BUTTON_SETTLE_MS 300
 
-/**
+/*
  * How often the volume pot is read, in milliseconds.
  *
  * The same rate the working firmware uses. Faster buys nothing: a hand cannot
@@ -58,11 +55,11 @@ static uint32_t sTypedMs = 0;
 
 static InputStatus sStatus;
 
-/** The last pot reading acted on, and whether there is one yet. */
+/* The last pot reading acted on, and whether there is one yet. */
 static uint16_t sPot = 0;
 static bool sPotKnown = false;
 
-/**
+/*
  * How this unit's knob maps to volume and to a squelch threshold.
  *
  * The defaults are one radio's numbers, taken from the reference firmware:
@@ -81,7 +78,7 @@ static PotCalibration sCal;
 /* Which presses make a sound. Off unless somebody asks. */
 static BeepMode sBeepMode = BEEP_OFF;
 
-/**
+/*
  * How long a beep lasts, in milliseconds.
  *
  * The reference firmware's figure for its band edge beep on this chip. Short
@@ -89,7 +86,7 @@ static BeepMode sBeepMode = BEEP_OFF;
  */
 #define BEEP_MS 50
 
-/**
+/*
  * And for a long press, which is deliberately different.
  *
  * A long press is the one you cannot tell has registered: there is nothing to
@@ -98,7 +95,7 @@ static BeepMode sBeepMode = BEEP_OFF;
  */
 #define BEEP_LONG_MS 200
 
-/**
+/*
  * How many things a person has done to this radio, counted for inputActivity.
  *
  * Separate from the counts in InputStatus, which are per source and are there
@@ -107,31 +104,26 @@ static BeepMode sBeepMode = BEEP_OFF;
  */
 static uint32_t sActivity = 0;
 
-/** What the knob was last doing, so a change of job can be acted on. */
+/* What the knob was last doing, so a change of job can be acted on. */
 static SquelchMode sJob = SQUELCH_OFF;
 static bool sJobKnown = false;
 
-/** Remember what just happened, for the diagnostic page. */
 static void note(const char *what) {
   snprintf(sStatus.lastEvent, sizeof(sStatus.lastEvent), "%s", what);
   sStatus.lastEventMs = millis();
   Serial.printf("[input] %s\n", what);
 }
 
-/** Send one command, without waiting. For the knob, which sends a lot. */
 static void send(const RadioCommand *command) {
   radioPost(command);
 }
 
-/**
+/*
  * Send one command and wait for the radio to deal with it.
  *
  * For the buttons and the keypad, which are rare and whose log line has to
  * say what actually happened. Saying what was asked for instead is how MODE
  * came to announce a mode the radio had refused.
- *
- * @param command  What to do.
- * @return true when the radio carried it out and accepted it.
  */
 static bool sendAndSettle(const RadioCommand *command) {
   RadioError why = RADIO_OK;
@@ -140,7 +132,6 @@ static bool sendAndSettle(const RadioCommand *command) {
          why == RADIO_OK;
 }
 
-/** Throw away whatever has been keyed so far. */
 static void clearTyped(void) {
   sTypedLen = 0;
   sTyped[0] = '\0';
@@ -181,7 +172,6 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   return sStatus.keypadPresent;
 }
 
-/** The knob. One click moves the dial by the step size, more when spun. */
 static void pollEncoder(uint32_t nowMs) {
   int32_t clicks = encoderTake();
   if (clicks == 0) {
@@ -217,16 +207,13 @@ static void pollEncoder(uint32_t nowMs) {
   send(&cmd);
 }
 
-/**
+/*
  * Send one command, wait for the radio, and say where it ended up.
  *
  * The buttons all mean "the next one", and the radio works that out from its
  * own state. Reading the state here, working out the next value and sending
  * that would leave a gap for the state to move in, which is how BW came to
  * send an FM bandwidth to a radio that had just landed on medium wave.
- *
- * @param kind   Which cycle command.
- * @param what   How to describe the result. NULL uses the band and frequency.
  */
 static void cycleAndNote(RadioCommandKind kind, const char *what) {
   RadioCommand cmd = {};
@@ -280,7 +267,6 @@ static void cycleAndNote(RadioCommandKind kind, const char *what) {
   note(text);
 }
 
-/** What the BAND button does. */
 static void onBand(ButtonEvent event) {
   if (event == BUTTON_SHORT) {
     cycleAndNote(RADIO_CYCLE_BAND, NULL);
@@ -294,14 +280,12 @@ static void onBand(ButtonEvent event) {
   }
 }
 
-/** What the BW button does. */
 static void onBandwidth(ButtonEvent event) {
   if (event == BUTTON_SHORT) {
     cycleAndNote(RADIO_CYCLE_BANDWIDTH, NULL);
   }
 }
 
-/** What the MODE button does. */
 static void onMode(ButtonEvent event) {
   if (event == BUTTON_SHORT) {
     cycleAndNote(RADIO_CYCLE_TUNE_MODE, NULL);
@@ -316,7 +300,6 @@ static void onMode(ButtonEvent event) {
   }
 }
 
-/** What the push on the knob does. */
 static void onPush(ButtonEvent event) {
   if (event == BUTTON_SHORT) {
     cycleAndNote(RADIO_TOGGLE_MUTE, NULL);
@@ -328,7 +311,6 @@ static void onPush(ButtonEvent event) {
   }
 }
 
-/** Read the four buttons and act on what they did. */
 static void pollButtons(uint32_t nowMs) {
   for (int i = 0; i < PANEL_BUTTON_COUNT; i++) {
     PanelButton which = (PanelButton)i;
@@ -373,7 +355,6 @@ static void pollButtons(uint32_t nowMs) {
   }
 }
 
-/** Tune to whatever has been keyed, if it means anything. */
 static void enterTyped(void) {
   if (sTypedLen == 0) {
     note("enter with nothing typed");
@@ -416,7 +397,6 @@ static void enterTyped(void) {
   clearTyped();
 }
 
-/** Read the keypad and act on it. */
 static void pollKeypad(uint32_t nowMs) {
   static uint32_t lastPollMs = 0;
   if (!sStatus.keypadPresent) {
@@ -493,7 +473,7 @@ static void pollKeypad(uint32_t nowMs) {
   note(text);
 }
 
-/**
+/*
  * The knob.
  *
  * One knob, one job at a time, and the squelch mode decides which. Off and

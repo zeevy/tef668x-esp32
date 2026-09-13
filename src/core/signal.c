@@ -1,17 +1,14 @@
-/**
- * @file signal.c
- * @brief Implementation of the derived signal figures.
- */
+/* Implementation of the derived signal figures. */
 #include "signal.h"
 
 #include <stdio.h>
 
 #include <stddef.h>
 
-/** The lowest level the reference firmware will consider, in tenths. */
+/* The lowest level the reference firmware will consider, in tenths. */
 #define LEVEL_FLOOR (-200)
 
-/** The highest, in tenths. */
+/* The highest, in tenths. */
 #define LEVEL_CEILING 1200
 
 int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm) {
@@ -55,7 +52,6 @@ int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm) {
   return (int8_t)snr;
 }
 
-/** Nearest whole dB, taking the sign before the division. */
 static int16_t wholeDb(int16_t tenths) {
   return (int16_t)(tenths >= 0 ? (tenths + 5) / 10 : (tenths - 5) / 10);
 }

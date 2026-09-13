@@ -1,7 +1,4 @@
-/**
- * @file ota_service.cpp
- * @brief Implementation of the ArduinoOTA listener.
- */
+/* Implementation of the ArduinoOTA listener. */
 #include "ota_service.h"
 
 #include "board/board.h"

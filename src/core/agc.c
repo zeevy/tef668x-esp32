@@ -1,12 +1,9 @@
-/**
- * @file agc.c
- * @brief Implementation of the volume AGC.
- */
+/* Implementation of the volume AGC. */
 #include "agc.h"
 
 #include <stddef.h>
 
-/**
+/*
  * Where each whole dB of gain starts, as a ratio scaled by ten thousand.
  *
  * The gain the average asks for is 20 log10(target / average), rounded to a
@@ -28,10 +25,9 @@ static const uint16_t kGainBoundary[] = {
     42170, 37584, 33497, 29854, 26607, 23714, 21135, 18836, 16788, 14962, 13335,
     11885, 10593, 9441,  8414,  7499,  6683,  5957,  5309,  4732,  4217};
 
-/** How many entries that table has, which is the span it covers. */
+/* How many entries that table has, which is the span it covers. */
 #define AGC_GAIN_SPAN ((int)(sizeof(kGainBoundary) / sizeof(kGainBoundary[0])))
 
-/** Whether the AGC has anything to do at all. */
 static bool configOn(const AgcConfig *cfg) {
   if (cfg == NULL || cfg->targetPercent == 0) {
     return false;
@@ -44,7 +40,6 @@ static bool configOn(const AgcConfig *cfg) {
          cfg->targetPercent <= AGC_TARGET_MAX;
 }
 
-/** The most the AGC may add. */
 static int8_t boostCeiling(const AgcConfig *cfg) {
   if (cfg == NULL || cfg->boostDb > AGC_BOOST_MAX) {
     /* A boost nobody could have asked for means no boost, the same way a
@@ -56,7 +51,6 @@ static int8_t boostCeiling(const AgcConfig *cfg) {
   return (int8_t)cfg->boostDb;
 }
 
-/** Whether this reading is worth putting into the average. */
 static bool readingIsUsable(const AgcReading *r) {
   if (r == NULL || !r->valid || !r->listening || !r->fresh) {
     return false;

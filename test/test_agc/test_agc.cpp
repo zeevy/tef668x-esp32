@@ -1,6 +1,5 @@
-/**
- * @file test_agc.cpp
- * @brief Tests for the volume AGC. Runs on a PC.
+/*
+ * Tests for the volume AGC. Runs on a PC.
  *
  * The captures in test/fixtures/agc/ were printed once a second by a
  * prototype that ran ten times a second, so they cannot drive the running
@@ -20,7 +19,6 @@
 void setUp(void) {}
 void tearDown(void) {}
 
-/** A config with a target and a boost. */
 static AgcConfig conf(uint8_t target, uint8_t boost) {
   AgcConfig c;
   c.targetPercent = target;
@@ -28,7 +26,6 @@ static AgcConfig conf(uint8_t target, uint8_t boost) {
   return c;
 }
 
-/** A reading that passes every guard, at one modulation depth. */
 static AgcReading good(int16_t mod) {
   AgcReading r;
   r.valid = true;
@@ -41,7 +38,7 @@ static AgcReading good(int16_t mod) {
   return r;
 }
 
-/**
+/*
  * Feed the same reading until the average has settled.
  *
  * Held steady on purpose. The AGC takes the caller's word for whether a

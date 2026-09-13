@@ -1,7 +1,4 @@
-/**
- * @file test_input.cpp
- * @brief Tests for the knob and button state machines. Runs on a PC.
- */
+/* Tests for the knob and button state machines. Runs on a PC. */
 #include <unity.h>
 
 #include <stdint.h>
@@ -25,7 +22,6 @@ void tearDown(void) {}
 
 /* ---------------------------------------------------------------- encoder */
 
-/** One full quadrature cycle clockwise, as the lines really move. */
 static int8_t turnUp(Encoder *e) {
   int8_t total = 0;
   total = (int8_t)(total + encoderFeed(e, true, false));
@@ -35,7 +31,6 @@ static int8_t turnUp(Encoder *e) {
   return total;
 }
 
-/** The same cycle the other way. */
 static int8_t turnDown(Encoder *e) {
   int8_t total = 0;
   total = (int8_t)(total + encoderFeed(e, false, true));
@@ -191,7 +186,6 @@ static void a_null_accelerator_still_returns_one_step(void) {
 
 /* ----------------------------------------------------------------- button */
 
-/** Hold a level for a while, returning the first event that comes out. */
 static ButtonEvent hold(bool pressed, uint32_t *t, uint32_t forMs) {
   ButtonEvent seen = BUTTON_NONE;
   for (uint32_t i = 0; i < forMs; i += 5) {

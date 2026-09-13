@@ -18,15 +18,19 @@ left it. Each band keeps its own frequency, filter width, step and tuning mode.
 The panel light fades up at start up, and can dim after the radio is left
 alone, though that one ships off.
 
-Still to come in phase 3: the RDS decoder, memory channels with CSV import and
-export, and the volume AGC. Then touch, LVGL, telemetry, the spectrum and the
-clock, which are phases 4 to 6 in [ROADMAP.md](ROADMAP.md).
+It holds ninety nine memory channels, walks them with the knob in Memory mode,
+and reads and writes the whole list as CSV over HTTP.
+
+Still to come in phase 3: the RDS decoder. The volume AGC is written and tested
+but nothing calls it yet, so the radio does not change volume on its own. Then
+touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6 in
+[ROADMAP.md](ROADMAP.md).
 
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty nine design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Thirty design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.
@@ -44,7 +48,7 @@ or off the board photos. Do not add anything to it that was guessed.
 | Serial port | `/dev/cu.usbserial-A5069RR4`, an FT232R with no auto reset |
 | Test fixtures | `test/fixtures/`, real captures taken off air from this radio |
 | Working rules | [RULES.md](RULES.md). How to work here. Read it first |
-| Every gate | `tools/check.sh`. Build, tests, coverage, analysis, format, docs, size |
+| Every gate | `tools/check.sh`. Build, tests, coverage, analysis, format, size |
 | Build order | [ROADMAP.md](ROADMAP.md), seven phases. Do not start a phase before the one before it is green |
 | Screen design | [docs/design.html](docs/design.html), the proposed screens at 320x240, the type scale and the palette. Also published as an artifact |
 | Manual test checklist | [docs/test-checklist.md](docs/test-checklist.md). Numbered checks a person runs on the radio, because CI cannot. Add to it with every build |

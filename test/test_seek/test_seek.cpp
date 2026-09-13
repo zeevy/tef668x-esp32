@@ -1,6 +1,5 @@
-/**
- * @file test_seek.cpp
- * @brief Tests for the seek stop decision. Runs on a PC.
+/*
+ * Tests for the seek stop decision. Runs on a PC.
  *
  * Most of these replay a real sweep of the FM band taken off this radio, in
  * `test/fixtures/seek/`, rather than readings somebody invented. A stop
@@ -18,7 +17,6 @@
 void setUp(void) {}
 void tearDown(void) {}
 
-/** One row of the sweep, as the decision wants it. */
 static SeekReading readingAt(size_t i) {
   SeekReading r;
   memset(&r, 0, sizeof(r));
@@ -30,7 +28,7 @@ static SeekReading readingAt(size_t i) {
   return r;
 }
 
-/**
+/*
  * A reading that passes every gate, so a test can spoil one of them and know
  * that is the only reason it failed.
  *
@@ -47,7 +45,6 @@ static SeekReading aStation(void) {
   return r;
 }
 
-/** Was this frequency transmitting when the sweep was taken. */
 static bool wasOnAir(uint32_t khz) {
   for (size_t i = 0; i < FM_SWEEP_STATION_COUNT; i++) {
     if (kFmSweepStations[i] == khz) {
@@ -57,7 +54,6 @@ static bool wasOnAir(uint32_t khz) {
   return false;
 }
 
-/** How many channels a sensitivity stops on, and how many were real. */
 static void countStops(uint8_t sensitivity, int *stops, int *real) {
   SeekConfig cfg;
   seekDefaults(&cfg);

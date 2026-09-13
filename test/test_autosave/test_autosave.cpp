@@ -1,6 +1,5 @@
-/**
- * @file test_autosave.cpp
- * @brief Tests for when the settings get written down. Runs on a PC.
+/*
+ * Tests for when the settings get written down. Runs on a PC.
  *
  * All of this is about time, which is the part that cannot be checked by
  * looking at a radio. A save that never fires and a save that fires forty
@@ -17,7 +16,6 @@
 void setUp(void) {}
 void tearDown(void) {}
 
-/** A state set up with the shipping wait. */
 static AutoSave fresh(uint32_t nowMs) {
   AutoSave a;
   memset(&a, 0, sizeof(a));

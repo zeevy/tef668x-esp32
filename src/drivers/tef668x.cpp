@@ -1,6 +1,5 @@
-/**
- * @file tef668x.cpp
- * @brief Implementation of the tuner driver.
+/*
+ * Implementation of the tuner driver.
  *
  * The I2C sequences here were learned from the PE5PVB firmware, which runs on
  * this exact board, so they are known to work on this hardware. The code is a
@@ -19,7 +18,7 @@
 #include "core/signal.h"
 #include "tef668x_patch.h"
 
-/** Modules inside the chip. Every command is addressed to one of them. */
+/* Modules inside the chip. Every command is addressed to one of them. */
 typedef enum {
   MODULE_FM = 32,
   MODULE_AM = 33,
@@ -28,43 +27,42 @@ typedef enum {
 } Tef668xModule;
 
 /* Commands, within a module. */
-#define CMD_TUNE_TO 1              /**< Go to a frequency. FM and AM modules. */
-#define CMD_SET_BANDWIDTH 10       /**< Set or auto the channel bandwidth. */
-#define CMD_GET_QUALITY_STATUS 128 /**< Level, noise, offset, modulation. */
-#define CMD_GET_SIGNAL_STATUS 133  /**< Carries the stereo pilot flag. */
-#define CMD_SET_STHIBLEND_LEVEL 72 /**< Stereo and treble blend, by level. */
-#define CMD_SET_STHIBLEND_NOISE 73 /**< By noise. */
-#define CMD_SET_STHIBLEND_MPH 74   /**< By multipath. */
-#define CMD_SET_STHIBLEND_MAX 75   /**< Its ceiling. */
-#define CMD_GET_PROCESSING_STATUS \
-  134 /**< What the chip is doing to the audio. */
+#define CMD_TUNE_TO 1              /* Go to a frequency. FM and AM modules. */
+#define CMD_SET_BANDWIDTH 10       /* Set or auto the channel bandwidth. */
+#define CMD_GET_QUALITY_STATUS 128 /* Level, noise, offset, modulation. */
+#define CMD_GET_SIGNAL_STATUS 133  /* Carries the stereo pilot flag. */
+#define CMD_SET_STHIBLEND_LEVEL 72 /* Stereo and treble blend, by level. */
+#define CMD_SET_STHIBLEND_NOISE 73 /* By noise. */
+#define CMD_SET_STHIBLEND_MPH 74   /* By multipath. */
+#define CMD_SET_STHIBLEND_MAX 75   /* Its ceiling. */
+#define CMD_GET_PROCESSING_STATUS 134 /* What the chip is doing to the audio. */
 
 /* Reception and audio shaping. Every one of these is written by the working
  * PE5PVB firmware on every start, and none of them was written here until
  * issue 16. The numbers are its numbers, checked against its source. */
-#define CMD_SET_RFAGC 11         /**< Where the RF gain starts backing off. */
-#define CMD_SET_ANTENNA 12       /**< AM RF attenuation. */
-#define CMD_SET_COCHANNEL 14     /**< AM co-channel rejection. */
-#define CMD_SET_NOISE_BLANKER 23 /**< Impulse noise blanker. */
-#define CMD_SET_NOISE_BLANKER_AUDIO 24 /**< Its audio side. AM only. */
-#define CMD_SET_DEEMPHASIS 31          /**< FM de-emphasis time constant. */
-#define CMD_SET_LEVEL_OFFSET 39    /**< Calibration of the reported level. */
-#define CMD_SET_SOFTMUTE_MAX 45    /**< How far soft mute may pull the audio. */
-#define CMD_SET_HIGHCUT_LEVEL 52   /**< Treble roll off against level. */
-#define CMD_SET_HIGHCUT_NOISE 53   /**< Against noise. */
-#define CMD_SET_HIGHCUT_MPH 54     /**< Against multipath. */
-#define CMD_SET_HIGHCUT_MAX 55     /**< The highest frequency it may pass. */
-#define CMD_SET_STEREO_LEVEL 62    /**< Stereo blend against level. */
-#define CMD_SET_STEREO_NOISE 63    /**< Against noise. */
-#define CMD_SET_STEREO_MPH 64      /**< Against multipath. */
-#define CMD_SET_MPH_SUPPRESSION 20 /**< iMS, multipath suppression. */
-#define CMD_SET_CHANNEL_EQUALIZER 22 /**< EQ, the channel equalizer. */
-#define CMD_SET_STEREO_MIN 66        /**< Forced mono, or stereo allowed. */
-#define CMD_SET_BANDWIDTH_OPTIONS 86 /**< How far the adaptive filter opens. */
+#define CMD_SET_RFAGC 11         /* Where the RF gain starts backing off. */
+#define CMD_SET_ANTENNA 12       /* AM RF attenuation. */
+#define CMD_SET_COCHANNEL 14     /* AM co-channel rejection. */
+#define CMD_SET_NOISE_BLANKER 23 /* Impulse noise blanker. */
+#define CMD_SET_NOISE_BLANKER_AUDIO 24 /* Its audio side. AM only. */
+#define CMD_SET_DEEMPHASIS 31          /* FM de-emphasis time constant. */
+#define CMD_SET_LEVEL_OFFSET 39        /* Calibration of the reported level. */
+#define CMD_SET_SOFTMUTE_MAX 45      /* How far soft mute may pull the audio. */
+#define CMD_SET_HIGHCUT_LEVEL 52     /* Treble roll off against level. */
+#define CMD_SET_HIGHCUT_NOISE 53     /* Against noise. */
+#define CMD_SET_HIGHCUT_MPH 54       /* Against multipath. */
+#define CMD_SET_HIGHCUT_MAX 55       /* The highest frequency it may pass. */
+#define CMD_SET_STEREO_LEVEL 62      /* Stereo blend against level. */
+#define CMD_SET_STEREO_NOISE 63      /* Against noise. */
+#define CMD_SET_STEREO_MPH 64        /* Against multipath. */
+#define CMD_SET_MPH_SUPPRESSION 20   /* iMS, multipath suppression. */
+#define CMD_SET_CHANNEL_EQUALIZER 22 /* EQ, the channel equalizer. */
+#define CMD_SET_STEREO_MIN 66        /* Forced mono, or stereo allowed. */
+#define CMD_SET_BANDWIDTH_OPTIONS 86 /* How far the adaptive filter opens. */
 
-#define CMD_AUDIO_SET_VOLUME 10  /**< Output gain, in tenths of a dB. */
-#define CMD_AUDIO_SET_INPUT 12   /**< Which source the audio path carries. */
-#define CMD_AUDIO_SET_WAVEGEN 24 /**< The tone generator. */
+#define CMD_AUDIO_SET_VOLUME 10  /* Output gain, in tenths of a dB. */
+#define CMD_AUDIO_SET_INPUT 12   /* Which source the audio path carries. */
+#define CMD_AUDIO_SET_WAVEGEN 24 /* The tone generator. */
 
 /*
  * Audio sources. The tone generator is not heard until the audio path is
@@ -75,17 +73,17 @@ typedef enum {
  * reference firmware's numbers, from a function that switches the input and
  * the generator together every time.
  */
-/** The tuner itself, which is what a radio normally carries. */
+/* The tuner itself, which is what a radio normally carries. */
 #define AUDIO_INPUT_TUNER 0
-/** The tone generator. */
+/* The tone generator. */
 #define AUDIO_INPUT_WAVEGEN 240
-#define CMD_AUDIO_SET_MUTE 11 /**< Mute or unmute the output. */
+#define CMD_AUDIO_SET_MUTE 11 /* Mute or unmute the output. */
 
-#define CMD_APPL_SET_OPERATION_MODE 1 /**< Active or standby. */
+#define CMD_APPL_SET_OPERATION_MODE 1 /* Active or standby. */
 #define CMD_APPL_GET_OPERATION_STATUS \
-  128 /**< Has it booted, and is it patched. */
+  128 /* Has it booted, and is it patched. */
 #define CMD_APPL_GET_IDENTIFICATION \
-  130 /**< Which part, and which patch it wants. */
+  130 /* Which part, and which patch it wants. */
 
 /*
  * Operation mode. Zero is the working state and one is standby, which reads
@@ -97,33 +95,33 @@ typedef enum {
  * returns a quality status of 0xFFFA with nonsense in every field. It looks
  * exactly like a working bus and a broken decoder.
  */
-#define OPERATION_MODE_ACTIVE 0  /**< Receiving. */
-#define OPERATION_MODE_STANDBY 1 /**< Asleep. Every reading is meaningless. */
+#define OPERATION_MODE_ACTIVE 0  /* Receiving. */
+#define OPERATION_MODE_STANDBY 1 /* Asleep. Every reading is meaningless. */
 
 /*
  * Bandwidth mode. Zero pins it, one lets the chip adapt, which is the
  * opposite way round to how it reads.
  */
-#define BANDWIDTH_MODE_FIXED 0    /**< Hold the bandwidth given. */
-#define BANDWIDTH_MODE_ADAPTIVE 1 /**< Let the chip choose. */
+#define BANDWIDTH_MODE_FIXED 0    /* Hold the bandwidth given. */
+#define BANDWIDTH_MODE_ADAPTIVE 1 /* Let the chip choose. */
 
-/** The reference bandwidth that goes with the adaptive mode, in tenths. */
+/* The reference bandwidth that goes with the adaptive mode, in tenths. */
 #define BANDWIDTH_ADAPTIVE_REF 3110
 
-/** Tune modes the chip understands. 4 jumps straight there, 1 presets. */
-#define TUNE_MODE_PRESET 1 /**< Preset tune, what the AM side wants. */
-#define TUNE_MODE_JUMP 4   /**< Go straight there, no search. */
+/* Tune modes the chip understands. 4 jumps straight there, 1 presets. */
+#define TUNE_MODE_PRESET 1 /* Preset tune, what the AM side wants. */
+#define TUNE_MODE_JUMP 4   /* Go straight there, no search. */
 
-/** The chip takes the patch in chunks of this many bytes under command 0x1b. */
+/* The chip takes the patch in chunks of this many bytes under command 0x1b. */
 #define PATCH_CHUNK 24
 
-/** How long to wait for the chip to say it is ready, in 5 ms tries. */
+/* How long to wait for the chip to say it is ready, in 5 ms tries. */
 #define READY_TRIES 20
 
-/** How long the chip needs after a write before it will answer, in ms. */
+/* How long the chip needs after a write before it will answer, in ms. */
 #define TUNER_SETTLE_MS 2
 
-/**
+/*
  * I2C speed for the tuner.
  *
  * 400 kHz, which is what the working PE5PVB firmware uses on this board:
@@ -179,7 +177,7 @@ const char *tef668xErrorText(Tef668xError error) {
 
 /* ------------------------------------------------------------- transport -- */
 
-/**
+/*
  * Write raw bytes to the tuner.
  *
  * The settle delay is not politeness. The chip needs time after a write
@@ -203,7 +201,7 @@ static Tef668xError writeRaw(const uint8_t *data, size_t len) {
   return result == 0 ? TEF668X_OK : TEF668X_ERR_WRITE;
 }
 
-/**
+/*
  * Send a command with up to four 16 bit arguments.
  *
  * The wire format is the module, the command, a literal 1, then each argument
@@ -226,7 +224,6 @@ static Tef668xError command(Tef668xModule module, uint8_t cmd,
   return writeRaw(buf, n);
 }
 
-/** Ask for a value and read the answer back. */
 static Tef668xError query(Tef668xModule module, uint8_t cmd, uint8_t *out,
                           size_t len) {
   /* The bus is held across both halves. A read is a write of what is wanted
@@ -256,14 +253,13 @@ static Tef668xError query(Tef668xModule module, uint8_t cmd, uint8_t *out,
   return TEF668X_OK;
 }
 
-/** Two bytes off the wire, big endian, as an unsigned word. */
 static uint16_t word16(const uint8_t *p) {
   return (uint16_t)((uint16_t)p[0] << 8 | (uint16_t)p[1]);
 }
 
 /* ----------------------------------------------------------- bringing up -- */
 
-/**
+/*
  * Put the chip back to a known state before the patch goes in.
  *
  * All five bytes. A three byte version is acknowledged just the same and does
@@ -275,7 +271,6 @@ static Tef668xError resetChip(void) {
   return writeRaw(reset, sizeof(reset));
 }
 
-/** Write one blob in chunks, under the patch write command. */
 static Tef668xError writeBlob(const uint8_t *data, size_t len) {
   uint8_t buf[1 + PATCH_CHUNK];
   buf[0] = 0x1B;
@@ -295,13 +290,12 @@ static Tef668xError writeBlob(const uint8_t *data, size_t len) {
   return TEF668X_OK;
 }
 
-/** Open a write window on the chip, or close it again with target 0. */
 static Tef668xError openWindow(uint8_t target) {
   uint8_t open[3] = {0x1C, 0x00, target};
   return writeRaw(open, sizeof(open));
 }
 
-/**
+/*
  * Load a patch and its lookup table.
  *
  * The order matters and is the one the working firmware uses: reset, open the
@@ -338,7 +332,6 @@ static Tef668xError loadPatch(const Tef668xPatch *patch) {
   return openWindow(0x00);
 }
 
-/** Read the three identification words. */
 static Tef668xError identify(uint16_t *device, uint16_t *hardware,
                              uint16_t *software) {
   uint8_t buf[6];
@@ -357,7 +350,7 @@ static Tef668xError identify(uint16_t *device, uint16_t *hardware,
   return TEF668X_OK;
 }
 
-/**
+/*
  * Work out which part is fitted from the device word.
  *
  * The low byte names the part. Everything above this layer asks about a
@@ -395,7 +388,7 @@ static Tef668xError describePart(uint16_t device, Tef668xCapabilities *caps) {
   }
 }
 
-/**
+/*
  * Tell the chip what its crystal is.
  *
  * The board puts a voltage on an ADC pin that says which crystal is fitted.
@@ -477,7 +470,6 @@ static const uint8_t kInitTable[] = {
     0,
 };
 
-/** Write the register defaults. */
 static Tef668xError writeInitTable(void) {
   size_t i = 0;
   while (kInitTable[i] != 0) {
@@ -491,7 +483,6 @@ static Tef668xError writeInitTable(void) {
   return TEF668X_OK;
 }
 
-/** Ask whether the chip has finished booting. */
 static Tef668xError readBootStatus(uint8_t *status) {
   uint8_t buf[2];
   Tef668xError err =
@@ -503,7 +494,7 @@ static Tef668xError readBootStatus(uint8_t *status) {
   return TEF668X_OK;
 }
 
-/**
+/*
  * Patch the chip, tell it about its crystal, and power it on.
  *
  * All three, in that order, before it will answer anything. Loading the patch
@@ -531,7 +522,7 @@ static Tef668xError bringUpWithPatch(const Tef668xPatch *patch) {
   return TEF668X_OK;
 }
 
-/**
+/*
  * Tell the tuner how to receive and how to sound.
  *
  * Without these the chip keeps whatever it powers up with after the patch,
@@ -927,7 +918,7 @@ Tef668xError tef668xSetActive(bool active) {
   return TEF668X_OK;
 }
 
-/**
+/*
  * Put the chip on the right side before tuning across a band change.
  *
  * Tuning the FM module while the chip is on its AM side does not move it
@@ -1144,7 +1135,7 @@ Tef668xError tef668xSetMono(bool mono) {
   return command(MODULE_FM, CMD_SET_STEREO_MIN, args, 2);
 }
 
-/**
+/*
  * One of the three level, noise and multipath triples.
  *
  * Each is written the same way: mode 0 switches it off and mode 3 turns it on

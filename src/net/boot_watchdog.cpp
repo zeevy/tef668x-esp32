@@ -1,7 +1,4 @@
-/**
- * @file boot_watchdog.cpp
- * @brief Implementation of the boot timer.
- */
+/* Implementation of the boot timer. */
 #include "boot_watchdog.h"
 
 #include <Arduino.h>
@@ -10,7 +7,6 @@
 
 static esp_timer_handle_t sTimer = NULL;
 
-/** Runs in the esp_timer task when setup has taken too long. */
 static void onTimeout(void *arg) {
   (void)arg;
   ets_printf("[boot] setup did not finish in time, restarting\n");

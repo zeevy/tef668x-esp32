@@ -1,6 +1,5 @@
-/**
- * @file signal.h
- * @brief Numbers worked out from a tuner reading, rather than read from it.
+/*
+ * Numbers worked out from a tuner reading, rather than read from it.
  *
  * The tuner reports a level and a noise figure. It does not report a signal
  * to noise ratio, and it does not smooth anything. Both of those are done
@@ -19,7 +18,7 @@
 extern "C" {
 #endif
 
-/**
+/*
  * Signal to noise, in dB, from a level and an ultrasonic noise reading.
  *
  * The chip does not report this. The working PE5PVB firmware computes it in
@@ -39,15 +38,10 @@ extern "C" {
  * The AM side reports its noise on a different scale, and the reference
  * divides that field by fifty before putting it through the same line. Which
  * band the reading came from therefore has to be said.
- *
- * @param levelTenths  Signal level in tenths of a dBuV.
- * @param noiseTenths  The noise field from the quality reading.
- * @param fm           true for an FM reading, false for AM.
- * @return The ratio in dB.
  */
 int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm);
 
-/**
+/*
  * Write a level in tenths of a dBuV as text.
  *
  * One place, because there were three and they did not agree. Dividing minus
@@ -55,14 +49,10 @@ int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm);
  * unless the sign is taken before the value is split. A dead band really does
  * read a little below zero, so this matters on exactly the readings a person
  * is squinting at.
- *
- * @param tenths  The level, in tenths of a dBuV.
- * @param out     Receives the text, always terminated.
- * @param outLen  How big `out` is.
  */
 void signalFormatLevel(int16_t tenths, char *out, size_t outLen);
 
-/**
+/*
  * A running average. Zero it before first use.
  *
  * One reading of this tuner jumps about far more than the signal does, and a
@@ -71,11 +61,11 @@ void signalFormatLevel(int16_t tenths, char *out, size_t outLen);
  * makes any such decision.
  */
 typedef struct {
-  int32_t accumulator; /**< Ten times the smoothed value. */
-  bool started;        /**< A first sample has been taken. */
+  int32_t accumulator; /* Ten times the smoothed value. */
+  bool started;        /* A first sample has been taken. */
 } SignalAverage;
 
-/**
+/*
  * Add a sample and get the smoothed value.
  *
  * The first sample is taken as the answer rather than being averaged up to
@@ -83,14 +73,10 @@ typedef struct {
  * readings stop meaning anything, which is what signalAverageReset is for:
  * a band change makes every reading before it irrelevant, and without the
  * reset the smoothing carries the old band's numbers for about two seconds.
- *
- * @param avg     The average.
- * @param sample  The reading.
- * @return The smoothed value, in the same units as the sample.
  */
 int16_t signalAverage(SignalAverage *avg, int16_t sample);
 
-/**
+/*
  * How far the level has to move from the number on the screen before that
  * number changes, in tenths of a dB.
  *
@@ -105,7 +91,7 @@ int16_t signalAverage(SignalAverage *avg, int16_t sample);
  */
 #define SIGNAL_DISPLAY_HYSTERESIS_TENTHS 5
 
-/**
+/*
  * The signal level as a person reads it. Zero it before first use.
  *
  * Smoothing the value is not enough on its own to make a screen sit still.
@@ -119,9 +105,9 @@ int16_t signalAverage(SignalAverage *avg, int16_t sample);
  * in the state document, where a script wants them.
  */
 typedef struct {
-  int16_t shownDb; /**< The whole dBuV currently on the screen. */
-  bool started;    /**< A first reading has been taken. */
-  /**
+  int16_t shownDb; /* The whole dBuV currently on the screen. */
+  bool started;    /* A first reading has been taken. */
+  /*
    * The dial has moved and the reading has not caught up yet.
    *
    * The two do not move together. The dial moves as soon as the command is
@@ -133,50 +119,34 @@ typedef struct {
   bool waitingForStation;
 } SignalDisplay;
 
-/**
- * Turn a smoothed level into the number to put on the screen.
- *
- * @param d              The display state.
- * @param smoothedTenths The smoothed level, in tenths of a dBuV.
- * @param fresh          Whether that level was read where the dial is now.
- *                       A caller with no way to tell passes true.
- * @return The level to show, in whole dBuV. With d NULL it is the reading
- *         rounded to whole dB, with nothing held.
- */
 int16_t signalDisplayLevel(SignalDisplay *d, int16_t smoothedTenths,
                            bool fresh);
 
-/**
+/*
  * The dial has moved.
  *
  * The number on the screen is kept until a reading arrives from where the
  * dial now is, and that reading is then taken as it stands rather than
  * having to climb out of the old station's hysteresis band. Two stations a
  * dB apart would otherwise leave the screen showing the one you left.
- *
- * @param d  The display state.
  */
 void signalDisplayStationChanged(SignalDisplay *d);
 
-/**
+/*
  * Forget what is on the screen, so the next reading is taken as it stands.
  *
  * For a fresh start rather than a change of station, such as the screen
  * coming up. signalDisplayStationChanged is the one to use when the dial
  * moves, because it waits for the reading to catch up.
- *
- * @param d  The display state.
  */
 void signalDisplayReset(SignalDisplay *d);
 
-/**
+/*
  * Forget everything this average has seen.
  *
  * For when the readings stop meaning what they did, such as a change of band
  * or a retune. The next sample is then taken as the answer rather than
  * averaged in with readings from somewhere else on the dial.
- *
- * @param avg  The average.
  */
 void signalAverageReset(SignalAverage *avg);
 

@@ -1,7 +1,4 @@
-/**
- * @file settings.c
- * @brief Implementation of the settings struct, its defaults and migration.
- */
+/* Implementation of the settings struct, its defaults and migration. */
 #include "settings.h"
 
 #include <stddef.h>
@@ -18,7 +15,7 @@
 #include "seek.h"
 #include "squelch.h"
 
-/**
+/*
  * How many bytes each shipped version of the struct took.
  *
  * When SETTINGS_VERSION goes to 2, the entry for 1 becomes the number this
@@ -67,7 +64,7 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
   }
 }
 
-/**
+/*
  * Where the fields of a version end, which is not the same as its size.
  *
  * A struct's trailing padding belongs to no field, and a field added later
@@ -111,17 +108,14 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
   }
 }
 
-/** A blend start level: off, or high enough that a signal reaches it. */
 static bool startLevelOk(uint8_t level) {
   return level == 0 || (level >= 20 && level <= 60);
 }
 
-/** A noise blanker percentage: off, or inside what the chip uses. */
 static bool blankerOk(uint8_t percent) {
   return percent == 0 || (percent >= 50 && percent <= 150);
 }
 
-/** True when a char array holds a terminated string inside its own bounds. */
 static bool terminated(const char *s, size_t cap) {
   for (size_t i = 0; i < cap; i++) {
     if (s[i] == '\0') {

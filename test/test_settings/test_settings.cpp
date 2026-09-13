@@ -1,7 +1,6 @@
-/**
- * @file test_settings.cpp
- * @brief Tests for the settings struct, its defaults and its migration.
- *        Runs on a PC.
+/*
+ * Tests for the settings struct, its defaults and its migration.
+ * Runs on a PC.
  */
 #include <unity.h>
 
@@ -244,10 +243,10 @@ static void setting_wifi_clears_the_old_value_completely(void) {
 
 /* ------------------------------------------- reading an older radio's blob */
 
-/** The version 1 struct, exactly as a radio in the field wrote it. */
+/* The version 1 struct, exactly as a radio in the field wrote it. */
 #define V1_SIZE 108
 
-/**
+/*
  * Build a version 1 blob, the way the old firmware laid it out.
  *
  * Written through offsetof rather than by counting bytes. Version 1's fields
@@ -318,28 +317,28 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
 }
 
-/** How many bytes version 2 wrote. Fixed for good, like V1_SIZE. */
+/* How many bytes version 2 wrote. Fixed for good, like V1_SIZE. */
 #define V2_SIZE 132
 
-/** And version 3. */
+/* And version 3. */
 #define V3_SIZE 136
 
-/** And version 4. */
+/* And version 4. */
 #define V4_SIZE 140
 
-/** And version 5. */
+/* And version 5. */
 #define V5_SIZE 144
 
-/** And version 6, which is the same length as version 5. */
+/* And version 6, which is the same length as version 5. */
 #define V6_SIZE 144
 
-/** And version 7. */
+/* And version 7. */
 #define V7_SIZE 148
 
-/** And version 8, which is the same length as version 9. */
+/* And version 8, which is the same length as version 9. */
 #define V8_SIZE 196
 
-/**
+/*
  * Build a version 2 blob out of a current one.
  *
  * Version 3 only appended, so the first V2_SIZE bytes of a current struct are

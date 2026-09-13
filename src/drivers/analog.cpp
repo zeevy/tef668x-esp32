@@ -1,7 +1,4 @@
-/**
- * @file analog.cpp
- * @brief Implementation of the pot and the analogue S-meter.
- */
+/* Implementation of the pot and the analogue S-meter. */
 #include "analog.h"
 
 #include "board/board.h"
@@ -9,15 +6,15 @@
 #include <Arduino.h>
 #include <math.h>
 
-/** How many reads are averaged for one pot value. */
+/* How many reads are averaged for one pot value. */
 #define POT_SAMPLES 8
 
-/** The meter's PWM channel. The backlight has channel 0. */
+/* The meter's PWM channel. The backlight has channel 0. */
 #define SMETER_CHANNEL 1
-#define SMETER_HZ 1000 /**< Slow enough that the needle sees an average. */
-#define SMETER_BITS 8  /**< 0 to 255. See the note in smeterShow. */
+#define SMETER_HZ 1000 /* Slow enough that the needle sees an average. */
+#define SMETER_BITS 8  /* 0 to 255. See the note in smeterShow. */
 
-/** Full deflection. */
+/* Full deflection. */
 #define SMETER_FULL 255
 
 static bool sDriven = false;

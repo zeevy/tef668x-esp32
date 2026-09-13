@@ -1,7 +1,4 @@
-/**
- * @file rollback.cpp
- * @brief Implementation of the pending verify self check.
- */
+/* Implementation of the pending verify self check. */
 #include "rollback.h"
 
 #include <esp_err.h>

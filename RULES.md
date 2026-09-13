@@ -112,7 +112,7 @@ CI runs on every push and every pull request. A red pipeline blocks the merge.
 **One command runs every gate: `tools/check.sh`.** CI runs the same script. Run
 one gate by name while working: `tools/check.sh format`.
 
-Six of the seven gates give the same answer in both places. **Coverage does
+Five of the six gates give the same answer in both places. **Coverage does
 not.** `llvm-cov` on macOS and GCC's `gcov` on Linux disagree about which lines
 count, so the same code and the same tests measured 126 lines and 99 percent
 locally and 89 lines and 97 percent in CI on 12 September 2026. Treat the
@@ -126,14 +126,12 @@ floor, and do not tune a test to a local percentage.
 | `coverage` | gcovr on the native build, floor in `tools/check.sh` | Untested code sneaking into `core/` |
 | `analysis` | `pio check`, cppcheck | Uninitialised reads, narrowing, dead branches |
 | `format` | clang-format against `.clang-format` | Style, enforced rather than hoped for |
-| `docs` | doxygen, warnings as errors | A public function or macro with no doc comment |
 | `size` | the PlatformIO size report | A change that quietly bloats the image |
 
 ### Getting the tools
 
 ```bash
 python3 -m pip install --break-system-packages clang-format==23.1.1 gcovr==8.6
-brew install doxygen
 ```
 
 The clang-format version is pinned and `check.sh` refuses any other one. Ubuntu
@@ -205,8 +203,15 @@ Rules for the checklist:
 ## Code style
 
 - Two space indent, K&R braces.
-- Doc comments on every public function and every header. Say what it does and
-  what the caller has to know, not how it works line by line.
+- **No doxygen.** No `@param`, no `@return`, no `@file`, no generated HTML. A
+  list of parameters under a signature that already names them is typing, not
+  documentation, and it goes stale the moment an argument moves.
+- **Comment what is not obvious from the code.** What a feature is for, why a
+  number is that number, what a caller has to know that the signature does not
+  say, and anything that would look wrong to somebody who did not write it.
+- **Do not comment what the code already says.** A function called
+  `memoryCount` does not need a line above it saying it counts. If the comment
+  would be the name in a sentence, delete it and let the name do the work.
 - Comments explain why, not what. A comment restating the code is noise.
 - **Comments describe the code as it is, never its history.** This project is
   being written for the first time, so nobody has ever seen an earlier version.

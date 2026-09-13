@@ -1,6 +1,5 @@
-/**
- * @file autosave.h
- * @brief When the radio should write its settings down on its own.
+/*
+ * When the radio should write its settings down on its own.
  *
  * A radio that is tuned to a station and switched off should come back on
  * that station. Nothing kept that until now unless somebody asked for it, so
@@ -30,7 +29,7 @@
 extern "C" {
 #endif
 
-/**
+/*
  * How long the radio is left alone before it writes itself down, in ms.
  *
  * Measured on this radio on 13 September 2026 rather than chosen, over 154
@@ -47,23 +46,16 @@ extern "C" {
  */
 #define AUTOSAVE_IDLE_MS 10000
 
-/** Where the wait has got to. Zero it before first use. */
+/* Where the wait has got to. Zero it before first use. */
 typedef struct {
-  uint32_t idleMs;       /**< How long with nothing moving before a save. */
-  uint32_t lastChangeMs; /**< When the settings last moved. */
-  bool started;          /**< A first tick has been seen. */
+  uint32_t idleMs;       /* How long with nothing moving before a save. */
+  uint32_t lastChangeMs; /* When the settings last moved. */
+  bool started;          /* A first tick has been seen. */
 } AutoSave;
 
-/**
- * Set the wait up.
- *
- * @param a       The state.
- * @param idleMs  How long with nothing moving before a save. 0 never saves.
- * @param nowMs   Milliseconds since boot.
- */
 void autoSaveInit(AutoSave *a, uint32_t idleMs, uint32_t nowMs);
 
-/**
+/*
  * Ask whether now is the moment to write the settings.
  *
  * Call it as often as convenient. It does no work beyond a subtraction.
@@ -74,40 +66,23 @@ void autoSaveInit(AutoSave *a, uint32_t idleMs, uint32_t nowMs);
  * different from what is stored for the whole wait, so a caller answering
  * that one question would either restart the clock forever or never restart
  * it at all.
- *
- * @param a        The state.
- * @param differs  What the radio is set to is not what is stored.
- * @param moved    Something changed since the previous call.
- * @param busy     A bad moment, such as a seek walking the band. The dial
- *                 moves every fifty milliseconds during one and none of those
- *                 channels is a station anybody chose.
- * @param nowMs    Milliseconds since boot.
- * @return true when the caller should write the settings now.
  */
 bool autoSaveDue(AutoSave *a, bool differs, bool moved, bool busy,
                  uint32_t nowMs);
 
-/**
+/*
  * Tell it a save has just been written.
  *
  * The clock starts again, so a write that is followed immediately by another
  * change waits the full time again rather than firing on the next tick.
- *
- * @param a      The state.
- * @param nowMs  Milliseconds since boot.
  */
 void autoSaveDone(AutoSave *a, uint32_t nowMs);
 
-/**
+/*
  * How long until a save is due, in milliseconds.
  *
  * For a page that wants to say one is coming rather than leaving a person
  * wondering whether anything was kept.
- *
- * @param a        The state.
- * @param differs  What the radio is set to is not what is stored.
- * @param nowMs    Milliseconds since boot.
- * @return The wait left, 0 when one is due now or when nothing is waiting.
  */
 uint32_t autoSaveWaitMs(const AutoSave *a, bool differs, uint32_t nowMs);
 

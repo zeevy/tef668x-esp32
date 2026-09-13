@@ -695,3 +695,39 @@ Shortwave is not like the other bands. A frequency that is dead now can carry a 
 ### Already covered by CI, do not retest by hand
 
 Partition table arithmetic, the settings struct round trip, the rejection of a truncated or a wrong version blob, the access PIN derivation, the PIN attempt gate and its one minute lockout, the millisecond wraparound, and the build itself.
+
+## Build 0.2.4, phase 3, memory channels
+
+Ninety nine stored channels, the knob walking them in Memory mode, and CSV import and export. Decision 13 and decision 30.
+
+```bash
+R=http://tef668x.local
+curl -s -c /tmp/jar -d 'pin=000000' $R/auth -o /dev/null
+curl -s $R/api/state | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["chn"], d["tun"]["mem"], d["tun"]["tmd"])'
+curl -s $R/api/memory.csv
+```
+
+| # | Do this | Expect |
+|---|---|---|
+| 343 | `POST /api/memory` with `do=store` while a station is playing | The reply names the band and frequency. `chn.n` goes up and `tun.mem` becomes that slot straight away, without the dial being moved |
+| 344 | Store again with no `slot` | It lands in the lowest empty slot |
+| 345 | `do=set` with `slot`, `khz`, `bw` and `name`, then read `GET /api/memory.csv` | The channel is there as one line with all four |
+| 346 | `do=set` on that slot with only `khz` | The name and the width are still there. Correcting a frequency must not wipe the name |
+| 347 | Store a name with a comma in it and export | The name is wrapped in quotes, so a spreadsheet reads it as one field |
+| 348 | Store a name longer than sixteen characters | It is cut to sixteen and the import reply counts it |
+| 349 | Switch to Memory mode and turn the knob one click | It goes to the next stored channel, not the next frequency. The panel shows the new slot |
+| 350 | Keep turning past the highest stored slot | It wraps to the lowest, and the other way round too |
+| 351 | Store channels on FM and on medium wave, then step through them | It crosses the bands and **stays in Memory mode**, carrying the band, step and width |
+| 352 | Import `1,FM,1000,0,Wrong band`, then `do=recall` that slot | Refused with a plain reason, and the knob steps over it. That frequency is not on the band the channel names |
+| 353 | Turn the knob in Memory mode with no channels stored | Nothing moves and the API says `no stored channel to move to` |
+| 354 | Tune by hand onto a stored station with the keypad | `tun.mem` shows its slot. Tune one step off it and it goes back to 0 |
+| 355 | Import without a `Content-Type: text/csv` header | A plain reason naming the header. A form encoded body is read as fields, not as a file |
+| 356 | Import with `mode=merge` where one slot is taken and one line is rubbish | The good lines land, the taken slot is left alone, and the reply counts both |
+| 357 | Import that same file with `mode=replace` | **Nothing changes** and the reply names the line. Check the list afterwards: every channel is still there |
+| 358 | Export, wipe, then import that file back with `mode=replace` | The list is exactly what it was. This is the round trip the format exists for |
+| 359 | Store a few channels, then power cycle | They are all still there. Measured on 13 September 2026: a full list of 99 came back whole, on the channel it was left on, still in Memory mode |
+| 360 | Store a channel and watch `asv.n` for twenty seconds | It does not move. The channel list is not part of the settings |
+| 361 | Store five channels quickly, then watch `chn` | One write, not five. A run of edits waits two seconds and goes out together |
+| 362 | Start a seek while in Memory mode | `tun.mem` goes to 0 while it runs and is worked out again when it stops |
+| 363 | `do=recall` an empty slot, and ask for slot 0 or 100 | 404 for the empty one, and a plain reason naming the range for the others |
+| 364 | Send any write to `/api/memory` without signing in | 403. Reading the CSV needs no PIN, changing it does |

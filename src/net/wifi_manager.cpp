@@ -1,7 +1,4 @@
-/**
- * @file wifi_manager.cpp
- * @brief Implementation of the join and access point fallback.
- */
+/* Implementation of the join and access point fallback. */
 #include "wifi_manager.h"
 
 #include "board/board.h"
@@ -17,7 +14,6 @@ static uint32_t sLastRetryMs = 0;
 static uint8_t sDropCount = 0;
 static Settings sSettings;
 
-/** Build the access point name, ending in the last two MAC bytes. */
 static void buildApSsid(void) {
   uint8_t mac[6];
   deviceMacRead(mac);
@@ -25,18 +21,12 @@ static void buildApSsid(void) {
            mac[5]);
 }
 
-/** Record the current station address so callers can print it. */
 static void captureStationAddress(void) {
   IPAddress ip = WiFi.localIP();
   snprintf(sAddress, sizeof(sAddress), "%u.%u.%u.%u", ip[0], ip[1], ip[2],
            ip[3]);
 }
 
-/**
- * Try the stored credentials once.
- *
- * @return true when the radio joined inside WIFI_JOIN_TIMEOUT_MS.
- */
 static bool tryJoin(const Settings *settings) {
   if (!settingsHasWifi(settings)) {
     return false;
@@ -63,7 +53,6 @@ static bool tryJoin(const Settings *settings) {
   return true;
 }
 
-/** Start the setup access point so the radio stays reachable. */
 static void startAccessPoint(void) {
   buildApSsid();
   WiFi.mode(WIFI_AP);

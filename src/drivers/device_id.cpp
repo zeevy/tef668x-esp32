@@ -1,7 +1,4 @@
-/**
- * @file device_id.cpp
- * @brief Implementation of the MAC read.
- */
+/* Implementation of the MAC read. */
 #include "device_id.h"
 
 #include <esp_mac.h>

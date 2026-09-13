@@ -1,7 +1,4 @@
-/**
- * @file test_access_pin.cpp
- * @brief Tests for the access PIN and its attempt gate. Runs on a PC.
- */
+/* Tests for the access PIN and its attempt gate. Runs on a PC. */
 #include <unity.h>
 
 #include "core/access_pin.h"

@@ -1,7 +1,4 @@
-/**
- * @file i2c_bus.cpp
- * @brief Implementation of the shared I2C bus lock.
- */
+/* Implementation of the shared I2C bus lock. */
 #include "i2c_bus.h"
 
 #include "board/board.h"

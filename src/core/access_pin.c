@@ -1,7 +1,4 @@
-/**
- * @file access_pin.c
- * @brief Implementation of the access PIN and its attempt gate.
- */
+/* Implementation of the access PIN and its attempt gate. */
 #include "access_pin.h"
 
 bool accessPinIsDefault(uint32_t pin) {
