@@ -18,9 +18,9 @@ left it. Each band keeps its own frequency, filter width, step and tuning mode.
 The panel light fades up at start up, and can dim after the radio is left
 alone, though that one ships off.
 
-Still to come: touch, LVGL, RDS, memory channels, the volume AGC, telemetry,
-the spectrum and the clock. Those are phases 4 to 6 in
-[ROADMAP.md](ROADMAP.md).
+Still to come in phase 3: the RDS decoder, memory channels with CSV import and
+export, and the volume AGC. Then touch, LVGL, telemetry, the spectrum and the
+clock, which are phases 4 to 6 in [ROADMAP.md](ROADMAP.md).
 
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),

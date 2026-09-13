@@ -31,7 +31,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Panel light | Fades up at start up, dims after the radio is left alone, and comes straight back on the knob, a button, a key or the volume pot. Brightness, dim level and delay are all settings, and the dim ships off |
 | Control API | Every control the radio has, over HTTP. See below |
 
-Not built yet: touch, LVGL, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 4 to 6.
+Not built yet: the RDS decoder, memory channels and the volume AGC, which are the rest of phase 3. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
 
 ## The control API
 

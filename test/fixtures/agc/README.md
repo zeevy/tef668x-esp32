@@ -60,6 +60,24 @@ Ten stations, settled readings only, target 50 and boost 6 dB.
 The spread went from about 9 dB to 1.6 dB. A regression test that replays this
 file and checks the settled gain per station should reproduce these numbers.
 
+## What these captures can and cannot be used for
+
+**One line is not one AGC update.** The prototype ran ten times a second and
+printed once a second, which the `ticks` column shows: it climbs by up to ten
+between consecutive lines on the same station. So these rows cannot be fed
+through a running average one at a time to reproduce the `avg` column. An
+attempt to do that reproduced 7 rows of 179.
+
+What they are good for is the pairs that sit on one line together. The `avg`
+and `want` columns are the important one: `want` is the gain that average
+asked for, worked out in the prototype with `log10f`. `core/agc.c` works the
+same thing out with a table of boundaries and no floating point, and the test
+replays every row that had a settled average, 168 of them, and requires the
+same answer on all of them.
+
+They are also the source of the ranges the guards have to cope with, which is
+what the section below is about.
+
 ## Cases worth writing a test around
 
 - **Modulation above 120.** 104.0 reports 134, 146, 150 and 153. These are real
@@ -67,7 +85,21 @@ file and checks the settled gain per station should reproduce these numbers.
   and under corrects the loudest station.
 - **Unsigned wrap.** The tuner hands modulation back unsigned, so a negative raw
   reading arrives as 3276 or more. Anything above 200 is garbage and has to be
-  dropped, not clamped.
+  dropped, not clamped. **No capture here contains one.** The highest reading
+  anywhere in these five files is 153. That guard therefore stands on what the
+  chip does, which `drivers/tef668x.h` records, and not on this evidence. It is
+  also second in line rather than first: this firmware's driver reads the word
+  as signed, so a negative reading arrives as a small negative and is rejected
+  by the silence test instead. A test asserts that no capture holds such a
+  reading, so that nobody later believes these files prove it.
+- **Nothing about an empty channel.** All five were taken on real stations, so
+  they say nothing about where the noise gate should sit. That number is
+  measured from `test/fixtures/squelch/shoulder-2026-09-13.log` instead, which
+  holds stations, the channel beside a strong station and an empty channel all
+  sampled the same way. The comment on `AGC_MAX_NOISE_TENTHS` has the working.
+  The highest noise reading in these five AGC captures is 57 tenths, in file
+  02.
+
 - **A signal that will not sit still.** On 104.0 in file 01 the level swings
   between 10 and 38 dBuV within seconds. Any gate against a fixed level has to
   cope with that.
