@@ -108,6 +108,10 @@ and again with it turned on.
   is changed.
 - Settings pages generated from the settings struct.
 - Memory channel editor with CSV import and export.
+- Logbook, written by holding ENTER on the radio and read, noted and exported
+  from the browser. A record of what was heard and when, which is a different
+  thing from a memory channel: written once, never chosen, and worth keeping
+  because of its date.
 - Telemetry over UDP, plus `tools/telemetry.py`, sharing the state schema
   with `GET /api/state`.
 - Live dashboard over a websocket.

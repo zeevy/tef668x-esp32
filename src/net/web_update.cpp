@@ -1856,7 +1856,7 @@ static void handleApiBand(void) {
     return;
   }
   if (!sServer.hasArg("bnd")) {
-    apiFail(400, "Give band, one of LW MW SW OIRT FM.");
+    apiFail(400, "Give bnd, one of LW MW SW OIRT FM.");
     return;
   }
   String want = sServer.arg("bnd");
@@ -1954,7 +1954,7 @@ static void handleApiMode(void) {
     return;
   }
   if (!sServer.hasArg("mod")) {
-    apiFail(400, "Give mode, one of Manual Auto Memory MeterBand.");
+    apiFail(400, "Give mod, one of Manual Auto Memory MeterBand.");
     return;
   }
   String want = sServer.arg("mod");
@@ -2092,26 +2092,34 @@ static void handleApiSettingsGet(void) {
 /**
  * POST /api/settings. The things that are stored and not tuned.
  *
- * Takes `ssid` with an optional `pass`, and `pin`, and the four settings the
- * radio can only act on when it starts:
+ * Takes `sid` with an optional `pwd`, and `pin`, and the ten settings that
+ * are stored rather than tuned:
  *
- * | Argument | Range | What it is |
- * |---|---|---|
- * | `rgn` | 0 to 4 | Which slice of the FM band |
- * | `spc` | 0 or 1 | Medium wave channels, 9 kHz or 10 kHz |
- * | `enc` | 0 or 1 | Which encoder is fitted, standard or optical |
- * | `edr` | 0 or 1 | Normal, or reversed |
- * | `fsn` | 1 to 6 | How fussy seek is on FM. Higher finds weaker |
- * | `asn` | 1 to 6 | The same on the AM bands |
+ * | Argument | Range | Acts | What it is |
+ * |---|---|---|---|
+ * | `rgn` | 0 to 4 | at start | Which slice of the FM band |
+ * | `spc` | 0 or 1 | at start | Medium wave channels, 9 kHz or 10 kHz |
+ * | `enc` | 0 or 1 | at start | Which encoder is fitted, standard or optical |
+ * | `edr` | 0 or 1 | at start | Normal, or reversed |
+ * | `bps` | 0 or 1 | at start | Chime when the radio comes on |
+ * | `fsn` | 1 to 6 | at once | How fussy seek is on FM. Higher finds weaker |
+ * | `asn` | 1 to 6 | at once | The same on the AM bands |
+ * | `smu` | 0 to 500 | at once | The mute and squelch ramp, in ms. 0 is off |
+ * | `bpk` | 0 to 3 | at once | Which presses beep |
+ * | `bpe` | 0 or 1 | at once | Beep at a band edge |
+ *
+ * The table above and `stored[]` in the handler have to agree. The handler
+ * counts its own field list against that table and refuses the request if
+ * the two ever disagree, but nothing checks this comment.
  *
  * Everything given is checked before anything is written, and then one save
  * puts the lot in NVS. A half applied change, say a new PIN stored against
  * the old network, is worse than no change at all.
  *
- * The first four take effect at the next start, and the reply says so. The
- * two sensitivities act at once, because nothing is tuned to them. The
- * band plan decides which frequencies exist, and changing that under a radio
- * that is tuned to one of them is a change with no right answer. The rest of
+ * The reply says which of the two happened, and says both when a request
+ * mixes them. The band plan decides which frequencies exist, and changing
+ * that under a radio that is tuned to one of them is a change with no right
+ * answer, which is why those wait for a restart. The rest of
  * the radio's settings are not here: they are changed with /api/fm,
  * /api/squelch and the like, which act at once, and kept with /api/save.
  *
@@ -2339,7 +2347,7 @@ static void handleApiPot(void) {
     return;
   }
   if (!sServer.hasArg("act")) {
-    apiFail(400, "Give action, one of start finish cancel.");
+    apiFail(400, "Give act, one of start finish cancel.");
     return;
   }
   String want = sServer.arg("act");
@@ -2614,7 +2622,7 @@ static void handleApiSquelch(void) {
     return;
   }
   if (!sServer.hasArg("mod")) {
-    apiFail(400, "Give mode, one of off auto manual.");
+    apiFail(400, "Give mod, one of off auto manual.");
     return;
   }
 
@@ -2822,7 +2830,7 @@ static void handleApiFm(void) {
     }
     if (deemph != 0 && deemph != 50 && deemph != 75) {
       apiFail(400,
-              "deemph is a time constant in microseconds: 50 here, 75 in the "
+              "dem is a time constant in microseconds: 50 here, 75 in the "
               "Americas, or 0 to switch it off.");
       return;
     }
@@ -2830,8 +2838,8 @@ static void handleApiFm(void) {
 
   if (count == 0 && !wantWeak && !wantBlanker && !wantDeemph) {
     apiFail(400,
-            "Give ims, eq or mono as 0 or 1, cut, blend or hiblend as a level "
-            "in dBuV, amnb or fmnb as a percentage, or deemph as 50, 75 or 0.");
+            "Give ims, eq or mno as 0 or 1, cut, bld or hbl as a level in "
+            "dBuV, anb or fnb as a percentage, or dem as 50, 75 or 0.");
     return;
   }
 

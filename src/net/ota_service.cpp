@@ -47,7 +47,20 @@ void otaBegin(const char *password) {
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
+    /* The radio was hushed when the transfer started and there is now no
+     * reboot coming, so it has to be let go again. Without this a transfer
+     * that breaks halfway leaves a radio that answers every request, reports
+     * a station and a good signal, and makes no sound.
+     *
+     * Only when a transfer really started. An invitation carrying the wrong
+     * password fails before onStart, and anyone on the network can send one,
+     * so resuming on every error would let a stranger reach the audio path
+     * without the PIN. */
+    bool wasRunning = sInProgress;
     sInProgress = false;
+    if (wasRunning) {
+      radioResume();
+    }
     const char *reason = "unknown";
     switch (error) {
       case OTA_AUTH_ERROR:

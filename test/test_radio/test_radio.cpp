@@ -1410,6 +1410,71 @@ static void the_duck_is_the_mirror_of_the_fade(void) {
   TEST_ASSERT_TRUE(up < 0);
 }
 
+/* The inverse of the fade, used when a ramp down is cancelled part way and
+ * the fade up has to pick up from where the volume actually is. */
+static void the_inverse_fade_lands_where_the_fade_started(void) {
+  const int8_t target = -10;
+  const uint16_t ms = 120;
+  for (uint32_t e = 0; e <= ms; e += 10) {
+    int8_t at = radioFadeVolume(target, e, ms);
+    uint32_t back = radioFadeElapsedAt(target, at, ms);
+    int8_t again = radioFadeVolume(target, back, ms);
+    /* The volume is whole dB, so the two cannot be exact inverses. What has
+     * to hold is that the round trip never loses volume, because a caller
+     * uses this to carry on from where it is and a loss there is the step
+     * the ramp exists to remove. */
+    TEST_ASSERT_TRUE(again >= at);
+    TEST_ASSERT_TRUE(again - at <= 1);
+  }
+}
+
+static void the_inverse_fade_clamps_at_both_ends(void) {
+  const int8_t target = -10;
+  const uint16_t ms = 120;
+  /* At or below the floor the fade has not started. */
+  TEST_ASSERT_EQUAL_UINT32(0, radioFadeElapsedAt(target, RADIO_VOLUME_MIN, ms));
+  TEST_ASSERT_EQUAL_UINT32(
+      0,
+      radioFadeElapsedAt(target, (int8_t)(target - RADIO_FADE_DEPTH_DB), ms));
+  /* At or above the target it is over. */
+  TEST_ASSERT_EQUAL_UINT32(ms, radioFadeElapsedAt(target, target, ms));
+  TEST_ASSERT_EQUAL_UINT32(ms, radioFadeElapsedAt(target, 0, ms));
+}
+
+static void the_inverse_fade_has_no_duration_to_be_part_way_through(void) {
+  TEST_ASSERT_EQUAL_UINT32(0, radioFadeElapsedAt(-10, -20, 0));
+}
+
+static void a_cancelled_duck_picks_up_where_it_left_off(void) {
+  /* A little way down a 120 ms ramp from -5 dB, then the reason for the ramp
+   * goes away. The fade up carries on from that volume rather than dropping
+   * to its own floor first. */
+  const int8_t target = -5;
+  const uint16_t ms = 120;
+  int8_t early = radioDuckVolume(target, ms / 8, ms);
+  TEST_ASSERT_TRUE(early > (int8_t)(target - RADIO_FADE_DEPTH_DB));
+  uint32_t into = radioFadeElapsedAt(target, early, ms);
+  int8_t resumed = radioFadeVolume(target, into, ms);
+  TEST_ASSERT_TRUE(resumed >= early);
+  TEST_ASSERT_TRUE(resumed - early <= 1);
+}
+
+static void a_duck_below_the_fade_floor_resumes_at_the_floor(void) {
+  /* The duck falls the whole way to silence and a fade only spans
+   * RADIO_FADE_DEPTH_DB, so a ramp cancelled late is already below anything
+   * a fade can start from. It resumes at the floor, which is a step up of a
+   * few dB from near silence rather than a step down. */
+  const int8_t target = -5;
+  const uint16_t ms = 120;
+  int8_t deep = radioDuckVolume(target, ms / 2, ms);
+  int8_t floorDb = (int8_t)(target - RADIO_FADE_DEPTH_DB);
+  TEST_ASSERT_TRUE(deep < floorDb);
+  TEST_ASSERT_EQUAL_UINT32(0, radioFadeElapsedAt(target, deep, ms));
+  int8_t resumed = radioFadeVolume(target, 0, ms);
+  TEST_ASSERT_EQUAL_INT8(floorDb, resumed);
+  TEST_ASSERT_TRUE(resumed > deep);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -1514,6 +1579,11 @@ int main(int, char **) {
   RUN_TEST(ducking_from_silence_stays_at_silence);
   RUN_TEST(no_step_of_the_duck_is_big_enough_to_hear_as_a_click);
   RUN_TEST(the_duck_is_the_mirror_of_the_fade);
+  RUN_TEST(the_inverse_fade_lands_where_the_fade_started);
+  RUN_TEST(the_inverse_fade_clamps_at_both_ends);
+  RUN_TEST(the_inverse_fade_has_no_duration_to_be_part_way_through);
+  RUN_TEST(a_cancelled_duck_picks_up_where_it_left_off);
+  RUN_TEST(a_duck_below_the_fade_floor_resumes_at_the_floor);
 
   return UNITY_END();
 }

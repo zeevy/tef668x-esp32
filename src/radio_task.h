@@ -248,14 +248,29 @@ void radioSetEdgeBeep(bool on);
  * the length of the ramp, which is the point: the caller is about to stop the
  * radio, so there is nothing left to be responsive for.
  *
- * **The radio does not come back from this.** The task stops writing to the
- * tuner once this has been called, so the knob, the buttons and the API all
- * stop reaching the audio. Call it only on the way to a restart.
+ * **The radio does not come back from this on its own.** The task stops
+ * writing to the tuner once this has been called, so the knob, the buttons
+ * and the API all stop reaching the audio. Call it on the way to a restart,
+ * or call radioResume if the restart is called off.
  *
  * Safe when the radio task never started, in which case it mutes the tuner
  * and returns.
  */
 void radioHush(void);
+
+/**
+ * Let the radio speak again after radioHush.
+ *
+ * For a caller that hushed the radio for a restart that then did not happen.
+ * An update over the air is the case that needs it: the transfer is hushed
+ * the moment it starts and can still fail halfway, and without this the
+ * radio stays silent until somebody power cycles it while still answering
+ * every request with a normal frequency and a good signal.
+ *
+ * The audio comes back up the same ramp an unmute uses. Safe to call when
+ * the radio was never hushed, and safe when the task never started.
+ */
+void radioResume(void);
 
 /**
  * How fussy seek is about what counts as a station.

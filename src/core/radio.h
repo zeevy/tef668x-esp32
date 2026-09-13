@@ -383,6 +383,25 @@ int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
  */
 int8_t radioDuckVolume(int8_t fromDb, uint32_t elapsedMs, uint16_t durationMs);
 
+/**
+ * How far into a fade up a given volume sits, in milliseconds.
+ *
+ * The inverse of radioFadeVolume, for a caller that has to start a fade from
+ * a volume the radio is already at rather than from the fade's own floor.
+ * A ramp down that is cancelled half way is the case: the volume is part way
+ * to silence, and starting a fresh fade there would drop it the rest of the
+ * way first and then walk it up, which is a bigger step than the one the
+ * ramp exists to remove.
+ *
+ * @param targetDb    Where the fade is going.
+ * @param nowDb       The volume it is starting from.
+ * @param durationMs  How long a whole fade lasts.
+ * @return How long a fade would have been running to be at nowDb. 0 when
+ *         nowDb is at or below the floor, durationMs when it is at or above
+ *         the target.
+ */
+uint32_t radioFadeElapsedAt(int8_t targetDb, int8_t nowDb, uint16_t durationMs);
+
 /** Which parts of the tuner have to be told about a change. */
 typedef struct {
   bool retune;    /**< The frequency or the band moved. */

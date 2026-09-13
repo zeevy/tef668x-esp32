@@ -420,9 +420,15 @@ MODE long press walks the four combinations. BAND long and the knob held long ar
 | 265 | `POST /api/cycle -d 'wht=features'` | The same four states in the same order, and the reply names which one |
 | 265a | Mute the radio with iMS and EQ on | `muted` is the only thing in the fault colour. iMS and EQ stay in their own colour, because they have not gone wrong |
 | 266 | Set iMS on the web page, then long press MODE | The cycle carries on from what the page set, not from where it was before |
-| 267 | Turn iMS on and off on a station with obvious multipath, blind | Judged by ear, order picked at random, revealed afterwards. A station in a city with buildings in the way, not a clean local one |
+| 267 | Turn iMS on and off on a station with obvious multipath, blind | Judged by ear, order picked at random, revealed afterwards. Needs a station that is actually suffering. See the note below for how to make one |
 | 268 | The same for EQ | The same rules. A null result is a result: record it as unproven rather than shipping it as working |
 | 269 | Turn both on, save, power cycle | They come back on, and the panel says so |
+
+**How to get a station with multipath, and how to run these two.** On a normal day every local station here reads a multipath of 29 to 30, which is the clean end, and on those two the right answer is that both features are inaudible. Collapsing the telescopic aerial gives the conditions: the direct path drops while the reflections stay, and on 13 September 2026 that took 106.4 MHz from signal 375, noise 9, multipath 29 to signal 35, noise 76, multipath 124, still in stereo and still listenable. Four of the six local stations collapse into noise at that point and only 101.9 and 106.4 stay usable.
+
+Balance the order by hand. Two trials with the feature on A and two with it on B, shuffled, not four independent random picks. Four independent picks came out the same way three times running on 13 September 2026, which is a 1 in 8 chance, and a score built on that cannot tell the feature apart from a preference for whichever was heard second.
+
+Both were run that way on 13 September 2026 on 106.4 with the aerial down. iMS: the iMS-on side picked in 3 of 3 judged trials, one trial called the same, picks split across both positions. EQ: the EQ-on side picked in 4 of 4, picks split across both positions.
 
 ### Sounds and fades
 
@@ -436,8 +442,8 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 271 | Unmute | It comes back on a ramp too, over the same length, not as a step from silence to full |
 | 272 | Set the ramp to Off and press mute | It cuts instantly, which is what Off has to mean |
 | 273 | Put the squelch in auto and tune to an empty frequency | It closes on a ramp rather than clicking shut |
-| 274 | Tune back to the station | It opens at once. Opening is not ramped, or the front of every station is soft |
-| 275 | Press BW to change the bandwidth on a station | No click. The audio is muted across the filter change, the same as a retune |
+| 274 | Step back onto the station one click at a time, not by typing the frequency | It opens at once. Opening is not ramped, or the front of every station is soft. Arrive by a step: a typed frequency and a band change both count as a jump and get a fade in of their own, which sounds the same and hides what this row is asking about |
+| 275 | Turn the key beeps off, then press BW to change the bandwidth on a station | No click. The ramp takes the audio down, the filter changes while it is muted, and it comes back up. Turn the beeps off first or set the bandwidth over the API: with Beep on set to Every press the button sounds by design, and that beep is easily read as the click this row is looking for |
 | 276 | Press BW while the radio is muted | Still silent. It must not unmute to cover its own click |
 | 277 | Set Beep on to Keypad only, press a keypad digit | A short tick, about 2000 Hz. Every key, including ones that go on to be refused |
 | 277a | With Keypad only, long press MODE | Silent. That setting means the keypad and nothing else |
@@ -451,8 +457,9 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 280 | Seek across the band with the edge beep on | No beeping while it hunts. A seek is exempt from the ramp too, or 120 ms on every channel would be most of the settle time |
 | 281 | Press Reboot on the System page while listening | The audio goes down and mutes before it restarts. No click at the end |
 | 282 | Upload firmware from the System page while listening | The same. The reboot path is shared |
-| 282a | Upload over the air with `pio run -e ats125 -t upload --upload-port <ip>` | The same. This is a different path and needed its own call |
+| 282a | Upload over espota, which needs the PIN and the same subnet. See the note below | The same as 282. This is a different path from `/update` and needed its own row |
 | 282b | Turn the knob or press a button during the second between the ramp and the restart | Nothing comes back. Once the hush has run the radio stops writing to the tuner, or the knob would put the volume straight back and two tasks would be on the I2C bus at once |
+| 282c | Start an espota upload and kill it partway, then listen | The audio comes back on its own, on a fade. An update hushes the radio the moment the transfer starts, and a transfer that breaks has no reboot coming to undo that. Check by ear: `mut` and `hmu` in the state document both read false either way, so the document cannot tell you |
 | 283 | Set all four off, the ramp, both beeps and the chime, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake. The chime is the one that ships on, which is decision 27 |
 | 284 | Change any of them and power cycle | They come back as set |
 | 285 | Power cycle with Chime at start up on | A single longer tone as it comes up, before any station audio. It cannot come earlier than that: the tone generator is inside the tuner, so there is nothing to beep with until the patch has gone in |
@@ -460,6 +467,17 @@ The polish from ticket 19: nothing here changes what the radio receives, all of 
 | 287 | Set Chime at start up off and power cycle | Silent until the station arrives. Check it again after that power cycle: a switch that says Saved and changes nothing is how this one went wrong the first time |
 | 288 | Power cycle with the volume knob right down | The chime is quiet too. It is played at the volume the radio is about to come up at, so it also tells you how loud the knob is set |
 | 289 | Power cycle with the tuner disconnected or failing to start | No chime, and the radio still comes up and is reachable. A chime that needs the tuner must not become a reason the radio does not boot |
+
+**The espota command.** `pio run -e ats125 -t upload --upload-port <ip>` on its own fails with `Authentication Failed`. The OTA listener is given the access PIN as its password (`main.cpp:286`), and `pio run` has no flag to pass one, so call the tool directly:
+
+```bash
+python3 ~/.platformio/packages/framework-arduinoespressif32/tools/espota.py \
+  -i <radio ip> -p 3232 -a <access PIN> -f .pio/build/ats125/firmware.bin -r
+```
+
+That gets past authentication, and then the radio opens a connection back to the machine running the command, at the address and port espota advertises. If that connection never arrives the tool waits ten seconds and reports `No response from device`. On 13 September 2026 it got that far and no further, with the radio on 192.168.30.152 and the machine on 192.168.10.118: the local firewall permits incoming connections to python and stealth mode is off, and the firewall between the two subnets forwards one way only, so the radio cannot open a connection back. `POST /update` has no such requirement and works from anywhere on the network, which is why it is the one the other rows use.
+
+What this row adds over 282 is one thing only: that ArduinoOTA's `onStart` callback fires. Both routes call the same `radioHush()`, at `ota_service.cpp:25` and `web_update.cpp:2981`, so everything after that moment is shared code. Run it from a machine on the radio's own subnet.
 
 ### Every page control actually does something
 
@@ -470,6 +488,7 @@ This is the check that would have caught it, and it is worth running after any r
 | # | Do this | Expect |
 |---|---|---|
 | 290 | For each control on `/radio`, change it and read the reply | The reply names the new value, not the old one. A 200 that reports the old value is a control that did nothing |
+| 290a | Post a nonsense argument to each endpoint, such as `-d 'zzz=1'`, and an out of range value to each one that has a range, and read the refusal | Every name the refusal offers is one the handler really reads. Both kinds matter: the missing argument message and the bad value message are different strings, and the de-emphasis one was still saying `deemph` after all the missing argument messages had been put right. A refusal that names the argument it wants is part of the feature, and after the three letter rename five of them still named the old long form: `band` for `bnd`, `mode` for `mod`, `action` for `act`, and `mono`, `blend`, `hiblend`, `amnb`, `fmnb` and `deemph` in the FM one. Following any of those got a second 400 |
 | 291 | `POST /api/fm -d 'bld=30'` then `-d 'hbl=35'` | The reply shows blend 30 and hiblend 35. These two were the silent ones |
 | 292 | `POST /api/fm -d 'mno=1'` then `mno=0` | stereo and mono in the reply. This one at least answered 400 when it was wrong |
 | 293 | `POST /api/settings -d 'rgn=4'` | `200`. The band plan controls were posting a name the handler did not know |
@@ -485,8 +504,8 @@ Four pages instead of one. The split is not only tidiness: one page held every f
 | 212 | Look at the nav on any page | Home, Radio, Network, System, with the page you are on filled in amber |
 | 213 | Open `/radio` signed out, enter the PIN | You land back on `/radio`, not on Home |
 | 214 | Open `/system` signed out, enter the PIN | You land back on `/system` |
-| 215 | Post to `/auth` with `next=http://example.com` | You land on Home. An unchecked redirect target out of the request would send the browser anywhere |
-| 216 | Post to `/auth` with `next=/radio` | You land on `/radio` |
+| 215 | Post to `/auth` with `nxt=http://example.com`, and try `//evil.com`, `/radio?x=1` and `javascript:alert(1)` too | You land on Home every time. The field is an allowlist of the exact paths the radio serves, so anything else falls back to Home rather than being sanitised and followed |
+| 216 | Post to `/auth` with `nxt=/radio`, then `nxt=/system` | You land on that page. The field is `nxt`, not `next`: the three letter rename covered this one too |
 | 217 | `/` while receiving | A Radio card with the frequency large, the signal, the squelch, and a button through to `/radio`. Read once: it does not refresh on its own, which is what the websocket in phase 5 is for |
 | 218 | Force mono and reload `/` | The Radio card stops saying stereo |
 | 219 | `/network` | Two cards, Wi-Fi and Access PIN, nothing else |

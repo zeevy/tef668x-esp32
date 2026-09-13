@@ -64,6 +64,25 @@ static bool sLastPushedMute = false;
 /** The volume the tuner was last told, which the fade moves on its own. */
 static int8_t sLastPushedVolume = 0;
 
+/**
+ * The filter width the tuner was last told.
+ *
+ * Tracked separately from the settings for the same reason the mute is: a
+ * filter change waits for the ramp to reach silence, so for a few rounds
+ * what the person asked for and what the tuner holds are different.
+ */
+static uint16_t sLastPushedBandwidth = 0;
+
+/**
+ * A round left something for the next one to finish quickly.
+ *
+ * The filter goes out on the round the ramp reaches the bottom, and the fade
+ * back up is only started on the round after it. Without this the task
+ * sleeps out the whole poll interval in between, which is more silence than
+ * the two ramps put together.
+ */
+static bool sWakeSoon = false;
+
 /** When the current fade started, and how long it lasts. */
 static uint32_t sFadeFromMs = 0;
 static uint16_t sFadeMs = RADIO_FADE_MS;
@@ -117,10 +136,20 @@ static uint16_t sBeepHz = 2000;
 static uint16_t sBeepHz2 = 2000;
 
 /*
- * Set once, on the way to a reboot. The task stops writing to the tuner from
- * then on, so the shutdown is the only thing on the bus.
+ * Set on the way to a reboot, and cleared again if that reboot is called
+ * off. The task writes nothing to the tuner while it is set, so the shutdown
+ * is the only thing on the bus.
+ *
+ * Every write in the loop has to check it, not only the push. The squelch
+ * shortcut, the tone and the bandwidth extension all reach the tuner on
+ * their own, and an update over the air holds the hush for the length of the
+ * transfer rather than the two hundred milliseconds a reboot takes. A
+ * squelch opening in that time would unmute the radio in the middle of an
+ * update.
  */
-static bool sHushed = false;
+/* Written by whichever task is shutting the radio down and read by the radio
+ * task every round, so it is not the compiler's to cache. */
+static volatile bool sHushed = false;
 
 /**
  * The tone, in hertz, and how loud, in tenths of a dB below full scale.
@@ -328,9 +357,22 @@ static Tef668xError pushToTuner(const RadioSettings *from,
     return err;
   }
 
+  /* Going quiet comes before anything that clicks, and coming back comes
+   * after it, the same order as a retune. Sending the filter first and the
+   * mute second changes the filter while the audio is still live, which is
+   * the click either of them is there to hide. */
+  if (push.mute && to->muted) {
+    if ((err = tef668xSetMute(true)) != TEF668X_OK) {
+      return err;
+    }
+  }
+
   /* The dial did not move, but changing the filter clicks, so the audio is
-   * muted across it the same way a retune is. Everything else that clicks is
-   * already muted around, and this was the one that was not.
+   * muted across it the same way a retune is.
+   *
+   * This hush is the path taken when the ramp is off. With a ramp the task
+   * has already walked the volume down, and the mute above has gone out, so
+   * the radio is muted here and this does nothing.
    *
    * Only when the radio is not muted already: muting something that is muted
    * and unmuting it afterwards would turn the audio on. */
@@ -358,8 +400,8 @@ static Tef668xError pushToTuner(const RadioSettings *from,
       return err;
     }
   }
-  if (push.mute) {
-    if ((err = tef668xSetMute(to->muted)) != TEF668X_OK) {
+  if (push.mute && !to->muted) {
+    if ((err = tef668xSetMute(false)) != TEF668X_OK) {
       return err;
     }
   }
@@ -440,6 +482,7 @@ static void radioTask(void *arg) {
   RadioSettings opening = settings;
   opening.volumeDb = radioFadeVolume(settings.volumeDb, 0, RADIO_FADE_MS);
   sLastPushedVolume = opening.volumeDb;
+  sLastPushedBandwidth = opening.bandwidthKHz;
   Tef668xError lastError = pushToTuner(NULL, &opening);
   bool pushFailed = lastError != TEF668X_OK;
   Tef668xQuality quality;
@@ -503,12 +546,13 @@ static void radioTask(void *arg) {
     }
     /* A ramp down needs the same treatment as a fade up, or it arrives in as
      * many steps as there are polls. A tone needs the loop back to stop it. */
-    if (sDucking || sBeeping) {
+    if (sDucking || sBeeping || sWakeSoon) {
       TickType_t step = pdMS_TO_TICKS(RADIO_FADE_STEP_MS);
       if (wait > step) {
         wait = step;
       }
     }
+    sWakeSoon = false;
 
     if (drained >= RADIO_QUEUE_DEPTH) {
       /* Every slot is already owed to a command that could not be published.
@@ -597,10 +641,22 @@ static void radioTask(void *arg) {
      * radio the person deliberately muted playing, and the squelch can never
      * unmute something they muted on purpose. */
     RadioSettings heard = wanted;
+    /* Changing the filter clicks, so it goes down the same ramp as a mute:
+     * quiet first, then the filter, then back up.
+     *
+     * Only while the dial is still, and only when there is a ramp to use. A
+     * retune is already silent while the frequency moves and carries the
+     * filter with it, and with the ramp off the mute inside pushToTuner is
+     * as close to instant as this gets. */
+    bool filterMoving = sSoftMuteMs != 0 && !sSeeking &&
+                        wanted.bandwidthKHz != sLastPushedBandwidth &&
+                        wanted.band == settings.band &&
+                        wanted.freqKHz == settings.freqKHz;
     /* Muted while the dial is moving, or a seek is a second of every station
      * and every patch of noise between them. The mute comes off when it
      * stops, including when it stops empty handed. */
-    bool hushWanted = wanted.muted || !sSquelch.open || sSeeking;
+    bool hushWanted =
+        wanted.muted || !sSquelch.open || sSeeking || filterMoving;
 
     /* Going quiet is a ramp, not a step. The mute itself is held back until
      * the ramp has run, because a mute sent at the start would cut the audio
@@ -614,11 +670,21 @@ static void radioTask(void *arg) {
         sDuckFromMs = millis();
         sDuckFromDb = sLastPushedVolume;
       } else if (!hushWanted) {
-        if (sLastPushedMute) {
+        if (sLastPushedMute || sDucking) {
           /* Coming back. The fade up takes it from silence to the target over
            * the same length, so unmuting is a ramp as well rather than a step
            * from nothing to full. */
-          sFadeFromMs = millis();
+          uint32_t already = 0;
+          if (sDucking) {
+            /* Part way down rather than at the bottom, because the reason to
+             * go quiet went away before the ramp finished. The fade starts
+             * from the volume the radio is actually at, or it would drop the
+             * rest of the way first and walk up from there. */
+            int8_t nowDb = radioDuckVolume(sDuckFromDb, millis() - sDuckFromMs,
+                                           sSoftMuteMs);
+            already = radioFadeElapsedAt(wanted.volumeDb, nowDb, sSoftMuteMs);
+          }
+          sFadeFromMs = millis() - already;
           sFadeMs = sSoftMuteMs;
         }
         sDucking = false;
@@ -632,9 +698,15 @@ static void radioTask(void *arg) {
       sDucking = false;
     }
     heard.muted = hushWanted && (!sDucking || duckDone);
+    /* The filter waits for silence. Sending it while the audio is still up
+     * is the click the ramp is there to remove. */
+    if (filterMoving && !heard.muted) {
+      heard.bandwidthKHz = sLastPushedBandwidth;
+    }
     RadioSettings wasHeard = settings;
     wasHeard.muted = sLastPushedMute;
     wasHeard.volumeDb = sLastPushedVolume;
+    wasHeard.bandwidthKHz = sLastPushedBandwidth;
     RadioPush push = radioPushNeeded(&wasHeard, &heard);
 
     /* The fade starts before the push that needs it, not after.
@@ -669,9 +741,10 @@ static void radioTask(void *arg) {
       /* Held at the bottom for as long as the mute lasts.
        *
        * Without this the volume returns to the target on the round the mute
-       * is applied, and pushToTuner writes the volume before the mute, so the
-       * radio jumps back to full for one I2C transaction and then goes quiet.
-       * That is a louder click than the one the ramp exists to remove. */
+       * is applied, so the gain the tuner is carrying while it is silent is
+       * the full listening level, and the unmute at the end of it is a step
+       * from nothing straight to loud. That is a louder click than the one
+       * the ramp exists to remove. */
       heard.volumeDb = RADIO_VOLUME_MIN;
     }
     if (heard.volumeDb != wasHeard.volumeDb) {
@@ -699,6 +772,12 @@ static void radioTask(void *arg) {
       pushFailed = lastError != TEF668X_OK;
       sLastPushedMute = heard.muted;
       sLastPushedVolume = heard.volumeDb;
+      sLastPushedBandwidth = heard.bandwidthKHz;
+      if (filterMoving && push.bandwidth) {
+        /* The filter has just gone out at the bottom of the ramp, so the
+         * next round is the one that brings the audio back. */
+        sWakeSoon = true;
+      }
       if (push.retune) {
         /* The readings from before the dial moved say nothing about where it
          * is now, and the chip has been through its active mode, which may
@@ -711,8 +790,11 @@ static void radioTask(void *arg) {
     settings = wanted;
 
     /* The tone, started when the command arrived and stopped here. Checked
-     * every round rather than waited out, so it never holds the queue. */
-    if (sBeeping) {
+     * every round rather than waited out, so it never holds the queue.
+     *
+     * Not while hushed. The shutdown owns the bus from then on, and a tone
+     * is the one thing here that would be heard. */
+    if (sBeeping && !sHushed) {
       if (!sToneOn) {
         sToneOn = tef668xTone(true, RADIO_BEEP_AMPLITUDE, sBeepHz, sBeepHz2) ==
                   TEF668X_OK;
@@ -725,6 +807,7 @@ static void radioTask(void *arg) {
         if (tef668xTone(false, 0, 0, 0) == TEF668X_OK) {
           sToneOn = false;
           sBeeping = false;
+          sWakeSoon = false;
         } else {
           lastError = TEF668X_ERR_WRITE;
         }
@@ -829,7 +912,7 @@ static void radioTask(void *arg) {
          * wider filter, which is more treble and better separation. Its
          * thresholds, on the level scale this firmware now shares with it. */
         bool wantWide = snr > 15 && level > 300;
-        if (wantWide != sBandwidthWide || !sBandwidthKnown) {
+        if ((wantWide != sBandwidthWide || !sBandwidthKnown) && !sHushed) {
           if (tef668xSetBandwidthExtension(wantWide) == TEF668X_OK) {
             sBandwidthWide = wantWide;
             sBandwidthKnown = true;
@@ -861,7 +944,7 @@ static void radioTask(void *arg) {
          * it a seek sweeping past a strong station would open the squelch
          * and blare that channel until the next round re-muted it. */
         bool wantMuted = settings.muted || !sSquelch.open || sSeeking;
-        if (wantMuted != sLastPushedMute) {
+        if (wantMuted != sLastPushedMute && !sHushed) {
           Tef668xError muteErr = tef668xSetMute(wantMuted);
           if (muteErr == TEF668X_OK) {
             sLastPushedMute = wantMuted;
@@ -1069,6 +1152,39 @@ bool radioBeepAt(uint16_t ms, uint16_t hz, uint16_t hz2) {
   cmd.beepHz = hz;
   cmd.beepHz2 = hz2;
   return radioPost(&cmd);
+}
+
+void radioResume(void) {
+  if (!sHushed) {
+    /* Nothing was hushed, so there is nothing to undo. Without this the
+     * lines below would tell the task the tuner is muted and quiet when it
+     * is playing, and it would answer with an unmute and a fade up that
+     * nobody asked for. */
+    return;
+  }
+  if (sTask == NULL) {
+    /* The mirror of radioHush with no task: it wrote the mute straight to
+     * the chip, so this takes it off the same way. main.cpp unmutes the
+     * tuner when the task fails to start, so a radio in that state is still
+     * playing and has just as much to lose. */
+    tef668xSetMute(false);
+    sHushed = false;
+    return;
+  }
+
+  /* What the tuner is actually holding, written here rather than left to
+   * whatever the task last recorded.
+   *
+   * radioHush sets the flag first and writes these two last, with a ramp in
+   * between that holds the bus for the length of the ramp. A round that read
+   * the flag as false just before can still be inside pushToTuner for all of
+   * that, and it records what it pushed afterwards. Its record would then be
+   * unmuted and loud, which is the opposite of what the chip holds, and the
+   * next round would find nothing to put right and leave the radio silent
+   * for good. Saying it plainly here does not depend on who finished last. */
+  sLastPushedMute = true;
+  sLastPushedVolume = RADIO_VOLUME_MIN;
+  sHushed = false;
 }
 
 void radioSetSoftMuteMs(uint16_t ms) {

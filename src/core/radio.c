@@ -531,6 +531,36 @@ int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
   return (int8_t)now;
 }
 
+uint32_t radioFadeElapsedAt(int8_t targetDb, int8_t nowDb,
+                            uint16_t durationMs) {
+  if (durationMs == 0) {
+    return 0;
+  }
+  /* The same floor and the same straight line radioFadeVolume uses, read the
+   * other way round. */
+  int32_t from = (int32_t)targetDb - RADIO_FADE_DEPTH_DB;
+  if (from < RADIO_VOLUME_MIN) {
+    from = RADIO_VOLUME_MIN;
+  }
+  int32_t span = (int32_t)targetDb - from;
+  if (span <= 0) {
+    return durationMs;
+  }
+  int32_t along = (int32_t)nowDb - from;
+  if (along <= 0) {
+    return 0;
+  }
+  if (along >= span) {
+    return durationMs;
+  }
+  /* Rounded up, not down. radioFadeVolume truncates on the way out, so
+   * truncating here as well would answer with a moment slightly earlier than
+   * the one asked about, and a caller starting a fade there would step the
+   * volume down a dB before walking it up. Rounding up guarantees the fade
+   * at this moment is at least the volume given. */
+  return (uint32_t)((along * (int32_t)durationMs + span - 1) / span);
+}
+
 int8_t radioDuckVolume(int8_t fromDb, uint32_t elapsedMs, uint16_t durationMs) {
   if (durationMs == 0 || elapsedMs >= durationMs) {
     return RADIO_VOLUME_MIN;
