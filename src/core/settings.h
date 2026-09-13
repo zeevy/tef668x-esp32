@@ -24,7 +24,7 @@ extern "C" {
 #endif
 
 /* Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 9
+#define SETTINGS_VERSION 10
 
 /* Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -185,6 +185,18 @@ typedef struct {
    * zero, so 0.0 rejects nothing a station would fail.
    */
   uint8_t fmSquelchFloor;
+  /*
+   * Whether the RDS decoder runs at all. Nonzero is on, which is the default.
+   *
+   * Off is not only about not wanting the station name. The decoder is asked
+   * for a group every 43 ms on FM, and the radio task wakes for that as well
+   * as for its own 100 ms tuner poll, so it comes round about thirty times a
+   * second instead of ten. Measured on 13 September 2026: 30.8 ms a round on
+   * FM with RDS on against 99.8 on medium wave, where it does not run.
+   * Turning it off gives that back, which is what the power management in
+   * phase 6 will want.
+   */
+  uint8_t rdsEnabled;
 } Settings;
 
 void settingsDefaults(Settings *s);

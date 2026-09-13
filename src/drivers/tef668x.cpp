@@ -36,6 +36,8 @@ typedef enum {
 #define CMD_SET_STHIBLEND_MPH 74   /* By multipath. */
 #define CMD_SET_STHIBLEND_MAX 75   /* Its ceiling. */
 #define CMD_GET_PROCESSING_STATUS 134 /* What the chip is doing to the audio. */
+#define CMD_SET_RDS 81       /* Switch the RDS decoder on, and restart it. */
+#define CMD_GET_RDS_DATA 131 /* One group, and clear it so the next can land. */
 
 /* Reception and audio shaping. Every one of these is written by the working
  * PE5PVB firmware on every start, and none of them was written here until
@@ -1019,6 +1021,57 @@ Tef668xError tef668xSetMute(bool muted) {
 
 Tef668xError tef668xReadQualityRaw(bool fm, uint8_t out[14]) {
   return query(fm ? MODULE_FM : MODULE_AM, CMD_GET_QUALITY_STATUS, out, 14);
+}
+
+/*
+ * Status bits in the RDS read. The rest of the word is not documented
+ * anywhere public and is left alone.
+ */
+#define RDS_STATUS_DATA_AVAILABLE 15 /* A group is waiting in the registers. */
+#define RDS_STATUS_PI_ONLY 13        /* Only block A is real. Not a group. */
+#define RDS_STATUS_SYNCHRONISED 9    /* Locked to an RDS bit stream. */
+
+Tef668xError tef668xSetRds(bool fullSearch) {
+  /* Mode 3 is full search and mode 1 is the ordinary decoder. The two words
+   * after it are the reference firmware's, which sends the same pair for
+   * both modes. Sending this again is what restarts the decoder. */
+  bool wanted = fullSearch && sCaps.hasFullSearchRds;
+  uint16_t args[3] = {(uint16_t)(wanted ? 3 : 1), 1, 0};
+  return command(MODULE_FM, CMD_SET_RDS, args, 3);
+}
+
+Tef668xError tef668xReadRds(Tef668xRdsRead *out) {
+  if (out == NULL) {
+    return TEF668X_ERR_RANGE;
+  }
+  memset(out, 0, sizeof(*out));
+
+  uint8_t buf[12];
+  Tef668xError err = query(MODULE_FM, CMD_GET_RDS_DATA, buf, sizeof(buf));
+  if (err != TEF668X_OK) {
+    return err;
+  }
+
+  uint16_t status = word16(buf);
+  out->status = status;
+  out->read = true;
+  out->synchronised = (status & (1u << RDS_STATUS_SYNCHRONISED)) != 0;
+
+  /* A PI only event carries block A and nothing else, so taking it as a group
+   * would decode three blocks of whatever the registers held. */
+  if ((status & (1u << RDS_STATUS_DATA_AVAILABLE)) == 0 ||
+      (status & (1u << RDS_STATUS_PI_ONLY)) != 0) {
+    return TEF668X_OK;
+  }
+
+  /* The error word holds two bits per block, block A in the top pair. */
+  uint16_t errors = word16(buf + 10);
+  for (int i = 0; i < 4; i++) {
+    out->block[i] = word16(buf + 2 + i * 2);
+    out->error[i] = (uint8_t)((errors >> (14 - i * 2)) & 0x03);
+  }
+  out->haveGroup = true;
+  return TEF668X_OK;
 }
 
 Tef668xError tef668xSetAmNoiseBlanker(uint8_t startPercent) {

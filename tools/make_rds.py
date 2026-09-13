@@ -1,0 +1,184 @@
+"""Turn RDS captures into a header the native tests can replay.
+
+The tests have to run anywhere, including on the CI machine, so they cannot
+open a file out of the working directory. Generating a header keeps the test
+hermetic and keeps the real groups as the thing being tested, which is the
+whole point of taking them.
+
+    python3 tools/make_rds.py test/test_rds/captures.h \
+        test/fixtures/rds/fm-93500-2026-09-13.log \
+        test/fixtures/rds/fm-91100-weak-2026-09-13.log:400
+
+Same idea as tools/make_squelch.py and tools/make_sweep.py. Rerun it when a
+capture is added or retaken, run clang-format over the result, and commit it.
+The format gate covers generated headers like any other, so a header straight
+out of here fails it.
+
+Only the first GROUP_LIMIT groups of each capture go in, or the number after a
+colon where one is given. Every field in every capture settles inside 55
+groups, measured on 13 September 2026, so the default is well clear of what
+the tests need and keeps the header a readable size. The two captures taken
+with the aerial collapsed are given 400, because that is what it takes to
+include a block of every error level the tuner reports. The full captures stay
+in test/fixtures/rds/ and are what to go back to.
+"""
+import os
+import re
+import sys
+
+# How many groups of each capture to write out.
+GROUP_LIMIT = 160
+
+
+def groups(path):
+    """Every group in the log, as whole numbers.
+
+    Each field is checked rather than pattern matched loosely. A line that is
+    not four hex words and an error byte is a capture that was written by
+    something other than the endpoint, and reading past it would put made up
+    groups in a fixture that exists precisely to be real.
+
+    A hole in the capture stops the run, and it takes two checks to see one.
+    A group this script's own poll was too slow for leaves a jump in the
+    sequence. A group the radio could not put in its ring never took a
+    sequence number at all, so it leaves the sequence unbroken and the only
+    record of it is the `# missed` line rdscap.py writes.
+
+    Neither kind survives into the header. Joining the two sides of a hole
+    gives a fixture that reads as one continuous broadcast and is not, and
+    nothing downstream can tell.
+    """
+    expected = None
+    for number, line in enumerate(open(path), start=1):
+        if line.startswith("#"):
+            if line.startswith("# missed"):
+                raise SystemExit(
+                    "%s line %d: %s. Groups were lost, so this capture cannot "
+                    "become a fixture. Take it again."
+                    % (path, number, line[2:].strip()))
+            continue
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) != 6:
+            raise SystemExit("%s line %d: expected 6 fields, got %d"
+                             % (path, number, len(parts)))
+        if not re.fullmatch(r"\d+", parts[0]):
+            raise SystemExit("%s line %d: %r is not a sequence number"
+                             % (path, number, parts[0]))
+        for word in parts[1:5]:
+            if not re.fullmatch(r"[0-9A-Fa-f]{4}", word):
+                raise SystemExit("%s line %d: %r is not a 16 bit hex word"
+                                 % (path, number, word))
+        if not re.fullmatch(r"[0-9A-Fa-f]{2}", parts[5]):
+            raise SystemExit("%s line %d: %r is not an error byte"
+                             % (path, number, parts[5]))
+        seq = int(parts[0])
+        if expected is not None and seq != expected:
+            raise SystemExit(
+                "%s line %d: the sequence jumps from %d to %d. Groups were "
+                "lost, so this capture cannot become a fixture. Take it again."
+                % (path, number, expected - 1, seq))
+        expected = seq + 1
+        yield [int(w, 16) for w in parts[1:5]], int(parts[5], 16)
+
+
+def khz_of(path):
+    for line in open(path):
+        if line.startswith("#"):
+            found = re.search(r"khz=(\d+)", line)
+            if found:
+                return int(found.group(1))
+    raise SystemExit("%s: no khz in the header comment" % path)
+
+
+def name_of(path):
+    """A C identifier for one capture, from its file name."""
+    stem = os.path.basename(path).rsplit(".", 1)[0]
+    return re.sub(r"[^0-9A-Za-z]", "_", stem)
+
+
+def main():
+    target = sys.argv[1]
+    asked = sys.argv[2:]
+    if not asked:
+        raise SystemExit("give at least one capture")
+
+    sources = []
+    for entry in asked:
+        path, _, limit = entry.rpartition(":")
+        if not path:
+            sources.append((entry, GROUP_LIMIT))
+        elif not re.fullmatch(r"\d+", limit):
+            raise SystemExit("%r: the part after the colon must be a count"
+                             % entry)
+        else:
+            sources.append((path, int(limit)))
+
+    out = [
+        "/*",
+        " * RDS groups taken off air from this radio, for the RDS tests.",
+        " *",
+        " * Generated by tools/make_rds.py. Do not edit. See",
+        " * test/fixtures/rds/README.md for what each capture is, when and",
+        " * where it was taken, and what it shows.",
+        " */",
+        "#ifndef TEST_RDS_CAPTURES_H",
+        "#define TEST_RDS_CAPTURES_H",
+        "",
+        "#include <stdint.h>",
+        "",
+        "/* One group, exactly as the tuner handed it over. */",
+        "typedef struct {",
+        "  uint16_t block[4]; /* A, B, C, D. */",
+        "  /* Two bits per block, block A in the top pair. 0 clean, 3 not",
+        "   * corrected. */",
+        "  uint8_t error;",
+        "} CaptureGroup;",
+        "",
+        "/* One capture, and the station it came from. */",
+        "typedef struct {",
+        "  const char *name;            /* The file it came from. */",
+        "  uint32_t khz;                /* What the radio was tuned to. */",
+        "  const CaptureGroup *groups;  /* Oldest first. */",
+        "  uint16_t count;",
+        "} Capture;",
+        "",
+    ]
+
+    names = []
+    for source, limit in sources:
+        ident = name_of(source)
+        khz = khz_of(source)
+        rows = []
+        for blocks, error in groups(source):
+            if len(rows) >= limit:
+                break
+            rows.append("    {{0x%04X, 0x%04X, 0x%04X, 0x%04X}, 0x%02X},"
+                        % (blocks[0], blocks[1], blocks[2], blocks[3], error))
+        if not rows:
+            raise SystemExit("%s: no groups in it" % source)
+        out.append("static const CaptureGroup k%s[] = {" % ident)
+        out += rows
+        out.append("};")
+        out.append("")
+        names.append((ident, khz, os.path.basename(source), len(rows)))
+
+    out.append("static const Capture kCaptures[] = {")
+    for ident, khz, base, count in names:
+        out.append('    {"%s", %d, k%s, %d},' % (base, khz, ident, count))
+    out += [
+        "};",
+        "",
+        "/* How many captures there are. */",
+        "#define CAPTURE_COUNT %d" % len(names),
+        "",
+        "#endif /* TEST_RDS_CAPTURES_H */",
+        "",
+    ]
+    open(target, "w").write("\n".join(out))
+    print("%d captures, %d groups written to %s"
+          % (len(names), sum(n for _, _, _, n in names), target))
+
+
+main()

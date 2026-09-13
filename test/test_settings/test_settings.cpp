@@ -335,8 +335,11 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /* And version 7. */
 #define V7_SIZE 148
 
-/* And version 8, which is the same length as version 9. */
+/* And version 8, which is the same length as versions 9 and 10. */
 #define V8_SIZE 196
+
+/* And version 9, which version 10 also matches for the same reason. */
+#define V9_SIZE 196
 
 /*
  * Build a version 2 blob out of a current one.
@@ -652,6 +655,56 @@ static void a_version_8_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
 }
 
+static void a_version_9_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* rdsEnabled sits at 194, inside the two bytes version 9 wrote as padding
+   * after fmSquelchFloor. Version 10 is therefore the same length as version
+   * 9, and the version field is the only thing telling them apart. The same
+   * case as version 8 above, and worth its own test for the same reason: a
+   * blob copied by its written length would take the new field out of the
+   * old padding and a radio would come back with RDS switched off by a byte
+   * that never meant anything. */
+  TEST_ASSERT_EQUAL_size_t(194, offsetof(Settings, rdsEnabled));
+  TEST_ASSERT_EQUAL_size_t(V9_SIZE, sizeof(Settings));
+
+  Settings source;
+  settingsDefaults(&source);
+  source.startFreqKHz = 93500;
+  source.fmSquelchFloor = 12;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V9_SIZE);
+  /* Padding, as far as version 9 was concerned. Zero would have read as
+   * switched off, which is why this is deliberately not zero. */
+  blob[194] = 0x00;
+  blob[195] = 0xEF;
+  uint16_t version = 9;
+  uint16_t size = V9_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V9_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT32(93500, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT8(12, out.fmSquelchFloor);
+
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.rdsEnabled, out.rdsEnabled);
+  TEST_ASSERT_TRUE(out.rdsEnabled != 0);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void the_rds_decoder_is_on_by_default(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(s.rdsEnabled != 0);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.rdsEnabled = 0;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+}
+
 static void the_squelch_floor_has_a_range(void) {
   Settings s;
   settingsDefaults(&s);
@@ -919,6 +972,8 @@ int main(int, char **) {
   RUN_TEST(a_version_6_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_7_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_8_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_9_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(the_rds_decoder_is_on_by_default);
   RUN_TEST(the_squelch_floor_has_a_range);
   RUN_TEST(a_stored_tuning_mode_outside_the_enum_is_refused);
   RUN_TEST(the_panel_light_settings_have_ranges);

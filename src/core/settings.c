@@ -58,6 +58,12 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       /* Written out by hand, like the versions before it. */
       return 196;
     case 9:
+      /* Written out by hand, like the versions before it. */
+      return 196;
+    case 10:
+      /* The same 196 bytes version 9 wrote. Version 10 added one byte,
+       * `rdsEnabled`, and it went into padding version 9 already had, so the
+       * struct did not grow. The same case as `beepStart` in version 6. */
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -102,6 +108,11 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
     case 8:
       return offsetof(Settings, fmSquelchFloor);
     case 9:
+      /* `rdsEnabled` sits at offset 194, in the padding version 9 wrote after
+       * `fmSquelchFloor`. The same case as `potRawMin` and `backlightPercent`
+       * above, and the reason this table is separate from the size one. */
+      return offsetof(Settings, rdsEnabled);
+    case 10:
       return sizeof(Settings);
     default:
       return 0;
@@ -208,6 +219,10 @@ void settingsDefaults(Settings *s) {
   /* Version 9. Measured on this radio, and the working is in
    * test/fixtures/squelch/README.md. */
   s->fmSquelchFloor = SQUELCH_FM_LEVEL_FLOOR_DBUV;
+  /* On, because a radio that decodes RDS and does not show it is not what
+   * anybody expects, and the cost is a third of a millisecond of tuner bus
+   * traffic every 43 ms. */
+  s->rdsEnabled = 1;
 }
 
 bool settingsValid(const Settings *s) {

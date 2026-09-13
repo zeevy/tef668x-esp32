@@ -22,12 +22,62 @@
 
 #include "core/memory.h"
 #include "core/radio.h"
+#include "core/rds.h"
 #include "core/seek.h"
 #include "core/squelch.h"
 #include "drivers/tef668x.h"
 
-/* How often the task reads the tuner, in milliseconds. */
+/*
+ * How often the task reads the tuner, in milliseconds.
+ *
+ * The RDS read below keeps its own faster deadline, and the task wakes for
+ * whichever comes first, so on FM it comes round about thirty times a second
+ * rather than ten. Measured on 13 September 2026: 30.8 ms a round on FM
+ * against 99.8 on medium wave, which is what 1/0.043 plus 1/0.1 predicts.
+ * Only the deadline that is actually due does any work, but the state
+ * snapshot goes out on every round either way.
+ */
 #define RADIO_POLL_INTERVAL_MS 100
+
+/*
+ * How often the RDS decoder is asked for a group, in milliseconds.
+ *
+ * A station sends about 11.4 groups a second, so a group arrives every 87 ms.
+ * Asking twice as often is what stops one being overwritten by the next
+ * before it has been read, and it is the cadence the reference firmware uses
+ * on this same chip.
+ */
+#define RADIO_RDS_INTERVAL_MS 43
+
+/*
+ * How many raw groups are kept for capturing test fixtures.
+ *
+ * A station sends about 11.4 groups a second, so 128 of them is about eleven
+ * seconds. That is long enough that a capture script polling every second
+ * cannot miss one.
+ *
+ * It costs 2560 bytes, not 1280: the web handler keeps its own copy so that
+ * the lock is released before anything goes out on the network. That is the
+ * price of the only way to get real groups off this radio, because there is
+ * no serial cable on it.
+ */
+#define RADIO_RDS_RAW_DEPTH 128
+
+/*
+ * How long the radio task will wait for the lock to store a raw group, in ms.
+ *
+ * Short on purpose. The ring is for capturing fixtures, and the tuner cadence
+ * matters more than a capture does, so a group is given up rather than the
+ * radio task held.
+ */
+#define RADIO_RDS_RING_WAIT_MS 5
+
+/* One group exactly as the tuner handed it over. */
+typedef struct {
+  uint16_t block[4]; /* A, B, C, D. */
+  /* Two bits per block, block A in the top pair, as the chip packs them. */
+  uint8_t error;
+} RadioRdsRaw;
 
 /* How many commands can be waiting before a caller is told to try later. */
 #define RADIO_QUEUE_DEPTH 8
@@ -81,6 +131,15 @@ typedef struct {
    * station's level, latches that instead of the new one and sits there.
    */
   bool levelSmoothedValid;
+  /*
+   * What the RDS decoder has made of this station.
+   *
+   * Every band. On AM it is cleared and stays cleared, because the retune
+   * onto an AM band resets it and nothing feeds it there, so `synchronised`
+   * false and every `has` flag false is the truthful answer rather than a
+   * leftover from the last FM station.
+   */
+  RdsInfo rds;
   Tef668xProcessing processing; /* What the chip is doing to the audio. */
   bool processingValid;         /* False when that read failed or is AM. */
   bool qualityValid;            /* False when the last read failed. */
@@ -292,14 +351,69 @@ void radioSetSeekConfig(const SeekConfig *cfg);
 void radioSetSquelchThreshold(int16_t tenths);
 
 /*
+ * Whether the RDS decoder runs at all.
+ *
+ * Turning it off stops the 43 ms read, so the radio task goes back to coming
+ * round ten times a second on FM instead of about thirty, and everything the
+ * decoder held is thrown away rather than left to go stale. Turning it back
+ * on starts from nothing on whatever station the dial is on.
+ *
+ * Safe from any task.
+ */
+void radioSetRdsEnabled(bool on);
+
+/* Whether the RDS decoder is running. */
+bool radioRdsEnabled(void);
+
+/*
  * What the squelch is set to now.
  *
  * Read from where it is kept, not from the snapshot. The snapshot is only
- * republished ten times a second, so a caller that sets the mode and then
- * reads it back from there gets the value from before it was set. That is
- * how the API came to answer "Off" to a request that turned it to Auto.
+ * republished when the radio task comes round, which is ten times a second on
+ * AM and about thirty on FM, so a caller that sets the mode and then reads it
+ * back from there gets the value from before it was set. That is how the API
+ * came to answer "Off" to a request that turned it to Auto.
  */
 SquelchMode radioSquelchMode(int16_t *thresholdTenths);
+
+/*
+ * Copy out the raw groups the tuner has handed over, oldest first.
+ *
+ * For capturing fixtures. The decoded answer is in the snapshot; this is the
+ * data it was decoded from, which is what a test needs so that it replays a
+ * real broadcast rather than a made up one.
+ *
+ * Returns how many groups were written, at most `max`. `firstSequence` is the
+ * number of the first one written and `total` is how many have arrived on
+ * this station, so a caller polling this can tell whether it missed any
+ * between two calls rather than quietly joining two pieces of a broadcast.
+ * `dropped` counts groups the ring could not be given because the lock was
+ * busy, which is a hole in the capture and not a hole in the broadcast.
+ *
+ * The ring is emptied on every retune, so it never holds two stations. Until
+ * that has happened it serves nothing rather than what it still holds.
+ *
+ * Safe from any task.
+ */
+uint16_t radioRdsRaw(RadioRdsRaw *out, uint16_t max, uint32_t *firstSequence,
+                     uint32_t *total, uint32_t *dropped);
+
+/*
+ * The status word from the last RDS read, exactly as the chip sent it, and
+ * whether that read worked at all.
+ *
+ * A station with no RDS and a bus that is not answering both show no groups.
+ * This is what tells them apart without a serial cable.
+ *
+ * Returns false when the lock was busy and it could not find out, which is a
+ * third answer and not the same as a read that has not happened. Nothing is
+ * written to `status` or `read` then. A caller that reports false as "not
+ * read" is saying something it does not know, and on the AM side "not read"
+ * is the true answer, so the two would be indistinguishable.
+ *
+ * Safe from any task.
+ */
+bool radioRdsStatus(uint16_t *status, bool *read);
 
 bool radioGetSnapshot(RadioSnapshot *out);
 

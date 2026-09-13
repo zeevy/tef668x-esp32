@@ -164,6 +164,48 @@ static RadioError recallChannel(RadioSettings *wanted, int slot) {
 /* Whether that level was read where the dial is now. See the snapshot. */
 static bool sLevelSmoothedValid = false;
 
+/*
+ * The RDS decoder, and the raw groups it was fed.
+ *
+ * Written only by the radio task. The raw ring is read from the web task, so
+ * that one is copied out under the same lock as the snapshot.
+ */
+static Rds sRds;
+static RadioRdsRaw sRdsRaw[RADIO_RDS_RAW_DEPTH];
+static uint32_t sRdsRawTotal = 0;   /* How many are in the ring. */
+static uint32_t sRdsRawDropped = 0; /* Groups the ring could not be given. */
+static uint16_t sRdsStatusWord = 0; /* The last status word off the chip. */
+static bool sRdsStatusRead = false; /* Whether that read worked. */
+/*
+ * The ring still holds the station the dial has left.
+ *
+ * Emptying it needs the lock, and the retune cannot wait on that: the audio
+ * is muted while it runs. So the retune only says the ring is stale, and the
+ * next RDS read empties it under the lock it was going to take anyway, which
+ * is within 43 ms. Until then the ring serves nothing, because a ring
+ * carrying two stations under one unbroken run of sequence numbers is a
+ * capture that reads as one broadcast and is not, and neither the capture
+ * script nor the header generator can tell.
+ *
+ * This is the one flag the radio task sets without the lock, and it is safe
+ * in the only direction that matters. A bool is a single aligned byte, so a
+ * reader sees true or false and never anything in between, and the radio task
+ * is the only writer. Once the retune has happened the flag is true and stays
+ * true until the radio task itself clears it, so a reader after a retune can
+ * never be handed the station before it.
+ */
+static bool sRdsRawStale = false;
+
+/*
+ * Whether the decoder runs. A setting, so it is read on every round rather
+ * than captured once.
+ */
+static bool sRdsEnabled = true;
+/* Set when it is switched off, so the round that notices throws away what the
+ * decoder held. Doing it in radioSetRdsEnabled would touch the decoder from
+ * another task. */
+static bool sRdsForget = false;
+
 /* What the bandwidth extension was last set to. */
 static bool sBandwidthWide = false;
 static bool sBandwidthKnown = false;
@@ -309,6 +351,7 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.qualityValid = qualityValid;
   sSnapshot.levelSmoothedTenths = sLevelSmoothed;
   sSnapshot.levelSmoothedValid = sLevelSmoothedValid;
+  sSnapshot.rds = sRds.info;
   if (processingValid && processing != NULL) {
     sSnapshot.processing = *processing;
   }
@@ -400,6 +443,15 @@ static Tef668xError pushToTuner(const RadioSettings *from,
         fm ? tef668xTuneFm(to->freqKHz) : tef668xTuneAm(to->freqKHz);
     if (err == TEF668X_OK) {
       err = tuned;
+    }
+    /* Sent with every FM tune, not once at start up. It restarts the chip's
+     * decoder, and without that the first read after the dial moves hands
+     * over the group the previous station left in the register. */
+    if (tuned == TEF668X_OK && fm) {
+      Tef668xError rdsOn = tef668xSetRds(false);
+      if (err == TEF668X_OK) {
+        err = rdsOn;
+      }
     }
     if (tuned == TEF668X_OK && push.bandwidth) {
       Tef668xError width = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
@@ -579,6 +631,9 @@ static void radioTask(void *arg) {
 
   const TickType_t period = pdMS_TO_TICKS(RADIO_POLL_INTERVAL_MS);
   TickType_t nextPoll = xTaskGetTickCount() + period;
+  const TickType_t rdsPeriod = pdMS_TO_TICKS(RADIO_RDS_INTERVAL_MS);
+  TickType_t nextRds = xTaskGetTickCount() + rdsPeriod;
+  rdsReset(&sRds, settings.freqKHz);
   bool qualityOk = false;
   /* Carried across a round that applied commands but could not publish them,
    * so a drain is never lost and the count never falls behind for good. */
@@ -640,6 +695,39 @@ static void radioTask(void *arg) {
       if (wait > step) {
         wait = step;
       }
+    }
+    /*
+     * RDS keeps its own cadence, faster than the poll interval, so the round
+     * has to come back in time for it.
+     *
+     * The same three conditions decide whether the round comes back early and
+     * whether the read happens, and they are worked out once here so that the
+     * two cannot come apart. Written separately, the wait was shortened while
+     * the read was skipped, `nextRds` never moved, and the wait stayed at zero
+     * for as long as the radio was hushed. That is the whole of an update over
+     * the air, spent spinning on core 0 with nothing yielding to the idle task.
+     */
+    bool rdsRunning = sRdsEnabled &&
+                      bandModulation(settings.band) == MODULATION_FM &&
+                      !sSeeking && !sHushed;
+    if (sRdsForget) {
+      /* Switched off. Everything held describes a station this radio is no
+       * longer listening to for RDS, and leaving it would be a name that
+       * nothing is keeping true any more. */
+      sRdsForget = false;
+      rdsReset(&sRds, settings.freqKHz);
+      sRdsRawStale = true;
+    }
+    if (rdsRunning) {
+      TickType_t rdsWait = (int32_t)(nextRds - now) > 0 ? nextRds - now : 0;
+      if (wait > rdsWait) {
+        wait = rdsWait;
+      }
+    } else {
+      /* Kept alongside the clock while it is not running, so a long spell on
+       * medium wave or in a hush does not leave a deadline far enough in the
+       * past for the comparison to wrap. */
+      nextRds = now + rdsPeriod;
     }
     sWakeSoon = false;
 
@@ -750,7 +838,7 @@ static void radioTask(void *arg) {
     }
 
     /* Worked out again whenever the dial has moved, and only then, so the
-     * lock is taken once per retune rather than ten times a second. It says
+     * lock is taken once per retune rather than on every round. It says
      * where the radio is rather than what memory mode last did, so a station
      * reached with the keypad shows its slot if it has one. */
     if (sSeeking) {
@@ -954,6 +1042,12 @@ static void radioTask(void *arg) {
          * is open carries across a retune. */
         squelchRetuned(&sSquelch);
         sBandwidthKnown = false;
+        /* Nothing the last station said is true of this one, and a name left
+         * behind is a real name on the wrong station. The raw ring goes with
+         * it: a capture holding the tail of the previous station and the
+         * start of this one reads as one broadcast and is not. */
+        rdsReset(&sRds, heard.freqKHz);
+        sRdsRawStale = true;
       }
     }
     settings = wanted;
@@ -1030,6 +1124,82 @@ static void radioTask(void *arg) {
          * leave the radio where it ended up rather than pretending. */
         seekEnd(false);
         squelchInit(&sSquelch);
+      }
+    }
+
+    /*
+     * The RDS decoder, on its own faster cadence.
+     *
+     * Not while seeking: the dial is passing channels nobody is listening to,
+     * and a group picked up from one of them would be decoded as though it
+     * belonged to wherever the seek stops. Not while hushed either, because
+     * then the tuner belongs to whoever is taking the radio down.
+     */
+    now = xTaskGetTickCount();
+    /* Worked out again rather than reused. A command drained this round can
+     * have started a seek or crossed to the AM side since the wait above was
+     * decided, and then reading RDS would take a group from a channel the
+     * dial is only passing through. */
+    rdsRunning = sRdsEnabled &&
+                 bandModulation(settings.band) == MODULATION_FM && !sSeeking &&
+                 !sHushed;
+    if (rdsRunning && (int32_t)(now - nextRds) >= 0) {
+      Tef668xRdsRead raw;
+      RdsRead read;
+      memset(&read, 0, sizeof(read));
+      memset(&raw, 0, sizeof(raw));
+      Tef668xError rdsErr = tef668xReadRds(&raw);
+      if (rdsErr == TEF668X_OK) {
+        read.synchronised = raw.synchronised;
+        read.haveGroup = raw.haveGroup;
+        for (int i = 0; i < 4; i++) {
+          read.block[i] = raw.block[i];
+          read.error[i] = raw.error[i];
+        }
+      }
+      /* Fed whatever came back, including a read that failed, which counts
+       * as a read with no lock and no group. Skipping it would hold the last
+       * lock state for as long as the bus stayed broken. */
+      rdsFeed(&sRds, &read);
+
+      /*
+       * The ring and the status word are read from the web task, so they are
+       * written under the same lock as the snapshot. The decoder above is
+       * not: it belongs to this task alone and is copied out at publish
+       * time, so nothing a person sees waits on this.
+       *
+       * A group the lock was too busy for is counted rather than dropped
+       * quietly. Losing one costs a capture one group, and a capture with a
+       * hole in it that says so is usable where one that does not is not.
+       */
+      if (xSemaphoreTake(sLock, pdMS_TO_TICKS(RADIO_RDS_RING_WAIT_MS)) ==
+          pdTRUE) {
+        if (sRdsRawStale) {
+          sRdsRawTotal = 0;
+          sRdsRawDropped = 0;
+          sRdsRawStale = false;
+        }
+        sRdsStatusWord = raw.status;
+        sRdsStatusRead = raw.read;
+        if (raw.haveGroup) {
+          RadioRdsRaw *slot = &sRdsRaw[sRdsRawTotal % RADIO_RDS_RAW_DEPTH];
+          for (int i = 0; i < 4; i++) {
+            slot->block[i] = raw.block[i];
+          }
+          slot->error = (uint8_t)((raw.error[0] << 6) | (raw.error[1] << 4) |
+                                  (raw.error[2] << 2) | raw.error[3]);
+          sRdsRawTotal++;
+        }
+        xSemaphoreGive(sLock);
+      } else if (raw.haveGroup) {
+        sRdsRawDropped++;
+      }
+
+      nextRds += rdsPeriod;
+      /* A slow round can leave the next read already past. Start from now
+       * rather than firing several in a row to catch up. */
+      if ((int32_t)(xTaskGetTickCount() - nextRds) >= 0) {
+        nextRds = xTaskGetTickCount() + rdsPeriod;
       }
     }
 
@@ -1508,6 +1678,73 @@ bool radioTaskPlan(BandPlanConfig *out) {
    * radio is running, it has to move inside the snapshot. */
   *out = sPlan;
   return true;
+}
+
+void radioSetRdsEnabled(bool on) {
+  if (sRdsEnabled == on) {
+    return;
+  }
+  sRdsEnabled = on;
+  if (!on) {
+    sRdsForget = true;
+  }
+}
+
+bool radioRdsEnabled(void) {
+  return sRdsEnabled;
+}
+
+bool radioRdsStatus(uint16_t *status, bool *read) {
+  if (sLock == NULL || xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) != pdTRUE) {
+    return false;
+  }
+  /* The same as the ring: what the chip last said was about the station the
+   * dial has left. */
+  if (status != NULL) {
+    *status = sRdsRawStale ? 0 : sRdsStatusWord;
+  }
+  if (read != NULL) {
+    *read = sRdsRawStale ? false : sRdsStatusRead;
+  }
+  xSemaphoreGive(sLock);
+  return true;
+}
+
+uint16_t radioRdsRaw(RadioRdsRaw *out, uint16_t max, uint32_t *firstSequence,
+                     uint32_t *total, uint32_t *dropped) {
+  if (out == NULL || max == 0 || sLock == NULL) {
+    return 0;
+  }
+  if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) != pdTRUE) {
+    return 0;
+  }
+  /* Emptied on a retune, and the emptying may not have happened yet. Serving
+   * what is in there now would hand back the station the dial has left. */
+  uint32_t held = sRdsRawStale ? 0 : sRdsRawTotal;
+  if (held > RADIO_RDS_RAW_DEPTH) {
+    held = RADIO_RDS_RAW_DEPTH;
+  }
+  if (held > max) {
+    /* The newest are the ones worth keeping. A caller with a small buffer
+     * asking again would otherwise be handed the same oldest groups for ever
+     * while the ring moved on underneath it. */
+    held = max;
+  }
+  uint32_t first = sRdsRawTotal - held;
+  for (uint32_t i = 0; i < held; i++) {
+    out[i] = sRdsRaw[(first + i) % RADIO_RDS_RAW_DEPTH];
+  }
+  if (firstSequence != NULL) {
+    *firstSequence = first;
+  }
+  if (total != NULL) {
+    *total = sRdsRawStale ? 0 : sRdsRawTotal;
+  }
+  if (dropped != NULL) {
+    *dropped = sRdsRawDropped;
+  }
+  xSemaphoreGive(sLock);
+  return (uint16_t)held;
 }
 
 bool radioGetSnapshot(RadioSnapshot *out) {

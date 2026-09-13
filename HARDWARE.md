@@ -643,10 +643,11 @@ numbers and their arguments, and everything here was checked against it.
 | Stereo blend against level, noise, multipath | 62, 63, 64 | Sent. Off unless a start level is given |
 | Forced mono | 66 | Used |
 | Stereo high blend | 72, 73, 74, 75 | Sent. Off unless a start level is given. Needs its ceiling, 75, or the other three do nothing |
-| RDS | 81 | Phase 3 |
+| RDS | 81 | Used. Mode 1, sent on every FM tune, which also restarts the decoder |
 | MPX output | 85 | Not used. The default is the one we want |
 | Adaptive bandwidth extension | 86 | Used, follows the signal |
 | Stereo band blend | 90, 91, 92 | Belongs to FMSI, which this part does not have |
+| RDS data | 131 | Used. Read every 43 ms on FM. Twelve bytes: a status word, blocks A to D, and an error word |
 | Quality status | 128 | Used |
 | Quality data | 129 | Not used. What it adds over 128 is not documented anywhere public |
 | Processing status | 134 | Read every poll on FM. Says how much high cut, stereo blend and stereo high blend the chip is applying now |
@@ -741,6 +742,28 @@ On a portable with a whip antenna, trading stereo separation and treble for
 less hiss is usually a good bargain, which is what these do. Whether it is a
 good bargain here is still a listening question, but it is no longer an
 invisible one.
+
+### What the RDS decoder in the chip does, measured
+
+Read over `GET /api/rds/raw` on 13 September 2026. The captures and the full working are in `test/fixtures/rds/README.md`.
+
+**The status word.** Command 131 returns twelve bytes: a status word, blocks A to D, and an error word. Only three bits of the status are used here and only two are documented anywhere public.
+
+| Bit | Meaning | Seen |
+|---|---|---|
+| 15 | A group is waiting in the registers | `8200` on a station sending groups |
+| 13 | Only block A is real. Not a group | Never seen on the six stations here |
+| 9 | The decoder is locked to an RDS bit stream | `0200` on a locked station between groups |
+
+A station with no RDS reads `0000` with the read reporting success, and so does the AM side. So the status word alone cannot tell a station without RDS from a bus that is not answering, which is why the driver reports whether the read worked as a separate flag.
+
+**The error word** carries two bits per block, block A in the top pair. 0 clean, 1 or 2 corrected, 3 not corrected.
+
+**The chip protects block A hardest.** Over 2777 groups in the two weak captures, at about 10 dBuV, block A came back clean every single time while blocks B, C and D were corrected 310, 247 and 245 times between them and lost 12 times. So the programme identifier is the field most likely to survive a bad signal, and the station name the least.
+
+**A block the chip reports as corrected can still be wrong.** Measured on those same two captures: text decoded from blocks reported as corrected at the smallest error level produced `MAwQCFM VINTOO...` where the station sent `MAGICFM VINTOO...`, and a text whose terminator had been corrupted so it ran on into the padding. Only blocks reported clean are safe to decode from. This is why `core/rds.c` throws away corrected blocks, which is stricter than the reference firmware.
+
+**Detuning does not produce a degraded stream.** 100 kHz either side of 93.5, 98.3 and 106.4 gives no lock at all rather than a lock with errors. The decoder either locks cleanly or does not lock. Collapsing the whip does work: every station drops from about 45 dBuV to about 10 and the two strongest stay locked while their blocks start failing.
 
 ## Open items
 

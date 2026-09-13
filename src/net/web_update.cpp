@@ -656,6 +656,8 @@ static String radioForms(void) {
     out += formNumber("sqf", "Squelch floor, dBuV", 0,
                       SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV, st->fmSquelchFloor,
                       "data-api='/api/settings'");
+    out += formSelect("rds", "RDS decoder", offOn, zeroOne, 2, st->rdsEnabled,
+                      "data-api='/api/settings'");
   }
   out +=
       F("</div><p class='small text-secondary mt-2 mb-0'>Higher settles "
@@ -1287,6 +1289,105 @@ static void handleReboot(void) {
 }
 
 /*
+ * The RDS decoder, as one JSON field. FM only.
+ *
+ * A field that is not here is one the radio cannot answer yet. That is the
+ * whole shape of this block: an empty station name and a station name that
+ * has not been received are different things, and sending `"ps":""` for the
+ * second makes them look the same. So `ps`, `rt`, `pi`, `pty` and `ct` appear
+ * only once they have been heard.
+ *
+ * | Key | Full name |
+ * |---|---|
+ * | `off` | The decoder is switched off. Nothing else in the block is here |
+ * | `syn` | The tuner is locked to an RDS bit stream |
+ * | `pi` | Programme identifier, four hex digits |
+ * | `pty` | Programme type, 0 to 31 |
+ * | `ptn` | What that number is called |
+ * | `tp` | The station carries traffic announcements at some point |
+ * | `ta` | One is on air right now |
+ * | `ms` | "speech" or "music" |
+ * | `ps` | Station name, eight characters |
+ * | `rt` | Radio text |
+ * | `af` | Alternative frequencies, in kHz |
+ * | `ct` | Date and time the station sent, in its own local time |
+ * | `grp` | Groups the tuner has handed over on this station |
+ * | `use` | How many of those something was decoded from |
+ * | `cor` | Blocks the tuner said it had corrected. Not used, only counted |
+ * | `bad` | Blocks the tuner could not correct |
+ */
+static void appendRdsState(String &out, const RadioSnapshot &snap) {
+  const RdsInfo *r = &snap.rds;
+  if (!radioRdsEnabled()) {
+    /* Said outright rather than left to look like a station with no RDS. The
+     * two are the same picture otherwise, and somebody who switched it off
+     * and forgot would have no way to tell which they were looking at. */
+    out += F(",\"rds\":{\"off\":true}");
+    return;
+  }
+  out += F(",\"rds\":{\"syn\":");
+  out += r->synchronised ? F("true") : F("false");
+
+  char small[96];
+  if (r->hasPi) {
+    snprintf(small, sizeof(small), ",\"pi\":\"%04X\"", r->pi);
+    out += small;
+  }
+  if (r->hasPty) {
+    snprintf(small, sizeof(small), ",\"pty\":%u", (unsigned)r->pty);
+    out += small;
+    out += F(",\"ptn\":\"");
+    out += jsonEscape(rdsPtyName(r->pty));
+    out += F("\"");
+  }
+  if (r->hasFlags) {
+    out += F(",\"tp\":");
+    out += r->tp ? F("true") : F("false");
+    out += F(",\"ta\":");
+    out += r->ta ? F("true") : F("false");
+    out += F(",\"ms\":\"");
+    out += r->speech ? F("speech") : F("music");
+    out += F("\"");
+  }
+  if (r->hasPs) {
+    out += F(",\"ps\":\"");
+    out += jsonEscape(r->ps);
+    out += F("\"");
+  }
+  if (r->hasRt) {
+    out += F(",\"rt\":\"");
+    out += jsonEscape(r->rt);
+    out += F("\"");
+  }
+  if (r->afCount > 0) {
+    out += F(",\"af\":[");
+    for (uint8_t i = 0; i < r->afCount; i++) {
+      if (i > 0) {
+        out += F(",");
+      }
+      out += String((unsigned)r->afKHz[i]);
+    }
+    out += F("]");
+  }
+  if (r->clock.valid) {
+    int minutes = r->clock.offsetHalfHours * 30;
+    char sign = minutes < 0 ? '-' : '+';
+    int magnitude = minutes < 0 ? -minutes : minutes;
+    snprintf(small, sizeof(small),
+             ",\"ct\":\"%04u-%02u-%02uT%02u:%02u%c%02d:%02d\"",
+             (unsigned)r->clock.year, (unsigned)r->clock.month,
+             (unsigned)r->clock.day, (unsigned)r->clock.hour,
+             (unsigned)r->clock.minute, sign, magnitude / 60, magnitude % 60);
+    out += small;
+  }
+  snprintf(small, sizeof(small),
+           ",\"grp\":%u,\"use\":%u,\"cor\":%u,\"bad\":%u}",
+           (unsigned)r->groupsSeen, (unsigned)r->groupsUsed,
+           (unsigned)r->blocksCorrected, (unsigned)r->blocksBad);
+  out += small;
+}
+
+/*
  * Append everything about the radio and its tuner, as JSON fields.
  *
  * One builder, used by both /api/state and /status.json, so the two
@@ -1422,6 +1523,12 @@ static void appendRadioState(String &out) {
                (q.stereo && !snap.settings.forcedMono) ? "true" : "false",
                q.stereo ? "true" : "false");
       out += sig;
+    }
+
+    /* FM only. There is no RDS on the AM side, and an empty block there says
+     * nothing that `bnd` does not already say. */
+    if (haveSnap && bandModulation(snap.settings.band) == MODULATION_FM) {
+      appendRdsState(out, snap);
     }
     out += F("}");
   } else {
@@ -2109,6 +2216,8 @@ static void handleApiSettingsGet(void) {
   out += st->beepStart;
   out += F(",\"sqf\":");
   out += st->fmSquelchFloor;
+  out += F(",\"rds\":");
+  out += st->rdsEnabled;
   out += F(",\"blt\":");
   out += st->backlightPercent;
   out += F(",\"bdm\":");
@@ -2124,8 +2233,9 @@ static void handleApiSettingsGet(void) {
 /*
  * POST /api/settings. The things that are stored and not tuned.
  *
- * Takes `sid` with an optional `pwd`, and `pin`, and the ten settings that
- * are stored rather than tuned:
+ * Takes `sid` with an optional `pwd`, and `pin`, and the settings that are
+ * stored rather than tuned. Every row below is one entry of `stored[]` in
+ * the handler:
  *
  * | Argument | Range | Acts | What it is |
  * |---|---|---|---|
@@ -2144,6 +2254,7 @@ static void handleApiSettingsGet(void) {
  * | `bdm` | 0 to 100 | at once | Panel brightness once left alone |
  * | `bds` | 0 to 240 | at once | Seconds before it dims. 0 never |
  * | `blf` | 0 or 1 | at start | Fade the panel up rather than snap it on |
+ * | `rds` | 0 or 1 | at once | Run the RDS decoder. Off gives the radio task back two thirds of its wakeups on FM |
  *
  * The table above and `stored[]` in the handler have to agree. The handler
  * counts its own field list against that table and refuses the request if
@@ -2202,6 +2313,7 @@ static void handleApiSettingsPost(void) {
       /* At start, because the only thing it changes is how the panel comes
        * up, and that has already happened by the time anybody can set it. */
       {"blf", 0, 1, true},
+      {"rds", 0, 1, false},
   };
   /* Sized from the table, not from a number written beside it. A seventh row
    * would otherwise run off the end of all three of these with no warning. */
@@ -2230,7 +2342,7 @@ static void handleApiSettingsPost(void) {
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
             "Give sid, pin, rgn, spc, enc, edr, fsn, asn, smu, bpk, bpe, "
-            "bps, sqf, blt, bdm, bds or blf, or any mix of them.");
+            "bps, sqf, blt, bdm, bds, blf or rds, or any mix of them.");
     return;
   }
 
@@ -2255,7 +2367,8 @@ static void handleApiSettingsPost(void) {
       &pending.backlightPercent,
       &pending.backlightDimPercent,
       &pending.backlightDimAfterS,
-      &pending.backlightFade};
+      &pending.backlightFade,
+      &pending.rdsEnabled};
   /* The compiler checks the two tables are the same length. An entry left
    * out is otherwise value initialised to NULL and silently does nothing,
    * which is how the chime came to be unswitchable. */
@@ -2325,6 +2438,7 @@ static void handleApiSettingsPost(void) {
     radioSetSoftMuteMs(pending.softMuteMs);
     radioSetEdgeBeep(pending.beepEdge != 0);
     radioSetSquelchFloor(pending.fmSquelchFloor);
+    radioSetRdsEnabled(pending.rdsEnabled != 0);
     inputSetBeeps((BeepMode)pending.beepKey);
     /* The panel light changes while the person is looking at it, which is the
      * only way a brightness can be chosen. */
@@ -2530,6 +2644,84 @@ static void handleApiMemoryCsv(void) {
     if (need == 0 || need >= sizeof(line)) {
       continue;
     }
+    sServer.sendContent(line);
+  }
+  sServer.sendContent("");
+}
+
+/*
+ * GET /api/rds/raw. The groups the tuner handed over, as they arrived.
+ *
+ * This is the capture route for RDS test fixtures. There is no serial cable
+ * on this radio, so real groups cannot be read off it any other way, and a
+ * decoder tested only against invented groups is tested against a broadcast
+ * nobody transmits. `tools/rdscap.py` polls this and writes the log that
+ * `test/fixtures/rds/` holds.
+ *
+ * One line per group, oldest first:
+ *
+ *     seq A B C D err
+ *     4213 5241 0408 E0CD 2020 00
+ *
+ * `seq` counts groups since the radio tuned this station, so a script polling
+ * this can see whether it missed any between two calls. The four blocks are
+ * hex. `err` is the tuner's own confidence, two bits per block with block A in
+ * the top pair: 0 clean, 1 or 2 corrected, 3 not corrected.
+ *
+ * The first line is a comment giving the frequency and how many groups have
+ * arrived, so a saved capture says which station it came from. `stat` and
+ * `read` come back as a question mark when the radio task held the lock and
+ * they could not be found out, which is not the same as a read that has not
+ * happened.
+ *
+ * Open to read, like the rest of the state. It carries nothing that is not
+ * being broadcast to the whole city.
+ */
+static void handleApiRdsRaw(void) {
+  sRequests++;
+  if (!radioRdsEnabled()) {
+    /* Said outright. An empty list would read as a station sending nothing,
+     * which is a different thing from a decoder nobody has switched on. */
+    sServer.send(200, "text/plain",
+                 "# the RDS decoder is switched off, so no groups are read\n");
+    return;
+  }
+  static RadioRdsRaw groups[RADIO_RDS_RAW_DEPTH];
+  uint32_t first = 0;
+  uint32_t total = 0;
+  uint32_t dropped = 0;
+  uint16_t held =
+      radioRdsRaw(groups, RADIO_RDS_RAW_DEPTH, &first, &total, &dropped);
+
+  RadioSnapshot snap;
+  uint32_t khz = 0;
+  if (radioGetSnapshot(&snap)) {
+    khz = snap.settings.freqKHz;
+  }
+
+  sServer.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  sServer.send(200, "text/plain", "");
+  char line[64];
+  uint16_t status = 0;
+  bool statusRead = false;
+  if (radioRdsStatus(&status, &statusRead)) {
+    snprintf(line, sizeof(line),
+             "# khz=%u total=%u held=%u lost=%u stat=%04X read=%d\n",
+             (unsigned)khz, (unsigned)total, (unsigned)held, (unsigned)dropped,
+             status, statusRead ? 1 : 0);
+  } else {
+    /* The radio task had the lock. `read=0` here would say the chip has not
+     * been read, which is what the AM side truthfully says, so it has to be
+     * a third answer rather than that one. */
+    snprintf(line, sizeof(line),
+             "# khz=%u total=%u held=%u lost=%u stat=? read=?\n", (unsigned)khz,
+             (unsigned)total, (unsigned)held, (unsigned)dropped);
+  }
+  sServer.sendContent(line);
+  for (uint16_t i = 0; i < held; i++) {
+    snprintf(line, sizeof(line), "%u %04X %04X %04X %04X %02X\n",
+             (unsigned)(first + i), groups[i].block[0], groups[i].block[1],
+             groups[i].block[2], groups[i].block[3], groups[i].error);
     sServer.sendContent(line);
   }
   sServer.sendContent("");
@@ -3278,6 +3470,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/pot", HTTP_POST, handleApiPot);
   sServer.on("/api/memory", HTTP_POST, handleApiMemoryPost);
   sServer.on("/api/memory.csv", HTTP_GET, handleApiMemoryCsv);
+  sServer.on("/api/rds/raw", HTTP_GET, handleApiRdsRaw);
   sServer.on("/api/memory/import", HTTP_POST, handleApiMemoryImport);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);

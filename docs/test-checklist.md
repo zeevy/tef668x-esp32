@@ -731,3 +731,47 @@ curl -s $R/api/memory.csv
 | 362 | Start a seek while in Memory mode | `tun.mem` goes to 0 while it runs and is worked out again when it stops |
 | 363 | `do=recall` an empty slot, and ask for slot 0 or 100 | 404 for the empty one, and a plain reason naming the range for the others |
 | 364 | Send any write to `/api/memory` without signing in | 403. Reading the CSV needs no PIN, changing it does |
+
+## Build 0.2.5, phase 3, the RDS decoder
+
+The station name, the radio text, the programme type, the identifier, the traffic flags and the time. Decision 31.
+
+Nothing here can brick the radio. A check that fails leaves the radio playing exactly as before, because RDS is read only and changes nothing about the audio or the dial.
+
+**None of this is on the display.** The panel shows the band, the frequency, the signal, stereo, mute and the last fault, and nothing else. The RDS block is part of the screen work in phase 4. So every check here reads `tun.rds` from `GET /api/state`, and the rows that need the radio in hand need it for the knob, the seek button or the power switch, never for something to look at on the panel.
+
+Rows 365 to 375 and 382 to 386 can be done from a browser or a terminal alone, except row 385 which needs the power switch. Rows 376 to 381 need somebody at the radio as well.
+
+```bash
+R=http://tef668x.local
+curl -s -c /tmp/jar -d 'pin=000000' $R/auth -o /dev/null
+curl -s $R/api/state | python3 -c 'import json,sys; print(json.load(sys.stdin)["tun"].get("rds"))'
+curl -s $R/api/rds/raw | head -5
+```
+
+**Which local stations carry RDS**, measured on 13 September 2026 and recorded in `test/fixtures/rds/README.md`. Six of the ten stations receivable here do: 91.1, 93.5, 94.3, 95.0, 98.3 and 106.4. Neither All India Radio service does, and nor do 92.7 or 104.0. A check that expects RDS on 101.9 will fail for the right reason.
+
+| # | Do this | Expect |
+|---|---|---|
+| 365 | Tune 93.5 and wait five seconds, then read `tun.rds` | `syn` true, `pi` `0935`, `ps` `  RED   `, `ptn` `Easy listening`, and `rt` starting `REDFM VINANDI` |
+| 366 | Tune 101.9, which carries no RDS, and read `tun.rds` | `syn` false, and **no** `pi`, `ps`, `rt` or `pty` field at all. A field that is missing is the radio saying it cannot answer. An empty string would be it saying the station sent nothing |
+| 367 | Tune 94.3 and read `tun.rds` | `ps` is `FEVER FM` and `rt` is `FEVER 94.3 FM`, and there is **no** `pi` field. That station sends an identifier of `0000`, which the standard keeps for a station that has not been given one |
+| 368 | Tune 95.0, read `tun.rds` a few times over half a minute | `ps` changes between `MIRCHI 9` and `5       `. That station scrolls its name. It must never show a mixture of the two, such as `5   HI 9` |
+| 369 | Tune 91.1 and watch `ps` for a minute | It rotates through several names, all of them whole. `  City  `, ` Radio  `, `City FM ` and others. Again, never a mixture |
+| 370 | Switch to medium wave and read `tun` | There is **no** `rds` object at all. There is no RDS on the AM side, and an empty one would look like a station that carries none |
+| 371 | Tune 93.5, then tune 98.3, and read `tun.rds` straight away | Nothing from 93.5 is left. No `ps` of `  RED   ` on 98.3 at any point, and `grp` starts again from a small number |
+| 372 | `curl -s $R/api/rds/raw` on 93.5 | Hex groups, oldest first, and a `#` line giving the frequency, the count and the status word. `lost=0` and `stat=8200` or `0200` |
+| 373 | `curl -s $R/api/rds/raw` on medium wave | `read=0`, which says no read has happened. Not `stat=0000` with `read=1`, which would mean the chip answered with nothing |
+| 374 | Read `grp`, `use`, `cor` and `bad` on a strong station | `grp` and `use` climb together, `cor` and `bad` stay at 0 |
+| 375 | Collapse the whip aerial, tune 91.1, wait a minute, read `tun.rds` | `cor` and `bad` both climb, and `ps`, `pi` and `rt` are still right. Nothing corrupt appears in the name or the text. Pull the aerial back out afterwards |
+| 376 | Tune 93.5 by the knob, not the API, and read `tun.rds` | The same decode. The knob and the API go through the same code |
+| 377 | Have somebody spin the knob quickly down the band past several stations and back up to 93.5, while `tun.rds` is read from a browser or a script once a second throughout | Every `ps` read during the spin belongs to whatever the dial is on at that moment, and there is never a `ps` from a station already passed. `grp` starts again from a small number on each new station. `  RED   ` appears within a few seconds of stopping |
+| 378 | Start a seek on FM and watch `tun.rds` while it runs | Nothing is decoded during the seek. RDS starts again when it stops, on the station it found |
+| 379 | Tune 93.5, wait for the name, then power cycle the radio | It comes back on 93.5 and decodes the name again from nothing. RDS is not stored and is not meant to be |
+| 380 | Tune 93.5 and listen while reading `tun.rds` repeatedly for a minute | The audio never stutters, clicks or drops. The RDS read runs on the radio task every 43 ms and must not disturb the tuner |
+| 381 | Tune 93.5, then flash a new firmware over the air while it is playing | The update goes through as before, in about fifteen seconds, and the radio comes back. RDS reading must not slow the transfer, make it fail, or leave the radio task spinning while the radio is hushed |
+| 382 | `POST /api/settings` with `rds=0`, then read `tun.rds` and `GET /api/rds/raw` | The state says `{"off":true}` and nothing else, and the raw endpoint says the decoder is switched off in words. Neither shows an empty block, which is what a station carrying no RDS looks like |
+| 383 | With `rds=0`, watch `tun.seq` over ten seconds on an FM station | It advances about 100 times, not about 320. That is the radio task back to ten rounds a second instead of thirty, which is the whole reason the switch exists |
+| 384 | Set `rds=1` again and wait ten seconds | The name and text come back, decoded from nothing. `grp` starts again from zero rather than carrying on from before it was switched off |
+| 385 | Set `rds=0`, power cycle, and read `tun.rds` | Still off. Then set `rds=1` and power cycle again, and it is still on. The setting survives, and version 10 of the settings struct is the same 196 bytes version 9 was |
+| 386 | Read `tun.rds.ct` on any station | There is no `ct` field. No station reachable here sends the time. If one ever does, the hour shown must be the local hour, not UTC. India is 5.5 hours ahead, so a clock that reads about half a working day slow is the offset not being applied |

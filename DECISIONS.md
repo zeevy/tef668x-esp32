@@ -823,6 +823,38 @@ A stored blob of any other length is from a firmware whose channel struct was a 
 
 The residual risk: the list sits in RAM for the life of the radio, 2376 bytes whether or not anything is stored. That is the price of the knob stepping to the next channel without a flash read.
 
+### 31. The RDS decoder says nothing it has not heard twice
+
+**A field is published only once it has been received twice the same way, and a field that has not is missing rather than empty.** The station name, the radio text, the identifier and the programme type each have a flag saying whether the radio can answer at all, and `GET /api/state` leaves the field out when it cannot. An empty station name and a station name that has not arrived are different things, and sending `"ps":""` for the second makes them look the same.
+
+**The name is confirmed as a whole pass, not position by position.** Eight characters arrive two at a time over four groups, and a name is published only when two complete passes say the same thing.
+
+This is measured and not a preference. The first version confirmed each of the eight positions on its own. Replayed against the capture from Mirchi 95, it published `5   HI 9`. That station rotates two names, `MIRCHI 9` and `5       `, three passes each, scrolling a longer name through the field, and different positions settled in different passes. Radio City 91.1 rotates five names the same way. Whole passes cannot mix, so a station that rotates names shows each in turn, which is what it is sending. The captures and the working are in `test/fixtures/rds/README.md`.
+
+**Only a block the tuner reports as clean is decoded.** A block it says it corrected is thrown away with the ones it could not.
+
+That is measured and it is stricter than the reference firmware, which accepts a corrected block. Two captures taken with the aerial collapsed, at about 10 dBuV instead of the usual 45, published five corrupt radio texts under the looser rule, including `MAwQCFM VINTOO...` and one whose terminator had been corrupted so the text ran on into padding. Both came through blocks the chip reported as corrected with the smallest error it reports. Clean blocks only publishes exactly the three texts those two stations actually sent. It costs about a third of the name passes on a weak signal and nothing at all on a signal worth listening to.
+
+**An identifier of zero is no identifier.** The standard keeps `0000` for a station that has not been given one, and two of the six stations that carry RDS here send it in every group. Publishing it would state `0000` as a fact, and anything comparing identifiers would decide those two stations are the same one.
+
+**A radio text with no terminator ends at the highest segment the station sends.** A short text is supposed to end with character `0D`. Fever FM 94.3 sends four segments round and round and never one, so a decoder that waits for it shows that station no text at all, for ever, with no way to tell that from a fault. So the segment address going backwards is taken as the pass having finished, and the length is then the highest segment that pass reached.
+
+The length must come from the segment number and not from how many characters actually arrived. Taking it from the run of characters received, and believing it once two passes agreed, was tried and it failed on the radio: on 93.5 at 20 dBuV, with block D of segment 0 failing while block C survived, the run stalled at two characters on every pass, the two passes agreed, and the radio published `GA` as a song title. On a steady bad signal the same blocks fail every pass, so two passes agreeing proves nothing. A segment number only ever grows within one text, so damage can delay a text but cannot shorten it.
+
+**The raw groups stay in the shipping firmware.** `GET /api/rds/raw` serves the last 128 groups exactly as the tuner handed them over, and `tools/rdscap.py` polls it into `test/fixtures/rds/`. That is the only way to get real groups off this radio, because there is no serial cable on it, and a decoder tested only against groups somebody wrote out is tested against a broadcast nobody transmits. It costs 2560 bytes of RAM, because the web handler keeps its own copy of the ring so that the lock is released before anything goes out on the network, and about 40 lines. The ring is emptied on every retune so it never holds two stations, and until that has happened it serves nothing rather than what it still holds.
+
+**The clock is published in the station's own local time.** Group 4A carries UTC and the offset from it as two separate things. The offset is applied in `core/`, date included, because it carries the time over midnight and every caller doing that arithmetic again is every caller getting a chance to get it wrong. The offset is still published beside the time, to be shown rather than added again.
+
+**The decoder can be switched off, and that is the only RDS setting that ships.** `rds` in the settings, on by default. It earns its place on a measurement rather than on taste: the radio task wakes for the 43 ms RDS deadline as well as for its own 100 ms tuner poll, so on FM it comes round every 31 ms with RDS on and every 99 ms with it off, measured on 13 September 2026. That is two thirds of the radio task's wakeups, and it is what the power management in phase 6 will want to be able to give back.
+
+Switched off, the state document says `"rds":{"off":true}` and the raw endpoint says so in words. Neither shows an empty block, because an empty block is what a station carrying no RDS looks like and somebody who switched it off and forgot would have no way to tell the two apart.
+
+The block error tolerance the reference firmware offers as "Show RDS errors" is deliberately **not** a setting. Every value looser than clean-only was measured to publish corrupt text, so it would be a switch whose only effect is to put wrong words on the screen, and anyone who wants the raw error bits already has `GET /api/rds/raw`.
+
+**Only the European programme type names ship.** North America uses different names for the same 32 numbers. That table earns its place when a North American band plan does, because a radio on the European FM plan cannot be receiving an RBDS station.
+
+The residual risks, written down because RULES.md asks for it. A station that rotates its name has each name published in turn and nothing says it is a rotation, so once the RDS block reaches the screen in phase 4 it will read as a radio that cannot make up its mind; stitching a long name together out of the passes is a phase 4 question and is ticketed. And no station reachable from here sends an alternative frequency list, sends the time, or changes its identifier under the dial, so those three paths are proved against groups written by hand rather than against a broadcast.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what

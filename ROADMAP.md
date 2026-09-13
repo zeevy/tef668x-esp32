@@ -71,7 +71,9 @@ tune can be driven from `curl` with nobody standing at the radio.
 This is the phase that justifies the architecture. Every item runs under
 `env:native` with a faked tuner.
 
-- RDS decoder, tested against real groups captured off air.
+- RDS decoder, tested against real groups captured off air. Done: `core/rds.c`,
+  checked against six captures taken off air in Hyderabad on 13 September 2026,
+  which are in `test/fixtures/rds/`.
 - Settings as a versioned struct in NVS, with migration tests.
 - Memory channels, with CSV import and export tests. Done: 99 slots in
   `core/memory.c`, the CSV in `core/memory_csv.c`, memory tuning mode and the

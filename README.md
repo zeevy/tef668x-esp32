@@ -31,8 +31,9 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Panel light | Fades up at start up, dims after the radio is left alone, and comes straight back on the knob, a button, a key or the volume pot. Brightness, dim level and delay are all settings, and the dim ships off |
 | Memory channels | Ninety nine of them, each with a band, a frequency, a filter width and a name. Memory tuning mode walks the list with the knob, across the bands, skipping the empty slots. The whole list goes in and out as CSV, so a bandplan can be built in a spreadsheet |
 | Control API | Every control the radio has, over HTTP. See below |
+| RDS | Station name, radio text, programme type, identifier and the traffic flags, all of them seen on air here. Every field is published only once it has been received twice the same way, so a name that is still arriving is never shown as though it were the name, and a field the radio cannot answer is missing rather than empty. The alternative frequencies and the clock are decoded and tested, but no station reachable from here sends either, so neither has been seen on the radio |
 
-Not built yet: the RDS decoder, which is the rest of phase 3, and the volume AGC is written and tested but not yet wired to the audio. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
+Not built yet: the volume AGC is written and tested but not yet wired to the audio, so the radio does not change volume on its own. Then touch, LVGL, telemetry, the spectrum and the clock, which are phases 4 to 6.
 
 ## The control API
 
@@ -47,7 +48,7 @@ curl -s -b jar -d 'stp=-1'   $R/api/step # one step down
 curl -s -b jar -d 'bnd=MW'    $R/api/band
 ```
 
-The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/memory`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/memory`, `/api/rds/raw`, `/api/settings` and `/api/save`. `POST /api/settings` with `rds=0` switches the RDS decoder off, which takes the radio task on FM from a round every 31 ms back to every 99 ms. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
 
 ### Memory channels
 
@@ -118,7 +119,7 @@ The whole target, not a description of today.
 | | |
 |---|---|
 | Bands | FM, OIRT, LW, MW, SW |
-| RDS | PS, RT, PTY, PI, alternative frequencies |
+| RDS | PS, RT, PTY, PI, traffic flags, clock time, alternative frequencies |
 | Display | LVGL. A layout per band, so AM does not waste a third of the screen on empty RDS fields |
 | Input | Rotary encoder, keypad and touch. Touch is a setting, not a separate build |
 | Memory | 99 channels, editable in a browser, CSV import and export |

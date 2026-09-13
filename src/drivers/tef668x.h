@@ -261,6 +261,61 @@ Tef668xError tef668xReadProcessing(Tef668xProcessing *out);
 Tef668xError tef668xReadQualityRaw(bool fm, uint8_t out[14]);
 
 /*
+ * One read of the chip's RDS decoder.
+ *
+ * `haveGroup` is the field that matters. The chip is asked every 43 ms and
+ * most of those reads have nothing new in them, and the words it returns then
+ * are not a group. Anything that reads `block` without checking `haveGroup`
+ * is decoding whatever happened to be in the register.
+ *
+ * `synchronised` is a different question and is answered on every read. It
+ * says the decoder is locked to an RDS bit stream, which is how a station
+ * with no RDS is told apart from one whose groups have not arrived yet.
+ *
+ * `error` is the chip's own confidence in each block, 0 for a clean block, 1
+ * or 2 for one it corrected, and 3 for one it could not. A block at 3 carries
+ * wrong bits, so it is not the data it claims to be.
+ */
+typedef struct {
+  /*
+   * The status word exactly as the chip sent it.
+   *
+   * Only two of its bits are documented anywhere public, and the flags below
+   * are worked out from those. Keeping the whole word means a station that
+   * decodes on the reference firmware and not on this one can be looked at
+   * without a serial cable.
+   */
+  uint16_t status;
+  bool read;         /* The chip answered. Without this everything is zero. */
+  bool synchronised; /* The decoder is locked to an RDS stream. */
+  bool haveGroup;    /* A new group arrived. Everything below is only then. */
+  uint16_t block[4]; /* A, B, C, D. */
+  uint8_t error[4]; /* Per block: 0 clean, 1 or 2 corrected, 3 not corrected. */
+} Tef668xRdsRead;
+
+/*
+ * Switch the RDS decoder on and start it again.
+ *
+ * Sent on every FM tune, not once at start up. The chip holds the previous
+ * station's group in its register, so without this the first read after a
+ * retune hands over the station that was left behind, and it is
+ * indistinguishable from the new one having answered immediately.
+ *
+ * Full search is a TEF6687 and TEF6689 feature. On a part without it the flag
+ * is ignored here rather than sent, because what the chip does with a mode it
+ * does not have is not known.
+ */
+Tef668xError tef668xSetRds(bool fullSearch);
+
+/*
+ * Read one group from the RDS decoder.
+ *
+ * FM only. `out` is cleared first, so a caller that ignores `haveGroup` gets
+ * zeros rather than the group before it.
+ */
+Tef668xError tef668xReadRds(Tef668xRdsRead *out);
+
+/*
  * What happened during start up, whether it worked or not.
  *
  * The boot self test in a later phase shows this, and it is the only way to
