@@ -8,6 +8,8 @@
 
 #include <ArduinoOTA.h>
 
+#include "radio_task.h"
+
 static bool sInProgress = false;
 static int sLastPercent = -1;
 
@@ -16,6 +18,11 @@ void otaBegin(const char *password) {
   ArduinoOTA.setPassword(password);
 
   ArduinoOTA.onStart([]() {
+    /* Down and muted before the write starts, so an update over the air does
+     * not end in a click. This is the route CLAUDE.md says is normally used,
+     * so leaving it out would mean the ramp only covered the browser. The
+     * radio does not come back from this: an update reboots. */
+    radioHush();
     sInProgress = true;
     sLastPercent = -1;
     const char *what =

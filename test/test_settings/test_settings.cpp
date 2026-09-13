@@ -6,6 +6,7 @@
 #include <unity.h>
 
 #include "core/band_plan.h"
+#include "core/input.h"
 #include "core/radio.h"
 #include "core/seek.h"
 #include "core/settings.h"
@@ -321,6 +322,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** And version 3. */
 #define V3_SIZE 136
 
+/** And version 4. */
+#define V4_SIZE 140
+
 /**
  * Build a version 2 blob out of a current one.
  *
@@ -440,6 +444,73 @@ static void a_new_field_inside_old_padding_is_not_read_from_it(void) {
   TEST_ASSERT_TRUE(settingsFromBlob(blob, V3_SIZE, &out));
   TEST_ASSERT_EQUAL_UINT16(0, out.potRawMin);
   TEST_ASSERT_EQUAL_UINT16(0, out.potRawMax);
+}
+
+static void a_version_4_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* softMuteMs sits at 138, inside the two bytes version 4 wrote as padding
+   * after its last field, so this checks the same trap version 3 had: a new
+   * field must not be read out of an older version's padding. */
+  TEST_ASSERT_EQUAL_size_t(138, offsetof(Settings, softMuteMs));
+  TEST_ASSERT_TRUE(offsetof(Settings, softMuteMs) < V4_SIZE);
+
+  Settings source;
+  settingsDefaults(&source);
+  source.potRawMin = 0;
+  source.potRawMax = 4095;
+  source.startFreqKHz = 104000;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V4_SIZE);
+  blob[138] = 0xAB; /* Padding, as far as version 4 was concerned. */
+  blob[139] = 0xCD;
+  uint16_t version = 4;
+  uint16_t size = V4_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V4_SIZE, &out));
+
+  /* What version 4 held comes back. */
+  TEST_ASSERT_EQUAL_UINT16(4095, out.potRawMax);
+  TEST_ASSERT_EQUAL_UINT32(104000, out.startFreqKHz);
+
+  /* What it never had comes back as the default, not out of the padding. */
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT16(fresh.softMuteMs, out.softMuteMs);
+  TEST_ASSERT_EQUAL_UINT8(0, out.beepKey);
+  TEST_ASSERT_EQUAL_UINT8(0, out.beepEdge);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void the_polish_settings_have_ranges(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  s.softMuteMs = 0; /* Off is a real choice: cut instantly. */
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.softMuteMs = 500;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.softMuteMs = 501;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  settingsDefaults(&s);
+  /* The beep is a mode, not a switch: off, keys, keys and long presses, or
+   * every press. */
+  for (uint8_t m = 0; m < (uint8_t)BEEP_MODE_COUNT; m++) {
+    s.beepKey = m;
+    TEST_ASSERT_TRUE(settingsValid(&s));
+  }
+  s.beepKey = (uint8_t)BEEP_MODE_COUNT;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  s.beepKey = (uint8_t)BEEP_KEYS;
+  s.beepEdge = 9;
+  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 static void a_pot_calibration_is_judged_on_the_loud_end(void) {
@@ -619,6 +690,8 @@ int main(int, char **) {
   RUN_TEST(a_version_3_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(the_version_3_fields_never_moved);
   RUN_TEST(a_new_field_inside_old_padding_is_not_read_from_it);
+  RUN_TEST(a_version_4_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(the_polish_settings_have_ranges);
   RUN_TEST(a_pot_calibration_is_judged_on_the_loud_end);
   RUN_TEST(a_scan_sensitivity_outside_the_range_is_refused);
   RUN_TEST(a_blend_start_is_off_or_somewhere_a_signal_reaches);

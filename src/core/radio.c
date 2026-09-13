@@ -448,6 +448,11 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       settings->fmNoiseBlankerStart = command->blanker[1];
       return RADIO_OK;
 
+    case RADIO_BEEP:
+      /* Nothing to apply, the same as a seek. A tone is something the radio
+       * does for a moment, not a state this struct can hold. */
+      return RADIO_OK;
+
     case RADIO_SEEK:
       /* Nothing to apply. Seeking is not a state this struct can hold: it is
        * something the radio does over the next few seconds, so the task owns
@@ -519,6 +524,27 @@ int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
 
   if (now > targetDb) {
     now = targetDb;
+  }
+  if (now < RADIO_VOLUME_MIN) {
+    now = RADIO_VOLUME_MIN;
+  }
+  return (int8_t)now;
+}
+
+int8_t radioDuckVolume(int8_t fromDb, uint32_t elapsedMs, uint16_t durationMs) {
+  if (durationMs == 0 || elapsedMs >= durationMs) {
+    return RADIO_VOLUME_MIN;
+  }
+
+  /* Straight down in dB, for the same reason the fade up is straight: the
+   * scale is already logarithmic, so a straight line here is a curve to the
+   * ear. */
+  int32_t span = (int32_t)fromDb - RADIO_VOLUME_MIN;
+  int32_t along = (span * (int32_t)elapsedMs) / durationMs;
+  int32_t now = (int32_t)fromDb - along;
+
+  if (now > fromDb) {
+    now = fromDb;
   }
   if (now < RADIO_VOLUME_MIN) {
     now = RADIO_VOLUME_MIN;

@@ -688,6 +688,33 @@ static String radioForms(void) {
         "stations. This one takes effect at once, with no reboot."
         "</p></details>");
 
+  /* The polish. Folded away because none of it changes what the radio
+   * receives, and because a beep is the sort of thing somebody switches on
+   * once and never looks at again. */
+  out +=
+      F("<details class='mt-2'><summary class='small text-secondary' "
+        "style='cursor:pointer'>Sounds and fades</summary>"
+        "<div class='row g-2 mt-1'>");
+  {
+    static const char *rampNames[] = {"Off, cut at once", "60 ms", "120 ms",
+                                      "250 ms", "500 ms"};
+    static const long rampValues[] = {0, 60, 120, 250, 500};
+    out += formSelect("smu", "Mute and squelch ramp", rampNames, rampValues, 5,
+                      st->softMuteMs, "data-api='/api/settings'");
+    static const char *beepNames[] = {"Off", "Keypad only",
+                                      "Keypad and long presses", "Every press"};
+    static const long beepValues[] = {0, 1, 2, 3};
+    out += formSelect("bpk", "Beep on", beepNames, beepValues, 4, st->beepKey,
+                      "data-api='/api/settings'");
+    out += formSelect("bpe", "Band edge beep", offOn, zeroOne, 2, st->beepEdge,
+                      "data-api='/api/settings'");
+  }
+  out +=
+      F("</div><p class='small text-secondary mt-2 mb-0'>The ramp takes "
+        "the click off a mute, the squelch closing and a bandwidth "
+        "change. It also runs before a reboot or a firmware update. The "
+        "beeps are off unless you want them.</p></details>");
+
   if (!onFm) {
     out +=
         F("<p class='small text-secondary mt-3 mb-0'>The FM settings "
@@ -1369,6 +1396,8 @@ static void appendRadioState(String &out) {
       out += snap.seeking ? F("true") : F("false");
       out += F(",\"skf\":");
       out += snap.seekFound ? F("true") : F("false");
+      out += F(",\"bep\":");
+      out += snap.beeping ? F("true") : F("false");
 
       /* The squelch, so a radio that has gone quiet says why. */
       out += F(",\"sql\":\"");
@@ -2046,6 +2075,12 @@ static void handleApiSettingsGet(void) {
   out += st->fmScanSensitivity;
   out += F(",\"asn\":");
   out += st->amScanSensitivity;
+  out += F(",\"smu\":");
+  out += st->softMuteMs;
+  out += F(",\"bpk\":");
+  out += st->beepKey;
+  out += F(",\"bpe\":");
+  out += st->beepEdge;
   out += F("}");
   sServer.send(200, "application/json", out);
 }
@@ -2107,6 +2142,9 @@ static void handleApiSettingsPost(void) {
       {"direction", 0, (long)ENCODER_REVERSED, true},
       {"fmsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
       {"amsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
+      {"smu", 0, 500, false},
+      {"bpk", 0, (long)BEEP_MODE_COUNT - 1, false},
+      {"bpe", 0, 1, false},
   };
   /* Sized from the table, not from a number written beside it. A seventh row
    * would otherwise run off the end of all three of these with no warning. */
@@ -2114,7 +2152,7 @@ static void handleApiSettingsPost(void) {
   long values[sizeof(stored) / sizeof(stored[0])] = {0};
   bool given[sizeof(stored) / sizeof(stored[0])] = {false};
   bool wantStored = false;
-  bool wantSeek = false;
+  bool wantNow = false;
   bool wantReboot = false;
   for (int i = 0; i < kStored; i++) {
     if (!sServer.hasArg(stored[i].name)) {
@@ -2128,26 +2166,44 @@ static void handleApiSettingsPost(void) {
     if (stored[i].atStart) {
       wantReboot = true;
     } else {
-      wantSeek = true;
+      wantNow = true;
     }
   }
 
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
-            "Give ssid, pin, region, spacing, encoder, direction, fmsens or "
-            "amsens, or any mix of them.");
+            "Give ssid, pin, region, spacing, encoder, direction, fmsens, "
+            "amsens, smu, bpk or bpe, or any mix of them.");
     return;
   }
 
   Settings pending = *sSettings;
   uint32_t newPin = sAccessPin;
 
-  uint8_t *fields[6] = {&pending.fmRegion,          &pending.mwSpacing,
-                        &pending.encoderKind,       &pending.encoderDirection,
-                        &pending.fmScanSensitivity, &pending.amScanSensitivity};
+  /* One entry per row of `stored`, sized from the same expression, so a row
+   * added there cannot walk off the end of this. `smu` is two bytes wide and
+   * has no slot here, so it is written below. */
+  uint8_t *fields[sizeof(stored) / sizeof(stored[0])] = {
+      &pending.fmRegion,
+      &pending.mwSpacing,
+      &pending.encoderKind,
+      &pending.encoderDirection,
+      &pending.fmScanSensitivity,
+      &pending.amScanSensitivity,
+      NULL,
+      &pending.beepKey,
+      &pending.beepEdge};
   for (int i = 0; i < kStored; i++) {
-    if (given[i]) {
+    if (given[i] && fields[i] != NULL) {
       *fields[i] = (uint8_t)values[i];
+    }
+  }
+  /* Found by name, not by a number written here. A row inserted before it in
+   * the table would otherwise put somebody else's value into softMuteMs, with
+   * nothing to say so. */
+  for (int i = 0; i < kStored; i++) {
+    if (given[i] && strcmp(stored[i].name, "smu") == 0) {
+      pending.softMuteMs = (uint16_t)values[i];
     }
   }
 
@@ -2188,17 +2244,22 @@ static void handleApiSettingsPost(void) {
   /* The seek sensitivities are the one part of this endpoint that acts at
    * once. They are not read at start up like the band plan: nothing is tuned
    * to them, so there is nothing for a change to be unfair to. */
-  if (wantSeek) {
+  if (wantNow) {
     SeekConfig seekCfg;
     seekDefaults(&seekCfg);
     seekCfg.fmSensitivity = pending.fmScanSensitivity;
     seekCfg.amSensitivity = pending.amScanSensitivity;
     radioSetSeekConfig(&seekCfg);
+    /* The polish acts at once too. Nothing is tuned to it, so there is
+     * nothing for a change to be unfair to. */
+    radioSetSoftMuteMs(pending.softMuteMs);
+    radioSetEdgeBeep(pending.beepEdge != 0);
+    inputSetBeeps((BeepMode)pending.beepKey);
   }
 
   String said;
-  if (wantSeek) {
-    said += F("Seek sensitivity saved and in use now.");
+  if (wantNow) {
+    said += F("Saved and in use now.");
   }
   if (wantReboot) {
     if (said.length() > 0) {
@@ -2321,6 +2382,49 @@ static void handleApiPot(void) {
       String("The knob runs ") + rawMin + " to " + rawMax + ", stored.";
   Serial.printf("[api] %s\n", said.c_str());
   sServer.send(200, "text/plain", said + "\n");
+}
+
+/**
+ * POST /api/beep. Sound the tuner's own tone generator.
+ *
+ * Takes `ms`, 1 to 3000, and optionally `hz` and `hz2`, each 100 to 15000.
+ * The radio beeps for that long and stops on its own. Two different pitches
+ * are what a DTMF pair needs, if the generator's two slots are two tones
+ * rather than the two output channels.
+ *
+ * This is here because the tone generator is the one piece of audio hardware
+ * on this radio that is not the tuner receiving something, and a beep of
+ * fifty milliseconds is not long enough to tell "it did not sound" from "it
+ * sounded and I missed it". A long tone answers that in one press.
+ *
+ * A muted radio stays silent. The tone goes through the same output mute as
+ * everything else.
+ */
+static void handleApiBeep(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long ms = 0;
+  if (!apiNumber("ms", &ms, 1, 3000)) {
+    return;
+  }
+  long hz = 2000;
+  long hz2 = 0;
+  if (sServer.hasArg("hz") && !apiNumber("hz", &hz, 100, 15000)) {
+    return;
+  }
+  if (sServer.hasArg("hz2") && !apiNumber("hz2", &hz2, 100, 15000)) {
+    return;
+  }
+  if (hz2 == 0) {
+    hz2 = hz;
+  }
+  if (!radioBeepAt((uint16_t)ms, (uint16_t)hz, (uint16_t)hz2)) {
+    apiFail(503, "The radio is busy. Try again in a moment.");
+    return;
+  }
+  sServer.send(200, "text/plain", String("beeping for ") + ms + " ms\n");
 }
 
 /**
@@ -2847,6 +2951,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/api/save", HTTP_POST, handleApiSave);
   sServer.on("/api/seek", HTTP_POST, handleApiSeek);
+  sServer.on("/api/beep", HTTP_POST, handleApiBeep);
   sServer.on("/api/pot", HTTP_POST, handleApiPot);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
@@ -2861,6 +2966,9 @@ void webLoop(void) {
     sRebootAfterReply = false;
     Serial.println("[web] rebooting on request");
     Serial.flush();
+    /* Down and muted first, so a reboot and an update do not end in a click.
+     * This covers the firmware upload too: that sets the same flag. */
+    radioHush();
     delay(200);
     ESP.restart();
   }

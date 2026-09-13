@@ -62,8 +62,24 @@ typedef enum {
 #define CMD_SET_STEREO_MIN 66        /**< Forced mono, or stereo allowed. */
 #define CMD_SET_BANDWIDTH_OPTIONS 86 /**< How far the adaptive filter opens. */
 
-#define CMD_AUDIO_SET_VOLUME 10 /**< Output gain, in tenths of a dB. */
-#define CMD_AUDIO_SET_MUTE 11   /**< Mute or unmute the output. */
+#define CMD_AUDIO_SET_VOLUME 10  /**< Output gain, in tenths of a dB. */
+#define CMD_AUDIO_SET_INPUT 12   /**< Which source the audio path carries. */
+#define CMD_AUDIO_SET_WAVEGEN 24 /**< The tone generator. */
+
+/*
+ * Audio sources. The tone generator is not heard until the audio path is
+ * switched to it: the generator on its own produces a tone that nothing is
+ * listening to.
+ *
+ * 240 selects the generator and 0 goes back to the tuner. Both are the
+ * reference firmware's numbers, from a function that switches the input and
+ * the generator together every time.
+ */
+/** The tuner itself, which is what a radio normally carries. */
+#define AUDIO_INPUT_TUNER 0
+/** The tone generator. */
+#define AUDIO_INPUT_WAVEGEN 240
+#define CMD_AUDIO_SET_MUTE 11 /**< Mute or unmute the output. */
 
 #define CMD_APPL_SET_OPERATION_MODE 1 /**< Active or standby. */
 #define CMD_APPL_GET_OPERATION_STATUS \
@@ -1062,6 +1078,58 @@ Tef668xError tef668xSetDeemphasis(uint16_t microseconds) {
   }
   uint16_t args[1] = {(uint16_t)(microseconds * 10)};
   return command(MODULE_FM, CMD_SET_DEEMPHASIS, args, 1);
+}
+
+Tef668xError tef668xTone(bool on, int16_t amplitude, uint16_t freqHz,
+                         uint16_t freqHz2) {
+  /* The source is switched with the generator, every time. The generator
+   * alone makes a tone that nothing carries, which is silence.
+   *
+   * Order matters. Going on, the source is selected first so the tone is
+   * already there when it starts. Coming off, the source goes back first, so
+   * the station returns before the generator stops rather than leaving a gap
+   * of nothing in between. */
+  uint16_t source[1] = {
+      (uint16_t)(on ? AUDIO_INPUT_WAVEGEN : AUDIO_INPUT_TUNER)};
+  Tef668xError err = TEF668X_OK;
+  if (on) {
+    err = command(MODULE_AUDIO, CMD_AUDIO_SET_INPUT, source, 1);
+  }
+
+  /* Six words. The first is the mode, 5 for a tone and 0 for off, the second
+   * is unused, and then an amplitude and a frequency for each of the two
+   * output channels.
+   *
+   * Channels, not two generators: measured on this radio on 13 September
+   * 2026 by putting different frequencies in the two slots. What comes out
+   * follows slot one and slot two is inaudible, because the amplifier is
+   * mono. See HARDWARE.md. So two tones at once cannot be heard here.
+   *
+   * Mode 5 and the word order are the reference firmware's, which runs this
+   * generator on this chip. */
+  uint16_t args[6] = {0, 0, 0, 0, 0, 0};
+  if (on) {
+    args[0] = 5;
+    args[2] = (uint16_t)amplitude;
+    args[3] = freqHz;
+    args[4] = (uint16_t)amplitude;
+    args[5] = freqHz2;
+  }
+  Tef668xError tone = command(MODULE_AUDIO, CMD_AUDIO_SET_WAVEGEN, args, 6);
+  if (err == TEF668X_OK) {
+    err = tone;
+  }
+
+  if (!on) {
+    /* Always attempted, whatever the tone write did. A radio left with its
+     * audio path pointing at a silent generator is a radio that has gone
+     * dead, and it would not be obvious why. */
+    Tef668xError back = command(MODULE_AUDIO, CMD_AUDIO_SET_INPUT, source, 1);
+    if (err == TEF668X_OK) {
+      err = back;
+    }
+  }
+  return err;
 }
 
 Tef668xError tef668xSetMono(bool mono) {

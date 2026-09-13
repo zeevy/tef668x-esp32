@@ -127,6 +127,28 @@ uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
 
 /* -------------------------------------------------------------------- pot */
 
+/**
+ * Which presses make a sound.
+ *
+ * Ordered from quietest to loudest, so a higher number is always more beeping
+ * and the range check is a simple one.
+ *
+ * The middle setting is the useful one, and it is the default for anybody who
+ * turns beeping on: a beep then always means something happened that could
+ * not otherwise be told. A keypad digit has nothing else to confirm it until
+ * enter is pressed, and a long press has nothing at all, because there is no
+ * detent and the moment it fires is decided by a timer. A short press of BAND
+ * or BW needs no beep, because the band or the filter changing is the
+ * feedback.
+ */
+typedef enum {
+  BEEP_OFF = 0,       /**< Silent. */
+  BEEP_KEYS,          /**< Keypad digits only. */
+  BEEP_KEYS_AND_LONG, /**< Keypad digits and long presses. */
+  BEEP_EVERY_PRESS,   /**< Every key and every button. */
+  BEEP_MODE_COUNT     /**< How many there are. Not a mode. */
+} BeepMode;
+
 /** How the pot's travel maps to volume. */
 typedef struct {
   uint16_t rawMute;  /**< At or below this the pot is off. */

@@ -42,6 +42,9 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
        * version 3 blob wrote exactly this many bytes. */
       return 136;
     case 4:
+      /* Written out by hand, like the versions before it. */
+      return 140;
+    case 5:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -73,6 +76,8 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
     case 3:
       return offsetof(Settings, potRawMin);
     case 4:
+      return offsetof(Settings, softMuteMs);
+    case 5:
       return sizeof(Settings);
     default:
       return 0;
@@ -149,6 +154,13 @@ void settingsDefaults(Settings *s) {
   /* Version 4. Not calibrated, so the built in travel is used. */
   s->potRawMin = 0;
   s->potRawMax = 0;
+
+  /* Version 5. The ramp on, the beeps off. A ramp is only noticed when it is
+   * missing, so it is a safe default. A beep is noticed every time, so it is
+   * not. */
+  s->softMuteMs = RADIO_SOFT_MUTE_MS;
+  s->beepKey = (uint8_t)BEEP_OFF;
+  s->beepEdge = 0;
 }
 
 bool settingsValid(const Settings *s) {
@@ -225,6 +237,14 @@ bool settingsValid(const Settings *s) {
     return false;
   }
   if (s->potRawMin > 4095 || s->potRawMax > 4095) {
+    return false;
+  }
+  /* Long enough to be a ramp and short enough that mute still feels like a
+   * button. Anything past half a second is somebody typing a number in. */
+  if (s->softMuteMs > 500) {
+    return false;
+  }
+  if (s->beepKey >= (uint8_t)BEEP_MODE_COUNT || s->beepEdge > 1) {
     return false;
   }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||

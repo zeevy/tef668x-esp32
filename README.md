@@ -26,6 +26,7 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
 | Squelch | Off, automatic or manual, with the pot as the threshold in manual |
 | Settings | Kept across a power cycle, including the station it comes up on |
+| Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. Key and band edge beeps through the tuner's own tone generator |
 | Control API | Every control the radio has, over HTTP. See below |
 
 Not built yet: touch, LVGL, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 4 to 6.
@@ -43,7 +44,7 @@ curl -s -b jar -d 'stp=-1'   $R/api/step # one step down
 curl -s -b jar -d 'bnd=MW'    $R/api/band
 ```
 
-The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
 
 Everything the radio is set to is held in one place and changed through the endpoints above, which act at once. `POST /api/save` writes what it is set to now into NVS, so it comes up that way next time. `GET /api/settings` says what is stored, which is not always what it is set to now, and `POST /api/settings` takes the four that can only be read at start up: the FM band plan, the medium wave spacing, and which encoder is fitted and which way round.
 
@@ -76,6 +77,8 @@ Every key in a document and every argument in a request is three characters or f
 | `rgn` | FM band plan | `spc` | medium wave spacing | `enc` | encoder kind |
 | `edr` | encoder direction | `fsn` | FM seek sensitivity | `asn` | AM seek sensitivity |
 | `sbd` | band it comes up on | `sfq` | frequency it comes up on | `svl` | volume it comes up at |
+| `smu` | mute ramp, ms | `bpk` | which presses beep | `bpe` | band edge beep |
+| `bep` | a tone is sounding | | | | |
 | `abw` | AM bandwidth | `sid` | network name | `pss` | a passphrase is stored |
 
 The same three letter names are the request arguments: `khz`, `stp`, `bnd`, `dir`, `wht`, `act`, `mod`, `thr`, and the reception ones above.

@@ -80,6 +80,19 @@ void inputStatusGet(InputStatus *out);
 void inputSetPotConfig(const PotConfig *cfg);
 
 /**
+ * Whether a key press and a band edge make a sound.
+ *
+ * Both off by default. A beep is noticed every time it happens, so it is not
+ * something to switch on for somebody.
+ *
+ * The band edge beep is not here. Only the radio knows the dial wrapped, so
+ * that one is radioSetEdgeBeep.
+ *
+ * @param mode  Which presses make a sound. See BeepMode.
+ */
+void inputSetBeeps(BeepMode mode);
+
+/**
  * Start learning how far the knob actually turns.
  *
  * While this is running the knob sets neither the volume nor the squelch. It

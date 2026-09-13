@@ -78,6 +78,26 @@ static PotConfig sPotCfg;
  * The state machine is in core/input.c, where it can be tested on a PC. */
 static PotCalibration sCal;
 
+/* Which presses make a sound. Off unless somebody asks. */
+static BeepMode sBeepMode = BEEP_OFF;
+
+/**
+ * How long a beep lasts, in milliseconds.
+ *
+ * The reference firmware's figure for its band edge beep on this chip. Short
+ * enough to be a tick rather than a tone.
+ */
+#define BEEP_MS 50
+
+/**
+ * And for a long press, which is deliberately different.
+ *
+ * A long press is the one you cannot tell has registered: there is nothing to
+ * feel, and the moment it fires is decided by a timer rather than by letting
+ * go. A tick of a different length says which of the two the radio took.
+ */
+#define BEEP_LONG_MS 200
+
 /** What the knob was last doing, so a change of job can be acted on. */
 static SquelchMode sJob = SQUELCH_OFF;
 static bool sJobKnown = false;
@@ -308,6 +328,15 @@ static void pollButtons(uint32_t nowMs) {
       continue;
     }
     sStatus.presses++;
+    /* A long press only, and longer than a keypad tick so the two are told
+     * apart by ear. A short press needs nothing: the band changes, the filter
+     * changes, the sound stops, and the result is the feedback. A long press
+     * has none of that, and the moment it fires is decided by a timer rather
+     * than by letting go. */
+    if (sBeepMode >= BEEP_EVERY_PRESS ||
+        (sBeepMode >= BEEP_KEYS_AND_LONG && event == BUTTON_LONG)) {
+      radioBeep(event == BUTTON_LONG ? BEEP_LONG_MS : BEEP_MS);
+    }
 
     char seen[INPUT_EVENT_MAX];
     snprintf(seen, sizeof(seen), "%s %s", panelButtonName(which),
@@ -412,6 +441,12 @@ static void pollKeypad(uint32_t nowMs) {
     return;
   }
   sStatus.presses++;
+  if (sBeepMode >= BEEP_KEYS) {
+    /* Every key, including the ones that go on to be refused. The beep says
+     * the press was seen, which is the question a person is asking when they
+     * press a key and nothing happens. */
+    radioBeep(BEEP_MS);
+  }
 
   if (key == KEYPAD_ENTER) {
     enterTyped();
@@ -527,6 +562,10 @@ static void pollPot(uint32_t nowMs) {
   /* Not settled. The knob can be turned faster than the radio can answer, and
    * waiting for each step would make it feel stiff. The last one sent wins. */
   send(&cmd);
+}
+
+void inputSetBeeps(BeepMode mode) {
+  sBeepMode = mode < BEEP_MODE_COUNT ? mode : BEEP_OFF;
 }
 
 void inputSetPotConfig(const PotConfig *cfg) {

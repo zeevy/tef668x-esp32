@@ -293,6 +293,32 @@ Tef668xError tef668xSetWeakSignal(uint8_t highCutStart, uint8_t stereoStart,
  */
 Tef668xError tef668xSetDeemphasis(uint16_t microseconds);
 
+/**
+ * Start or stop the tuner's own tone generator.
+ *
+ * The one piece of audio hardware on this radio that is not the tuner
+ * receiving something. It feeds a tone into the audio path, so it is heard
+ * whatever the dial is doing, and it is how the radio beeps.
+ *
+ * The tone goes through the output mute, so a muted radio stays silent. The
+ * caller decides whether to lift the mute around it and put it back, which is
+ * what the reference firmware does for its band edge beep.
+ *
+ * The generator takes two amplitude and frequency pairs. Giving both the
+ * same produces one tone, which is what the reference firmware does. Giving
+ * them different frequencies is what makes a DTMF pair possible, if the two
+ * are separate generators rather than the two output channels.
+ *
+ * @param on         true to start it.
+ * @param amplitude  In tenths of a dB, relative to full scale, so negative.
+ *                   The reference firmware uses -5 dB, which is -50 here.
+ * @param freqHz     The tone, in hertz. The reference uses 2000.
+ * @param freqHz2    The second tone. Pass the same as freqHz for one tone.
+ * @return TEF668X_OK, or what stopped it.
+ */
+Tef668xError tef668xTone(bool on, int16_t amplitude, uint16_t freqHz,
+                         uint16_t freqHz2);
+
 /** What the chip is doing to the audio right now, rather than what it was told. */
 typedef struct {
   /*

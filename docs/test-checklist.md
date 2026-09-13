@@ -299,7 +299,7 @@ None of these turns itself on except the bandwidth extension, which follows the 
 | 172 | Turn the knob during the fade at switch on | It follows. The fade lands wherever the knob now is rather than fighting it |
 | 173 | Change band | The sound comes back over about half a second, not all at once |
 | 174 | Type a frequency and press enter | The same gentle return |
-| 175 | Turn the tuning knob one step at a time | No fade. Stepping the dial must stay instant, or the whole dial feels slow |
+| 175 | Turn the tuning knob one step at a time | No fade. Stepping the dial must stay instant, or the whole dial feels slow. A fade that restarts on every click never finishes either |
 | 176 | Listen closely to a band change | It slides. If it arrives in a handful of jumps the volume is not being moved often enough during the fade |
 
 ### Weak signal handling and the noise blankers
@@ -423,6 +423,38 @@ MODE long press walks the four combinations. BAND long and the knob held long ar
 | 267 | Turn iMS on and off on a station with obvious multipath, blind | Judged by ear, order picked at random, revealed afterwards. A station in a city with buildings in the way, not a clean local one |
 | 268 | The same for EQ | The same rules. A null result is a result: record it as unproven rather than shipping it as working |
 | 269 | Turn both on, save, power cycle | They come back on, and the panel says so |
+
+### Sounds and fades
+
+The polish from ticket 19: nothing here changes what the radio receives, all of it changes how using it feels. Every one of them can be switched off, on `/radio` under Sounds and fades.
+
+**The ramp is only noticed when it is missing.** Set it to Off, listen, set it back, and the difference is a click you stop hearing.
+
+| # | Do this | Expect |
+|---|---|---|
+| 270 | Press mute on a station with the ramp at 120 ms | It goes quiet over about a tenth of a second, not with a click |
+| 271 | Unmute | It comes back on a ramp too, over the same length, not as a step from silence to full |
+| 272 | Set the ramp to Off and press mute | It cuts instantly, which is what Off has to mean |
+| 273 | Put the squelch in auto and tune to an empty frequency | It closes on a ramp rather than clicking shut |
+| 274 | Tune back to the station | It opens at once. Opening is not ramped, or the front of every station is soft |
+| 275 | Press BW to change the bandwidth on a station | No click. The audio is muted across the filter change, the same as a retune |
+| 276 | Press BW while the radio is muted | Still silent. It must not unmute to cover its own click |
+| 277 | Set Beep on to Keypad only, press a keypad digit | A short tick, about 2000 Hz. Every key, including ones that go on to be refused |
+| 277a | With Keypad only, long press MODE | Silent. That setting means the keypad and nothing else |
+| 277b | Set Beep on to Keypad and long presses, long press MODE | A noticeably longer tone, about four times the keypad tick |
+| 277c | With that setting, short press BAND or BW | Silent. The band or the filter changing is the feedback, so a beep adds nothing |
+| 277d | Set Beep on to Every press, press BAND | A short tick |
+| 277e | `POST /api/settings -d 'bpk=4'` | `400`. There are four modes, 0 to 3 |
+| 277f | `POST /api/beep -d 'ms=2000'` | A two second tone. This exists because fifty milliseconds is not long enough to tell "it did not sound" from "it sounded and I missed it" |
+| 278 | Turn the key beep on and mute the radio, then press a key | Silent. The beep goes through the same output mute, and beeping at somebody who asked for quiet is the wrong way round |
+| 279 | Turn the band edge beep on, and turn the dial past the top of a band | It beeps as it wraps to the bottom, and not on any ordinary step |
+| 280 | Seek across the band with the edge beep on | No beeping while it hunts. A seek is exempt from the ramp too, or 120 ms on every channel would be most of the settle time |
+| 281 | Press Reboot on the System page while listening | The audio goes down and mutes before it restarts. No click at the end |
+| 282 | Upload firmware from the System page while listening | The same. The reboot path is shared |
+| 282a | Upload over the air with `pio run -e ats125 -t upload --upload-port <ip>` | The same. This is a different path and needed its own call |
+| 282b | Turn the knob or press a button during the second between the ramp and the restart | Nothing comes back. Once the hush has run the radio stops writing to the tuner, or the knob would put the volume straight back and two tasks would be on the I2C bus at once |
+| 283 | Set every one of them off, then use the radio | It behaves exactly as it did before this change. Anything that cannot be switched off is a mistake |
+| 284 | Change any of them and power cycle | They come back as set |
 
 ### The web pages
 

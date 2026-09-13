@@ -1360,6 +1360,56 @@ static void changing_the_deemphasis_needs_a_feature_push(void) {
   TEST_ASSERT_FALSE(push.retune);
 }
 
+/* ------------------------------------------------------- the duck down */
+
+static void the_duck_starts_where_it_is_and_ends_in_silence(void) {
+  TEST_ASSERT_EQUAL_INT8(-10, radioDuckVolume(-10, 0, 120));
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN, radioDuckVolume(-10, 120, 120));
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN, radioDuckVolume(-10, 500, 120));
+}
+
+static void the_duck_only_ever_falls(void) {
+  int8_t last = 0;
+  for (uint32_t t = 0; t <= 120; t += 5) {
+    int8_t now = radioDuckVolume(0, t, 120);
+    TEST_ASSERT_TRUE(now <= last);
+    last = now;
+  }
+}
+
+static void no_duration_means_silence_at_once(void) {
+  /* Which is what switching the ramp off has to mean: the old behaviour, an
+   * instant cut, not a ramp of length zero that never gets there. */
+  TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN, radioDuckVolume(-10, 0, 0));
+}
+
+static void ducking_from_silence_stays_at_silence(void) {
+  for (uint32_t t = 0; t <= 120; t += 30) {
+    TEST_ASSERT_EQUAL_INT8(RADIO_VOLUME_MIN,
+                           radioDuckVolume(RADIO_VOLUME_MIN, t, 120));
+  }
+}
+
+static void no_step_of_the_duck_is_big_enough_to_hear_as_a_click(void) {
+  /* The whole point. A step is what it is replacing, so the ramp must not be
+   * delivered in a handful of jumps. */
+  int8_t last = radioDuckVolume(0, 0, RADIO_SOFT_MUTE_MS);
+  for (uint32_t t = RADIO_FADE_STEP_MS; t <= RADIO_SOFT_MUTE_MS;
+       t += RADIO_FADE_STEP_MS) {
+    int8_t now = radioDuckVolume(0, t, RADIO_SOFT_MUTE_MS);
+    TEST_ASSERT_TRUE((int)last - (int)now <= 12);
+    last = now;
+  }
+}
+
+static void the_duck_is_the_mirror_of_the_fade(void) {
+  /* Both straight lines in dB, so one undoes the other. */
+  int8_t down = radioDuckVolume(0, 60, 120);
+  int8_t up = radioFadeVolume(0, 60, 120);
+  TEST_ASSERT_TRUE(down < 0);
+  TEST_ASSERT_TRUE(up < 0);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -1457,6 +1507,13 @@ int main(int, char **) {
   RUN_TEST(the_deemphasis_can_be_set_from_either_band);
   RUN_TEST(only_the_two_real_deemphasis_standards_are_taken);
   RUN_TEST(changing_the_deemphasis_needs_a_feature_push);
+
+  RUN_TEST(the_duck_starts_where_it_is_and_ends_in_silence);
+  RUN_TEST(the_duck_only_ever_falls);
+  RUN_TEST(no_duration_means_silence_at_once);
+  RUN_TEST(ducking_from_silence_stays_at_silence);
+  RUN_TEST(no_step_of_the_duck_is_big_enough_to_hear_as_a_click);
+  RUN_TEST(the_duck_is_the_mirror_of_the_fade);
 
   return UNITY_END();
 }

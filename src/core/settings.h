@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 4
+#define SETTINGS_VERSION 5
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -105,6 +105,18 @@ typedef struct {
    * and the built in figures are used, which are one radio's numbers. */
   uint16_t potRawMin; /**< Reading at the quiet end. */
   uint16_t potRawMax; /**< Reading at the loud end. */
+
+  /* Version 5. The polish, all of it switchable off. A radio that beeps at
+   * you and cannot be told to stop is worse than one that never beeped. */
+  /**
+   * How long the audio takes to go quiet before it is cut, milliseconds.
+   *
+   * 0 cuts instantly. Applies to a deliberate mute, to the squelch closing,
+   * and to the brief mute around a bandwidth change.
+   */
+  uint16_t softMuteMs;
+  uint8_t beepKey;  /**< Which presses make a sound. See BeepMode. */
+  uint8_t beepEdge; /**< Beep when the dial wraps at a band edge. 0 or 1. */
 } Settings;
 
 /**

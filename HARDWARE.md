@@ -291,6 +291,23 @@ noted.
 | Bluetooth | A separate JIELI transceiver chip, not the ESP32 radio |
 | Screen | 2.4 inch IPS LCD, 320x240, resistive touch |
 | Audio | TI TPA6211A1 amplifier, 40mm full range speaker |
+
+### Only one audio channel is heard
+
+Measured on 13 September 2026 with the tuner's own tone generator, AUDIO module command 24. That command takes two amplitude and frequency pairs, and what the two are is not written down anywhere: the reference firmware sets both the same, so reading it settles nothing.
+
+Four tones were played through the speaker, three seconds each:
+
+| Slot one | Slot two | Heard |
+|---|---|---|
+| 400 Hz | 400 Hz | low |
+| 1500 Hz | 1500 Hz | high |
+| 400 Hz | 1500 Hz | low |
+| 1500 Hz | 400 Hz | high |
+
+The last two are the answer. What comes out follows slot one and slot two is inaudible, so the two slots are the left and right output channels rather than two independent generators. That fits the TPA6211A1 above, which is a mono amplifier.
+
+**So two tones cannot be sounded at once through the speaker.** Anything that needs a pair, DTMF being the obvious one, cannot be done with this generator on this radio. A stereo headphone output would put one tone in each ear, which is still not a pair.
 | Battery | 3.7V, 2500mAh lithium polymer |
 | Antenna | 820mm telescopic, plus a 3.5mm external antenna port |
 | USB | Type-C, with a CH340 USB to serial chip |

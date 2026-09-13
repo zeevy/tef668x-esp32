@@ -104,6 +104,54 @@ static uint32_t sSeekVisited = 0;
 static uint32_t sSeekLimit = 0;
 static SeekConfig sSeekConfig;
 
+/* ------------------------------------------------------------- the beep --
+ *
+ * The tone is started when the command arrives and stopped once it has run
+ * long enough. Started and stopped rather than held with a delay, so a beep
+ * does not stall the queue or a seek walking the band.
+ */
+static uint32_t sBeepUntilMs = 0;
+static bool sBeeping = false;
+static bool sToneOn = false;
+static uint16_t sBeepHz = 2000;
+static uint16_t sBeepHz2 = 2000;
+
+/*
+ * Set once, on the way to a reboot. The task stops writing to the tuner from
+ * then on, so the shutdown is the only thing on the bus.
+ */
+static bool sHushed = false;
+
+/**
+ * The tone, in hertz, and how loud, in tenths of a dB below full scale.
+ *
+ * The reference firmware's figures, which it uses for its band edge beep on
+ * this chip: 2000 Hz at -5 dB. Loud enough to hear over a station, not so
+ * loud that it is startling.
+ */
+#define RADIO_BEEP_HZ 2000
+/** How loud, in tenths of a dB below full scale. */
+#define RADIO_BEEP_AMPLITUDE (-50)
+/** How long a beep lasts. The reference firmware's figure. */
+#define RADIO_BEEP_MS 50
+
+/* Whether the dial wrapping at a band edge makes a sound. Off unless asked. */
+static bool sBeepEdge = false;
+
+/* How long the audio ramps down before it is cut. Set from the settings. */
+static uint16_t sSoftMuteMs = RADIO_SOFT_MUTE_MS;
+
+/*
+ * The ramp down, while it is running.
+ *
+ * A mute cannot be sent the moment it is asked for, or the ramp has nothing
+ * to run through. So the mute is held back for as long as the ramp lasts and
+ * the volume is walked down in the meantime.
+ */
+static uint32_t sDuckFromMs = 0;
+static bool sDucking = false;
+static int8_t sDuckFromDb = 0;
+
 /**
  * How long to wait after a retune before the reading means anything.
  *
@@ -161,6 +209,7 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.tunerMuted = sLastPushedMute;
   sSnapshot.squelchMode = sSquelchMode;
   sSnapshot.seeking = sSeeking;
+  sSnapshot.beeping = sBeeping;
   sSnapshot.seekFound = sSeekFound;
   sSnapshot.squelchOpen = sSquelch.open;
   sSnapshot.squelchThresholdTenths = sSquelchThreshold;
@@ -279,10 +328,27 @@ static Tef668xError pushToTuner(const RadioSettings *from,
     return err;
   }
 
-  /* Nothing moved the dial, so nothing is muted around these. */
+  /* The dial did not move, but changing the filter clicks, so the audio is
+   * muted across it the same way a retune is. Everything else that clicks is
+   * already muted around, and this was the one that was not.
+   *
+   * Only when the radio is not muted already: muting something that is muted
+   * and unmuting it afterwards would turn the audio on. */
   if (push.bandwidth) {
+    bool hush = !to->muted && !sLastPushedMute;
+    if (hush) {
+      /* A failure here is not a reason to stop, for the same reason as the
+       * retune above: it has to reach the unmute. */
+      (void)tef668xSetMute(true);
+    }
     err = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
              : tef668xSetAmBandwidth(to->bandwidthKHz);
+    if (hush) {
+      Tef668xError back = tef668xSetMute(false);
+      if (err == TEF668X_OK) {
+        err = back;
+      }
+    }
     if (err != TEF668X_OK) {
       return err;
     }
@@ -393,6 +459,10 @@ static void radioTask(void *arg) {
 
   for (;;) {
     RadioSettings wanted = settings;
+    /* A jump is a band change or a typed frequency. A step is the knob. The
+     * two are faded differently, so which one moved the dial has to be known
+     * rather than worked out from the frequency afterwards. */
+    bool jumped = false;
     QueueItem item;
     uint32_t drained = owed;
     RadioError results[RADIO_QUEUE_DEPTH];
@@ -431,6 +501,14 @@ static void radioTask(void *arg) {
     if (sSeeking) {
       wait = 0;
     }
+    /* A ramp down needs the same treatment as a fade up, or it arrives in as
+     * many steps as there are polls. A tone needs the loop back to stop it. */
+    if (sDucking || sBeeping) {
+      TickType_t step = pdMS_TO_TICKS(RADIO_FADE_STEP_MS);
+      if (wait > step) {
+        wait = step;
+      }
+    }
 
     if (drained >= RADIO_QUEUE_DEPTH) {
       /* Every slot is already owed to a command that could not be published.
@@ -450,7 +528,17 @@ static void radioTask(void *arg) {
         /* Recorded whether or not the state machine took it. The caller
          * waiting on this one wants to know the radio has dealt with it, and
          * a refusal is dealing with it. */
-        if (item.kind == RADIO_SEEK) {
+        if (item.kind == RADIO_BEEP) {
+          /* Started here and stopped below once it has run long enough, so a
+           * tone never stalls the queue or a seek walking the band. */
+          if (item.beepMs != 0) {
+            sBeepUntilMs = millis() + item.beepMs;
+            sBeepHz = item.beepHz;
+            sBeepHz2 = item.beepHz2;
+            sBeeping = true;
+          }
+          results[drained++] = RADIO_OK;
+        } else if (item.kind == RADIO_SEEK) {
           seekBegin(&wanted, item.up);
           results[drained++] = RADIO_OK;
         } else {
@@ -464,7 +552,24 @@ static void radioTask(void *arg) {
             seekEnd(false);
           }
           sSeekFound = false;
+          /* A step that comes back on the wrong side of where it started has
+           * wrapped at a band edge. The encoder cannot tell, because it sends
+           * a number of steps and never learns where they landed. */
+          if (item.kind == RADIO_TUNE || item.kind == RADIO_SET_BAND ||
+              item.kind == RADIO_CYCLE_BAND) {
+            jumped = true;
+          }
+          uint32_t was = wanted.freqKHz;
           results[drained++] = radioApply(&wanted, &sPlan, &item);
+          if (sBeepEdge && item.kind == RADIO_STEP && item.steps != 0 &&
+              wanted.freqKHz != was) {
+            bool wrapped =
+                item.steps > 0 ? wanted.freqKHz < was : wanted.freqKHz > was;
+            if (wrapped) {
+              sBeepUntilMs = millis() + RADIO_BEEP_MS;
+              sBeeping = true;
+            }
+          }
         }
       }
     }
@@ -495,7 +600,38 @@ static void radioTask(void *arg) {
     /* Muted while the dial is moving, or a seek is a second of every station
      * and every patch of noise between them. The mute comes off when it
      * stops, including when it stops empty handed. */
-    heard.muted = wanted.muted || !sSquelch.open || sSeeking;
+    bool hushWanted = wanted.muted || !sSquelch.open || sSeeking;
+
+    /* Going quiet is a ramp, not a step. The mute itself is held back until
+     * the ramp has run, because a mute sent at the start would cut the audio
+     * before the ramp had anything to walk down.
+     *
+     * A seek is exempt: it mutes and unmutes once per channel, and a ramp on
+     * each would be most of the settle time. */
+    if (sSoftMuteMs != 0 && !sSeeking) {
+      if (hushWanted && !sLastPushedMute && !sDucking) {
+        sDucking = true;
+        sDuckFromMs = millis();
+        sDuckFromDb = sLastPushedVolume;
+      } else if (!hushWanted) {
+        if (sLastPushedMute) {
+          /* Coming back. The fade up takes it from silence to the target over
+           * the same length, so unmuting is a ramp as well rather than a step
+           * from nothing to full. */
+          sFadeFromMs = millis();
+          sFadeMs = sSoftMuteMs;
+        }
+        sDucking = false;
+      }
+    } else {
+      sDucking = false;
+    }
+    bool duckDone =
+        !sDucking || (uint32_t)(millis() - sDuckFromMs) >= sSoftMuteMs;
+    if (sDucking && duckDone) {
+      sDucking = false;
+    }
+    heard.muted = hushWanted && (!sDucking || duckDone);
     RadioSettings wasHeard = settings;
     wasHeard.muted = sLastPushedMute;
     wasHeard.volumeDb = sLastPushedVolume;
@@ -508,10 +644,14 @@ static void radioTask(void *arg) {
      * then ramped back. That is the opposite of the point, and it is subtle
      * enough to survive a listening test: it still ends in a ramp.
      *
-     * Judged on push.retune rather than on which commands arrived, because a
+     * Judged on push.retune as well as on which command arrived, because a
      * tune the state machine refused, or a band command naming the band the
-     * radio is already on, moves nothing and should fade nothing. */
-    if (push.retune && !firstPass) {
+     * radio is already on, moves nothing and should fade nothing.
+     *
+     * A step is not a jump. Turning the knob one click has to be instant, or
+     * the dial feels slow, and a fade that restarts on every click never
+     * finishes. So the fade is for a band change or a typed frequency. */
+    if (push.retune && jumped && !firstPass) {
       sFadeFromMs = millis();
       sFadeMs = RADIO_BAND_FADE_MS;
     }
@@ -521,6 +661,19 @@ static void radioTask(void *arg) {
      * knob still works during one. */
     heard.volumeDb =
         radioFadeVolume(wanted.volumeDb, millis() - sFadeFromMs, sFadeMs);
+    if (sDucking) {
+      /* On the way out, so the ramp down wins over any fade up. */
+      heard.volumeDb =
+          radioDuckVolume(sDuckFromDb, millis() - sDuckFromMs, sSoftMuteMs);
+    } else if (heard.muted) {
+      /* Held at the bottom for as long as the mute lasts.
+       *
+       * Without this the volume returns to the target on the round the mute
+       * is applied, and pushToTuner writes the volume before the mute, so the
+       * radio jumps back to full for one I2C transaction and then goes quiet.
+       * That is a louder click than the one the ramp exists to remove. */
+      heard.volumeDb = RADIO_VOLUME_MIN;
+    }
     if (heard.volumeDb != wasHeard.volumeDb) {
       push.volume = true;
     }
@@ -528,6 +681,16 @@ static void radioTask(void *arg) {
     /* No `changed` guard here. The squelch can move the mute with no command
      * having arrived at all, and a push that only happens when something was
      * drained would never act on it. Comparing the two is the whole test. */
+    if (sHushed) {
+      /* On the way to a reboot. radioHush has taken the audio down and is
+       * the only thing allowed to talk to the tuner now. */
+      push.retune = false;
+      push.bandwidth = false;
+      push.volume = false;
+      push.mute = false;
+      push.features = false;
+      pushFailed = false;
+    }
     if (push.retune || push.bandwidth || push.volume || push.mute ||
         push.features || pushFailed) {
       /* After a failure the tuner's state is not known, so everything goes
@@ -546,6 +709,27 @@ static void radioTask(void *arg) {
       }
     }
     settings = wanted;
+
+    /* The tone, started when the command arrived and stopped here. Checked
+     * every round rather than waited out, so it never holds the queue. */
+    if (sBeeping) {
+      if (!sToneOn) {
+        sToneOn = tef668xTone(true, RADIO_BEEP_AMPLITUDE, sBeepHz, sBeepHz2) ==
+                  TEF668X_OK;
+      }
+      if ((int32_t)(millis() - sBeepUntilMs) >= 0) {
+        /* Tried again next round if it fails. Turning the tone off is also
+         * what puts the audio path back on the tuner, so giving up on it
+         * would leave the radio on, tuned, unmuted, reporting a good signal
+         * and silent until the next reboot. */
+        if (tef668xTone(false, 0, 0, 0) == TEF668X_OK) {
+          sToneOn = false;
+          sBeeping = false;
+        } else {
+          lastError = TEF668X_ERR_WRITE;
+        }
+      }
+    }
 
     /* The seek decision, taken on a reading of its own rather than on the one
      * the poll below takes. The poll runs on its own cadence and would often
@@ -753,7 +937,13 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   sLastPushedMute = false;
   sSeeking = false;
   sSeekFound = false;
+  sBeeping = false;
+  sToneOn = false;
+  sDucking = false;
   seekDefaults(&sSeekConfig);
+  if (settings != NULL) {
+    sSoftMuteMs = settings->softMuteMs;
+  }
   if (settings != NULL) {
     sSeekConfig.fmSensitivity = settings->fmScanSensitivity;
     sSeekConfig.amSensitivity = settings->amScanSensitivity;
@@ -860,6 +1050,68 @@ RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
     }
     vTaskDelay(step);
   }
+}
+
+bool radioBeep(uint16_t ms) {
+  return radioBeepAt(ms, RADIO_BEEP_HZ, RADIO_BEEP_HZ);
+}
+
+bool radioBeepAt(uint16_t ms, uint16_t hz, uint16_t hz2) {
+  if (ms == 0) {
+    return true;
+  }
+  /* The pitch travels on the command, not in a global the caller writes and
+   * the task reads later. Two beeps asked for at once would otherwise both
+   * play at whichever pitch was written last. */
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_BEEP;
+  cmd.beepMs = ms;
+  cmd.beepHz = hz;
+  cmd.beepHz2 = hz2;
+  return radioPost(&cmd);
+}
+
+void radioSetSoftMuteMs(uint16_t ms) {
+  sSoftMuteMs = ms;
+}
+
+void radioSetEdgeBeep(bool on) {
+  sBeepEdge = on;
+}
+
+void radioHush(void) {
+  /* Walked down here rather than posted as a command, because the caller is
+   * about to reboot and would not wait for the task to get round to it.
+   *
+   * The tuner belongs to the radio task, so this is the one place that
+   * reaches past that. It is safe because of sHushed: the task stops pushing
+   * once that is set, which it checks every round. Without it the task would
+   * see its own record of the volume and the mute disagree with what this
+   * wrote and put them straight back, and two tasks would be on the I2C bus
+   * at once for the rest of the shutdown. */
+  sHushed = true;
+  if (sTask == NULL) {
+    /* No task ever started, so nothing else is talking to the tuner. */
+    tef668xSetMute(true);
+    return;
+  }
+
+  int8_t from = sLastPushedVolume;
+  uint16_t ms = sSoftMuteMs;
+  if (ms != 0 && !sLastPushedMute) {
+    uint32_t start = millis();
+    for (;;) {
+      uint32_t elapsed = millis() - start;
+      if (elapsed >= ms) {
+        break;
+      }
+      tef668xSetVolume(radioDuckVolume(from, elapsed, ms));
+      vTaskDelay(pdMS_TO_TICKS(RADIO_FADE_STEP_MS));
+    }
+  }
+  tef668xSetMute(true);
+  sLastPushedMute = true;
+  sLastPushedVolume = RADIO_VOLUME_MIN;
 }
 
 bool radioSeek(bool up) {

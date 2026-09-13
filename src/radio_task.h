@@ -75,6 +75,8 @@ typedef struct {
   bool seeking;
   /** The last seek found a station. False means it came back empty. */
   bool seekFound;
+  /** A tone is sounding now. */
+  bool beeping;
   int16_t squelchThresholdTenths; /**< What Manual is set to. */
   /** What came of the last few commands, so a caller can be told the truth
    *  about its own one rather than about the state that followed it. */
@@ -192,6 +194,68 @@ void radioSetSquelchMode(SquelchMode mode);
  * @return true when the command was queued.
  */
 bool radioSeek(bool up);
+
+/**
+ * Sound a short tone.
+ *
+ * Safe from any task. Returns as soon as it is queued. The tone is played
+ * through the tuner's own generator and stops on its own.
+ *
+ * A radio that is muted stays silent: the tone goes through the same output
+ * mute as everything else, and lifting the mute to beep at somebody who asked
+ * for quiet would be the wrong way round.
+ *
+ * @param ms  How long, in milliseconds. Zero does nothing.
+ * @return true when the command was queued.
+ */
+bool radioBeep(uint16_t ms);
+
+/**
+ * Sound a tone of a given pitch, or two pitches at once.
+ *
+ * @param ms   How long, in milliseconds. Zero does nothing.
+ * @param hz   The tone.
+ * @param hz2  The second tone. The same as hz for one tone.
+ * @return true when the command was queued.
+ */
+bool radioBeepAt(uint16_t ms, uint16_t hz, uint16_t hz2);
+
+/**
+ * How long the audio ramps down before it is cut, in milliseconds.
+ *
+ * Zero cuts instantly, which is what switching the ramp off has to mean.
+ * Safe from any task.
+ *
+ * @param ms  The ramp length.
+ */
+void radioSetSoftMuteMs(uint16_t ms);
+
+/**
+ * Whether the dial wrapping at a band edge makes a sound.
+ *
+ * Decided here rather than by the caller that turns the knob, because only
+ * the radio knows the dial wrapped: the encoder sends a number of steps and
+ * never learns where they landed.
+ *
+ * @param on  true to beep at the edges.
+ */
+void radioSetEdgeBeep(bool on);
+
+/**
+ * Take the audio down and mute, then return.
+ *
+ * For a reboot or a firmware update, so neither ends in a click. Blocks for
+ * the length of the ramp, which is the point: the caller is about to stop the
+ * radio, so there is nothing left to be responsive for.
+ *
+ * **The radio does not come back from this.** The task stops writing to the
+ * tuner once this has been called, so the knob, the buttons and the API all
+ * stop reaching the audio. Call it only on the way to a restart.
+ *
+ * Safe when the radio task never started, in which case it mutes the tuner
+ * and returns.
+ */
+void radioHush(void);
 
 /**
  * How fussy seek is about what counts as a station.

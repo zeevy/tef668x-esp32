@@ -211,6 +211,13 @@ typedef enum {
    * Refused on the AM bands, where the tuner has nowhere to put either.
    */
   RADIO_CYCLE_FM_FEATURES,
+  /**
+   * Sound a short tone through the tuner's own generator.
+   *
+   * Carried out by the radio task, like a seek, because it takes time and the
+   * tuner belongs to that task. Applying it here changes nothing.
+   */
+  RADIO_BEEP,
   RADIO_SET_MPH_SUPPRESSION, /**< Multipath suppression on or off. */
   RADIO_SET_EQUALIZER,       /**< Channel equalizer on or off. */
   RADIO_SET_MONO,            /**< Force mono, or allow stereo. */
@@ -243,6 +250,9 @@ typedef struct {
   uint8_t blanker[2];    /**< RADIO_SET_NOISE_BLANKER: AM then FM. */
   uint16_t deemphasisUs; /**< RADIO_SET_DEEMPHASIS: 50, 75 or 0. */
   bool up;               /**< RADIO_SEEK: true to hunt upwards. */
+  uint16_t beepMs;       /**< RADIO_BEEP: how long the tone lasts. */
+  uint16_t beepHz;       /**< RADIO_BEEP: the tone. */
+  uint16_t beepHz2;      /**< RADIO_BEEP: the second channel's tone. */
   TuneMode tuneMode;     /**< RADIO_SET_TUNE_MODE. */
 } RadioCommand;
 
@@ -348,6 +358,30 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
  */
 int8_t radioFadeVolume(int8_t targetDb, uint32_t elapsedMs,
                        uint16_t durationMs);
+
+/**
+ * How long the audio takes to go quiet before it is cut, in milliseconds.
+ *
+ * Short. This is not a fade in the musical sense, it is taking the edge off a
+ * step: long enough that the step is not a click, short enough that pressing
+ * mute still feels like pressing mute. The reference firmware cuts instantly,
+ * so there is no known good figure to take from it.
+ */
+#define RADIO_SOFT_MUTE_MS 120
+
+/**
+ * The volume on the way down to silence.
+ *
+ * The mirror of radioFadeVolume: from the target down to the bottom over the
+ * duration, rather than up from below it. Kept apart from the fade up because
+ * they happen at different moments and are allowed different lengths.
+ *
+ * @param fromDb     The volume it is leaving.
+ * @param elapsedMs  How long the ramp has been running.
+ * @param durationMs How long it lasts. Zero means no ramp, so silence at once.
+ * @return The volume to send now.
+ */
+int8_t radioDuckVolume(int8_t fromDb, uint32_t elapsedMs, uint16_t durationMs);
 
 /** Which parts of the tuner have to be told about a change. */
 typedef struct {

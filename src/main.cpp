@@ -218,6 +218,11 @@ void setup() {
   seekCfg.amSensitivity = gSettings.amScanSensitivity;
   radioSetSeekConfig(&seekCfg);
 
+  /* The polish, all of it switchable off in the settings. */
+  radioSetSoftMuteMs(gSettings.softMuteMs);
+  radioSetEdgeBeep(gSettings.beepEdge != 0);
+  inputSetBeeps((BeepMode)gSettings.beepKey);
+
   wifiBegin(&gSettings);
 
   if (!MDNS.begin(BOARD_HOSTNAME)) {
