@@ -332,6 +332,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** And version 6, which is the same length as version 5. */
 #define V6_SIZE 144
 
+/** And version 7. */
+#define V7_SIZE 148
+
 /**
  * Build a version 2 blob out of a current one.
  *
@@ -533,7 +536,6 @@ static void a_version_6_blob_gets_the_defaults_for_what_it_never_had(void) {
    * take that field out of the old padding, which is what
    * settingsFieldEndOfVersion exists to stop. */
   TEST_ASSERT_EQUAL_size_t(143, offsetof(Settings, backlightPercent));
-  TEST_ASSERT_EQUAL_size_t(V6_SIZE + 4, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -562,6 +564,53 @@ static void a_version_6_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT8(fresh.backlightFade, out.backlightFade);
   TEST_ASSERT_TRUE(settingsValid(&out));
   TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void a_version_7_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* Version 7's fields ran right to the end of its struct with no padding
+   * left over, so version 8's first field starts exactly where version 7
+   * stopped. That is the invariant worth pinning: it is what says the copy
+   * takes all of version 7 and none of version 8. */
+  TEST_ASSERT_EQUAL_size_t(V7_SIZE, offsetof(Settings, bandFreqKHz));
+
+  Settings source;
+  settingsDefaults(&source);
+  source.startFreqKHz = 98300;
+  source.backlightDimAfterS = 30;
+
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V7_SIZE);
+  uint16_t version = 7;
+  uint16_t size = V7_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V7_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT32(98300, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT8(30, out.backlightDimAfterS);
+
+  /* Every band comes back unset, which means each takes its own default. A
+   * radio updated from version 7 has never had anywhere to store these. */
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    TEST_ASSERT_EQUAL_UINT32(0, out.bandFreqKHz[i]);
+    TEST_ASSERT_EQUAL_UINT16(0, out.bandBandwidthKHz[i]);
+    TEST_ASSERT_EQUAL_UINT16(0, out.bandStepKHz[i]);
+    TEST_ASSERT_EQUAL_UINT8(0, out.bandTuneMode[i]);
+  }
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void a_stored_tuning_mode_outside_the_enum_is_refused(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.bandTuneMode[BAND_SW] = (uint8_t)TUNE_MODE_COUNT - 1;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.bandTuneMode[BAND_SW] = (uint8_t)TUNE_MODE_COUNT;
+  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 static void the_panel_light_settings_have_ranges(void) {
@@ -815,6 +864,8 @@ int main(int, char **) {
   RUN_TEST(a_version_4_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_5_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_6_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_7_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_stored_tuning_mode_outside_the_enum_is_refused);
   RUN_TEST(the_panel_light_settings_have_ranges);
   RUN_TEST(the_polish_settings_have_ranges);
   RUN_TEST(a_pot_calibration_is_judged_on_the_loud_end);

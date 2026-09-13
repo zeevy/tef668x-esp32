@@ -7,7 +7,7 @@ an ILI9341 320x240 touch display. The code is structured so other TEF668x radios
 can be added as a board header and a build environment, without touching the
 application.
 
-> **Status: it works as a radio.** It tunes FM and AM, shows what it is doing on the panel, and is worked from the knob, the keypad and the volume pot, or from a browser and the HTTP control API. It seeks for stations, holds a squelch, and comes back up where you left it. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
+> **Status: it works as a radio.** It tunes FM and AM, shows what it is doing on the panel, and is worked from the knob, the keypad and the volume pot, or from a browser and the HTTP control API. It seeks for stations, holds a squelch, and comes back up where you left it without being told to save. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
 
 ## What works today
 
@@ -25,7 +25,8 @@ Phases 0 to 2 are done and phase 3 is well under way.
 | Controls | The tuning knob, the BAND, BW and MODE buttons, the keypad and the volume pot, all sharing one path into the tuner with the API |
 | Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
 | Squelch | Off, automatic or manual, with the pot as the threshold in manual |
-| Settings | Kept across a power cycle, including the station it comes up on |
+| Settings | Kept across a power cycle, and written down on their own ten seconds after you stop changing anything |
+| Per band | Each band remembers its own frequency, filter width, step size and tuning mode, and all of it survives a power cycle |
 | Polish | The volume ramps instead of clicking, on mute, on the squelch, across a filter change and before a reboot. A chime at start up, and key and band edge beeps, through the tuner's own tone generator |
 | Panel light | Fades up at start up, dims after the radio is left alone, and comes straight back on the knob, a button, a key or the volume pot. Brightness, dim level and delay are all settings, and the dim ships off |
 | Control API | Every control the radio has, over HTTP. See below |
@@ -85,6 +86,8 @@ Every key in a document and every argument in a request is three characters or f
 | `bps` | chime at start up | `blt` | panel brightness | `bdm` | brightness when dimmed |
 | `bds` | seconds before it dims | `blf` | fade the panel up | `pnl` | the panel light block |
 | `lit` | how bright it is now | `dim` | it has dimmed | `sdb` | signal on the panel |
+| `asv` | the automatic save block | `n` | saves since boot | `dif` | not yet stored |
+| `due` | ms until it saves | `bad` | the last save failed | `idl` | the wait, ms. 0 is off |
 | `bep` | a tone is sounding | | | | |
 | `abw` | AM bandwidth | `sid` | network name | `pss` | a passphrase is stored |
 

@@ -86,6 +86,22 @@ typedef struct {
    */
   uint32_t bandFreqKHz[BAND_COUNT];
   /**
+   * What else each band was left set to.
+   *
+   * The same idea as bandFreqKHz and for the same reason: these belong to a
+   * band rather than to the radio. A filter width chosen on medium wave is
+   * not a width shortwave wants, and a step size chosen for picking between
+   * two crowded FM stations is not the one for walking medium wave.
+   *
+   * A zero entry means that band has not been set yet and takes its own
+   * default. Zero is not a real step or mode, and on the bandwidth side the
+   * FM automatic setting is also zero, which comes to the same thing: it is
+   * what an FM band defaults to anyway.
+   */
+  uint16_t bandBandwidthKHz[BAND_COUNT]; /**< Filter width, per band. */
+  uint16_t bandStepKHz[BAND_COUNT];      /**< Step size, per band. */
+  uint8_t bandTuneMode[BAND_COUNT];      /**< See TuneMode, per band. */
+  /**
    * Multipath suppression, iMS on the old radio's screen. FM only.
    *
    * True means suppress. The reference firmware stores this inverted, so

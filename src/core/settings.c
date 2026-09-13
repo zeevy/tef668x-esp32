@@ -55,6 +55,9 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
        * which is what that field is for. */
       return 144;
     case 7:
+      /* Written out by hand, like the versions before it. */
+      return 148;
+    case 8:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -95,6 +98,8 @@ static size_t settingsFieldEndOfVersion(uint16_t version) {
        * above, and the reason this table is separate from the size one. */
       return offsetof(Settings, backlightPercent);
     case 7:
+      return offsetof(Settings, bandFreqKHz);
+    case 8:
       return sizeof(Settings);
     default:
       return 0;
@@ -190,6 +195,16 @@ void settingsDefaults(Settings *s) {
   s->backlightDimPercent = 20;
   s->backlightDimAfterS = 0;
   s->backlightFade = 1;
+
+  /* Version 8. Every band unset, so each takes its own default until somebody
+   * leaves it somewhere. memset above already did this; it is written out
+   * because a zero that means something has to be stated, not inferred. */
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    s->bandFreqKHz[i] = 0;
+    s->bandBandwidthKHz[i] = 0;
+    s->bandStepKHz[i] = 0;
+    s->bandTuneMode[i] = 0;
+  }
 }
 
 bool settingsValid(const Settings *s) {
@@ -288,6 +303,16 @@ bool settingsValid(const Settings *s) {
       s->backlightDimAfterS > BACKLIGHT_DIM_AFTER_MAX_S ||
       s->backlightFade > 1) {
     return false;
+  }
+  /* The per band tuning modes. The step and the width are not checked here:
+   * what they have to be inside is the band plan, which is a different
+   * setting, and radioApply judges each against the band it belongs to and
+   * falls back to that band's default. A mode is different, because it is an
+   * enum and a value outside it would index nothing. */
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    if (s->bandTuneMode[i] >= (uint8_t)TUNE_MODE_COUNT) {
+      return false;
+    }
   }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||
       s->fmScanSensitivity > SEEK_SENSITIVITY_MAX ||

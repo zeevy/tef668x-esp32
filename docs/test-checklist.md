@@ -533,6 +533,46 @@ curl -s $R/api/state | python3 -c 'import json,sys; print(json.load(sys.stdin)["
 | 321 | Seek across the FM band | The number moves as the sweep passes stations, and settles quickly once it stops |
 | 322 | Tune to an empty channel and read `sig` and `sav` | Both sit near -10 dBuV rather than holding the last station's figure. A failed read is a different thing and shows `no reading` on the panel, but an I2C read cannot be made to fail on demand, so that path is covered by the tests rather than here. What this row checks is that a reading which arrived and happens to be low is shown as low |
 
+### Every band remembers its own settings, and the radio saves itself
+
+Ticket 24. Two things that go together: each band keeps what it was left set
+to, and that gets written down without anybody asking.
+
+**Start with the API half.** `GET /api/state` now carries `asv`, with `n` for
+how many automatic saves have been written since boot, `dif` for whether what
+the radio is set to differs from what is stored, and `due` for how long until
+the next one in milliseconds. A save that never happens and one that happens
+constantly both look the same from outside, and the second only shows up years
+later as a worn out sector.
+
+```bash
+R=http://tef668x.local
+curl -s $R/api/state | python3 -c 'import json,sys; print(json.load(sys.stdin)["asv"])'
+```
+
+| # | Do this | Expect |
+|---|---|---|
+| 323 | On medium wave set the width to 6 kHz, change to FM, change back | Still 6 kHz. This is the defect the ticket was opened around: the width was thrown away by the band change while `/api/settings` went on reporting it, so the radio ran 4 while everything said 6 |
+| 324 | On medium wave set the step to 1 kHz, go to FM, come back | Still 1 kHz. FM has its own step of 100 and keeps it |
+| 325 | On shortwave set the tuning mode to Meter band, go to FM, come back | Still Meter band. It is the one mode only shortwave has, so it is also the one that must not follow you to another band |
+| 326 | Set a different width on medium wave and on shortwave, then move between them | Each keeps its own. One stored width used to mean a choice made on medium wave followed you to shortwave |
+| 327 | Go to a band you have never used on this radio | It takes that band's own default, not the last band's. An unset band stores a zero, and zero means default for the frequency, the width, the step and the mode alike |
+| 328 | Set up three bands differently, wait for `asv.n` to go up, then power cycle | Every band comes back exactly as you left it, and the radio comes up on the band and frequency it was on |
+| 329 | Tune to a station, wait about ten seconds, power cycle without touching anything else | It comes up on that station. Nothing had to be saved by hand. This is the row a person would actually ask for |
+| 330 | Tune to a station and power cycle within a second or two | It comes up on the previous station. Ten seconds of quiet is the price of not writing to flash on every click, and this row exists so that is a known limit rather than a surprise |
+| 331 | Watch `asv.due` count down after you stop tuning | It falls to 0 over about ten seconds and then `n` goes up by one and `dif` goes false |
+| 332 | Spin the dial across a band, then stop | `n` goes up by exactly one, not once per channel. Measured over the API: twenty retunes in ten seconds cost one write |
+| 333 | Start a seek and watch `asv` while it runs | `n` does not move while `skg` is true. The dial moves every 50 ms during a seek and none of those channels is a station anybody chose |
+| 334 | Let the seek stop on a station and wait | It saves that station about ten seconds later, like any other tuning |
+| 335 | Tune away from a station and back to it again | `dif` goes true and then false, and `n` does not move. There is nothing to write when you end up where you started |
+| 336 | Press Keep these settings by hand, then watch `asv` | `n` does not jump straight afterwards. A manual save starts the wait again, so the two do not both write |
+| 337 | Change the FM band plan or the medium wave spacing, then go to a band whose stored step is no longer offered | The band takes its own default step rather than walking off the channel grid. The band plan can move under a stored value |
+| 339 | Turn the volume knob, leave it alone for twenty seconds, and watch `asv` | `n` does not move. The volume follows the knob, so it is deliberately not a reason to write. Decision 26 says the stored volume is read back in manual squelch only |
+| 340 | Power cycle without touching anything, and watch `asv` for twenty seconds | `n` stays 0 and `dif` stays false. What comes out of the settings has to go back in unchanged, or the radio writes to flash on every start. Do this a few times with the volume knob in different places: the start volume is mapped from one pot reading with no hysteresis, so a knob near the boundary between two dB is the case that used to make it write |
+| 341 | In manual squelch, set a volume, wait, power cycle | It comes up at that volume. This is the one mode where the stored volume is read, so it is also the one mode where it still has to be kept |
+| 342 | Change the Wi-Fi details, the PIN, or calibrate the knob, while a tuning change is part way through its wait | Only one write happens. Every endpoint that writes NVS starts the wait again, so the manual and automatic paths cannot take turns writing |
+| 338 | Power cycle a radio that was on the firmware before this one | It comes up on its stored band and frequency, and every band reads as unset until you visit it. A version 7 blob is 148 bytes and has no room for any of this |
+
 ### Every page control actually does something
 
 The keys and arguments were shortened to three letters. Four tables of argument names inside the handlers were missed by that rename, so the page posted the new name and the handler looked for the old one. Two of them failed **silently**: the endpoint answered 200 and reported the value unchanged.

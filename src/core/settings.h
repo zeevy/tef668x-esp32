@@ -16,12 +16,16 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* For BAND_COUNT, which sizes the per band arrays below. A count written here
+ * instead would go wrong silently the day a band is added. */
+#include "band_plan.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 7
+#define SETTINGS_VERSION 8
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -147,6 +151,19 @@ typedef struct {
   uint8_t backlightDimAfterS;
   /** Fade the panel up at start up rather than snapping it on. 0 or 1. */
   uint8_t backlightFade;
+
+  /* Version 8. What each band was left set to, so coming back to a band
+   * returns it to how you had it rather than to a default, and so that
+   * survives a power cycle.
+   *
+   * Indexed by BandId. A zero entry means that band has never been set and
+   * takes its own default. Zero is not a real step or tuning mode, and a
+   * zero bandwidth is the FM automatic setting, which is what an FM band
+   * defaults to anyway, so zero means the same thing in all three. */
+  uint32_t bandFreqKHz[BAND_COUNT];      /**< Where each band was left. */
+  uint16_t bandBandwidthKHz[BAND_COUNT]; /**< Filter width, per band. */
+  uint16_t bandStepKHz[BAND_COUNT];      /**< Step size, per band. */
+  uint8_t bandTuneMode[BAND_COUNT];      /**< See TuneMode, per band. */
 } Settings;
 
 /**

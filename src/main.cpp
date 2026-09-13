@@ -17,6 +17,7 @@
 
 #include "board/board.h"
 #include "core/access_pin.h"
+#include "core/autosave.h"
 #include "core/backlight.h"
 #include "core/band_plan.h"
 #include "core/input.h"
@@ -37,6 +38,7 @@
 #include "net/wifi_manager.h"
 #include "radio_task.h"
 #include "screen_task.h"
+#include "settings_task.h"
 
 /** The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
@@ -280,6 +282,11 @@ void setup() {
   radioSetEdgeBeep(gSettings.beepEdge != 0);
   inputSetBeeps((BeepMode)gSettings.beepKey);
 
+  /* From here the radio keeps its own settings up to date. A station tuned
+   * and then switched off is otherwise lost, because nothing was ever written
+   * unless somebody asked. */
+  settingsTaskBegin(&gSettings, AUTOSAVE_IDLE_MS);
+
   wifiBegin(&gSettings);
 
   if (!MDNS.begin(BOARD_HOSTNAME)) {
@@ -305,6 +312,7 @@ void loop() {
   /* First, so a turn of the knob is acted on before anything slower runs. */
   inputPoll();
   screenTaskPoll();
+  settingsTaskPoll();
 
   wifiLoop();
   otaLoop();

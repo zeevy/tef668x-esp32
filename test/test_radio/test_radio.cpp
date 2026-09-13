@@ -1475,6 +1475,241 @@ static void a_duck_below_the_fade_floor_resumes_at_the_floor(void) {
   TEST_ASSERT_TRUE(resumed > deep);
 }
 
+/* ------------------------------------------------- what belongs to a band */
+
+static void a_band_keeps_the_width_it_was_left_on(void) {
+  /* The defect this replaced: a width chosen and saved on medium wave was
+   * thrown away by the next band change, while the settings and the API both
+   * went on reporting it. Confirmed on the radio on 13 September 2026, set to
+   * 6 kHz on 738 and back at 4 after a trip to FM and back. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 6});
+  TEST_ASSERT_EQUAL_UINT16(6, r.bandwidthKHz);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT16(6, r.bandwidthKHz);
+}
+
+static void a_band_keeps_the_step_it_was_left_on(void) {
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_SET_STEP, .stepKHz = 1});
+  TEST_ASSERT_EQUAL_UINT16(1, r.stepKHz);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  TEST_ASSERT_EQUAL_UINT16(bandDefaultStep(BAND_FM, &plan), r.stepKHz);
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT16(1, r.stepKHz);
+}
+
+static void a_band_keeps_the_tuning_mode_it_was_left_on(void) {
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  apply((RadioCommand){.kind = RADIO_SET_TUNE_MODE,
+                       .tuneMode = TUNE_MODE_METER_BAND});
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_METER_BAND, r.tuneMode);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_METER_BAND, r.tuneMode);
+}
+
+static void a_band_never_set_takes_its_own_default(void) {
+  /* Zero means never set, and every band starts that way. FM wants the
+   * automatic width, which is zero as well, so the two agree. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_LW});
+  TEST_ASSERT_EQUAL_UINT16(RADIO_AM_DEFAULT_BANDWIDTH_KHZ, r.bandwidthKHz);
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_MANUAL, r.tuneMode);
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  TEST_ASSERT_EQUAL_UINT16(0, r.bandwidthKHz);
+}
+
+static void each_band_keeps_its_own_width_separately(void) {
+  /* The other half of the ticket: one stored width meant a choice made on
+   * medium wave followed you to shortwave. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 6});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 3});
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT16(6, r.bandwidthKHz);
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_SW});
+  TEST_ASSERT_EQUAL_UINT16(3, r.bandwidthKHz);
+}
+
+static void a_stored_step_the_band_no_longer_offers_is_dropped(void) {
+  /* The band plan can move under a stored value. A step that was legal
+   * before a medium wave spacing change need not be one the band offers
+   * after it, and restoring it would leave the dial walking off the grid. */
+  r.bandStepKHz[BAND_MW] = 7; /* Not a step medium wave offers. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT16(bandDefaultStep(BAND_MW, &plan), r.stepKHz);
+}
+
+static void a_tuning_mode_the_new_band_cannot_do_is_dropped(void) {
+  /* Meter band stepping only means anything on shortwave. */
+  r.bandTuneMode[BAND_MW] = (uint8_t)TUNE_MODE_METER_BAND;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_MANUAL, r.tuneMode);
+}
+
+static void a_width_from_the_wrong_side_is_never_restored(void) {
+  /* The AM widths are 3 to 8 kHz and the FM ones 56 to 311. A width from the
+   * wrong list is not a near miss: 4 kHz on FM pins the filter far narrower
+   * than a station and the radio reads as one with no aerial. */
+  /* Off FM first, then plant the bad value. Planting it while the radio is
+   * still on FM is useless: leaving the band puts the live width away over
+   * the top of it, so the rejection never runs and the test passes on the
+   * wrong path. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  r.bandBandwidthKHz[BAND_FM] = 4;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  TEST_ASSERT_EQUAL_UINT16(0, r.bandwidthKHz);
+
+  r.bandBandwidthKHz[BAND_MW] = 311;
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT16(RADIO_AM_DEFAULT_BANDWIDTH_KHZ, r.bandwidthKHz);
+}
+
+static void the_per_band_state_survives_a_round_trip_through_settings(void) {
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 6});
+  apply((RadioCommand){.kind = RADIO_SET_STEP, .stepKHz = 1});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 102800});
+
+  Settings stored;
+  settingsDefaults(&stored);
+  radioToSettings(&r, &stored);
+  TEST_ASSERT_TRUE(settingsValid(&stored));
+
+  RadioSettings back;
+  radioFromSettings(&stored, &plan, &back);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, back.band);
+  TEST_ASSERT_EQUAL_UINT32(102800, back.freqKHz);
+
+  /* And medium wave is still where it was left, with its own width and step,
+   * which is the whole point of storing the array rather than one station. */
+  RadioCommand toMw = {};
+  toMw.kind = RADIO_SET_BAND;
+  toMw.band = BAND_MW;
+  radioApply(&back, &plan, &toMw);
+  TEST_ASSERT_EQUAL_UINT32(738, back.freqKHz);
+  TEST_ASSERT_EQUAL_UINT16(6, back.bandwidthKHz);
+  TEST_ASSERT_EQUAL_UINT16(1, back.stepKHz);
+}
+
+static void the_band_in_use_is_stored_from_its_live_values(void) {
+  /* The band the radio is on has not been put away yet, because that only
+   * happens when it is left. Copying the array alone would store the stale
+   * values from the last time it was on this band, so switching off without
+   * changing band would lose everything done since arriving. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_FM});
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 846});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 8});
+
+  Settings stored;
+  settingsDefaults(&stored);
+  radioToSettings(&r, &stored);
+  TEST_ASSERT_EQUAL_UINT32(846, stored.bandFreqKHz[BAND_MW]);
+  TEST_ASSERT_EQUAL_UINT16(8, stored.bandBandwidthKHz[BAND_MW]);
+}
+
+static void typing_a_frequency_out_of_a_band_puts_the_whole_band_away(void) {
+  /* Typing a frequency on the keypad is the usual way to leave a band, so a
+   * memory kept only on the BAND button path is lost on the common route. */
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 738});
+  apply((RadioCommand){.kind = RADIO_SET_BANDWIDTH, .bandwidthKHz = 6});
+  apply((RadioCommand){.kind = RADIO_SET_STEP, .stepKHz = 1});
+
+  /* Straight out of medium wave by typing an FM frequency. */
+  apply((RadioCommand){.kind = RADIO_TUNE, .freqKHz = 98300});
+  TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
+
+  apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
+  TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+  TEST_ASSERT_EQUAL_UINT16(6, r.bandwidthKHz);
+  TEST_ASSERT_EQUAL_UINT16(1, r.stepKHz);
+}
+
+static void the_band_it_comes_up_on_gets_its_own_settings_back(void) {
+  /* The radio defaults to FM before the stored band is applied, so a radio
+   * that comes up on FM used to take the "already there" path and never pick
+   * up its own step, width or mode. */
+  Settings stored;
+  settingsDefaults(&stored);
+  stored.startBand = (uint8_t)BAND_FM;
+  stored.startFreqKHz = 102800;
+  stored.bandStepKHz[BAND_FM] = 50;
+  stored.bandTuneMode[BAND_FM] = (uint8_t)TUNE_MODE_AUTO;
+
+  RadioSettings out;
+  radioFromSettings(&stored, &plan, &out);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, out.band);
+  TEST_ASSERT_EQUAL_UINT32(102800, out.freqKHz);
+  TEST_ASSERT_EQUAL_UINT16(50, out.stepKHz);
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_AUTO, out.tuneMode);
+}
+
+static void coming_up_unchanged_leaves_nothing_to_save(void) {
+  /* What comes out of the settings has to go back in unchanged, or the
+   * automatic save writes to flash once on every power cycle for nothing. */
+  Settings stored;
+  settingsDefaults(&stored);
+  stored.startBand = (uint8_t)BAND_MW;
+  stored.startFreqKHz = 738;
+  stored.bandFreqKHz[BAND_MW] = 738;
+  stored.bandBandwidthKHz[BAND_MW] = 6;
+  stored.bandStepKHz[BAND_MW] = 1;
+  stored.bandFreqKHz[BAND_FM] = 102800;
+  stored.bandStepKHz[BAND_FM] = 100;
+  stored.amBandwidthKHz = 6;
+  TEST_ASSERT_TRUE(settingsValid(&stored));
+
+  RadioSettings out;
+  radioFromSettings(&stored, &plan, &out);
+
+  Settings again = stored;
+  radioToSettings(&out, &again);
+  TEST_ASSERT_EQUAL_UINT8(stored.startBand, again.startBand);
+  TEST_ASSERT_EQUAL_UINT32(stored.startFreqKHz, again.startFreqKHz);
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    TEST_ASSERT_EQUAL_UINT32(stored.bandFreqKHz[i], again.bandFreqKHz[i]);
+    TEST_ASSERT_EQUAL_UINT16(stored.bandBandwidthKHz[i],
+                             again.bandBandwidthKHz[i]);
+    TEST_ASSERT_EQUAL_UINT16(stored.bandStepKHz[i], again.bandStepKHz[i]);
+    TEST_ASSERT_EQUAL_UINT8(stored.bandTuneMode[i], again.bandTuneMode[i]);
+  }
+}
+
+static void the_old_single_am_width_only_fills_a_band_with_none(void) {
+  /* A blob written before the per band array existed carries one AM width.
+   * It fills a band that has none of its own, and never wins over one that
+   * does, or the old field would be a second owner of the same value. */
+  Settings stored;
+  settingsDefaults(&stored);
+  stored.startBand = (uint8_t)BAND_MW;
+  stored.startFreqKHz = 738;
+  stored.amBandwidthKHz = 8;
+
+  RadioSettings out;
+  radioFromSettings(&stored, &plan, &out);
+  TEST_ASSERT_EQUAL_UINT16(8, out.bandwidthKHz);
+  /* And it is written into the array, so the array is the only one read from
+   * here on. */
+  TEST_ASSERT_EQUAL_UINT16(8, out.bandBandwidthKHz[BAND_MW]);
+
+  /* A band with its own width keeps it. */
+  stored.bandBandwidthKHz[BAND_MW] = 3;
+  radioFromSettings(&stored, &plan, &out);
+  TEST_ASSERT_EQUAL_UINT16(3, out.bandwidthKHz);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
@@ -1584,6 +1819,21 @@ int main(int, char **) {
   RUN_TEST(the_inverse_fade_has_no_duration_to_be_part_way_through);
   RUN_TEST(a_cancelled_duck_picks_up_where_it_left_off);
   RUN_TEST(a_duck_below_the_fade_floor_resumes_at_the_floor);
+
+  RUN_TEST(a_band_keeps_the_width_it_was_left_on);
+  RUN_TEST(a_band_keeps_the_step_it_was_left_on);
+  RUN_TEST(a_band_keeps_the_tuning_mode_it_was_left_on);
+  RUN_TEST(a_band_never_set_takes_its_own_default);
+  RUN_TEST(each_band_keeps_its_own_width_separately);
+  RUN_TEST(a_stored_step_the_band_no_longer_offers_is_dropped);
+  RUN_TEST(a_tuning_mode_the_new_band_cannot_do_is_dropped);
+  RUN_TEST(a_width_from_the_wrong_side_is_never_restored);
+  RUN_TEST(the_per_band_state_survives_a_round_trip_through_settings);
+  RUN_TEST(the_band_in_use_is_stored_from_its_live_values);
+  RUN_TEST(typing_a_frequency_out_of_a_band_puts_the_whole_band_away);
+  RUN_TEST(the_band_it_comes_up_on_gets_its_own_settings_back);
+  RUN_TEST(coming_up_unchanged_leaves_nothing_to_save);
+  RUN_TEST(the_old_single_am_width_only_fills_a_band_with_none);
 
   return UNITY_END();
 }

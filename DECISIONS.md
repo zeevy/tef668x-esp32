@@ -741,6 +741,8 @@ The last row is the band plan, the medium wave spacing and which encoder is fitt
 
 The reason for `POST /api/save` rather than a stored value beside every live one: two copies of the same thing drift, and then a person has to know which of the two a page is showing. It also gives "come up on the station I was listening to" for nothing, because that is the same call.
 
+That call now also happens on its own, ten seconds after the radio stops changing, which is what makes "come up where I left it" true for somebody who never presses anything. It writes the same candidate the manual save writes, built by the one function both call, so the two cannot keep different subsets. The manual save stays, because it is still the way to say "this one, now" and it is how a test pins a known state. The delay is measured rather than chosen, and the reasoning is in decision 29.
+
 `radioPlanFromSettings`, `radioFromSettings` and `radioToSettings` in `core/radio.c` are the only three places the two forms are converted. A caller that built its own band plan from the defaults would be a second answer to "what is the band plan", and there was already one of those.
 
 The volume belongs to the knob, and a stored volume arguing with the knob at every start up is exactly what this refuses. There is one exception, and it is the reason the exception is safe: in manual squelch the knob is the squelch control and never touches the volume, so in that one mode nothing on the radio says how loud to be. `startVolumeDb` is stored for that case and read in no other. Without it a radio left in manual squelch comes up at whatever the threshold maps to, which is full volume at one end of the travel and silence at the other.
@@ -778,6 +780,24 @@ The brightness settings act the moment they are written rather than at the next 
 The residual risk, written down because RULES.md asks for it: `backlightPercent` has a floor of 5 per cent and no way to reach 0. A panel driven to nothing while the radio is in use is a panel that looks broken, and the only control for it is the web page that has just gone dark. The dim level has no floor, because that one is left on purpose and any input brings it back.
 
 Checklist row 283 says that with every one of these switched off the radio behaves as it did before the polish was added. That still holds. The panel light adds one more thing to switch off, the fade, and the dim is already off on a radio nobody has told otherwise.
+
+### 29. The radio writes its own settings down, and what belongs to a band stays with it
+
+Two halves of one idea, and the second is what makes the first worth having.
+
+**What belongs to a band stays with that band.** The frequency already did. The filter width, the step size and the tuning mode now do too. A width chosen on medium wave is not a width shortwave wants, 1 kHz steps chosen to pick between two crowded medium wave stations are not what FM wants, and meter band stepping only exists on shortwave at all. Each is stored per band and each is checked against the band before it is restored, because the band plan can move under a stored value: a step that was legal before a medium wave spacing change need not be one the band offers after it.
+
+A zero entry means that band has never been set and takes its own default. Zero is not a real step or tuning mode, and a zero width is the FM automatic setting, which is what an FM band defaults to anyway, so zero means the same thing in all four.
+
+This replaced a defect rather than adding a feature. `settleAfterBandChange` reset the width to a fixed default on every band change and never read the stored one, which was only applied at boot. Confirmed on the radio on 13 September 2026: 6 kHz set and saved on 738 kHz, then a trip to FM and back, and the radio was running 4 while `GET /api/settings` still reported 6. A setting that is accepted, reported back and quietly ignored is the failure this project keeps finding.
+
+**The radio writes itself down ten seconds after it stops changing.** Nothing was kept before unless somebody asked, so a person who tuned a station and switched the radio off lost it, which is not what a radio does.
+
+Ten seconds is measured, not chosen. Over 154 seconds of ordinary use the gaps between one input and the next had a median of 0.43 s and a 99th percentile of 6.1 s, so ten is about 1.6 times the longest gap inside a burst of tuning. A burst of hunting across a band comes out as one write rather than forty, which was confirmed on the radio: twenty retunes in ten seconds cost exactly one. Fifteen seconds would have saved one further write per session and left a longer window in which switching off loses the station just found, and closing that window is the point. The working is in the usage section of HARDWARE.md.
+
+Three things keep the flash safe, and all three are checked rather than assumed. It only writes when what the radio is set to actually differs from what is stored, so the IDF's own skip-identical behaviour never has to be relied on. It never writes while a seek is running, because the dial moves every fifty milliseconds during one and none of those channels is a station anybody chose. And a write, from here or from the manual save, starts the wait again, so the two cannot take turns writing.
+
+The residual risk, written down because RULES.md asks for it: a station tuned and then switched off within about ten seconds is still lost. That is the deliberate trade against flash wear rather than an oversight, and checklist row 330 exists so it is a known limit rather than a surprise.
 
 ### Licence
 

@@ -18,6 +18,7 @@
 #include "net/wifi_manager.h"
 #include "radio_task.h"
 #include "screen_task.h"
+#include "settings_task.h"
 
 #include <Update.h>
 #include <WebServer.h>
@@ -1163,6 +1164,7 @@ static void handleWifi(void) {
     return;
   }
   *sSettings = pending;
+  settingsTaskSaved();
 
   Serial.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
   sendResult(200, "Saved",
@@ -1302,6 +1304,7 @@ static void handleSetPin(void) {
     return;
   }
   *sSettings = pending;
+  settingsTaskSaved();
   sAccessPin = wanted;
 
   /* The old session was opened with the old PIN, so it goes. */
@@ -1604,6 +1607,22 @@ static String buildState(void) {
   out += F(",\"sdb\":");
   out += String((int)screenTaskSignalShown());
   out += F("}");
+  /* What the automatic save is doing. A save that never fires and one that
+   * fires constantly both look the same from outside, and the second only
+   * shows up years later as a worn out sector. */
+  SettingsSaveStatus save;
+  settingsTaskStatus(&save);
+  out += F(",\"asv\":{\"n\":");
+  out += String(save.saves);
+  out += F(",\"dif\":");
+  out += save.differs ? F("true") : F("false");
+  out += F(",\"due\":");
+  out += String(save.dueInMs);
+  out += F(",\"bad\":");
+  out += save.lastFailed ? F("true") : F("false");
+  out += F(",\"idl\":");
+  out += String(save.idleMs);
+  out += F("}");
   out += F(",");
   appendInputState(out);
   out += F(",");
@@ -1642,6 +1661,17 @@ static String buildState(void) {
  * | `lit` | How bright the panel is now | percent |
  * | `dim` | It has been left alone long enough to have dropped | |
  * | `sdb` | The signal number on the panel, held still | whole dBuV |
+ *
+ * Inside `asv`, the automatic save. Not to be confused with `sav` above,
+ * which is the smoothed signal level:
+ *
+ * | Key | Full name | Unit |
+ * |---|---|---|
+ * | `n` | Automatic saves written since boot | |
+ * | `dif` | What the radio is set to is not what is stored | |
+ * | `due` | How long until a save, 0 when none is waiting | ms |
+ * | `bad` | The last automatic write was refused or failed | |
+ * | `idl` | The wait in use. 0 means it is switched off | ms |
  *
  * Inside `tuner`, when the tuner started:
  *
@@ -2331,6 +2361,7 @@ static void handleApiSettingsPost(void) {
     return;
   }
   *sSettings = pending;
+  settingsTaskSaved();
 
   /* The seek sensitivities are the one part of this endpoint that acts at
    * once. They are not read at start up like the band plan: nothing is tuned
@@ -2471,6 +2502,7 @@ static void handleApiPot(void) {
     return;
   }
   *sSettings = pending;
+  settingsTaskSaved();
 
   String said =
       String("The knob runs ") + rawMin + " to " + rawMax + ", stored.";
@@ -2583,15 +2615,17 @@ static void handleApiSave(void) {
     return;
   }
 
-  RadioSnapshot now;
-  if (!radioGetSnapshot(&now)) {
+  /* Built by the same call the automatic save uses, so the two can never
+   * write different subsets of what the radio is set to.
+   *
+   * One snapshot, not two. Taking a second one for the reply lets the dial
+   * move in between, and the message then names a station that was not the
+   * one written. */
+  Settings pending;
+  if (!settingsBuildCandidate(sSettings, &pending, NULL)) {
     apiFail(503, "The radio is busy. Nothing was saved.");
     return;
   }
-
-  Settings pending = *sSettings;
-  radioToSettings(&now.settings, &pending);
-  pending.squelchMode = (uint8_t)radioSquelchMode(NULL);
 
   /* The radio can reach states the stored form has no room for, and the AM
    * width on an FM band is one of them. Refusing here beats writing a blob
@@ -2605,12 +2639,16 @@ static void handleApiSave(void) {
     return;
   }
   *sSettings = pending;
+  /* So an automatic save is not left due the moment this one lands. */
+  settingsTaskSaved();
 
+  /* From what was written, not from a fresh look at the radio. The reply has
+   * to name the station that went into NVS. */
+  BandId saved = (BandId)pending.startBand;
   char text[16];
-  bandFormatFrequency(now.settings.band, now.settings.freqKHz, text,
-                      sizeof(text));
+  bandFormatFrequency(saved, pending.startFreqKHz, text, sizeof(text));
   String said = String("Saved. It will come up on ") + text + " " +
-                bandFrequencyUnit(now.settings.band) + ", squelch " +
+                bandFrequencyUnit(saved) + ", squelch " +
                 squelchModeName((SquelchMode)pending.squelchMode) + ".";
   Serial.printf("[api] %s\n", said.c_str());
   sServer.send(200, "text/plain", said + "\n");

@@ -27,21 +27,58 @@ static uint32_t bandHome(BandId band, const BandPlanConfig *plan) {
  * bandwidth of zero, and zero on the AM side is not a width at all, so the
  * tuner refuses it and the radio goes quiet.
  */
+/** What a band uses when nobody has ever set it. */
+static uint16_t bandOwnBandwidth(BandId band) {
+  /* Zero on FM is the tuner choosing the width itself, which is what an FM
+   * band wants until told otherwise. There is no such mode on the AM side. */
+  return bandModulation(band) == MODULATION_FM
+             ? 0
+             : (uint16_t)RADIO_AM_DEFAULT_BANDWIDTH_KHZ;
+}
+
+/** Put away what this band was left set to, before leaving it. */
+static void rememberBand(RadioSettings *s) {
+  if (s->band >= BAND_COUNT) {
+    return;
+  }
+  s->bandFreqKHz[s->band] = s->freqKHz;
+  s->bandBandwidthKHz[s->band] = s->bandwidthKHz;
+  s->bandStepKHz[s->band] = s->stepKHz;
+  s->bandTuneMode[s->band] = (uint8_t)s->tuneMode;
+}
+
 static void settleAfterBandChange(RadioSettings *s,
                                   const BandPlanConfig *plan) {
-  s->stepKHz = bandDefaultStep(s->band, plan);
-  if (!radioTuneModeAllowed(s->tuneMode, s->band)) {
-    s->tuneMode = TUNE_MODE_MANUAL;
-  }
-  /* The bandwidth goes back to what the new band wants, in both directions.
+  /* Back to what this band was left set to, or to its own default when it has
+   * never been set. The step and the mode belong to a band the same way the
+   * frequency does: 1 kHz steps chosen to pick between two crowded medium
+   * wave stations are not what FM wants, and meter band stepping only exists
+   * on shortwave.
    *
-   * Carrying it across is wrong each way. An FM automatic setting of zero is
-   * not a width at all on the AM side, so the tuner refuses it. An AM width of
-   * 4 kHz on FM is a tenth of what the signal needs, so the audio is muffled
-   * and stereo never locks. A bandwidth belongs to a band, not to the radio. */
-  s->bandwidthKHz = bandModulation(s->band) == MODULATION_FM
-                        ? 0
-                        : RADIO_AM_DEFAULT_BANDWIDTH_KHZ;
+   * Each is checked against the band rather than trusted, because the band
+   * plan can move under a stored value. A step that was legal before a
+   * medium wave spacing change may not be one the band offers now. */
+  uint16_t step = s->band < BAND_COUNT ? s->bandStepKHz[s->band] : 0;
+  s->stepKHz = bandStepAllowed(s->band, plan, step)
+                   ? step
+                   : bandDefaultStep(s->band, plan);
+
+  TuneMode mode = s->band < BAND_COUNT ? (TuneMode)s->bandTuneMode[s->band]
+                                       : TUNE_MODE_MANUAL;
+  s->tuneMode = radioTuneModeAllowed(mode, s->band) ? mode : TUNE_MODE_MANUAL;
+
+  /* The width, which is the one that was going wrong. Carrying the old band's
+   * across is wrong each way: an FM automatic setting of zero is not a width
+   * at all on the AM side, so the tuner refuses it, and an AM width of 4 kHz
+   * on FM is a tenth of what the signal needs, so the audio is muffled and
+   * stereo never locks.
+   *
+   * Going back to a fixed default instead is also wrong, and that is what it
+   * did: a width chosen and saved on medium wave was thrown away by the next
+   * band change, while the settings and the API both went on reporting it. */
+  uint16_t width = s->band < BAND_COUNT ? s->bandBandwidthKHz[s->band] : 0;
+  s->bandwidthKHz =
+      bandBandwidthAllowed(s->band, width) ? width : bandOwnBandwidth(s->band);
 }
 
 const char *tuneModeName(TuneMode mode) {
@@ -147,14 +184,45 @@ void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
     return;
   }
 
-  /* The band first, then the frequency inside it, so the frequency is judged
-   * against the band it belongs to. */
-  if (settings->startBand < BAND_COUNT) {
-    RadioCommand band = {};
-    band.kind = RADIO_SET_BAND;
-    band.band = (BandId)settings->startBand;
-    radioApply(out, plan, &band);
+  /* What each band was left set to, before the band is chosen, because
+   * changing to a band is what reads these. Loading them afterwards would
+   * leave the band the radio comes up on at its defaults while every other
+   * band had its own settings, which is the confusing half of working. */
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    out->bandFreqKHz[i] = settings->bandFreqKHz[i];
+    out->bandBandwidthKHz[i] = settings->bandBandwidthKHz[i];
+    out->bandStepKHz[i] = settings->bandStepKHz[i];
+    out->bandTuneMode[i] = settings->bandTuneMode[i] < (uint8_t)TUNE_MODE_COUNT
+                               ? settings->bandTuneMode[i]
+                               : (uint8_t)TUNE_MODE_MANUAL;
   }
+
+  /* The band first, then the frequency inside it, so the frequency is judged
+   * against the band it belongs to.
+   *
+   * Settled directly rather than through a RADIO_SET_BAND command. That
+   * command returns early when the radio is already on the band being asked
+   * for, which is right in use and wrong here: radioDefaults leaves the
+   * radio on FM, so a radio that comes up on FM would take that early return
+   * and never pick up its stored step, width or mode. The symptom is mild
+   * and permanent, an FM band that quietly ignores everything but its
+   * frequency, and it also leaves what is stored disagreeing with what the
+   * radio is set to from the first moment, which makes the automatic save
+   * write once on every power cycle for nothing. */
+  if (settings->startBand < BAND_COUNT) {
+    out->band = (BandId)settings->startBand;
+  }
+  settleAfterBandChange(out, plan);
+  /* Where this band was left, the same way RADIO_SET_BAND does it, and not
+   * the bottom of the band. The stored frequency is applied below and
+   * normally lands on the same place, but it can resolve to a different band
+   * when the region or the medium wave spacing has moved under it, and that
+   * is a band change, which puts this band away. Putting the bottom of the
+   * band away is losing the station it was left on. */
+  uint32_t home = out->band < BAND_COUNT ? out->bandFreqKHz[out->band] : 0;
+  out->freqKHz = (home != 0 && bandContains(out->band, plan, home))
+                     ? home
+                     : bandHome(out->band, plan);
   if (settings->startFreqKHz != 0) {
     RadioCommand tune = {};
     tune.kind = RADIO_TUNE;
@@ -194,10 +262,21 @@ void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
   out->amNoiseBlankerStart = settings->amNoiseBlankerStart;
   out->deemphasisUs = settings->fmDeemphasisUs;
 
-  /* The AM width only applies where AM applies. On FM the automatic setting
-   * is what the band wants and settleAfterBandChange has already chosen it. */
-  if (bandModulation(out->band) != MODULATION_FM) {
+  /* The single AM width that came before the per band ones, applied only to
+   * a band that has none of its own.
+   *
+   * There has to be one owner. The per band array is it, and this is what a
+   * blob written before that array existed carries instead. Writing it over
+   * the array every time would make the old field quietly win, which is two
+   * sources of truth for one value and the way they drift apart.
+   *
+   * It is written into the array as well, so from here on the array is the
+   * only one being read. */
+  if (bandModulation(out->band) != MODULATION_FM && out->band < BAND_COUNT &&
+      out->bandBandwidthKHz[out->band] == 0 &&
+      bandBandwidthAllowed(out->band, settings->amBandwidthKHz)) {
     out->bandwidthKHz = settings->amBandwidthKHz;
+    out->bandBandwidthKHz[out->band] = settings->amBandwidthKHz;
   }
 }
 
@@ -207,6 +286,23 @@ void radioToSettings(const RadioSettings *radio, Settings *settings) {
   }
   settings->startBand = (uint8_t)radio->band;
   settings->startFreqKHz = radio->freqKHz;
+
+  /* What each band was left set to. The band the radio is on right now has
+   * not been put away yet, because that only happens when it is left, so its
+   * live values are written in here rather than the stale ones from the last
+   * time it was left. */
+  for (size_t i = 0; i < BAND_COUNT; i++) {
+    settings->bandFreqKHz[i] = radio->bandFreqKHz[i];
+    settings->bandBandwidthKHz[i] = radio->bandBandwidthKHz[i];
+    settings->bandStepKHz[i] = radio->bandStepKHz[i];
+    settings->bandTuneMode[i] = radio->bandTuneMode[i];
+  }
+  if (radio->band < BAND_COUNT) {
+    settings->bandFreqKHz[radio->band] = radio->freqKHz;
+    settings->bandBandwidthKHz[radio->band] = radio->bandwidthKHz;
+    settings->bandStepKHz[radio->band] = radio->stepKHz;
+    settings->bandTuneMode[radio->band] = (uint8_t)radio->tuneMode;
+  }
   /* Kept for the one mode where the knob is not the volume. Clamped to what
    * the knob itself can ask for, because that is the range it is compared
    * against when the mode changes back. */
@@ -278,13 +374,13 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
        * come with it or the next turn of the knob moves by something the new
        * band does not offer. */
       if (band != settings->band) {
-        /* And the band being left has to remember where it was, exactly as
-         * it does when the BAND button moves off it. Typing a frequency on
-         * the keypad is the usual way to leave a band, so without this the
-         * memory is lost on the most common route out. */
-        if (settings->band < BAND_COUNT) {
-          settings->bandFreqKHz[settings->band] = settings->freqKHz;
-        }
+        /* And the band being left has to be put away, exactly as it is when
+         * the BAND button moves off it. Typing a frequency on the keypad is
+         * the usual way to leave a band, so anything remembered only on the
+         * button path is lost on the most common route out. The whole band
+         * goes, not only the dial: the width, the step and the mode belong
+         * to it just as much. */
+        rememberBand(settings);
         settings->band = band;
         settleAfterBandChange(settings, plan);
       }
@@ -311,10 +407,8 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
         return RADIO_OK;
       }
 
-      /* Remember where this band was before leaving it. */
-      if (settings->band < BAND_COUNT) {
-        settings->bandFreqKHz[settings->band] = settings->freqKHz;
-      }
+      /* Remember how this band was left before leaving it. */
+      rememberBand(settings);
 
       settings->band = command->band;
       uint32_t back = settings->bandFreqKHz[command->band];

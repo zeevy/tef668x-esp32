@@ -271,6 +271,38 @@ An empty FM channel here reads about -10 dBuV with the ultrasonic noise in the
 hundreds, against 25 to 36 dBuV on a local station, so a level alone separates
 the two easily.
 
+### How long a person spends moving the dial before settling
+
+Measured on 13 September 2026, 154 seconds of ordinary use recorded from
+`inp.clk`, `inp.prs`, `inp.pot` and the frequency, sampled four times a
+second. Tuning around, changing band, hunting for a station and settling on
+one. 62 moments where something moved.
+
+| Gap between one input and the next | |
+|---|---|
+| Median | 0.43 s |
+| 90th percentile | 2.1 s |
+| 95th percentile | 2.7 s |
+| 99th percentile | 6.1 s |
+| Longest in the session | 13.8 s |
+
+Tuning is bursty. Nearly every gap inside a burst is under three seconds, and
+only one gap in the whole session passed ten. That is what sets how long the
+radio waits with nothing happening before it saves itself:
+
+| Idle before saving | Saves in that session |
+|---|---|
+| 3 s | 5 |
+| 5 s | 3 |
+| 10 s | 2 |
+| 15 s | 1 |
+
+Ten seconds is used. It is about 1.6 times the 99th percentile gap, so a burst
+of hunting across a band is one write rather than forty, which is the flash
+wear question. Fifteen would save one further write per session and leave a
+longer window in which switching the radio off loses the station just found,
+and closing that window is the point of saving at all.
+
 ### The volume pot never sits still, and that is why the dim works
 
 Measured on 13 September 2026, over half a minute with nobody touching the

@@ -13,9 +13,10 @@ under way. The radio joins Wi-Fi, updates itself over the air with rollback,
 brings the TEF6686 up with its patch, tunes FM and AM, shows what it is doing
 on the panel, and is worked from the knob, the keypad and the volume pot as
 well as from a browser and the HTTP control API. It seeks for stations, holds a
-squelch, and keeps its settings across a power cycle. The panel light fades up
-at start up, and can dim after the radio is left alone, though that one ships
-off.
+squelch, and writes its settings down on its own so it comes back where you
+left it. Each band keeps its own frequency, filter width, step and tuning mode.
+The panel light fades up at start up, and can dim after the radio is left
+alone, though that one ships off.
 
 Still to come: touch, LVGL, RDS, memory channels, the volume AGC, telemetry,
 the spectrum and the clock. Those are phases 4 to 6 in
@@ -25,7 +26,7 @@ This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty eight design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty nine design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.
