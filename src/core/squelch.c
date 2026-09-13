@@ -148,6 +148,29 @@ static bool readingIsGood(const SquelchConfig *cfg, SquelchMode mode,
          offset < (int16_t)cfg->amOffsetTenths;
 }
 
+bool squelchWouldOpen(const SquelchConfig *cfg, SquelchMode mode, BandId band,
+                      const SquelchReading *reading, int16_t thresholdTenths) {
+  if (mode == SQUELCH_OFF) {
+    /* Nothing is ever muted, so every channel is one the audio opens on.
+     * readingIsGood below does not know that: squelchUpdate answers it before
+     * asking, so the rules there are the automatic ones and applying them
+     * here would say a channel is silent when nothing can silence it. */
+    return true;
+  }
+  if (reading == NULL || !reading->valid) {
+    return false;
+  }
+  SquelchConfig defaults;
+  if (cfg == NULL) {
+    squelchDefaults(&defaults);
+    cfg = &defaults;
+  }
+  /* The reading stands in for the settled average, and is called settled, so
+   * the level floor is applied rather than skipped. */
+  return readingIsGood(cfg, mode, band, reading, thresholdTenths,
+                       reading->levelTenths, true);
+}
+
 bool squelchUpdate(Squelch *s, const SquelchConfig *cfg, SquelchMode mode,
                    BandId band, const SquelchReading *reading,
                    int16_t thresholdTenths, uint32_t nowMs) {

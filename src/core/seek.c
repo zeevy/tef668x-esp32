@@ -64,6 +64,13 @@ void seekDefaults(SeekConfig *out) {
   }
   out->fmSensitivity = SEEK_SENSITIVITY_DEFAULT;
   out->amSensitivity = SEEK_SENSITIVITY_DEFAULT;
+  /* Nothing until a caller says what the squelch will do. Assuming one would
+   * make a seek fussier than anybody asked for on the strength of a squelch
+   * that may be switched off. */
+  out->checkAudible = false;
+  out->squelchMode = SQUELCH_OFF;
+  squelchDefaults(&out->squelchCfg);
+  out->squelchThresholdTenths = 0;
 }
 
 uint16_t seekNoiseLimit(uint8_t sensitivity) {
@@ -126,6 +133,27 @@ bool seekShouldStop(const SeekConfig *cfg, BandId band,
   int16_t window = fm ? SEEK_OFFSET_FM_TENTHS : SEEK_OFFSET_AM_TENTHS;
   if (reading->offsetTenths <= -window || reading->offsetTenths >= window) {
     return false;
+  }
+
+  /*
+   * And it must be a channel the audio will actually open on.
+   *
+   * Asked of the squelch rather than answered again here, so the two cannot
+   * disagree about the level, the multipath, how far off centre a carrier may
+   * sit, or anything added later. A stop the squelch would immediately mute
+   * is a find nobody can hear.
+   */
+  if (cfg->checkAudible) {
+    SquelchReading heard;
+    heard.valid = true;
+    heard.levelTenths = reading->levelTenths;
+    heard.noiseTenths = reading->noiseTenths;
+    heard.multipathTenths = reading->multipathTenths;
+    heard.offsetTenths = reading->offsetTenths;
+    if (!squelchWouldOpen(&cfg->squelchCfg, cfg->squelchMode, band, &heard,
+                          cfg->squelchThresholdTenths)) {
+      return false;
+    }
   }
 
   return true;

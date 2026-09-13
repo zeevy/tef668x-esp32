@@ -200,6 +200,29 @@ static bool sRdsRawStale = false;
  * Whether the decoder runs. A setting, so it is read on every round rather
  * than captured once.
  */
+/*
+ * A settle probe waiting to be carried out, and what came of it.
+ *
+ * Written by the caller under the lock and read by the radio task, which is
+ * the only thing that touches the tuner.
+ */
+static bool sProbeWanted = false;
+static uint32_t sProbeKHz = 0;
+static uint16_t sProbeMs = 0;
+/*
+ * Which probe this is. A caller that gave up leaves its probe in flight, and
+ * without a number to match on, the next caller is handed the readings the
+ * last one abandoned, taken at a frequency it never asked about. That would
+ * be an ordinary looking line in a fixture and nothing could tell.
+ */
+static uint32_t sProbeSeq = 0;
+static uint32_t sProbeDoneSeq = 0;
+static uint8_t sProbeReads = 1;
+static uint16_t sProbeGapMs = 0;
+static bool sProbeDone = false;
+static bool sProbeOk = false;
+static Tef668xQuality sProbeQuality[RADIO_PROBE_MAX_READS];
+
 static bool sRdsEnabled = true;
 /* Set when it is switched off, so the round that notices throws away what the
  * decoder held. Doing it in radioSetRdsEnabled would touch the decoder from
@@ -877,6 +900,37 @@ static void radioTask(void *arg) {
                                               wanted.freqKHz, wanted.stepKHz);
     }
 
+    /*
+     * A settle probe moves the dial the same way, so the retune it measures
+     * is the ordinary one and not a path of its own.
+     *
+     * Never in a round that took a command off the queue. The dial the
+     * command asked for would be overwritten here while the command had
+     * already been recorded as applied, so a tune would answer success and
+     * never happen. The probe waits for a quiet round instead.
+     */
+    bool probing = false;
+    uint32_t probeKHz = 0;
+    uint16_t probeMs = 0;
+    uint8_t probeReads = 1;
+    uint16_t probeGapMs = 0;
+    uint32_t probeSeq = 0;
+    if (!sSeeking && !sHushed && drained == 0 &&
+        xSemaphoreTake(sLock, 0) == pdTRUE) {
+      if (sProbeWanted) {
+        probing = true;
+        probeKHz = sProbeKHz;
+        probeMs = sProbeMs;
+        probeReads = sProbeReads;
+        probeGapMs = sProbeGapMs;
+        probeSeq = sProbeSeq;
+      }
+      xSemaphoreGive(sLock);
+    }
+    if (probing) {
+      wanted.freqKHz = probeKHz;
+    }
+
     /* pushFailed carries a failure forward, so a retune is attempted again
      * next time round rather than being forgotten. Without it the task
      * records the settings as applied even when the push failed, and then
@@ -1077,6 +1131,41 @@ static void radioTask(void *arg) {
       }
     }
 
+    /* The probe waits and reads exactly where a seek would, so what it
+     * reports is what a seek at that settle time would have decided on. */
+    if (probing) {
+      bool fm = bandModulation(settings.band) == MODULATION_FM;
+      Tef668xQuality look[RADIO_PROBE_MAX_READS];
+      memset(look, 0, sizeof(look));
+      /* A retune that did not go out leaves the tuner where it was, so the
+       * readings would describe the parked channel while the answer named
+       * the one that was asked for. */
+      bool ok = !pushFailed;
+      if (ok) {
+        for (uint8_t i = 0; i < probeReads; i++) {
+          vTaskDelay(pdMS_TO_TICKS(i == 0 ? probeMs : probeGapMs));
+          if (tef668xReadQuality(fm, &look[i]) != TEF668X_OK) {
+            ok = false;
+          }
+        }
+      }
+      if (xSemaphoreTake(sLock, pdMS_TO_TICKS(RADIO_PUBLISH_WAIT_MS)) ==
+          pdTRUE) {
+        memcpy(sProbeQuality, look, sizeof(sProbeQuality));
+        sProbeOk = ok;
+        sProbeDone = true;
+        sProbeDoneSeq = probeSeq;
+        /* Only if this is still the probe that was asked for. A caller that
+         * gave up leaves its probe running, and clearing the flag without
+         * looking would throw away the request that replaced it, so the next
+         * caller waits out its whole timeout for a probe nobody kept. */
+        if (sProbeSeq == probeSeq) {
+          sProbeWanted = false;
+        }
+        xSemaphoreGive(sLock);
+      }
+    }
+
     /* The seek decision, taken on a reading of its own rather than on the one
      * the poll below takes. The poll runs on its own cadence and would often
      * be looking at the channel before this one, so the radio would stop one
@@ -1084,23 +1173,47 @@ static void radioTask(void *arg) {
     if (sSeeking) {
       vTaskDelay(pdMS_TO_TICKS(SEEK_SETTLE_MS));
       bool seekFm = bandModulation(settings.band) == MODULATION_FM;
+
+      /*
+       * Everything the decision needs, copied out in one go.
+       *
+       * If the lock cannot be had, this channel is not judged at all. The
+       * alternative was reading the four of them unlocked, and a torn
+       * SquelchConfig would have the seek judging against a floor nobody set,
+       * which is a wrong answer with nothing to show for it. This file
+       * already takes the line that a reading which did not arrive is not a
+       * station, and a rule that did not arrive is not a rule. The cost is
+       * walking past one channel on a round where the lock was busy, and the
+       * seek is still moving, so the next round judges the next one.
+       */
+      SeekConfig cfg;
+      seekDefaults(&cfg);
+      bool haveRules = xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE;
+      if (haveRules) {
+        cfg = sSeekConfig;
+        /* Handed over whole rather than turned into a number here. The seek
+         * asks the squelch the same question the squelch will ask itself, so
+         * the two cannot disagree about the level, the multipath, how far off
+         * centre a carrier may sit, or anything added later. */
+        cfg.checkAudible = true;
+        cfg.squelchMode = sSquelchMode;
+        cfg.squelchCfg = sSquelchCfg;
+        cfg.squelchThresholdTenths = sSquelchThreshold;
+        xSemaphoreGive(sLock);
+      }
+
       Tef668xQuality look;
       memset(&look, 0, sizeof(look));
       SeekReading found;
       memset(&found, 0, sizeof(found));
-      found.valid = tef668xReadQuality(seekFm, &look) == TEF668X_OK;
+      /* Not read at all when there is no rule to judge it by, so a channel is
+       * never stopped on by a decision made against nothing. */
+      found.valid =
+          haveRules && tef668xReadQuality(seekFm, &look) == TEF668X_OK;
       found.levelTenths = look.levelDbuVTenths;
       found.noiseTenths = look.usnTenths;
       found.multipathTenths = look.multipathTenths;
       found.offsetTenths = look.offsetKHzTenths;
-
-      SeekConfig cfg;
-      if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
-        cfg = sSeekConfig;
-        xSemaphoreGive(sLock);
-      } else {
-        cfg = sSeekConfig;
-      }
 
       if (seekShouldStop(&cfg, settings.band, &found)) {
         seekEnd(true);
@@ -1678,6 +1791,96 @@ bool radioTaskPlan(BandPlanConfig *out) {
    * radio is running, it has to move inside the snapshot. */
   *out = sPlan;
   return true;
+}
+
+RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
+                                  uint8_t reads, uint16_t gapMs,
+                                  Tef668xQuality *out, bool *moved) {
+  if (out == NULL || sLock == NULL || sTask == NULL || settleMs == 0 ||
+      settleMs > RADIO_PROBE_MAX_MS || reads == 0 ||
+      reads > RADIO_PROBE_MAX_READS || gapMs > RADIO_PROBE_MAX_MS) {
+    return RADIO_PROBE_REFUSED;
+  }
+  /* The radio task waits all of this out with the tuner untouched, so the
+   * poll, the squelch and the RDS read stop for as long as it lasts. */
+  if ((uint32_t)settleMs + (uint32_t)gapMs * (reads - 1) >
+      RADIO_PROBE_MAX_TOTAL_MS) {
+    return RADIO_PROBE_REFUSED;
+  }
+
+  RadioSnapshot now;
+  if (!radioGetSnapshot(&now)) {
+    return RADIO_PROBE_REFUSED;
+  }
+  /* The probe sets the frequency straight into the working state, so nothing
+   * else checks it. A frequency outside the band would be pushed to the tuner
+   * as it stands and the reading would describe wherever the chip landed. */
+  if (!bandContains(now.settings.band, &sPlan, khz)) {
+    return RADIO_PROBE_REFUSED;
+  }
+  if (now.seeking) {
+    return RADIO_PROBE_REFUSED;
+  }
+  /* Refused while the radio is on its way down, the same as the header says.
+   * The task will not run a probe then, so without this the caller sits out
+   * the whole timeout and is then told something untrue about its
+   * frequency. */
+  if (sHushed) {
+    return RADIO_PROBE_REFUSED;
+  }
+  if (moved != NULL) {
+    *moved = now.settings.freqKHz != khz;
+  }
+
+  if (xSemaphoreTake(sLock, pdMS_TO_TICKS(RADIO_PUBLISH_WAIT_MS)) != pdTRUE) {
+    return RADIO_PROBE_REFUSED;
+  }
+  uint32_t mine = ++sProbeSeq;
+  sProbeKHz = khz;
+  sProbeMs = settleMs;
+  sProbeReads = reads;
+  sProbeGapMs = gapMs;
+  sProbeDone = false;
+  sProbeOk = false;
+  sProbeWanted = true;
+  xSemaphoreGive(sLock);
+
+  /* Long enough for the round it lands in plus the wait it asks for. */
+  uint32_t waited = 0;
+  const uint32_t limit = (uint32_t)settleMs + (uint32_t)gapMs * reads + 2000;
+  while (waited < limit) {
+    vTaskDelay(pdMS_TO_TICKS(10));
+    waited += 10;
+    bool done = false;
+    bool ok = false;
+    if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+      /* Only this caller's own probe. One that gave up earlier can still be
+       * in flight, and its readings are about a frequency nobody here
+       * asked about. */
+      done = sProbeDone && sProbeDoneSeq == mine;
+      if (done) {
+        for (uint8_t i = 0; i < reads; i++) {
+          out[i] = sProbeQuality[i];
+        }
+        ok = sProbeOk;
+      }
+      xSemaphoreGive(sLock);
+    }
+    if (done) {
+      return ok ? RADIO_PROBE_OK : RADIO_PROBE_NO_READ;
+    }
+  }
+
+  /* Give up rather than leave a probe queued for whatever the dial does
+   * next. One already running still finishes and still stamps its number, and
+   * the next caller will not match it. */
+  if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    if (sProbeSeq == mine) {
+      sProbeWanted = false;
+    }
+    xSemaphoreGive(sLock);
+  }
+  return RADIO_PROBE_NO_ANSWER;
 }
 
 void radioSetRdsEnabled(bool on) {

@@ -740,7 +740,7 @@ Nothing here can brick the radio. A check that fails leaves the radio playing ex
 
 **None of this is on the display.** The panel shows the band, the frequency, the signal, stereo, mute and the last fault, and nothing else. The RDS block is part of the screen work in phase 4. So every check here reads `tun.rds` from `GET /api/state`, and the rows that need the radio in hand need it for the knob, the seek button or the power switch, never for something to look at on the panel.
 
-Rows 365 to 375 and 382 to 388 can be done from a browser or a terminal alone, except row 385 which needs the power switch. Rows 376 to 381 need somebody at the radio as well.
+Rows 365 to 375 and 382 to 395 can be done from a browser or a terminal alone, except row 385 which needs the power switch and row 392 which needs the pot. Rows 376 to 381 need somebody at the radio as well.
 
 ```bash
 R=http://tef668x.local
@@ -776,4 +776,12 @@ curl -s $R/api/rds/raw | head -5
 | 385 | Set `rds=0`, power cycle, and read `tun.rds` | Still off. Then set `rds=1` and power cycle again, and it is still on. The setting survives, and version 10 of the settings struct is the same 196 bytes version 9 was |
 | 386 | `GET /api/settings` and read `cut`, `bld` and `hbl` | All three are 0. The weak signal handling ships off, decision 32. A stored value here that nobody measured rolls the treble off during ordinary listening, which is how 35 came to be in this radio |
 | 387 | Tune a station reading under 35 dBuV, set `cut=35` with `POST /api/fm`, and read `tun.cut` | It is no longer 0, and how far above depends on the gap: about 9 when the signal is 2.6 dB below the start, about 70 when it is 10 dB below. The curve is in HARDWARE.md. Set `cut=0` again and it returns to 0. This is the check that the setting reaches the chip at all |
-| 388 | Read `tun.rds.ct` on any station | There is no `ct` field. No station reachable here sends the time. If one ever does, the hour shown must be the local hour, not UTC. India is 5.5 hours ahead, so a clock that reads about half a working day slow is the offset not being applied |
+| 388 | Note the stored squelch floor with `GET /api/settings`, then seek on FM and read `tun` | Wherever it stops, `skf` true and `sqo` true together. A stop with `skf` true and `sqo` false is the defect decision 33 fixes: stopped, silent, and claiming success |
+| 389 | Set `sqf=40` with `POST /api/settings`, which is above every local station, then seek from the bottom of FM | It walks the whole band, stops nowhere, and reports `skf` false. It must not stop somewhere it cannot be heard. Put `sqf` back to 15 afterwards |
+| 390 | Set `sqf=0`, which switches the floor off, then seek | It stops on stations again, using its own gates. Switching the squelch floor off must not make the seek fussier |
+| 390a | Set the squelch to Off with MODE, then seek | It stops on stations. A squelch that is off mutes nothing, so no stop can be silent and the seek must not be held back by it |
+| 391 | `POST /api/seek/settle` with `khz` and `ms`, from a different frequency | JSON with `mvd` true and the readings in `r`. Ask for the frequency the radio is already on and `mvd` is false, which means there was no retune and the reading says nothing about settling |
+| 392 | Switch to medium wave, set the squelch to Manual with MODE, and turn the pot well up so `tun.sqa` is a few hundred. Then seek | Wherever it stops, `skf` and `sqo` agree. A manual threshold applies on every band, so the seek must respect it on AM too. This is the one row here that needs the pot, because the knob owns the manual threshold and the API refuses to set it |
+| 393 | `POST /api/seek/settle` with `ms=2000&n=8&gap=2000` | 400, with a reason naming the 3000 ms budget. The radio task waits a probe out with the tuner untouched, so an unbounded one would freeze the panel and the knob |
+| 394 | `POST /api/seek/settle` while the radio is on medium wave, asking for an FM frequency | 400, naming the band. It must not tune out of the band the radio is on |
+| 395 | Read `tun.rds.ct` on any station | There is no `ct` field. No station reachable here sends the time. If one ever does, the hour shown must be the local hour, not UTC. India is 5.5 hours ahead, so a clock that reads about half a working day slow is the offset not being applied |

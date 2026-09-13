@@ -18,5 +18,7 @@
 *.bin
 *.elf
 *.map
+# gcovr leaves these in the working directory on a coverage run
+*.gcov
 captures/
 build/

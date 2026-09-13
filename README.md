@@ -48,7 +48,7 @@ curl -s -b jar -d 'stp=-1'   $R/api/step # one step down
 curl -s -b jar -d 'bnd=MW'    $R/api/band
 ```
 
-The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/memory`, `/api/rds/raw`, `/api/settings` and `/api/save`. `POST /api/settings` with `rds=0` switches the RDS decoder off, which takes the radio task on FM from a round every 31 ms back to every 99 ms. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/beep`, `/api/memory`, `/api/rds/raw`, `/api/seek/settle`, `/api/settings` and `/api/save`. `POST /api/settings` with `rds=0` switches the RDS decoder off, which takes the radio task on FM from a round every 31 ms back to every 99 ms. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
 
 ### Memory channels
 

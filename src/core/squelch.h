@@ -227,6 +227,30 @@ typedef struct {
   int16_t offsetTenths;     /* How far off centre, tenths of a kHz. */
 } SquelchReading;
 
+/*
+ * Would this one reading, on its own, let the audio open?
+ *
+ * No state, no smoothing, no hold. It answers only about the reading given,
+ * which is what something outside the squelch needs when it is deciding
+ * whether a channel is worth landing on.
+ *
+ * This exists so that the seek and the squelch cannot disagree. They were two
+ * sets of thresholds answering the same question, and they differed on the
+ * level, on multipath and on how far off centre a carrier could sit, so the
+ * radio could stop on a channel, mute it, and report a find. Sharing the test
+ * means a number changed here changes both, and a fourth disagreement cannot
+ * be introduced later by accident. Decision 33.
+ *
+ * The level floor is judged on the reading itself rather than on a settled
+ * average, because a caller asking about one channel it has just tuned has no
+ * average to offer. That makes this slightly more willing to open than the
+ * running squelch, which waits for the average to settle, and being the more
+ * willing of the two is the safe direction for a caller that is deciding
+ * whether to stop somewhere.
+ */
+bool squelchWouldOpen(const SquelchConfig *cfg, SquelchMode mode, BandId band,
+                      const SquelchReading *reading, int16_t thresholdTenths);
+
 bool squelchUpdate(Squelch *s, const SquelchConfig *cfg, SquelchMode mode,
                    BandId band, const SquelchReading *reading,
                    int16_t thresholdTenths, uint32_t nowMs);

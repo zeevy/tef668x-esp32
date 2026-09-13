@@ -947,8 +947,63 @@ static void a_failed_reading_does_not_enter_the_average(void) {
   TEST_ASSERT_EQUAL_INT32(before, s.level.accumulator);
 }
 
+/* ------------------------------------- the test the seek shares -- */
+
+/*
+ * squelchWouldOpen answers about one reading with no state behind it, so the
+ * seek can ask the same question the squelch will ask itself. Decision 33.
+ */
+static void would_open_says_yes_when_the_squelch_is_off(void) {
+  /* Off mutes nothing, so every channel opens, even one with no reading at
+   * all. Running the automatic rules here would say a channel is silent when
+   * nothing can silence it. */
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_OFF, BAND_FM, NULL, 0));
+  SquelchReading poor = bad();
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_OFF, BAND_FM, &poor, 0));
+}
+
+static void would_open_says_no_to_a_reading_that_did_not_arrive(void) {
+  SquelchReading none = good();
+  none.valid = false;
+  TEST_ASSERT_FALSE(squelchWouldOpen(&cfg, SQUELCH_AUTO, BAND_FM, &none, 0));
+  TEST_ASSERT_FALSE(squelchWouldOpen(&cfg, SQUELCH_AUTO, BAND_FM, NULL, 0));
+}
+
+static void would_open_takes_the_defaults_when_given_no_config(void) {
+  SquelchReading r = good();
+  TEST_ASSERT_TRUE(squelchWouldOpen(NULL, SQUELCH_AUTO, BAND_FM, &r, 0));
+  SquelchReading poor = bad();
+  TEST_ASSERT_FALSE(squelchWouldOpen(NULL, SQUELCH_AUTO, BAND_FM, &poor, 0));
+}
+
+static void would_open_applies_the_level_floor_without_an_average(void) {
+  /* The reading stands in for the settled average, so the floor is applied
+   * rather than skipped. A caller with one reading has no average to give. */
+  SquelchReading r = good();
+  r.levelTenths = 120; /* Under the 15.0 dBuV floor. */
+  TEST_ASSERT_FALSE(squelchWouldOpen(&cfg, SQUELCH_AUTO, BAND_FM, &r, 0));
+  r.levelTenths = 200;
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_AUTO, BAND_FM, &r, 0));
+}
+
+static void would_open_follows_a_manual_threshold_on_both_bands(void) {
+  SquelchReading r = good();
+  r.levelTenths = 300;
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_MANUAL, BAND_FM, &r, 200));
+  TEST_ASSERT_FALSE(squelchWouldOpen(&cfg, SQUELCH_MANUAL, BAND_FM, &r, 400));
+  /* And on AM, where the seek has no level gate of its own. */
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_MANUAL, BAND_MW, &r, 200));
+  TEST_ASSERT_FALSE(squelchWouldOpen(&cfg, SQUELCH_MANUAL, BAND_MW, &r, 400));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
+
+  RUN_TEST(would_open_says_yes_when_the_squelch_is_off);
+  RUN_TEST(would_open_says_no_to_a_reading_that_did_not_arrive);
+  RUN_TEST(would_open_takes_the_defaults_when_given_no_config);
+  RUN_TEST(would_open_applies_the_level_floor_without_an_average);
+  RUN_TEST(would_open_follows_a_manual_threshold_on_both_bands);
 
   RUN_TEST(off_is_always_open);
 

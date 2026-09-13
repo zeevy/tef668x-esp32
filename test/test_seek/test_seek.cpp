@@ -8,6 +8,8 @@
  */
 #include <unity.h>
 
+#include <stdio.h>
+
 #include <stdint.h>
 #include <string.h>
 
@@ -318,6 +320,132 @@ static void no_config_means_the_defaults(void) {
   }
 }
 
+/* ------------------------ the seek and the squelch cannot disagree -- */
+
+/*
+ * A seek must never stop where the audio will not open.
+ *
+ * The two used to be separate sets of thresholds and differed three ways: the
+ * seek stopped at 10.0 dBuV where the squelch opens at 15.0, allowed a
+ * multipath of 320 against its 230, and a carrier 20 kHz off centre against
+ * its 10. So the radio could stop, mute, and report a find. The seek now asks
+ * the squelch instead of keeping its own copy.
+ */
+static SeekReading atLevel(int16_t tenths) {
+  SeekReading r;
+  r.valid = true;
+  r.levelTenths = tenths;
+  r.noiseTenths = 20;
+  r.multipathTenths = 40;
+  r.offsetTenths = 50;
+  return r;
+}
+
+/* A config that asks the squelch, set up the way the radio task sets it. */
+static SeekConfig withSquelch(SquelchMode mode, int16_t thresholdTenths) {
+  SeekConfig cfg;
+  seekDefaults(&cfg);
+  cfg.checkAudible = true;
+  cfg.squelchMode = mode;
+  cfg.squelchThresholdTenths = thresholdTenths;
+  return cfg;
+}
+
+static void by_default_nothing_is_asked_of_the_squelch(void) {
+  SeekConfig cfg;
+  seekDefaults(&cfg);
+  TEST_ASSERT_FALSE(cfg.checkAudible);
+  /* Just above the seek's own floor of 10.0 and below the squelch's 15.0. */
+  SeekReading r = atLevel(120);
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &r));
+}
+
+static void the_squelch_level_floor_is_respected(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_AUTO, 0);
+  /* The gap that produced the defect. */
+  SeekReading between = atLevel(120);
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &between));
+
+  SeekReading above = atLevel(200);
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &above));
+}
+
+/*
+ * The multipath limits differed, 320 for the seek against 230 for the
+ * squelch, so a channel in between was stopped on and then muted.
+ */
+static void the_squelch_multipath_limit_is_respected(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_AUTO, 0);
+  SeekReading r = atLevel(400);
+  r.multipathTenths = 280; /* Inside the seek's 320, outside the squelch's. */
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &r));
+
+  r.multipathTenths = 200;
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &r));
+}
+
+/*
+ * And the offset windows differed, 20 kHz for the seek against 10 for the
+ * squelch. The seek's is wide on purpose, because this radio reads every FM
+ * carrier 5 to 7 kHz high, but wide enough to stop where the audio shuts is
+ * not what anybody wanted.
+ */
+static void the_squelch_offset_window_is_respected(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_AUTO, 0);
+  SeekReading r = atLevel(400);
+  r.offsetTenths = 150; /* Inside the seek's 200, outside the squelch's 100. */
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &r));
+
+  /* The crystal bias itself, plus 84 tenths, still gets through. */
+  r.offsetTenths = 84;
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &r));
+}
+
+/* A manual threshold applies on every band, so the seek must respect it on
+ * AM too, where the seek has no level gate of its own. */
+static void a_manual_threshold_is_respected_on_am(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_MANUAL, 400);
+  SeekReading weak = atLevel(50);
+  weak.multipathTenths = 0;
+  weak.offsetTenths = 5;
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_MW, &weak));
+
+  SeekReading strong = weak;
+  strong.levelTenths = 500;
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_MW, &strong));
+}
+
+/*
+ * At exactly a manual threshold the squelch is shut, because it opens above
+ * the threshold and not at it. Sharing the test means the seek gets that for
+ * free rather than having to add one to a number.
+ */
+static void the_seek_matches_the_squelch_at_the_threshold(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_MANUAL, 200);
+  SeekReading on = atLevel(200);
+  SeekReading above = atLevel(201);
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &on));
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &above));
+}
+
+/* A squelch that is off mutes nothing, so no stop can be silent. */
+static void a_squelch_that_is_off_constrains_nothing(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_OFF, 0);
+  SeekReading r = atLevel(120);
+  TEST_ASSERT_TRUE(seekShouldStop(&cfg, BAND_FM, &r));
+}
+
+/* The seek's own gates still apply on top. Sharing must not loosen it. */
+static void the_seek_gates_still_apply(void) {
+  SeekConfig cfg = withSquelch(SQUELCH_OFF, 0);
+  SeekReading noisy = atLevel(400);
+  noisy.noiseTenths = 900;
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &noisy));
+
+  SeekReading quiet = atLevel(50);
+  TEST_ASSERT_FALSE(seekShouldStop(&cfg, BAND_FM, &quiet));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
 
@@ -343,6 +471,15 @@ int main(int, char **) {
   RUN_TEST(a_sensitivity_out_of_range_is_held_at_the_edge);
   RUN_TEST(the_defaults_are_the_reference_defaults);
   RUN_TEST(no_config_means_the_defaults);
+
+  RUN_TEST(by_default_nothing_is_asked_of_the_squelch);
+  RUN_TEST(the_squelch_level_floor_is_respected);
+  RUN_TEST(the_squelch_multipath_limit_is_respected);
+  RUN_TEST(the_squelch_offset_window_is_respected);
+  RUN_TEST(a_manual_threshold_is_respected_on_am);
+  RUN_TEST(the_seek_matches_the_squelch_at_the_threshold);
+  RUN_TEST(a_squelch_that_is_off_constrains_nothing);
+  RUN_TEST(the_seek_gates_still_apply);
 
   return UNITY_END();
 }

@@ -4,7 +4,7 @@ Real readings taken off air from the ATS-125 on 13 September 2026, in Hyderabad,
 
 ## Format
 
-One line per channel, in the order they were visited.
+`fm-sweep-2026-09-13.log` has one line per channel, in the order they were visited.
 
 ```
 khz=87500 sig=-72 usn=189 wam=333 offset=8 mod=20 st=False snr=6
@@ -26,6 +26,16 @@ khz=87500 sig=-72 usn=189 wam=333 offset=8 mod=20 st=False snr=6
 | File | What it is |
 |---|---|
 | `fm-sweep-2026-09-13.log` | Every 100 kHz channel from 87.5 to 108.0 MHz, 206 of them, tuned in turn with 400 ms to settle before reading |
+| `settle-2026-09-13.log` | Eight channels probed at three park distances and three settle times, four readings a probe. 1728 readings. Taken the same night for ticket 32. A different format, described below |
+
+The settle log has a line per reading rather than per channel:
+
+```
+# khz park ms probe read sig usn wam off snr what
+106400 50 50 0 0 434 36 49 76 29 station
+```
+
+`park` is how far away the dial was before the retune, `ms` how long it waited before the first reading, `probe` which visit to the channel this was and `read` which reading within it. `what` is what the channel actually is, established by ear and by the stereo flag rather than by the gates being tested.
 
 ## What was on air
 
@@ -61,6 +71,38 @@ So the three gates each reject something the other two cannot, and none of them 
 **The multipath limit was loosened, from 200 to 320 at the default.** In this sweep nothing on the whole band read a multipath above 36, so any limit above that looked safe. The next day 95.0 MHz read 204 to 279 across nine samples and was plainly a station, stereo and audible: a weaker one with reflections. A limit fitted to the sweep alone skipped it every time, and the reference firmware's fixed 230 would have skipped it about half the time.
 
 The lesson is not that the sweep was wrong. It is that one sweep measures one afternoon, and a threshold sitting in the empty gap between two clusters is only as wide as the day that produced them.
+
+## The settle capture, and what it ruled out
+
+`settle-2026-09-13.log` was taken on the night of 13 September 2026 for ticket 32, after a seek was seen stopping on the shoulder of 93.5 and reporting a find while the auto squelch held the audio shut.
+
+It was taken with `tools/settle.py` through `POST /api/seek/settle`, which tunes, waits a controlled time and takes fresh readings off the tuner. That endpoint exists because nothing else could see what a seek decides on: `GET /api/state` serves the last polled reading, which is up to a poll interval old and often describes the channel before this one, and a sweep driven over HTTP measures that same stale path.
+
+Each probe is one retune, a wait, then four readings 50 ms apart. Three park distances, three settle times, eight channels, six repeats, which is 1728 readings.
+
+**It ruled out two explanations that looked right and were not.** Both are recorded because each produced a change that was written before it was checked.
+
+*The settle time is not the problem.* The seek decides 50 ms after its own retune while the sweep above used 400 ms, so the thresholds appeared to have been fitted to readings the seek never sees. They were not: across every probe, all four stations on air passed every gate on every reading at 50, 100 and 200 ms alike. A station is settled by 50 ms.
+
+*The distance the dial moved is not the problem either.* A reading might reasonably settle more slowly after a large jump than a small one, and the first version of `tools/settle.py` parked at 87.5 MHz, which is a 7 MHz jump where a seek steps 50 kHz. Measured across parks of 50, 200 and 1000 kHz, the pass rate at 50 ms is the same. The tool now parks one step away regardless, because that is what a seek does.
+
+**What was really happening was intermittent interference.** Around 10pm the whole 94 MHz region read 10 to 15 dBuV with no stereo pilot and no RDS, and the seek stopped in it seven times out of eight. Ninety minutes later the same channels read -5 to -8 and the seek found 95.0 six times out of six. Three stations, 91.1, 94.3 and 102.8, also left the air during the same evening, dropping from 43, 45 and 37 dBuV to about -5.
+
+So the defect is real and its cause is outside the radio. That matters for anyone retaking these numbers: **the band here is not the same from hour to hour**, and a threshold fitted in one sitting is worth what the sweep note above already says it is worth.
+
+## The gap that did not need the interference
+
+What the same session did settle, and without needing the band to misbehave, is that the seek and the auto squelch were free to disagree.
+
+| Gate | Seek allowed | Squelch allowed |
+|---|---|---|
+| Level | 10.0 dBuV | 15.0 dBuV |
+| Multipath | 320 | 230 |
+| Carrier off centre | 20 kHz | 10 kHz |
+
+A channel inside any of those three gaps is one the seek stops on and the squelch immediately mutes, on any night. That is where `found=True` with the audio shut came from, and it is a contradiction inside the radio rather than a threshold fitted to weather.
+
+Closing only the level was tried and was not enough: a seek then stopped on 93.45 at 20.0 dBuV, above the floor, and the squelch shut on the offset. The seek now asks the squelch instead of keeping its own copy of any of it. Decision 33.
 
 ## How it was taken
 

@@ -2650,6 +2650,113 @@ static void handleApiMemoryCsv(void) {
 }
 
 /*
+ * POST /api/seek/settle. What a seek would decide on, at a given settle time.
+ *
+ * Takes `khz` and `ms`, and optionally `n` readings `gap` milliseconds apart,
+ * one by default. Tunes there, waits that long, takes the readings off the
+ * tuner and returns them in `r`. More than one answers a different question
+ * from the settle time: whether a channel that looks like a station on one
+ * reading still does on the next.
+ *
+ * A refusal is a 400, a tuner that did not answer is a 502, and a radio task
+ * that never got to it is a 503. They are told apart because they send a
+ * person looking in three different places. That is exactly the sequence a seek runs for
+ * every channel it visits, so this is the only way to see what a seek is
+ * actually judging: `GET /api/state` serves the last polled reading, which is
+ * up to a poll interval old and often describes the channel before this one.
+ *
+ * A write, because it moves the dial, and it **leaves the dial where it put
+ * it**, the way a sweep does. Tune back afterwards.
+ *
+ * `mvd` says whether the dial actually moved. Asking about the frequency the
+ * radio is already on settles nothing: there was no retune, so what comes
+ * back is a fully settled reading wearing whatever settle time was asked for.
+ * Anything measuring settling has to park the dial elsewhere first and check
+ * this field.
+ *
+ * This is here because the seek thresholds were fitted to a sweep taken with
+ * a 400 ms settle while the seek itself decides at 50 ms, and nothing could
+ * show the difference. See test/fixtures/seek/README.md.
+ */
+static void handleApiSeekSettle(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  long khz = 0;
+  long ms = 0;
+  if (!apiNumber("khz", &khz, 1, 300000)) {
+    return;
+  }
+  if (!apiNumber("ms", &ms, 1, RADIO_PROBE_MAX_MS)) {
+    return;
+  }
+
+  long reads = 1;
+  long gap = 50;
+  if (sServer.hasArg("n") &&
+      !apiNumber("n", &reads, 1, RADIO_PROBE_MAX_READS)) {
+    return;
+  }
+  if (sServer.hasArg("gap") && !apiNumber("gap", &gap, 1, RADIO_PROBE_MAX_MS)) {
+    return;
+  }
+
+  Tef668xQuality q[RADIO_PROBE_MAX_READS];
+  memset(q, 0, sizeof(q));
+  bool moved = false;
+  RadioProbeResult probed = radioSettleProbe(
+      (uint32_t)khz, (uint16_t)ms, (uint8_t)reads, (uint16_t)gap, q, &moved);
+  /* Told apart on purpose. A tuner that did not answer is a different thing
+   * from a request the radio would not take, and answering both with the
+   * same sentence sends somebody chasing their frequency when the bus is
+   * dead. */
+  if (probed == RADIO_PROBE_REFUSED) {
+    apiFail(400,
+            "Not a probe this radio will take. The frequency has to be in "
+            "the band it is on, a seek must not be running, it must not be "
+            "on its way down for a restart, and ms plus the gaps must come "
+            "to no more than 3000, because the radio task waits it out and "
+            "stops reading the tuner while it does.");
+    return;
+  }
+  if (probed == RADIO_PROBE_NO_READ) {
+    apiFail(502, "The dial moved and the tuner did not answer the read.");
+    return;
+  }
+  if (probed != RADIO_PROBE_OK) {
+    apiFail(503, "The radio did not get to it. Try again in a moment.");
+    return;
+  }
+
+  RadioSnapshot snap;
+  bool haveSnap = radioGetSnapshot(&snap);
+  bool fm = haveSnap && bandModulation(snap.settings.band) == MODULATION_FM;
+
+  String out;
+  char head[80];
+  snprintf(head, sizeof(head),
+           "{\"khz\":%u,\"ms\":%u,\"gap\":%u,\"mvd\":%s,\"r\":[", (unsigned)khz,
+           (unsigned)ms, (unsigned)gap, moved ? "true" : "false");
+  out += head;
+  for (long i = 0; i < reads; i++) {
+    char one[176];
+    snprintf(
+        one, sizeof(one),
+        "%s{\"sig\":%d,\"usn\":%u,\"wam\":%u,\"off\":%d"
+        ",\"mod\":%d,\"st\":%s,\"snr\":%d,\"bw\":%u}",
+        i ? "," : "", q[i].levelDbuVTenths, (unsigned)q[i].usnTenths,
+        fm ? (unsigned)q[i].multipathTenths : (unsigned)q[i].coChannelTenths,
+        q[i].offsetKHzTenths, q[i].modulationPercent,
+        q[i].stereo ? "true" : "false", q[i].snrDb,
+        (unsigned)q[i].bandwidthKHz);
+    out += one;
+  }
+  out += F("]}");
+  sServer.send(200, "application/json", out);
+}
+
+/*
  * GET /api/rds/raw. The groups the tuner handed over, as they arrived.
  *
  * This is the capture route for RDS test fixtures. There is no serial cable
@@ -3471,6 +3578,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/memory", HTTP_POST, handleApiMemoryPost);
   sServer.on("/api/memory.csv", HTTP_GET, handleApiMemoryCsv);
   sServer.on("/api/rds/raw", HTTP_GET, handleApiRdsRaw);
+  sServer.on("/api/seek/settle", HTTP_POST, handleApiSeekSettle);
   sServer.on("/api/memory/import", HTTP_POST, handleApiMemoryImport);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);

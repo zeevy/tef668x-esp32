@@ -55,6 +55,7 @@
 #include <stdint.h>
 
 #include "band_plan.h"
+#include "squelch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -101,6 +102,28 @@ extern "C" {
 typedef struct {
   uint8_t fmSensitivity; /* 1 to 6. Higher stops on weaker signals. */
   uint8_t amSensitivity; /* 1 to 6. Separate, as the old firmware has. */
+  /*
+   * What the squelch will do with the same reading.
+   *
+   * A seek and a squelch are two answers to the same question, and they were
+   * two sets of thresholds. Seek allowed a multipath of 320 against the
+   * squelch's 230, a carrier 20 kHz off centre against its 10, and stopped at
+   * 10.0 dBuV where it opens at 15.0. So the radio could stop on a channel,
+   * mute it, and report a find, three different ways. Stopped, silent, and
+   * claiming success is the worst of the three, because nothing about it
+   * reads as a fault.
+   *
+   * So the seek does not keep its own copy of any of that. It asks the
+   * squelch, with `squelchWouldOpen`, and a number changed there changes both.
+   * A fourth disagreement cannot be introduced later by accident.
+   *
+   * `checkAudible` false means nothing will mute the audio, so no stop can be
+   * silent and there is nothing to ask.
+   */
+  bool checkAudible;
+  SquelchMode squelchMode;
+  SquelchConfig squelchCfg;
+  int16_t squelchThresholdTenths;
 } SeekConfig;
 
 void seekDefaults(SeekConfig *out);

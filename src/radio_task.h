@@ -341,6 +341,68 @@ void radioHush(void);
 void radioResume(void);
 
 /*
+ * Tune somewhere, wait, and take fresh readings, the way a seek does.
+ *
+ * One reading by default, or as many as `reads` asks for. This exists
+ * because there was no way to see what a seek actually decides on. `GET
+ * /api/state` serves the last polled reading, which is up to a poll interval
+ * old and often describes the channel before this one, and a sweep driven
+ * over HTTP measures that same stale path. A seek reads the tuner directly a
+ * few tens of milliseconds after its own retune, and whether that reading has
+ * settled by then is the whole question.
+ *
+ * So this walks the same path: the frequency goes out through the ordinary
+ * push, then the task waits exactly `settleMs` and reads the tuner. Nothing
+ * about it is a special case, which is what makes the answer mean something.
+ *
+ * The radio task is doing nothing else while it waits, so the whole probe is
+ * capped: `settleMs` plus the gaps between the readings may not exceed
+ * RADIO_PROBE_MAX_TOTAL_MS. Without that cap one request could hold the tuner
+ * poll, the squelch and the RDS read for sixteen seconds, which reads as the
+ * radio having hung. The measurement this exists for needs about a second.
+ *
+ * **It leaves the dial where it put it**, like a sweep does. The caller tunes
+ * back afterwards.
+ *
+ * `reads` readings are taken, `gapMs` apart, and `out` has to have room for
+ * all of them. More than one answers a different question from the settle
+ * time: whether a channel that looks like a station on one reading still
+ * looks like one on the next. The shoulder of a strong station drifts with
+ * that station's modulation, so whether two readings taken a few tens of
+ * milliseconds apart are independent decides whether confirming a candidate
+ * is worth anything.
+ *
+ * `moved` says whether the dial actually went anywhere. Asking about the
+ * frequency the radio is already on settles nothing, because there was no
+ * retune to settle from, and the reading that comes back is a fully settled
+ * one wearing whatever settle time was asked for. A caller measuring settling
+ * has to park the dial elsewhere first and check this.
+ *
+ * Blocks the calling task until the radio has done it. Refused while a seek
+ * is running or the radio is hushed, and refused for a frequency that is not
+ * in the band the radio is on. Safe from any task except the radio task.
+ */
+#define RADIO_PROBE_MAX_MS 2000
+
+/* The most the whole probe may take, settle plus every gap, in ms. */
+#define RADIO_PROBE_MAX_TOTAL_MS 3000
+
+/* The most readings one probe will take. */
+#define RADIO_PROBE_MAX_READS 8
+
+/* Why a probe did not produce readings. */
+typedef enum {
+  RADIO_PROBE_OK = 0,   /* The readings are in `out`. */
+  RADIO_PROBE_REFUSED,  /* The request was not one the radio would take. */
+  RADIO_PROBE_NO_READ,  /* It ran, and the tuner did not answer. */
+  RADIO_PROBE_NO_ANSWER /* The radio task never got to it in time. */
+} RadioProbeResult;
+
+RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
+                                  uint8_t reads, uint16_t gapMs,
+                                  Tef668xQuality *out, bool *moved);
+
+/*
  * How fussy seek is about what counts as a station.
  *
  * Safe from any task. Takes effect on the next seek, not on one already

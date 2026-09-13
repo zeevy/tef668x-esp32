@@ -869,6 +869,36 @@ So the decision does not rest on audibility. It rests on this: a value that chan
 
 The residual risk, written down because RULES.md asks for it: a genuinely weak station may be hissier than it needs to be, and nobody here has established whether the chip's roll off would help. What is given up is a feature that was never shown to work, and what is gained is that nothing rolls the treble off during normal listening without a reason.
 
+### 33. A seek never stops where the squelch would mute, and asks the squelch rather than guessing
+
+The seek and the auto squelch answer the same question and used to answer it with two separate sets of thresholds:
+
+| Gate | Seek allowed | Squelch allowed |
+|---|---|---|
+| Level | 10.0 dBuV | 15.0 dBuV |
+| Multipath | 320 | 230 |
+| Carrier off centre | 20 kHz | 10 kHz |
+
+So a channel inside any of those three gaps was one the radio stopped on, silenced, and reported as a find. Stopped, silent, and claiming success is the worst of the three. A seek that finds nothing is a disappointment. A seek that stops on noise is annoying. A seek that stops, goes quiet and says it found a station looks like a broken radio, and nothing about it reads as a fault to the firmware.
+
+**The seek asks the squelch.** `squelchWouldOpen` answers about one reading with no state behind it, and the seek requires it as well as its own gates. It does not keep a copy of any of those numbers. Changing one changes both, and a fourth disagreement cannot be introduced later by accident.
+
+Making only the level agree was tried first and was not enough: with the level closed, a seek still stopped on 93.45 at 20.0 dBuV, above the floor, and the squelch shut on the offset. Three separate numbers is three chances to miss one, which is the argument for sharing the test rather than copying the values.
+
+The seek keeps its own gates on top, and they are looser on purpose in one place: the offset window is 20 kHz because this radio reads every FM carrier 5 to 7 kHz high, which HARDWARE.md records. Sharing means the squelch's tighter window now applies too, and a carrier further off than 10 kHz is walked past. That is the two settings agreeing rather than a fault.
+
+Checked on the radio rather than argued. Twenty two seeks: twenty one found a station with the audio open, none stopped silently. With the squelch floor raised above every local station the seek walks the whole band, stops nowhere, and reports that it found nothing, which is the point. It refused to stop where it could not be heard and then said so.
+
+**When the rules cannot be read, the channel is not judged.** The seek reads the squelch's settings under the same lock as everything else, and if it cannot have the lock it does not decide. Reading them unlocked risked a torn config and a seek judging against a floor nobody set. This file already takes the line that a reading which did not arrive is not a station, and a rule that did not arrive is not a rule.
+
+Three residual risks, written down because RULES.md asks for it.
+
+A person who sets a high squelch floor, or a tight manual threshold, gets a seek that walks past stations they could have heard by turning the squelch down. Nothing on the radio explains it, and the seek reporting nothing found is the only sign.
+
+The seek is now fussier than it was, so a station having a bad moment can be walked past. One of the twenty two runs above did exactly that, on a station swinging between 26 and 48 dBuV. Walking past is the safe direction against stopping on silence, but it is not free.
+
+And the two still judge different things. The seek asks about one raw reading taken 50 ms after its retune; the running squelch judges a smoothed level after three readings settle and holds for a second before shutting. A station that clears on the raw reading and not on the average is still stopped on, and then muted about three polls later. Closing that means smoothing inside the seek, which is larger than this change and has not been shown to be needed.
+
 ### Licence
 
 GPLv3, inherited from PE5PVB. Keep the original copyright and state what
