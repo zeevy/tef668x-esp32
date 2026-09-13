@@ -5,7 +5,7 @@ open. Hardware facts live in [HARDWARE.md](HARDWARE.md).
 
 ## Settled
 
-### Name: tef668x-esp32
+### 1. Name: tef668x-esp32
 
 Tuner family first, because that is what defines the project. The ESP32 is the
 host. `tef668x` rather than `tef6686` says the code covers the family, and keeps
@@ -26,7 +26,7 @@ This radio is a board inside the project, not the project:
 | Release asset | `tef668x-esp32-ats125-v1.0.0.bin` |
 | mDNS and AP name | `tef668x` |
 
-### Modular, board agnostic
+### 2. Modular, board agnostic
 
 The code is split so it can be built for other TEF668x radios later, not just
 this one.
@@ -46,7 +46,7 @@ The rule that makes it work: **the core must not know a screen exists.** In the
 PE5PVB firmware `gui.cpp` reads and writes radio globals directly, which is why
 none of it can be reused on another board.
 
-### LVGL for the user interface
+### 3. LVGL for the user interface
 
 The UI is built on LVGL, not hand drawn to TFT_eSPI.
 
@@ -73,7 +73,7 @@ What this costs on this hardware:
 The existing drawing code is not ported. It is 6000 lines of absolute
 coordinates and it is the thing being replaced.
 
-### Screens are built from panels, and each band gets its own layout
+### 4. Screens are built from panels, and each band gets its own layout
 
 The main screen is not one fixed picture. A set of panels is defined once and
 each band's screen is an arrangement of them.
@@ -105,7 +105,7 @@ later letting the user rearrange their own layout, does not mean writing another
 500 lines. Same principle as the board headers: describe what goes where, do not
 hard code the picture.
 
-### Capabilities are detected, never hard coded
+### 5. Capabilities are detected, never hard coded
 
 This unit has a TEF6686, which has no FMSI, no full search RDS and no digital
 radio. The tuner driver still reads the device word at startup and publishes a
@@ -115,7 +115,7 @@ the UI simply does not offer them.
 Same idea for the board: the board header says the hardware can have touch, a
 setting says whether to use it.
 
-### English only, with the mechanism kept for more
+### 6. English only, with the mechanism kept for more
 
 Ship English and nothing else. But build the string system so a language can be
 added later without touching a single existing string.
@@ -134,7 +134,7 @@ A language added later still needs font coverage. Telugu, for example, needs
 combining vowel signs that the current per codepoint bitmap fonts cannot
 compose. LVGL handles this better but it is still real work.
 
-### Two FreeRTOS tasks, not one cooperative loop
+### 7. Two FreeRTOS tasks, not one cooperative loop
 
 | Task | Core | Job |
 |---|---|---|
@@ -160,7 +160,7 @@ design removes. The mitigation is discipline, not cleverness. Exactly two tasks.
 One queue in each direction. Nothing shared without a lock. Tasks do not get
 added later because something feels slow.
 
-### Settings are one versioned struct, not an address map
+### 8. Settings are one versioned struct, not an address map
 
 Settings live in a single `Settings` struct with a `version` field, stored in
 NVS. Adding a setting is adding a field.
@@ -204,7 +204,7 @@ Three things follow:
 The tradeoff: NVS writes are slower than raw EEPROM and use more flash for the
 same data. Neither matters here, settings are written once on leaving a menu.
 
-### No XDR-GTK, no RDS Spy, no StationList
+### 9. No XDR-GTK, no RDS Spy, no StationList
 
 All three remote protocols from the PE5PVB firmware are dropped.
 
@@ -216,7 +216,7 @@ cross-cutting condition from the whole codebase.
 
 RDS Spy output and StationList UDP are cheap on their own but are not used here.
 
-### Telemetry instead of debug builds
+### 10. Telemetry instead of debug builds
 
 The radio broadcasts its live state so it can be watched without a cable and
 without a special build.
@@ -251,7 +251,7 @@ sequence so dropped packets show up instead of silently skewing an analysis.
 Note that UDP broadcast on a LAN is unauthenticated and unencrypted. Anyone on
 the network can see what the radio is tuned to. Default off covers this.
 
-### Flashing and updates
+### 11. Flashing and updates
 
 USB with the boot button is the first flash only. Everything after that is over
 the air.
@@ -290,7 +290,7 @@ needs someone standing at the radio to hold BOOT and tap RESET, because the
 FT232R is not wired for auto reset. That happened five times in one session in
 September 2026. Over the air removes the person from the loop.
 
-### Access PIN
+### 12. Access PIN
 
 A six digit PIN protects anything that changes the radio. It can be changed in
 settings, and a factory reset brings the default back.
@@ -318,7 +318,7 @@ are open to view without a PIN, so the radio stays a glanceable page on a phone.
 The PIN is required to change settings, edit memory channels, upload firmware or
 factory reset. A session cookie after entry avoids retyping it.
 
-### Memory channels in the web UI
+### 13. Memory channels in the web UI
 
 All 99 slots in a table in the browser. Edit frequency, band, bandwidth and name
 inline, reorder by dragging, delete, and import or export CSV.
@@ -339,7 +339,7 @@ means a bandplan for an area can be built in a spreadsheet and loaded in one go.
 It also makes the memories survivable. In the PE5PVB firmware they live in
 EEPROM bytes 0 to 2078 with no way to get them off the device.
 
-### Band scan with a spectrum view
+### 14. Band scan with a spectrum view
 
 The sweep already exists. `doAutoMemory()` and the DX scanner both step across
 the band, but all the user sees is a progress bar and the signal reading at each
@@ -360,7 +360,7 @@ on 104.0 read between 10 and 38 dBuV and swung about. A sweep would have shown
 straight away whether that is the station, the antenna, or a neighbour's
 interference.
 
-### Sleep timer and alarm
+### 15. Sleep timer and alarm
 
 The RTC and NTP are already on the board and the radio can power itself down.
 
@@ -380,7 +380,7 @@ Why this is worth more than it sounds: it makes the radio useful when nobody is
 operating it. A shortwave listener with a schedule can have it wake for a
 broadcast.
 
-### Boot diagnostics and crash visibility
+### 16. Boot diagnostics and crash visibility
 
 **Startup self test.** Probe each I2C device, check the tuner device word,
 verify the patch loaded, check the filesystem mounts, confirm settings passed
@@ -403,7 +403,7 @@ This exists because of two other decisions. With a public repo, an issue saying
 of guessing. With OTA, rollback catches an image that will not boot, but not one
 that boots and then misbehaves.
 
-### Power and battery
+### 17. Power and battery
 
 The two task split is itself a power feature. A cooperative loop spins and never
 idles. Tasks that block on a queue let the idle task enter automatic light
@@ -442,7 +442,7 @@ so the method is: run the radio in each mode, capture the discharge curve,
 compare. Guessing a threshold is what made the volume AGC do nothing for a week
 in September 2026.
 
-### Settings backup and restore over the web
+### 18. Settings backup and restore over the web
 
 Download the whole configuration as a JSON file, upload it back to restore.
 
@@ -462,7 +462,7 @@ boot button held. A settings wipe would mean re-entering Wi-Fi credentials, band
 edges, memory channels and touch calibration on a 320x240 screen with a rotary
 encoder.
 
-### One recovery screen, not seven boot combos
+### 19. One recovery screen, not seven boot combos
 
 Hold the rotary button at boot to get a plain list, navigated with the encoder:
 
@@ -509,7 +509,7 @@ Two things stay outside it:
 The combo list goes on the About screen, so it is findable on the radio rather
 than only in a README.
 
-### Optional features are build flags, not deleted code
+### 20. Optional features are build flags, not deleted code
 
 Every optional subsystem sits behind a flag in the board header.
 
@@ -533,7 +533,7 @@ This is also the correct fix for the `HAS_AIR_BAND` bug in the PE5PVB firmware.
 That option is broken precisely because it is a define in one file rather than a
 build flag every file sees.
 
-### Boot screen
+### 21. Boot screen
 
 The splash carries information, not decoration. With OTA in use the most
 valuable thing it can say is which firmware is actually running.
@@ -577,7 +577,7 @@ turns to the warn colour. Nothing on this screen exists only to look busy.
 assumed. The PE5PVB firmware has a bare `delay(1500)` in `setup()`, which is
 dead time on every power on.
 
-### Themes are data, and ten of them ship
+### 22. Themes are data, and ten of them ship
 
 Colours are never written into screen code. Every screen, panel and menu draws
 from ten named roles, and a theme is one row of ten values.
@@ -614,7 +614,7 @@ the table, never editing a screen.
 in settings instead of read from the table. That falls out of the theme being
 data, so it costs almost nothing.
 
-### Themes and layouts are settings, not builds
+### 23. Themes and layouts are settings, not builds
 
 Both the colour theme and the screen layout are picked by the user at run time.
 Neither needs a reflash and neither is chosen at compile time.
@@ -642,7 +642,7 @@ Ship the six, and add another only when someone asks for it.
 Both settings are in the struct, so both come to the web interface for free, and
 both go into the settings backup.
 
-### The radio is driven by an HTTP API, and the screen is one of its callers
+### 24. The radio is driven by an HTTP API, and the screen is one of its callers
 
 Every command the radio can carry out is reachable over HTTP. The menu on the
 screen does not talk to the radio task directly. It builds the same command any
@@ -694,7 +694,7 @@ dropped, because a test that cannot tell those apart is worse than no test.
 This arrives in phase 2 with the tuner. Read endpoints land as soon as there is
 state to read, and each write endpoint lands with the control it drives.
 
-### 26. The panel driver is ours, the UI toolkit is not
+### 25. The panel driver is ours, the UI toolkit is not
 
 LVGL draws the user interface, as decision 12 says. What puts pixels on the
 ILI9341 underneath it is a driver in this repository, not TFT_eSPI or
@@ -725,7 +725,7 @@ flagged it as needing a check. Nothing ever reads from this panel, so MISO is
 never wired and the conflict does not exist. A driver that reads the panel back
 would have to settle it properly first.
 
-### 27. One live copy of the settings, and one call that keeps it
+### 26. One live copy of the settings, and one call that keeps it
 
 The radio's state lives in one place, the `RadioSettings` the radio task owns. Nothing keeps a second copy of it. The stored `Settings` struct in NVS is not a second copy either: it is where that state goes to survive a power cycle, and it is written from the live one.
 

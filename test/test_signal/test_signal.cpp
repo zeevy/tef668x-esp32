@@ -150,6 +150,40 @@ static void a_null_average_gives_the_sample_back(void) {
   TEST_ASSERT_EQUAL_INT16(123, signalAverage(NULL, 123));
 }
 
+/* ------------------------------------------------------- formatting */
+
+static void a_level_just_below_zero_keeps_its_sign(void) {
+  /* Dividing minus five tenths by ten gives zero, so a level a little below
+   * zero reads as 0.0 unless the sign is taken before the value is split. A
+   * dead band really does read a little below zero. */
+  char out[12];
+  signalFormatLevel(-5, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("-0.5", out);
+  signalFormatLevel(-9, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("-0.9", out);
+  signalFormatLevel(-101, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("-10.1", out);
+}
+
+static void an_ordinary_level_reads_as_it_should(void) {
+  char out[12];
+  signalFormatLevel(0, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("0.0", out);
+  signalFormatLevel(475, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("47.5", out);
+  signalFormatLevel(1200, out, sizeof(out));
+  TEST_ASSERT_EQUAL_STRING("120.0", out);
+}
+
+static void formatting_never_writes_past_the_buffer(void) {
+  char out[4];
+  memset(out, 'x', sizeof(out));
+  signalFormatLevel(-1234, out, sizeof(out));
+  TEST_ASSERT_EQUAL_CHAR('\0', out[3]);
+  signalFormatLevel(0, NULL, 10); /* Must not crash. */
+  signalFormatLevel(0, out, 0);
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
 
@@ -170,6 +204,10 @@ int main(int, char **) {
   RUN_TEST(it_follows_a_real_change);
   RUN_TEST(resetting_makes_the_next_sample_the_answer_again);
   RUN_TEST(a_null_average_gives_the_sample_back);
+
+  RUN_TEST(a_level_just_below_zero_keeps_its_sign);
+  RUN_TEST(an_ordinary_level_reads_as_it_should);
+  RUN_TEST(formatting_never_writes_past_the_buffer);
 
   return UNITY_END();
 }

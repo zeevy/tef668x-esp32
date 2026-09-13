@@ -4,6 +4,8 @@
  */
 #include "signal.h"
 
+#include <stdio.h>
+
 #include <stddef.h>
 
 /** The lowest level the reference firmware will consider, in tenths. */
@@ -28,12 +30,12 @@ int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm) {
    *
    * Scaled by a hundred million, which needs 64 bits: the largest term is
    * 1200 times 46222375, about 55 thousand million. Scaling by a million
-   * instead keeps it in 32 bits and was the first attempt, but rounding the
-   * noise constant from 0.0082495118 to 0.00825 moved the answer by a whole
-   * dB in seven thousand of six million combinations, six of them straddling
-   * the test that opens the filter. A threshold that quietly switches a
-   * feature off is the failure this project keeps finding, so the precision
-   * is worth the wider arithmetic on something that runs ten times a second.
+   * instead keeps it in 32 bits, but rounding the noise constant from
+   * 0.0082495118 to 0.00825 moves the answer by a whole dB in seven thousand
+   * of six million combinations, six of them straddling the test that opens
+   * the filter. A threshold that quietly switches a feature off fails without
+   * saying so, so the precision is worth the wider arithmetic on something
+   * that runs ten times a second.
    *
    * Checked against the floating point original over six million
    * combinations of level and noise on each band: they agree everywhere on
@@ -58,6 +60,18 @@ void signalAverageReset(SignalAverage *avg) {
     avg->accumulator = 0;
     avg->started = false;
   }
+}
+
+void signalFormatLevel(int16_t tenths, char *out, size_t outLen) {
+  if (out == NULL || outLen == 0) {
+    return;
+  }
+  /* The sign is taken before the value is split. Dividing minus five tenths
+   * by ten gives zero and the minus would be lost. */
+  const char *sign = tenths < 0 ? "-" : "";
+  uint16_t magnitude = (uint16_t)(tenths < 0 ? -tenths : tenths);
+  snprintf(out, outLen, "%s%u.%u", sign, (unsigned)(magnitude / 10),
+           (unsigned)(magnitude % 10));
 }
 
 int16_t signalAverage(SignalAverage *avg, int16_t sample) {

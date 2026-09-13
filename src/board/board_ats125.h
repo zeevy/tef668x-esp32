@@ -72,7 +72,7 @@
 #define PIN_SPI_MOSI 23 /**< VSPI data out, the ESP32 default. */
 /* MISO would be pin 19 on VSPI, and pin 19 is the standby LED on this board.
  * Nothing reads from the panel or the touch controller here, so MISO is never
- * wired and the two never conflict. Decision 26. Reading the panel back would
+ * wired and the two never conflict. Decision 25. Reading the panel back would
  * have to settle that first. */
 #define PIN_TFT_CS 5    /**< ILI9341 chip select. */
 #define PIN_TFT_DC 17   /**< ILI9341 data or command select. */

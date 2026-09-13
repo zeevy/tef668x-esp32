@@ -62,6 +62,22 @@ static InputStatus sStatus;
 static uint16_t sPot = 0;
 static bool sPotKnown = false;
 
+/**
+ * How this unit's knob maps to volume and to a squelch threshold.
+ *
+ * The defaults are one radio's numbers, taken from the reference firmware:
+ * the travel runs 120 to 4000 there. This unit reaches 0 and 4095, so they
+ * are not wrong here, but a pot that read 200 to 3800 would lose travel at
+ * both ends with nothing to say so. Calibration replaces them with what this
+ * knob actually reaches.
+ */
+static PotConfig sPotCfg;
+
+/* Calibration. While it runs the knob does nothing but record how far it
+ * goes, so that sweeping to the loud end to find the end stop is not painful.
+ * The state machine is in core/input.c, where it can be tested on a PC. */
+static PotCalibration sCal;
+
 /** What the knob was last doing, so a change of job can be acted on. */
 static SquelchMode sJob = SQUELCH_OFF;
 static bool sJobKnown = false;
@@ -112,6 +128,8 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
    * poll, so both are forgotten here rather than carried over. */
   sPotKnown = false;
   sJobKnown = false;
+  potCalibrateCancel(&sCal);
+  potDefaults(&sPotCfg);
 
   encoderBegin(kind, direction);
   analogBegin();
@@ -119,23 +137,17 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
 
   /* Read the pot for the status document, and send nothing.
    *
-   * This used to send the volume the knob was pointing at, so that the radio
-   * started where the knob says. That job moved to main.cpp, which asks the
-   * settings what the knob is for: in manual squelch the knob is the squelch
-   * control, and the volume comes from the stored one instead.
+   * Where the radio starts is main.cpp's job, because only it knows what the
+   * knob is for: in manual squelch the knob is the squelch control and the
+   * volume comes from the stored one instead. Sending a volume here would
+   * overwrite that a few milliseconds after the task was started with it.
    *
-   * Sending it here undid that. main.cpp would start the radio at the stored
-   * volume and this would overwrite it with the knob's a few milliseconds
-   * later, so a radio saved in manual squelch came up at whatever the
-   * threshold happened to map to. It was found on the radio, not in a test,
-   * because both halves looked right on their own.
-   *
-   * The first pollPot does the rest. Its jobChanged is true on the first
-   * poll, so it acts at once rather than waiting for the knob to move past
-   * the deadband. */
+   * The first pollPot takes over. Its jobChanged is true on the first poll,
+   * so it acts at once rather than waiting for the knob to move past the
+   * deadband. */
   sPot = potRead();
   sStatus.pot = sPot;
-  sStatus.potDb = potVolumeDb(sPot, NULL);
+  sStatus.potDb = potVolumeDb(sPot, &sPotCfg);
 
   return sStatus.keypadPresent;
 }
@@ -449,14 +461,35 @@ static void pollPot(uint32_t nowMs) {
 
   uint16_t raw = potRead();
   sStatus.pot = raw;
-  if (!jobChanged && sPotKnown && !potMoved(sPot, raw, NULL)) {
+
+  /* While calibrating the knob only records how far it reaches. It does not
+   * set the volume or the squelch, because finding the loud end stop should
+   * not mean sweeping the volume to full on the way.
+   *
+   * potCalibrateSample gives up on its own after a couple of minutes, so a
+   * calibration somebody walked away from cannot leave the knob dead. */
+  if (sCal.active) {
+    if (potCalibrateSample(&sCal, raw, nowMs)) {
+      return;
+    }
+    /* It just timed out. Fall through, so the knob takes its job back on
+     * this same poll rather than on the next movement. */
+    sPotKnown = false;
+  }
+
+  if (!jobChanged && sPotKnown && !potMoved(sPot, raw, &sPotCfg)) {
     return;
   }
   sPot = raw;
   sPotKnown = true;
 
   if (mode == SQUELCH_MANUAL) {
-    int16_t tenths = squelchThresholdFromPot(raw);
+    /* The knob is the squelch now, so there is no volume to report from it.
+     * Leaving the old number there would read as the volume the knob is
+     * pointing at, which it is not. */
+    sStatus.potDb = 0;
+    int16_t tenths =
+        squelchThresholdFromPot(raw, sPotCfg.rawMin, sPotCfg.rawMax);
     radioSetSquelchThreshold(tenths);
     char text[INPUT_EVENT_MAX];
     snprintf(text, sizeof(text), "squelch %s%d.%d dBuV",
@@ -466,7 +499,7 @@ static void pollPot(uint32_t nowMs) {
     return;
   }
 
-  int8_t db = potVolumeDb(raw, NULL);
+  int8_t db = potVolumeDb(raw, &sPotCfg);
   if (!jobChanged && db == sStatus.potDb) {
     /* The reading moved but not far enough to be a different volume. */
     return;
@@ -479,6 +512,52 @@ static void pollPot(uint32_t nowMs) {
   /* Not settled. The knob can be turned faster than the radio can answer, and
    * waiting for each step would make it feel stiff. The last one sent wins. */
   send(&cmd);
+}
+
+void inputSetPotConfig(const PotConfig *cfg) {
+  if (cfg == NULL) {
+    potDefaults(&sPotCfg);
+    return;
+  }
+  sPotCfg = *cfg;
+}
+
+void inputPotCalibrateStart(void) {
+  potCalibrateStart(&sCal, potRead(), millis());
+}
+
+bool inputPotCalibrateFinish(uint16_t *rawMin, uint16_t *rawMax) {
+  /* Nothing to report unless a calibration was actually running. Reading the
+   * extremes first would quote the previous sweep back as though this one had
+   * happened. */
+  bool running = sCal.active;
+  if (rawMin != NULL) {
+    *rawMin = running ? sCal.rawMin : 0;
+  }
+  if (rawMax != NULL) {
+    *rawMax = running ? sCal.rawMax : 0;
+  }
+  if (!potCalibrateFinish(&sCal, &sPotCfg)) {
+    return false;
+  }
+  /* The knob has moved a long way during the sweep, so the next poll acts on
+   * where it has been left rather than comparing against a stale reading. */
+  sPotKnown = false;
+  return true;
+}
+
+void inputPotCalibrateCancel(void) {
+  potCalibrateCancel(&sCal);
+}
+
+bool inputPotCalibrating(uint16_t *rawMin, uint16_t *rawMax) {
+  if (rawMin != NULL) {
+    *rawMin = sCal.rawMin;
+  }
+  if (rawMax != NULL) {
+    *rawMax = sCal.rawMax;
+  }
+  return sCal.active;
 }
 
 void inputPoll(void) {

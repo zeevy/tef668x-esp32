@@ -4,6 +4,7 @@
  */
 #include "settings.h"
 
+#include <stddef.h>
 #include <string.h>
 
 /* For the ranges below. A setting that names a band, an encoder or a squelch
@@ -37,7 +38,42 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
        * wrote exactly this many bytes. */
       return 132;
     case 3:
+      /* Written out by hand, like 1 and 2. A radio in the field holding a
+       * version 3 blob wrote exactly this many bytes. */
+      return 136;
+    case 4:
       return (uint16_t)sizeof(Settings);
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Where the fields of a version end, which is not the same as its size.
+ *
+ * A struct's trailing padding belongs to no field, and a field added later
+ * can land inside it. `potRawMin` sits at offset 134, inside the two bytes
+ * version 3 wrote as padding after its last field. Copying a version 3 blob
+ * by its written length would take the new field out of that old padding.
+ *
+ * It is zero on every radio in the field, because the struct is memset before
+ * it is filled, so this has never gone wrong. It is written this way because
+ * "it happens to be zero" is not a reason, and the next field to land in
+ * padding may not be so lucky.
+ *
+ * Expressed with offsetof rather than as numbers, so it cannot drift from the
+ * struct the way a hand written offset would.
+ */
+static size_t settingsFieldEndOfVersion(uint16_t version) {
+  switch (version) {
+    case 1:
+      return offsetof(Settings, fmRegion);
+    case 2:
+      return offsetof(Settings, fmScanSensitivity);
+    case 3:
+      return offsetof(Settings, potRawMin);
+    case 4:
+      return sizeof(Settings);
     default:
       return 0;
   }
@@ -109,6 +145,10 @@ void settingsDefaults(Settings *s) {
    * on nothing else. */
   s->fmScanSensitivity = SEEK_SENSITIVITY_DEFAULT;
   s->amScanSensitivity = SEEK_SENSITIVITY_DEFAULT;
+
+  /* Version 4. Not calibrated, so the built in travel is used. */
+  s->potRawMin = 0;
+  s->potRawMax = 0;
 }
 
 bool settingsValid(const Settings *s) {
@@ -126,9 +166,8 @@ bool settingsValid(const Settings *s) {
   }
 
   /* Every range below is the hardware's, not a preference. A value outside
-   * one of these is a setting that is switched on and does nothing, which is
-   * the failure this project keeps finding, so it is refused here rather than
-   * in whichever caller happens to exist. */
+   * one of these is a setting that is switched on and does nothing, so it is
+   * refused here rather than in whichever caller happens to exist. */
   if (s->fmRegion >= (uint8_t)FM_REGION_COUNT ||
       s->mwSpacing > (uint8_t)MW_SPACING_10K) {
     return false;
@@ -170,6 +209,24 @@ bool settingsValid(const Settings *s) {
   if (s->startVolumeDb < RADIO_VOLUME_MIN || s->startVolumeDb > 0) {
     return false;
   }
+  /* The loud end alone says whether this knob has been measured. Zero there
+   * means it has not, because a measured travel has to span a quarter of the
+   * converter and so can never end at zero.
+   *
+   * The quiet end cannot carry that meaning: this unit's knob reads 0 at the
+   * bottom, so a correct sweep of it gives 0 and 4095 and a rule that took a
+   * zero quiet end to mean "not measured" would refuse the one reading this
+   * radio actually produces. */
+  if (s->potRawMax == 0) {
+    if (s->potRawMin != 0) {
+      return false;
+    }
+  } else if (s->potRawMax <= s->potRawMin) {
+    return false;
+  }
+  if (s->potRawMin > 4095 || s->potRawMax > 4095) {
+    return false;
+  }
   if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||
       s->fmScanSensitivity > SEEK_SENSITIVITY_MAX ||
       s->amScanSensitivity < SEEK_SENSITIVITY_MIN ||
@@ -205,9 +262,16 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     return false;
   }
 
-  /* Copy in only as much as both sides agree exists. Anything this firmware
-   * added since keeps the default that settingsDefaults just wrote. */
-  size_t copy = len < sizeof(Settings) ? len : sizeof(Settings);
+  /* Copy in only as far as that version's fields go, not as far as it wrote.
+   * Anything this firmware added since keeps the default that settingsDefaults
+   * just put there. See settingsFieldEndOfVersion for why the two differ. */
+  size_t copy = settingsFieldEndOfVersion(version);
+  if (copy > len) {
+    copy = len;
+  }
+  if (copy > sizeof(Settings)) {
+    copy = sizeof(Settings);
+  }
   memcpy(out, blob, copy);
   out->version = SETTINGS_VERSION;
   out->size = (uint16_t)sizeof(Settings);

@@ -63,6 +63,19 @@ WifiState wifiState(void);
 bool wifiReachable(void);
 
 /**
+ * Whether the radio joined the network it was told to join.
+ *
+ * Narrower than wifiReachable, which also counts the fallback access point.
+ * The access point means the stored credentials did not work, so an image
+ * judged on wifiReachable would mark itself good while unable to reach the
+ * network it is meant to be on, and the way back would be the cable flash
+ * that the rollback exists to avoid.
+ *
+ * @return true only when it is on the stored network.
+ */
+bool wifiJoinedNetwork(void);
+
+/**
  * The radio's address as text, on the network or on its own access point.
  *
  * @return A dotted quad. Never NULL.

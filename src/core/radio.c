@@ -103,13 +103,24 @@ void radioDefaults(RadioSettings *settings, const BandPlanConfig *plan) {
 }
 
 /*
- * Meter band mode only makes sense where there are meter bands.
+ * Whether a frequency lands on a channel of any step the band offers.
  *
- * A plain comment, not a doc comment. This function is documented on its
- * declaration in radio.h, and a second doc comment here is a second place to
- * keep up to date. Doxygen on the CI machine also treats a doc block with no
- * @param as an error, which is how this gate went red after passing locally.
+ * A plain comment rather than a doc block, because this is static. The
+ * public functions are documented on their declarations in radio.h, and a
+ * second doc comment beside the definition is a second place to keep right.
  */
+static bool onAnyChannel(BandId band, const BandPlanConfig *plan,
+                         uint32_t freqKHz) {
+  size_t count = bandStepCount(band, plan);
+  for (size_t i = 0; i < count; i++) {
+    uint16_t step = bandStepAt(band, plan, i);
+    if (step != 0 && bandNearestChannel(band, plan, freqKHz, step) == freqKHz) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void radioPlanFromSettings(const Settings *settings, BandPlanConfig *out) {
   if (out == NULL) {
     return;
@@ -151,13 +162,19 @@ void radioFromSettings(const Settings *settings, const BandPlanConfig *plan,
      * grid moves under a frequency stored earlier: 738 kHz is a real medium
      * wave channel at 9 kHz spacing and is not one at 10 kHz, and it is
      * inside the band either way. Coming up between channels is slightly off
-     * every station until somebody moves it. */
+     * every station until somebody moves it.
+     *
+     * Only when it is off every step the band offers. The small steps exist
+     * so a station can be tuned off centre on purpose, against selective
+     * fading on AM or a crowded FM band, and the step in use is not stored.
+     * Snapping to the default step alone would quietly undo that: a medium
+     * wave station left on 737 would come back on 738. */
+    tune.freqKHz = settings->startFreqKHz;
     BandId band = out->band;
-    if (bandForFrequency(plan, settings->startFreqKHz, &band)) {
+    if (bandForFrequency(plan, settings->startFreqKHz, &band) &&
+        !onAnyChannel(band, plan, settings->startFreqKHz)) {
       tune.freqKHz = bandNearestChannel(band, plan, settings->startFreqKHz,
                                         bandDefaultStep(band, plan));
-    } else {
-      tune.freqKHz = settings->startFreqKHz;
     }
     /* The frequency decides the band when the two disagree, because
      * radioApply moves to whichever band holds it. They are stored together
@@ -322,8 +339,7 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       /* It has to be one the band actually offers. A width from the other
        * side's list is not a near miss: 4 kHz on FM pins the filter far
        * narrower than a station, and the radio then reports no pilot and no
-       * signal and reads as one with no aerial. This used to accept anything
-       * up to 6000, which let a form meant for AM silence FM.
+       * signal and reads as one with no aerial.
        *
        * Zero is the FM automatic setting, and it is in the FM list and not
        * in the AM one, so it is refused on AM by the same check. */
@@ -382,6 +398,16 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
     case RADIO_SET_WEAK_SIGNAL:
       if (bandModulation(settings->band) != MODULATION_FM) {
         return RADIO_ERR_FM_ONLY;
+      }
+      /* Checked here rather than only in the caller that happens to exist
+       * today, the same as the blankers below. Each is a level in dBuV: 0 to
+       * switch it off, or 20 to 60. Below 20 the mechanism starts at a level
+       * no signal reaches, so it is on and does nothing. */
+      for (int i = 0; i < 3; i++) {
+        if (command->weak[i] != 0 &&
+            (command->weak[i] < 20 || command->weak[i] > 60)) {
+          return RADIO_ERR_RANGE;
+        }
       }
       settings->highCutStart = command->weak[0];
       settings->stereoBlendStart = command->weak[1];

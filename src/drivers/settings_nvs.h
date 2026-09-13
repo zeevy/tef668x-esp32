@@ -39,4 +39,20 @@ bool settingsNvsSave(const Settings *s);
  */
 bool settingsNvsClear(void);
 
+/**
+ * Whether the stored settings were read back at start up.
+ *
+ * Defined by the application rather than by this driver, because the driver
+ * does not know when start up happened. It is declared here so the banner and
+ * the web page can say so without reaching into main.
+ *
+ * False means the blob was missing or was refused, so the radio is running on
+ * the defaults: the access PIN is 000000 again and the stored station, band
+ * plan and knob calibration are gone. Without saying this anywhere, the only
+ * symptom is that everything went back to how it was.
+ *
+ * @return true when the stored settings are in use.
+ */
+bool settingsWereLoaded(void);
+
 #endif /* DRIVERS_SETTINGS_NVS_H */

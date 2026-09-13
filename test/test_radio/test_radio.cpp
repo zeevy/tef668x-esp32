@@ -765,6 +765,31 @@ static void the_weak_signal_levels_can_be_set_together(void) {
   TEST_ASSERT_EQUAL_UINT8(36, r.stHiBlendStart);
 }
 
+static void a_weak_signal_level_no_signal_reaches_is_refused(void) {
+  /* Below 20 dBuV the mechanism starts where nothing arrives, so it is on and
+   * does nothing. Checked in the state machine, so every caller gets the same
+   * answer, and so that a level the core took cannot later stop the settings
+   * being stored. */
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  RadioSettings s;
+  radioDefaults(&s, &plan);
+
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SET_WEAK_SIGNAL;
+  cmd.weak[0] = 10;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, radioApply(&s, &plan, &cmd));
+  cmd.weak[0] = 70;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_RANGE, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT8(0, s.highCutStart);
+
+  cmd.weak[0] = 0; /* Off is a real choice. */
+  cmd.weak[1] = 20;
+  cmd.weak[2] = 60;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, radioApply(&s, &plan, &cmd));
+  TEST_ASSERT_EQUAL_UINT8(60, s.stHiBlendStart);
+}
+
 static void the_weak_signal_levels_are_fm_only(void) {
   apply((RadioCommand){.kind = RADIO_SET_BAND, .band = BAND_MW});
   RadioCommand c = {};
@@ -1006,12 +1031,11 @@ static void a_stored_frequency_picks_its_own_band(void) {
   TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
 }
 
-static void a_stored_frequency_comes_up_on_a_channel(void) {
-  /* What the radio actually did, check 185 on 13 September 2026: 738 kHz was
-   * saved on the 9 kHz grid, the spacing was changed to 10 kHz, and it came
-   * back up on 738, which is not a channel there. Being inside the band and
-   * being on one of its channels are different questions and only the first
-   * was asked. */
+static void a_stored_frequency_the_radio_can_tune_is_left_alone(void) {
+  /* 738 kHz stored, then the medium wave grid changed to 10 kHz. The station
+   * is still on 738: a setting on this radio does not move a transmitter.
+   * Medium wave offers a 1 kHz step, so 738 is a frequency the radio can
+   * reach, and coming up anywhere else would move it off the station. */
   Settings st;
   settingsDefaults(&st);
   st.startBand = (uint8_t)BAND_MW;
@@ -1023,13 +1047,43 @@ static void a_stored_frequency_comes_up_on_a_channel(void) {
   RadioSettings r;
   radioFromSettings(&st, &plan, &r);
   TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
-  TEST_ASSERT_EQUAL_UINT32(740, r.freqKHz);
-
-  /* And on the grid it was stored for, it does not move. */
-  st.mwSpacing = (uint8_t)MW_SPACING_9K;
-  radioPlanFromSettings(&st, &plan);
-  radioFromSettings(&st, &plan, &r);
   TEST_ASSERT_EQUAL_UINT32(738, r.freqKHz);
+}
+
+static void a_frequency_no_step_can_reach_is_snapped(void) {
+  /* The case that is worth correcting. FM offers 50, 100 and 200 kHz steps
+   * from the bottom of the band, so 102.825 MHz is on none of them and
+   * nothing on the radio could have tuned it. It comes up on the nearest
+   * frequency that can be reached. */
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_FM;
+  st.startFreqKHz = 102825;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
+  /* Onto the band's default step of 100 kHz, which is the grid a person
+   * tuning by the knob would be on. */
+  TEST_ASSERT_EQUAL_UINT32(102800, r.freqKHz);
+}
+
+static void a_fine_tuned_am_station_survives_a_restart(void) {
+  /* The 1 kHz step exists so a station can be tuned off centre on purpose,
+   * against selective fading. The step in use is not stored, so snapping to
+   * the band's default step would quietly undo that every restart. */
+  Settings st;
+  settingsDefaults(&st);
+  st.startBand = (uint8_t)BAND_MW;
+  st.startFreqKHz = 737;
+
+  BandPlanConfig plan;
+  radioPlanFromSettings(&st, &plan);
+  RadioSettings r;
+  radioFromSettings(&st, &plan, &r);
+  TEST_ASSERT_EQUAL_UINT32(737, r.freqKHz);
 }
 
 static void the_fm_features_come_from_the_settings(void) {
@@ -1283,6 +1337,7 @@ int main(int, char **) {
 
   RUN_TEST(weak_signal_handling_starts_switched_off);
   RUN_TEST(the_weak_signal_levels_can_be_set_together);
+  RUN_TEST(a_weak_signal_level_no_signal_reaches_is_refused);
   RUN_TEST(the_weak_signal_levels_are_fm_only);
   RUN_TEST(the_noise_blankers_can_be_set_from_either_band);
   RUN_TEST(the_noise_blanker_is_a_percentage_not_a_level);
@@ -1305,7 +1360,9 @@ int main(int, char **) {
   RUN_TEST(the_radio_starts_on_the_stored_band_and_frequency);
   RUN_TEST(a_stored_frequency_in_no_band_falls_back);
   RUN_TEST(a_stored_frequency_picks_its_own_band);
-  RUN_TEST(a_stored_frequency_comes_up_on_a_channel);
+  RUN_TEST(a_stored_frequency_the_radio_can_tune_is_left_alone);
+  RUN_TEST(a_frequency_no_step_can_reach_is_snapped);
+  RUN_TEST(a_fine_tuned_am_station_survives_a_restart);
   RUN_TEST(the_fm_features_come_from_the_settings);
   RUN_TEST(the_stored_am_width_only_applies_on_am);
   RUN_TEST(no_settings_gives_the_radio_defaults);

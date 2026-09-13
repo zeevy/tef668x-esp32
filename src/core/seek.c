@@ -14,10 +14,10 @@
  * reference uses a fixed 230 instead.
  *
  * A fixed 230 is too loose to seek with on this radio. At the default
- * sensitivity it stops on 104.9 MHz, which reads 1.1 dBuV with a multipath of
- * 228 and is nothing at all. Scaling it removes that stop and keeps every
- * real station, and it also gives the sensitivity control something useful to
- * do at its loose end.
+ * sensitivity it would stop on 104.9 MHz, which reads 1.1 dBuV with a
+ * multipath of 228 and is nothing at all. Scaling it keeps every real station
+ * without that stop, and gives the sensitivity control something useful to do
+ * at its loose end.
  */
 #define SEEK_NOISE_PER_STEP 30
 /**
@@ -31,9 +31,9 @@
  * weaker one with reflections, which is exactly the case a seek must not
  * skip. A limit fitted to one quiet afternoon would have skipped it.
  *
- * This is affordable because the level floor below does the work of rejecting
- * what is not a station. Before that gate existed, multipath had to be tight
- * and it still let the shoulder of a strong station through.
+ * This is affordable because the level floor below does the work of
+ * rejecting what is not a station, which a tight multipath limit cannot do
+ * on its own: the shoulder of a strong station has very little of it.
  */
 #define SEEK_MULTIPATH_PER_STEP 80
 
@@ -43,9 +43,8 @@
  * settles for a weaker signal.
  *
  * At the default of 4 that is 10.0 dBuV. Every real station in the sweep read
- * 26.7 dBuV or better, and the two things the radio wrongly stopped on before
- * this gate existed read -1.8 and -5.0. The gap is wide and the floor sits in
- * the middle of it.
+ * 26.7 dBuV or better, and the two nearest things that are not stations read
+ * -1.8 and -5.0. The gap is wide and the floor sits in the middle of it.
  */
 /** Where the level floor starts before sensitivity is taken off it. */
 #define SEEK_LEVEL_BASE_TENTHS 220
@@ -109,8 +108,15 @@ bool seekShouldStop(const SeekConfig *cfg, BandId band,
   /* The shoulder of a strong station is quiet and clean and is not a station.
    * Only level tells it apart: everything else about it looks right, because
    * what the receiver is hearing really is a transmitter, just the one next
-   * door. */
-  if (reading->levelTenths < seekLevelFloor(sensitivity)) {
+   * door.
+   *
+   * FM only. The floor is a number fitted to an FM sweep on an FM level
+   * scale, and there is no AM sweep yet to fit an AM one to. Applying it
+   * there would be a guessed threshold, and a guessed threshold switches a
+   * feature off without saying so. The AM side therefore keeps to the rule
+   * the reference firmware uses, which is noise and offset, and which runs on
+   * this board today. See test/fixtures/seek/README.md. */
+  if (fm && reading->levelTenths < seekLevelFloor(sensitivity)) {
     return false;
   }
 

@@ -138,6 +138,76 @@ void potDefaults(PotConfig *out) {
   out->deadband = 25;
 }
 
+void potCalibrateStart(PotCalibration *c, uint16_t raw, uint32_t nowMs) {
+  if (c == NULL) {
+    return;
+  }
+  c->active = true;
+  c->rawMin = raw;
+  c->rawMax = raw;
+  c->startedMs = nowMs;
+}
+
+bool potCalibrateSample(PotCalibration *c, uint16_t raw, uint32_t nowMs) {
+  if (c == NULL || !c->active) {
+    return false;
+  }
+  if ((uint32_t)(nowMs - c->startedMs) >= POT_CALIBRATE_TIMEOUT_MS) {
+    /* Given up on. The knob has been doing nothing all this time, and a
+     * radio with no working volume control and no explanation is worse than
+     * an uncalibrated one. */
+    c->active = false;
+    return false;
+  }
+  if (raw < c->rawMin) {
+    c->rawMin = raw;
+  }
+  if (raw > c->rawMax) {
+    c->rawMax = raw;
+  }
+  return true;
+}
+
+void potApplyCalibration(PotConfig *cfg, uint16_t rawMin, uint16_t rawMax) {
+  if (cfg == NULL || rawMax <= rawMin) {
+    return;
+  }
+  uint16_t span = (uint16_t)(rawMax - rawMin);
+  /* The bottom 2.5 per cent mutes, and the audible travel starts just above
+   * it. On a knob reading 0 to 4095 that works out at 102 and 122, which is
+   * where the built in 100 and 120 sit. */
+  cfg->rawMute = (uint16_t)(rawMin + span / 40);
+  cfg->rawMin = (uint16_t)(cfg->rawMute + span / 200);
+  cfg->rawMax = rawMax;
+}
+
+bool potCalibrateFinish(PotCalibration *c, PotConfig *cfg) {
+  if (c == NULL) {
+    return false;
+  }
+  /* Only a running calibration can be finished. Without this a finish after
+   * a cancel would apply the extremes the cancelled sweep recorded, so
+   * cancelling would not cancel anything. */
+  bool wasActive = c->active;
+  c->active = false;
+  if (!wasActive || cfg == NULL) {
+    return false;
+  }
+  if (c->rawMax <= c->rawMin ||
+      (uint16_t)(c->rawMax - c->rawMin) < POT_CALIBRATE_MIN_SPAN) {
+    return false;
+  }
+  potApplyCalibration(cfg, c->rawMin, c->rawMax);
+  return true;
+}
+
+void potCalibrateCancel(PotCalibration *c) {
+  if (c == NULL) {
+    return;
+  }
+  c->active = false;
+}
+
 int8_t potVolumeDb(uint16_t raw, const PotConfig *cfg) {
   PotConfig defaults;
   if (cfg == NULL) {

@@ -8,17 +8,22 @@ Firmware for radio receivers built around the NXP TEF668x tuner and an ESP32.
 The first target is the ATS-125, a portable with an ILI9341 320x240 touch
 display.
 
-**Status: it receives.** Phases 0 and 1 are done and phase 2 is most of the way
-through. The radio joins Wi-Fi, updates itself over the air with rollback,
-brings the TEF6686 up with its patch, and tunes FM and AM. It is driven from a
-web page or from the HTTP control API, because there is no display, no encoder
-and no buttons yet. Those are phases 3 to 6 in [ROADMAP.md](ROADMAP.md).
+**Status: it works as a radio.** Phases 0 to 2 are done and phase 3 is well
+under way. The radio joins Wi-Fi, updates itself over the air with rollback,
+brings the TEF6686 up with its patch, tunes FM and AM, shows what it is doing
+on the panel, and is worked from the knob, the keypad and the volume pot as
+well as from a browser and the HTTP control API. It seeks for stations, holds a
+squelch, and keeps its settings across a power cycle.
+
+Still to come: touch, LVGL, RDS, memory channels, the volume AGC, telemetry,
+the spectrum and the clock. Those are phases 4 to 6 in
+[ROADMAP.md](ROADMAP.md).
 
 This is a ground up rewrite, not a fork of running code. It takes its ideas and
 its hardware knowledge from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32),
 which is GPLv3, so this project is GPLv3 too.
 
-**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty seven design
+**Read [DECISIONS.md](DECISIONS.md) before writing any code.** Twenty six design
 decisions are settled there with the reasoning behind each. They are not
 suggestions. If one of them looks wrong, say so and discuss it, do not quietly
 work around it.
@@ -49,6 +54,14 @@ rewrite and shares no source with it. Read it to learn the hardware, then write
 the thing properly.
 
 ## How work is done
+
+**Taking a ticket? Use the `build-ticket` skill.** It is in
+`.claude/skills/build-ticket/`, and it is the way of working that produced
+phases 0 to 3: plan against the decisions, measure thresholds off the radio
+instead of guessing them, write the logic in `core/` with its tests, run every
+gate, run `/code-review` and `/security-audit`, check the memory and the
+structure, flash it, walk the user through the manual checks one at a time,
+and make the documents true again before finishing.
 
 **[RULES.md](RULES.md) has the working rules and they are not optional.** Read
 it before doing anything. In short, and not as a substitute for reading it:

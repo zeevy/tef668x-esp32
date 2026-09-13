@@ -209,19 +209,40 @@ static void manual_shuts_when_it_does_not(void) {
 static void manual_at_the_bottom_of_the_travel_is_always_open(void) {
   /* Without this there is no way to listen to a weak station on purpose. */
   SquelchReading r = bad();
-  TEST_ASSERT_TRUE(
-      update(SQUELCH_MANUAL, BAND_FM, r, squelchThresholdFromPot(0), 1000));
+  TEST_ASSERT_TRUE(update(SQUELCH_MANUAL, BAND_FM, r,
+                          squelchThresholdFromPot(0, 0, 0), 1000));
+}
+
+static void a_calibrated_knob_uses_its_own_ends(void) {
+  /* A pot that only reaches 200 to 3800 would otherwise sit at "always open"
+   * for the first stretch of its travel and hit the ceiling before the end,
+   * with nothing to say so. */
+  TEST_ASSERT_EQUAL_INT16(-100, squelchThresholdFromPot(200, 200, 3800));
+  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(3800, 200, 3800));
+
+  /* Past either end is held at that end rather than running off. */
+  TEST_ASSERT_EQUAL_INT16(-100, squelchThresholdFromPot(0, 200, 3800));
+  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(4095, 200, 3800));
+
+  /* Ends that say nothing fall back to the whole converter range, which is
+   * what an uncalibrated radio uses. */
+  TEST_ASSERT_EQUAL_INT16(squelchThresholdFromPot(2048, 0, 0),
+                          squelchThresholdFromPot(2048, 3800, 200));
+
+  /* The middle of a calibrated knob is the middle of the range. */
+  int16_t mid = squelchThresholdFromPot(2000, 200, 3800);
+  TEST_ASSERT_INT16_WITHIN(30, (920 - 100) / 2, mid);
 }
 
 static void the_pot_covers_the_whole_useful_range(void) {
-  TEST_ASSERT_EQUAL_INT16(-100, squelchThresholdFromPot(0));
-  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(4095));
+  TEST_ASSERT_EQUAL_INT16(-100, squelchThresholdFromPot(0, 0, 0));
+  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(4095, 0, 0));
   /* Past the end of the converter, which a real pot reaches. */
-  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(60000));
+  TEST_ASSERT_EQUAL_INT16(920, squelchThresholdFromPot(60000, 0, 0));
   /* And it only ever goes up. */
   int16_t last = -1000;
   for (uint16_t raw = 0; raw < 4095; raw = (uint16_t)(raw + 53)) {
-    int16_t t = squelchThresholdFromPot(raw);
+    int16_t t = squelchThresholdFromPot(raw, 0, 0);
     TEST_ASSERT_TRUE(t >= last);
     last = t;
   }
@@ -276,9 +297,9 @@ static void readings_that_keep_failing_open_the_audio_again(void) {
 }
 
 static void one_failed_reading_does_not_postpone_the_shut(void) {
-  /* A read failing in the middle of a bad patch used to cancel the hold, so a
-   * tuner failing one read every few hundred milliseconds could keep the
-   * audio open on noise for ever. */
+  /* A read that fails in the middle of a bad patch must not cancel the hold.
+   * If it did, a tuner failing one read every few hundred milliseconds would
+   * keep the audio open on noise for ever. */
   uint32_t t = 1000;
   update(SQUELCH_AUTO, BAND_FM, good(), 0, t);
   t += 10;
@@ -355,6 +376,7 @@ int main(int, char **) {
   RUN_TEST(manual_shuts_when_it_does_not);
   RUN_TEST(manual_at_the_bottom_of_the_travel_is_always_open);
   RUN_TEST(the_pot_covers_the_whole_useful_range);
+  RUN_TEST(a_calibrated_knob_uses_its_own_ends);
 
   RUN_TEST(a_reading_that_failed_never_shuts_the_audio);
   RUN_TEST(it_starts_open_rather_than_silent);

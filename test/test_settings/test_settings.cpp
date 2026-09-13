@@ -318,6 +318,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
 /** How many bytes version 2 wrote. Fixed for good, like V1_SIZE. */
 #define V2_SIZE 132
 
+/** And version 3. */
+#define V3_SIZE 136
+
 /**
  * Build a version 2 blob out of a current one.
  *
@@ -381,6 +384,90 @@ static void a_version_2_blob_of_the_wrong_length_is_refused(void) {
   Settings out;
   TEST_ASSERT_FALSE(settingsFromBlob(blob, len - 1, &out));
   TEST_ASSERT_FALSE(settingsFromBlob(blob, len + 1, &out));
+}
+
+static void a_version_3_blob_gets_the_defaults_for_what_it_never_had(void) {
+  /* Version 4 only appended, so the first V3_SIZE bytes of a current struct
+   * are exactly what version 3 wrote. */
+  Settings source;
+  settingsDefaults(&source);
+  source.fmScanSensitivity = 2;
+  source.startFreqKHz = 98300;
+
+  uint8_t blob[sizeof(Settings)];
+  memcpy(blob, &source, V3_SIZE);
+  uint16_t version = 3;
+  uint16_t size = V3_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V3_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(2, out.fmScanSensitivity);
+  TEST_ASSERT_EQUAL_UINT32(98300, out.startFreqKHz);
+  /* Never calibrated, which is what a radio updated from version 3 is. */
+  TEST_ASSERT_EQUAL_UINT16(0, out.potRawMin);
+  TEST_ASSERT_EQUAL_UINT16(0, out.potRawMax);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+}
+
+static void the_version_3_fields_never_moved(void) {
+  TEST_ASSERT_EQUAL_size_t(V2_SIZE, offsetof(Settings, fmScanSensitivity));
+  TEST_ASSERT_TRUE(sizeof(Settings) > V3_SIZE);
+}
+
+static void a_new_field_inside_old_padding_is_not_read_from_it(void) {
+  /* potRawMin sits at offset 134, inside the two bytes version 3 wrote as
+   * padding after its last field. A version 3 blob with rubbish in that
+   * padding must not have the rubbish read back as a calibration. */
+  TEST_ASSERT_EQUAL_size_t(134, offsetof(Settings, potRawMin));
+  TEST_ASSERT_TRUE(offsetof(Settings, potRawMin) < V3_SIZE);
+
+  Settings source;
+  settingsDefaults(&source);
+  uint8_t blob[sizeof(Settings)];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V3_SIZE);
+  blob[134] = 0xAB; /* Padding, as far as version 3 was concerned. */
+  blob[135] = 0xCD;
+  uint16_t version = 3;
+  uint16_t size = V3_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V3_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT16(0, out.potRawMin);
+  TEST_ASSERT_EQUAL_UINT16(0, out.potRawMax);
+}
+
+static void a_pot_calibration_is_judged_on_the_loud_end(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s)); /* Both zero, so not measured. */
+
+  /* The case this radio actually produces. Its knob reads 0 at the bottom, so
+   * a correct sweep gives 0 and 4095, and a rule that took a zero quiet end
+   * to mean "not measured" would refuse it. */
+  s.potRawMin = 0;
+  s.potRawMax = 4095;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+
+  /* A quiet end with no loud end says nothing. */
+  s.potRawMin = 120;
+  s.potRawMax = 0;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  /* The loud end has to be above the quiet one. */
+  s.potRawMin = 3000;
+  s.potRawMax = 100;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+
+  /* And neither can be past the end of the converter. */
+  s.potRawMin = 0;
+  s.potRawMax = 5000;
+  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 static void a_scan_sensitivity_outside_the_range_is_refused(void) {
@@ -529,6 +616,10 @@ int main(int, char **) {
   RUN_TEST(the_version_2_fields_never_moved);
   RUN_TEST(a_version_2_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_2_blob_of_the_wrong_length_is_refused);
+  RUN_TEST(a_version_3_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(the_version_3_fields_never_moved);
+  RUN_TEST(a_new_field_inside_old_padding_is_not_read_from_it);
+  RUN_TEST(a_pot_calibration_is_judged_on_the_loud_end);
   RUN_TEST(a_scan_sensitivity_outside_the_range_is_refused);
   RUN_TEST(a_blend_start_is_off_or_somewhere_a_signal_reaches);
   RUN_TEST(a_noise_blanker_is_a_percentage);

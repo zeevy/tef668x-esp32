@@ -4,6 +4,8 @@
  */
 #include "screen.h"
 
+#include "core/signal.h"
+
 #include "drivers/display.h"
 #include "ui/font_large.h"
 #include "ui/font_small.h"
@@ -32,9 +34,9 @@ static const Colour kBad = displayColour(0xFF, 0x8A, 0x72);
 /**
  * How long a remembered line can be, with its terminator.
  *
- * Longer than the longest string any field can hold. When it was shorter than
- * that, a field was stored truncated, never compared equal to what it was
- * asked to draw, and so was redrawn on every pass: constant SPI traffic and a
+ * Longer than the longest string any field can hold. Shorter than that and a
+ * field is stored truncated, never compares equal to what it is asked to
+ * draw, and so is redrawn on every pass: constant SPI traffic and a
  * visible flicker. The tuner fault messages are the long ones.
  */
 #define LINE_MAX 64
@@ -44,10 +46,9 @@ static const Colour kBad = displayColour(0xFF, 0x8A, 0x72);
  *
  * Each owns a fixed box. Redrawing means painting the whole box over and then
  * writing into it, which is what stops anything of the old text surviving.
- * Clearing only the difference in width, which is what this did at first,
- * leaves the tail of a longer string behind whenever a field moves, and the
- * unit after the frequency moves every time the number changes width. On the
- * radio that showed as "kHz MHzzHz".
+ * Clearing only the difference in width leaves the tail of a longer string
+ * behind whenever a field moves, and the unit after the frequency moves every
+ * time the number changes width. On the radio that shows as "kHz MHzzHz".
  */
 typedef struct {
   int16_t x;            /**< Left edge of the box. */
@@ -107,9 +108,11 @@ static void layout(void) {
 /**
  * Draw a field, if what it says has changed.
  *
- * Text too wide for its box is drawn from the left and cut at the box edge,
- * rather than run off the side of the panel where the part past the edge is
- * dropped silently.
+ * Text wider than its box is cut to fit. Two fields share the top row, so a
+ * string that overran would write into its neighbour's box and leave half a
+ * word of the wrong field on the screen, and one that reached the edge of the
+ * panel would lose whole glyphs without saying so: displayPush refuses a
+ * rectangle that crosses the edge rather than clipping it.
  */
 static void draw(int which, const char *text, Colour colour) {
   Field *f = &sFields[which];
@@ -120,15 +123,26 @@ static void draw(int which, const char *text, Colour colour) {
     return;
   }
 
+  /* Cut to what the box holds, a character at a time from the end. Cutting by
+   * an average character width would be wrong on a proportional font. */
+  char fitted[LINE_MAX];
+  snprintf(fitted, sizeof(fitted), "%s", text);
+  size_t len = strlen(fitted);
+  while (len > 0 && displayTextWidth(f->font, fitted) > f->w) {
+    fitted[--len] = '\0';
+  }
+
   displayFill(f->x, f->y, f->w, f->font->height, kBackground);
 
   int16_t at = f->x;
-  uint16_t width = displayTextWidth(f->font, text);
+  uint16_t width = displayTextWidth(f->font, fitted);
   if (width < f->w && f->alignRight) {
     at = (int16_t)(f->x + f->w - width);
   }
-  displayText(at, f->y, f->font, text, colour, kBackground);
+  displayText(at, f->y, f->font, fitted, colour, kBackground);
 
+  /* What was asked for, not what fitted, so a field whose text changes only
+   * past the cut is still redrawn when the box or the font changes. */
   snprintf(f->drawn, LINE_MAX, "%s", text);
   f->valid = true;
 }
@@ -171,14 +185,9 @@ static void formatSignal(const ScreenState *state, char *out, size_t outLen) {
     snprintf(out, outLen, "no reading");
     return;
   }
-  /* The sign is taken before the value is split, because dividing minus five
-   * tenths by ten gives zero and the minus would be lost. A dead band really
-   * does read a little below zero. */
-  int16_t tenths = state->signalTenths;
-  const char *sign = tenths < 0 ? "-" : "";
-  uint16_t magnitude = (uint16_t)(tenths < 0 ? -tenths : tenths);
-  snprintf(out, outLen, "%s%u.%u dBuV", sign, (unsigned)(magnitude / 10),
-           (unsigned)(magnitude % 10));
+  char level[12];
+  signalFormatLevel(state->signalTenths, level, sizeof(level));
+  snprintf(out, outLen, "%s dBuV", level);
 }
 
 void screenShow(const ScreenState *state) {

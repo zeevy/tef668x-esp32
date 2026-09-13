@@ -8,6 +8,7 @@
 #include "core/access_pin.h"
 #include "core/band_plan.h"
 #include "core/input.h"
+#include "core/signal.h"
 #include "core/version.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
@@ -272,6 +273,36 @@ static String pageHead(const char *title, const char *active) {
         "nav.pages a:hover{color:#e6e6e6;border-color:#3a4b5c}"
         "nav.pages a.here{color:#0b0f13;background:#ffb200;"
         "border-color:#ffb200;font-weight:600}"
+        /* The form controls, named short because they are repeated for every
+           field on the Radio page. The long Bootstrap class lists came to
+           2131 bytes of a 14 KB page. */
+        ".lbl{display:block;margin:0 0 4px;font-size:.875em;color:#9fb3c8}"
+        ".sel,.num{display:block;width:100%;padding:4px 8px;font-size:14px;"
+        "line-height:1.5;border-radius:6px;background:#121a22;"
+        "border:1px solid #24313d;color:#e6e6e6}"
+        ".sel:focus,.num:focus{outline:0;border-color:#ffb200}"
+        /* Inside an input group the box has to share the row with the
+           buttons either side of it, so it cannot be a full width block. */
+        ".input-group>.num{flex:1 1 auto;width:1%;min-width:0}"
+        /* The slider, so it is the radio's amber rather than the browser's
+           default blue. */
+        "input[type=range]{accent-color:#ffb200}"
+        /* The reply to a button press. Fixed to the bottom of the screen
+           rather than sitting at the top of the page, because the buttons
+           that produce it are most of a screen further down and the answer
+           was landing where nobody was looking. */
+        "#rmsg{position:fixed;left:16px;right:16px;bottom:16px;z-index:50;"
+        "margin:0;padding:10px 40px 10px 14px;border-radius:8px;"
+        "background:#121a22;border:1px solid #24313d;"
+        "box-shadow:0 6px 24px rgba(0,0,0,.5);max-width:648px;"
+        "margin-inline:auto}"
+        "#rmsg[hidden]{display:none}"
+        /* The close button. Nothing closes itself: a message that vanishes
+           on a timer is one somebody was still reading. */
+        "#rmsgx{position:absolute;top:4px;right:8px;border:0;background:none;"
+        "color:#9fb3c8;font-size:22px;line-height:1;cursor:pointer;"
+        "padding:2px 6px}"
+        "#rmsgx:hover{color:#e6e6e6}"
         "</style></head><body><div class='wrap container-sm py-3'>");
 
   if (active != NULL) {
@@ -315,62 +346,62 @@ static const char *pageTail(bool scripted = false) {
    * as markup. A hostile reply would be shown, not run.
    */
   return "<script>"
-         "var M=function(t,ok){var m=document.getElementById('rmsg');"
-         "if(!m)return;m.className='small mb-3 '+(ok?'text-success':"
-         "'text-danger');m.textContent=t.trim();};"
-         "var W=function(){var m=document.getElementById('rmsg');"
-         "if(m){m.className='small mb-3 text-secondary';"
-         "m.textContent='Working...';}};"
-         /* Update the big frequency line without a reload. */
-         "var R=function(){fetch('/api/state').then(function(r){"
-         "return r.json();}).then(function(d){var t=d.tuner;if(!t)return;"
-         "var set=function(i,v){var e=document.getElementById(i);"
-         "if(e)e.textContent=v;};"
-         "set('npf',t.f);set('npu',t.unit||'');set('npb',t.band);"
-         "var s=[];if(t.sig!==undefined)s.push(Math.round(t.sig/10)+' dBuV');"
-         "if(t.st)s.push('stereo');"
-         "s.push('squelch '+(t.sqlOpen?'open':'shut'));"
-         "if(t.mute)s.push('muted');set('nps',s.join(' \\u00b7 '));"
-         "var k=document.getElementById('khz');if(k)k.value=t.khz;"
-         "}).catch(function(){});};"
-         "var P=function(url,body){W();"
-         "return fetch(url,{method:'POST',body:body}).then(function(r){"
-         "return r.text().then(function(t){M(t,r.ok);R();return r.ok;});})"
+         /* q is querySelectorAll, g is getElementById. Both are used enough
+            times that the names are worth the two lines. */
+         "var q=function(s){return document.querySelectorAll(s)},"
+         "g=function(i){return document.getElementById(i)},"
+         "S=function(t,c){var m=g('rmsg'),x=g('rmsgt');if(!m||!x)return;"
+         "m.className='small '+c;x.textContent=t.trim();m.hidden=false},"
+         "M=function(t,o){S(t,o?'text-success':'text-danger')},"
+         "W=function(){S('Working...','text-secondary')},"
+         /* Update the frequency line from the state document. */
+         "R=function(){fetch('/api/state').then(function(r){return r.json()})"
+         ".then(function(d){var t=d.tun;if(!t)return;"
+         "var e=function(i,v){var n=g(i);if(n)n.textContent=v};"
+         "e('npf',t.f);e('npu',t.unt||'');e('npb',t.bnd);"
+         "var s=[];if(t.sig!==undefined)s.push((t.sig/10).toFixed(1)+' dBuV');"
+         "if(t.st)s.push('stereo');s.push('squelch '+(t.sqo?'open':'shut'));"
+         "if(t.mut)s.push('muted');e('nps',s.join(' · '));"
+         "var k=g('khz');if(k)k.value=t.khz}).catch(function(){})},"
+         "P=function(u,b){W();return fetch(u,{method:'POST',body:b})"
+         ".then(function(r){return r.text().then(function(t){"
+         "M(t,r.ok);R();return r.ok})})"
          ".catch(function(){M('The radio did not answer.',false);"
-         "return false;});};"
+         "return false})},"
          /* A seek answers as soon as it has started, so the frequency line
-            has to keep up with it on its own until it stops. */
-         "var F=function(){var n=0;var t=setInterval(function(){"
-         "fetch('/api/state').then(function(r){return r.json();})"
-         ".then(function(d){R();if(!d.tuner||!d.tuner.seeking||++n>200){"
-         "clearInterval(t);}}).catch(function(){clearInterval(t);});},250);};"
-         "document.querySelectorAll('[data-post]').forEach(function(b){"
+            keeps up with it on its own until it stops. */
+         "F=function(){var n=0,t=setInterval(function(){"
+         "fetch('/api/state').then(function(r){return r.json()}).then("
+         "function(d){R();if(!d.tun||!d.tun.skg||++n>200)clearInterval(t)})"
+         ".catch(function(){clearInterval(t)})},250)};"
+         "q('[data-post]').forEach(function(b){"
          "b.addEventListener('click',function(e){e.preventDefault();"
          "var p=new URLSearchParams(b.dataset.args||'');"
-         "if(b.dataset.from){var f=document.getElementById(b.dataset.from);"
-         "if(f)p.append(f.name,f.value);}"
-         "P(b.dataset.post,p).then(function(ok){"
-         "if(ok&&b.dataset.quiet!==undefined)F();});});});"
-         "document.querySelectorAll('[data-now]').forEach(function(el){"
-         "el.addEventListener('change',function(){"
-         "var v=el.dataset.send==='label'&&el.options?"
-         "el.options[el.selectedIndex].text:el.value;"
-         "if(el.dataset.echo){var e=document.getElementById(el.dataset.echo);"
-         "if(e)e.textContent=el.value;}"
-         "var p=new URLSearchParams();p.append(el.name,v);"
-         "P(el.dataset.now,p).then(function(){"
+         "if(b.dataset.from){var f=g(b.dataset.from);if(f)p.append(f.name,"
+         "f.value)}"
+         "P(b.dataset.post,p).then(function(o){"
+         "if(o&&b.dataset.quiet!==undefined)F()})})});"
+         "q('[data-now]').forEach(function(l){"
+         "l.addEventListener('change',function(){"
+         "var v=l.dataset.send==='label'&&l.options?"
+         "l.options[l.selectedIndex].text:l.value;"
+         "if(l.dataset.echo){var e=g(l.dataset.echo);if(e)e.textContent="
+         "l.value}"
+         "var p=new URLSearchParams();p.append(l.name,v);"
          /* A band change rebuilds which settings apply, so reload. */
-         "if(el.name==='band')location.reload();});});"
-         "if(el.dataset.echo)el.addEventListener('input',function(){"
-         "var e=document.getElementById(el.dataset.echo);"
-         "if(e)e.textContent=el.value;});});"
-         "document.querySelectorAll('[data-apply]').forEach(function(b){"
+         "P(l.dataset.now,p).then(function(){if(l.name==='bnd')"
+         "location.reload()})});"
+         "if(l.dataset.echo)l.addEventListener('input',function(){"
+         "var e=g(l.dataset.echo);if(e)e.textContent=l.value})});"
+         "q('[data-apply]').forEach(function(b){"
          "b.addEventListener('click',async function(e){e.preventDefault();"
-         "var card=b.closest('[data-card]');if(!card)return;var g={};"
-         "card.querySelectorAll('[data-api]').forEach(function(el){"
-         "if(el.disabled)return;var u=el.dataset.api;"
-         "if(!g[u])g[u]=new URLSearchParams();g[u].append(el.name,el.value);});"
-         "for(var u in g){var ok=await P(u,g[u]);if(!ok)return;}});});"
+         "var c=b.closest('[data-card]');if(!c)return;var m={};"
+         "c.querySelectorAll('[data-api]').forEach(function(l){"
+         "if(l.disabled)return;var u=l.dataset.api;"
+         "if(!m[u])m[u]=new URLSearchParams();m[u].append(l.name,l.value)});"
+         "for(var u in m){var o=await P(u,m[u]);if(!o)return}})});"
+         "document.addEventListener('click',function(e){"
+         "if(e.target&&e.target.id==='rmsgx')g('rmsg').hidden=true});"
          "</script></div></body></html>";
 }
 
@@ -379,11 +410,9 @@ static String formSelect(const char *name, const char *label,
                          const char *const *options, const long *values,
                          int count, long current, const char *attrs) {
   String out;
-  out +=
-      F("<div class='col-6 col-md-4'><label class='form-label small "
-        "text-secondary mb-1'>");
+  out += F("<div class='col-6 col-md-4'><label class=lbl>");
   out += label;
-  out += F("</label><select class='form-select form-select-sm' name=");
+  out += F("</label><select class=sel name=");
   out += name;
   out += F(" ");
   out += attrs;
@@ -406,12 +435,10 @@ static String formSelect(const char *name, const char *label,
 static String formNumber(const char *name, const char *label, long low,
                          long high, long current, const char *attrs) {
   String out;
-  out +=
-      F("<div class='col-6 col-md-4'><label class='form-label small "
-        "text-secondary mb-1'>");
+  out += F("<div class='col-6 col-md-4'><label class=lbl>");
   out += label;
   out +=
-      F("</label><input class='form-control form-control-sm' type=number "
+      F("</label><input class=num type=number "
         "name=");
   out += name;
   out += F(" min=");
@@ -444,12 +471,11 @@ static const char *cardClose(void) {
 /**
  * The Radio page.
  *
- * Three cards. The first one works the radio, which is what a page called
- * Radio ought to do and did not: it was four forms of settings with no way to
- * change station. The second holds how it receives, behind one Apply. The
- * third holds the ones that need a reboot, kept apart so that "needs a
- * reboot" is a property of a card rather than small print somebody has to
- * notice.
+ * Four cards. The first works the radio, which is what a page called Radio is
+ * for. The second holds how it receives, behind one Apply. The third holds
+ * the ones that need a reboot, kept apart so that "needs a reboot" is a
+ * property of a card rather than small print somebody has to notice. The
+ * fourth measures the knob.
  *
  * Every control posts to the same API a script would use, so there is one set
  * of checks and one set of refusals, and no second path with a weaker check
@@ -465,7 +491,10 @@ static String radioForms(void) {
   String out;
   out.reserve(5500);
 
-  out += F("<p id=rmsg class='small mb-3' style='min-height:1.2em'></p>");
+  out +=
+      F("<p id=rmsg class=small hidden><span id=rmsgt></span>"
+        "<button id=rmsgx type=button aria-label=Close>&times;</button>"
+        "</p>");
 
   if (!live) {
     out +=
@@ -494,7 +523,9 @@ static String radioForms(void) {
   out += bandName(now.settings.band);
   out += F("</span></div><p id=nps class='small text-secondary mb-3'>");
   if (now.qualityValid) {
-    out += String(now.quality.levelDbuVTenths / 10);
+    char level[12];
+    signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
+    out += level;
     out += F(" dBuV");
     if (now.quality.stereo && !now.settings.forcedMono) {
       out += F(" &middot; stereo");
@@ -512,22 +543,21 @@ static String radioForms(void) {
   out +=
       F("<div class='row g-2 align-items-end'>"
         "<div class='col-12 col-md-7'>"
-        "<label class='form-label small text-secondary mb-1'>Frequency, "
+        "<label class=lbl>Frequency, "
         "kHz</label><div class='input-group input-group-sm'>"
         "<button class='btn btn-outline-secondary' data-post='/api/step' "
-        "data-args='steps=-1' title='Down one step'>&#8249;</button>"
-        "<input class=form-control id=khz name=khz type=number value=");
+        "data-args='stp=-1' title='Down one step'>&#8249;</button>"
+        "<input class=num id=khz name=khz type=number value=");
   out += String(now.settings.freqKHz);
   out +=
       F("><button class='btn btn-outline-secondary' data-post='/api/step' "
-        "data-args='steps=1' title='Up one step'>&#8250;</button>"
+        "data-args='stp=1' title='Up one step'>&#8250;</button>"
         "<button class='btn btn-primary' data-post='/api/tune' "
         "data-from=khz>Go</button></div></div>");
 
   out +=
-      F("<div class='col-6 col-md-5'><label class='form-label small "
-        "text-secondary mb-1'>Band</label>"
-        "<select class='form-select form-select-sm' name=band "
+      F("<div class='col-6 col-md-5'><label class=lbl>Band</label>"
+        "<select class=sel name=bnd "
         "data-now='/api/band' data-send=label>");
   for (int b = 0; b < BAND_COUNT; b++) {
     out += F("<option");
@@ -541,8 +571,8 @@ static String radioForms(void) {
   out += F("</select></div>");
 
   out +=
-      F("<div class='col-12 col-md-8'><label class='form-label small "
-        "text-secondary mb-1'>Volume, dB <span id=volnow>");
+      F("<div class='col-12 col-md-8'><label class=lbl>Volume, dB <span "
+        "id=volnow>");
   out += String(now.settings.volumeDb);
   out += F("</span></label><input class=form-range type=range name=db min=");
   out += String(RADIO_VOLUME_MIN);
@@ -551,9 +581,8 @@ static String radioForms(void) {
   out += F(" data-now='/api/volume' data-echo=volnow></div>");
 
   out +=
-      F("<div class='col-6 col-md-4'><label class='form-label small "
-        "text-secondary mb-1'>Squelch</label>"
-        "<select class='form-select form-select-sm' name=mode "
+      F("<div class='col-6 col-md-4'><label class=lbl>Squelch</label>"
+        "<select class=sel name=mod "
         "data-now='/api/squelch' data-send=label>");
   for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
     out += F("<option");
@@ -580,7 +609,7 @@ static String radioForms(void) {
   out +=
       F("<div class='col-12 mt-2'>"
         "<button class='btn btn-outline-secondary btn-sm me-2' "
-        "data-post='/api/cycle' data-args='what=mute'>Mute or unmute"
+        "data-post='/api/cycle' data-args='wht=mute'>Mute or unmute"
         "</button>"
         "<button class='btn btn-primary btn-sm' data-post='/api/save'>"
         "Keep these settings</button></div></div>"
@@ -595,7 +624,7 @@ static String radioForms(void) {
   out += F("<div class='row g-2'>");
   static const char *deemphNames[] = {"50 us", "75 us", "Off"};
   static const long deemphValues[] = {50, 75, 0};
-  out += formSelect("deemph", "De-emphasis", deemphNames, deemphValues, 3,
+  out += formSelect("dem", "De-emphasis", deemphNames, deemphValues, 3,
                     now.settings.deemphasisUs, "data-api='/api/fm'");
   if (!onFm) {
     static const char *widthNames[] = {"3 kHz", "4 kHz", "6 kHz", "8 kHz"};
@@ -609,7 +638,7 @@ static String radioForms(void) {
     out += formSelect("eq", "Channel equalizer", offOn, zeroOne, 2,
                       now.settings.equalizer ? 1 : 0, "data-api='/api/fm'");
     static const char *stereoMono[] = {"Stereo", "Mono"};
-    out += formSelect("mono", "Stereo", stereoMono, zeroOne, 2,
+    out += formSelect("mno", "Stereo", stereoMono, zeroOne, 2,
                       now.settings.forcedMono ? 1 : 0, "data-api='/api/fm'");
   }
   out += F("</div>");
@@ -623,14 +652,14 @@ static String radioForms(void) {
   if (onFm) {
     out += formNumber("cut", "High cut from, dBuV", 0, 60,
                       now.settings.highCutStart, "data-api='/api/fm'");
-    out += formNumber("blend", "Stereo blend from, dBuV", 0, 60,
+    out += formNumber("bld", "Stereo blend from, dBuV", 0, 60,
                       now.settings.stereoBlendStart, "data-api='/api/fm'");
-    out += formNumber("hiblend", "Both from, dBuV", 0, 60,
+    out += formNumber("hbl", "Both from, dBuV", 0, 60,
                       now.settings.stHiBlendStart, "data-api='/api/fm'");
   }
-  out += formNumber("fmnb", "FM noise blanker, per cent", 0, 150,
+  out += formNumber("fnb", "FM noise blanker, per cent", 0, 150,
                     now.settings.fmNoiseBlankerStart, "data-api='/api/fm'");
-  out += formNumber("amnb", "AM noise blanker, per cent", 0, 150,
+  out += formNumber("anb", "AM noise blanker, per cent", 0, 150,
                     now.settings.amNoiseBlankerStart, "data-api='/api/fm'");
   out +=
       F("</div><p class='small text-secondary mt-2 mb-0'>The levels are 0 "
@@ -648,9 +677,9 @@ static String radioForms(void) {
         "1, strong only", "2", "3",
         "4, the default", "5", "6, finds weak ones"};
     static const long sensValues[] = {1, 2, 3, 4, 5, 6};
-    out += formSelect("fmsens", "FM", sensNames, sensValues, 6,
+    out += formSelect("fsn", "FM", sensNames, sensValues, 6,
                       st->fmScanSensitivity, "data-api='/api/settings'");
-    out += formSelect("amsens", "AM", sensNames, sensValues, 6,
+    out += formSelect("asn", "AM", sensNames, sensValues, 6,
                       st->amScanSensitivity, "data-api='/api/settings'");
   }
   out +=
@@ -680,20 +709,46 @@ static String radioForms(void) {
   static const char *regionNames[] = {"65 to 108", "Japan, 76 to 95",
                                       "76 to 108", "87 to 108", "87.5 to 108"};
   static const long regionValues[] = {0, 1, 2, 3, 4};
-  out += formSelect("region", "FM band, MHz", regionNames, regionValues, 5,
+  out += formSelect("rgn", "FM band, MHz", regionNames, regionValues, 5,
                     st->fmRegion, "data-api='/api/settings'");
   static const char *spacingNames[] = {"9 kHz", "10 kHz"};
-  out += formSelect("spacing", "Medium wave steps", spacingNames, zeroOne, 2,
+  out += formSelect("spc", "Medium wave steps", spacingNames, zeroOne, 2,
                     st->mwSpacing, "data-api='/api/settings'");
   static const char *encoderNames[] = {"Standard", "Optical"};
-  out += formSelect("encoder", "Encoder", encoderNames, zeroOne, 2,
-                    st->encoderKind, "data-api='/api/settings'");
+  out += formSelect("enc", "Encoder", encoderNames, zeroOne, 2, st->encoderKind,
+                    "data-api='/api/settings'");
   static const char *directionNames[] = {"Normal", "Reversed"};
-  out += formSelect("direction", "Knob direction", directionNames, zeroOne, 2,
+  out += formSelect("edr", "Knob direction", directionNames, zeroOne, 2,
                     st->encoderDirection, "data-api='/api/settings'");
   out +=
       F("</div><div class='mt-3'><button class='btn btn-primary btn-sm' "
         "data-apply>Save band plan</button></div>");
+  out += cardClose();
+
+  /* ------------------------------------------------------------- the knob */
+  out += cardOpen("The volume knob");
+  out += F("<p class='small text-secondary mb-2'>");
+  if (st->potRawMax != 0) {
+    out += F("This knob has been measured: it runs ");
+    out += String(st->potRawMin);
+    out += F(" to ");
+    out += String(st->potRawMax);
+    out += F(".");
+  } else {
+    out +=
+        F("Not measured. The radio is using figures taken from another "
+          "unit, which may not be this knob's travel.");
+  }
+  out +=
+      F(" Press Measure, turn the knob all the way to both ends, then "
+        "press Done. While measuring the knob changes nothing, so you can "
+        "sweep it to the loud end without the volume following.</p>"
+        "<button class='btn btn-outline-secondary btn-sm me-2' "
+        "data-post='/api/pot' data-args='act=start'>Measure</button>"
+        "<button class='btn btn-primary btn-sm me-2' "
+        "data-post='/api/pot' data-args='act=finish'>Done</button>"
+        "<button class='btn btn-outline-secondary btn-sm' "
+        "data-post='/api/pot' data-args='act=cancel'>Cancel</button>");
   out += cardClose();
   return out;
 }
@@ -712,11 +767,11 @@ static String signInForm(const char *next) {
       F("<p class='text-secondary small'>Six digits. A new radio is on "
         "000000. Five wrong tries locks this for a minute.</p>"
         "<form method=post action='/auth'>"
-        "<input type=hidden name=next value='");
+        "<input type=hidden name=nxt value='");
   out += next;
   out +=
-      F("'><label class='form-label small text-secondary'>PIN</label>"
-        "<input class=form-control name=pin inputmode=numeric "
+      F("'><label class=lbl>PIN</label>"
+        "<input class=num name=pin inputmode=numeric "
         "pattern='[0-9]{6}' maxlength=6 required>"
         "<button class='btn btn-primary mt-3' type=submit>Unlock</button>"
         "</form>");
@@ -765,14 +820,20 @@ static String wifiForm(void) {
   }
   out +=
       F("<form method=post action='/wifi'>"
-        "<label class='form-label small text-secondary'>Network name"
-        "</label><input class=form-control name=ssid maxlength=32 required "
+        "<label class=lbl>Network name"
+        "</label><input class=num name=sid maxlength=32 required "
         "value='");
-  out += escapeHtml(sSettings->wifiSsid);
+  /* The stored name only to somebody who has signed in, or on the access
+   * point, where there is no network yet and the form is open by design.
+   * Filling it in for anyone who can reach the radio hands out the name of
+   * the home network to the whole of it. */
+  if (signedIn() || inSetupMode()) {
+    out += escapeHtml(sSettings->wifiSsid);
+  }
   out +=
-      F("'><label class='form-label small text-secondary mt-2'>Passphrase, "
+      F("'><label class='lbl mt-2'>Passphrase, "
         "leave empty for an open network</label>"
-        "<input class=form-control name=pass type=password maxlength=64>"
+        "<input class=num name=pwd type=password maxlength=64>"
         "<button class='btn btn-primary mt-3' type=submit>Save and join"
         "</button></form>");
   return out;
@@ -811,7 +872,9 @@ static void handleRoot(void) {
     }
     out += F("<p class='small text-secondary mb-2'>");
     if (now.qualityValid) {
-      out += String(now.quality.levelDbuVTenths / 10);
+      char level[12];
+      signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
+      out += level;
       out += F(" dBuV");
       if (now.quality.stereo && !now.settings.forcedMono) {
         out += F(" &middot; stereo");
@@ -885,8 +948,8 @@ static void handleNetworkPage(void) {
           "effect at once and signs every browser out, this one included."
           "</p>"
           "<form method=post action='/setpin'>"
-          "<label class='form-label small text-secondary'>New PIN</label>"
-          "<input class=form-control name=pin inputmode=numeric "
+          "<label class=lbl>New PIN</label>"
+          "<input class=num name=pin inputmode=numeric "
           "pattern='[0-9]{6}' maxlength=6 required>"
           "<button class='btn btn-primary mt-3' type=submit>Change PIN"
           "</button></form>");
@@ -945,7 +1008,7 @@ static void handleSystemPage(void) {
         ".pio/build/ats125/firmware.bin. The radio reboots into it and "
         "puts the old one back on its own if it does not come up.</p>"
         "<form method=post action='/update' enctype='multipart/form-data'>"
-        "<input class=form-control type=file name=firmware accept='.bin' "
+        "<input class=num type=file name=firmware accept='.bin' "
         "required>"
         "<button class='btn btn-primary mt-3' type=submit>Upload and "
         "reboot</button></form>");
@@ -1019,7 +1082,7 @@ static void handleAuth(void) {
    * browser wherever the poster liked. */
   sServer.sendHeader(
       "Location",
-      safeNext(sServer.hasArg("next") ? sServer.arg("next") : String("/")));
+      safeNext(sServer.hasArg("nxt") ? sServer.arg("nxt") : String("/")));
   sServer.send(303, "text/plain", "");
 }
 
@@ -1029,13 +1092,13 @@ static void handleWifi(void) {
   if (!requireAuth(true)) {
     return;
   }
-  if (!sServer.hasArg("ssid")) {
+  if (!sServer.hasArg("sid")) {
     sendResult(400, "Nothing saved", "A network name is needed.", true);
     return;
   }
 
-  String ssid = sServer.arg("ssid");
-  String pass = sServer.hasArg("pass") ? sServer.arg("pass") : String("");
+  String ssid = sServer.arg("sid");
+  String pass = sServer.hasArg("pwd") ? sServer.arg("pwd") : String("");
 
   Settings pending = *sSettings;
   if (!settingsSetWifi(&pending, ssid.c_str(), pass.c_str())) {
@@ -1226,23 +1289,23 @@ static void handleReboot(void) {
  */
 static void appendRadioState(String &out) {
   const Tef668xCapabilities *tuner = tef668xCapabilities();
-  out += F("\"tuner\":");
+  out += F("\"tun\":");
   if (tuner != NULL) {
-    out += F("{\"part\":\"");
+    out += F("{\"prt\":\"");
     out += tuner->part;
-    out += F("\",\"patch\":");
+    out += F("\",\"pch\":");
     out += String(tuner->patchVersion);
     /* The crystal is reported whether start up worked or not. A wrong choice
      * here does not fail, it just makes the radio deaf, so it has to be
      * visible on a working radio too. */
     const Tef668xDiagnostics *dg = tef668xDiagnostics();
     char xt[72];
-    snprintf(xt, sizeof(xt), ",\"xtalAdc\":%u,\"xtal\":\"%s\"",
+    snprintf(xt, sizeof(xt), ",\"xad\":%u,\"xtl\":\"%s\"",
              (unsigned)dg->xtalAdc, dg->xtal ? dg->xtal : "not read");
     out += xt;
-    out += F(",\"fmsi\":");
+    out += F(",\"fsi\":");
     out += tuner->hasStereoImprovement ? F("true") : F("false");
-    out += F(",\"fsrds\":");
+    out += F(",\"frd\":");
     out += tuner->hasFullSearchRds ? F("true") : F("false");
     out += F(",\"dr\":");
     out += tuner->hasDigitalRadio ? F("true") : F("false");
@@ -1259,8 +1322,8 @@ static void appendRadioState(String &out) {
                               freqText, sizeof(freqText))) {
         char tuned[160];
         snprintf(tuned, sizeof(tuned),
-                 ",\"band\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"unit\":\"%s\""
-                 ",\"step\":%u,\"vol\":%d,\"mute\":%s,\"mode\":\"%s\""
+                 ",\"bnd\":\"%s\",\"khz\":%u,\"f\":\"%s\",\"unt\":\"%s\""
+                 ",\"stp\":%u,\"vol\":%d,\"mut\":%s,\"tmd\":\"%s\""
                  ",\"seq\":%u",
                  bandName(snap.settings.band), (unsigned)snap.settings.freqKHz,
                  freqText, bandFrequencyUnit(snap.settings.band),
@@ -1276,15 +1339,15 @@ static void appendRadioState(String &out) {
       out += snap.settings.multipathSuppression ? F("true") : F("false");
       out += F(",\"eq\":");
       out += snap.settings.equalizer ? F("true") : F("false");
-      out += F(",\"mono\":");
+      out += F(",\"mno\":");
       out += snap.settings.forcedMono ? F("true") : F("false");
       /* The de-emphasis the tuner is set to. It is written on every start, so
        * without it here there is no way to read back what the chip has. */
-      out += F(",\"deemph\":");
+      out += F(",\"dem\":");
       out += String(snap.settings.deemphasisUs);
-      out += F(",\"fmnb\":");
+      out += F(",\"fnb\":");
       out += String(snap.settings.fmNoiseBlankerStart);
-      out += F(",\"amnb\":");
+      out += F(",\"anb\":");
       out += String(snap.settings.amNoiseBlankerStart);
       out += F(",\"snr\":");
       out += String(snap.quality.snrDb);
@@ -1292,35 +1355,35 @@ static void appendRadioState(String &out) {
         /* What the chip is applying now, not what it was told. */
         out += F(",\"cut\":");
         out += String(snap.processing.highCut);
-        out += F(",\"blend\":");
+        out += F(",\"bld\":");
         out += String(snap.processing.stereo);
-        out += F(",\"hiblend\":");
+        out += F(",\"hbl\":");
         out += String(snap.processing.stHiBlend);
       }
-      out += F(",\"wide\":");
+      out += F(",\"wid\":");
       out += snap.bandwidthWide ? F("true") : F("false");
       /* Whether the dial is moving on its own. A caller that cannot tell
        * seeking from a person turning the knob shows the same thing for
        * both. */
-      out += F(",\"seeking\":");
+      out += F(",\"skg\":");
       out += snap.seeking ? F("true") : F("false");
-      out += F(",\"seekFound\":");
+      out += F(",\"skf\":");
       out += snap.seekFound ? F("true") : F("false");
 
       /* The squelch, so a radio that has gone quiet says why. */
       out += F(",\"sql\":\"");
       out += squelchModeName(snap.squelchMode);
-      out += F("\",\"sqlOpen\":");
+      out += F("\",\"sqo\":");
       out += snap.squelchOpen ? F("true") : F("false");
-      out += F(",\"hwMute\":");
+      out += F(",\"hmu\":");
       out += snap.tunerMuted ? F("true") : F("false");
       if (snap.squelchMode == SQUELCH_MANUAL) {
-        out += F(",\"sqlAt\":");
+        out += F(",\"sqa\":");
         out += String(snap.squelchThresholdTenths);
       }
 
       if (snap.lastError != TEF668X_OK) {
-        out += F(",\"pushError\":\"");
+        out += F(",\"per\":\"");
         out += tef668xErrorText(snap.lastError);
         out += F("\"");
       }
@@ -1332,8 +1395,8 @@ static void appendRadioState(String &out) {
       /* Tenths go out as tenths, not as a decimal string, so nothing has to
        * parse a float and no precision is lost on the way. */
       snprintf(sig, sizeof(sig),
-               ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"offset\":%d"
-               ",\"bw\":%u,\"mod\":%d,\"st\":%s,\"pilot\":%s",
+               ",\"sig\":%d,\"usn\":%u,\"wam\":%u,\"off\":%d"
+               ",\"bw\":%u,\"mod\":%d,\"st\":%s,\"plt\":%s",
                q.levelDbuVTenths, (unsigned)q.usnTenths,
                bandModulation(snap.settings.band) == MODULATION_FM
                    ? (unsigned)q.multipathTenths
@@ -1351,7 +1414,7 @@ static void appendRadioState(String &out) {
   } else {
     /* Say why, not just that it failed. Without this the only way to find out
      * is the cable, and the whole point of this phase is not needing one. */
-    out += F("{\"error\":\"");
+    out += F("{\"err\":\"");
     out += tef668xErrorText(tunerStartError());
     out += F("\"");
     uint16_t dev = 0;
@@ -1360,23 +1423,23 @@ static void appendRadioState(String &out) {
     if (tef668xLastIdentification(&dev, &hw, &sw)) {
       char words[64];
       snprintf(words, sizeof(words),
-               ",\"device\":\"%04X\",\"hw\":\"%04X\",\"sw\":\"%04X\"", dev, hw,
+               ",\"dev\":\"%04X\",\"hwd\":\"%04X\",\"swd\":\"%04X\"", dev, hw,
                sw);
       out += words;
     }
     const Tef668xDiagnostics *d = tef668xDiagnostics();
     char diag[176];
     snprintf(diag, sizeof(diag),
-             ",\"sawChip\":%s,\"readBoot\":%s,\"boot\":%u"
-             ",\"patched\":%s,\"tried\":%u,\"wanted\":%u",
+             ",\"saw\":%s,\"rbt\":%s,\"bot\":%u"
+             ",\"ptd\":%s,\"try\":%u,\"wnt\":%u",
              d->sawDevice ? "true" : "false",
              d->readBootStatus ? "true" : "false", (unsigned)d->bootStatus,
              d->patchLoaded ? "true" : "false", (unsigned)d->patchTried,
              (unsigned)d->patchWanted);
     out += diag;
     char xt[64];
-    snprintf(xt, sizeof(xt), ",\"xtalAdc\":%u,\"xtal\":\"%s\"",
-             (unsigned)d->xtalAdc, d->xtal ? d->xtal : "");
+    snprintf(xt, sizeof(xt), ",\"xad\":%u,\"xtl\":\"%s\"", (unsigned)d->xtalAdc,
+             d->xtal ? d->xtal : "");
     out += xt;
     out += F("}");
   }
@@ -1392,37 +1455,50 @@ static void appendRadioState(String &out) {
  * | Key | Full name |
  * |---|---|
  * | `pad` | The keypad expander answered at start up |
- * | `clicks` | Knob clicks since boot |
- * | `presses` | Button and key events since boot |
- * | `last` | The last event in words, such as "BAND long" |
- * | `lastMs` | When that was, ms since boot. 0 for never |
- * | `typed` | Digits keyed and not yet entered |
+ * | `clk` | Knob clicks since boot |
+ * | `prs` | Button and key events since boot |
+ * | `lst` | The last event in words, such as "BAND long" |
+ * | `lms` | When that was, ms since boot. 0 for never |
+ * | `typ` | Digits keyed and not yet entered |
  * | `pot` | The volume knob, 0 to 4095 |
- * | `potDb` | The volume that reading was turned into, in dB |
+ * | `pdb` | The volume that reading was turned into, in dB |
  *
  * @param out  The reply being built.
  */
 static void appendInputState(String &out) {
   InputStatus in;
   inputStatusGet(&in);
-  out += F("\"input\":{\"pad\":");
+  out += F("\"inp\":{\"pad\":");
   out += in.keypadPresent ? F("true") : F("false");
-  out += F(",\"clicks\":");
+  out += F(",\"clk\":");
   out += String(in.clicks);
-  out += F(",\"presses\":");
+  out += F(",\"prs\":");
   out += String(in.presses);
-  out += F(",\"last\":\"");
+  out += F(",\"lst\":\"");
   out += jsonEscape(in.lastEvent);
-  out += F("\",\"lastMs\":");
+  out += F("\",\"lms\":");
   out += String(in.lastEventMs);
-  out += F(",\"typed\":\"");
+  out += F(",\"typ\":\"");
   out += jsonEscape(in.typed);
-  out += F("\",\"lines\":");
+  out += F("\",\"lns\":");
   out += String(in.linesOk ? in.lines : 0xFFFF);
   out += F(",\"pot\":");
   out += String(in.pot);
-  out += F(",\"potDb\":");
+  out += F(",\"pdb\":");
   out += String(in.potDb);
+  /* The calibration, while one is running, so the page can show the knob
+   * reaching further as it is turned. Without it the person has no sign that
+   * turning the knob is doing anything, because during a calibration it
+   * deliberately does not change the volume. */
+  uint16_t calMin = 0;
+  uint16_t calMax = 0;
+  if (inputPotCalibrating(&calMin, &calMax)) {
+    out += F(",\"pcl\":{\"min\":");
+    out += String(calMin);
+    out += F(",\"max\":");
+    out += String(calMax);
+    out += F("}");
+  }
   out += F("}");
 }
 
@@ -1440,21 +1516,21 @@ static void appendInputState(String &out) {
 static String buildState(void) {
   String out;
   out.reserve(768);
-  out += F("{\"board\":\"" BOARD_NAME "\",\"ver\":\"" FIRMWARE_VERSION
-           "\",\"slot\":\"");
+  out += F("{\"brd\":\"" BOARD_NAME "\",\"ver\":\"" FIRMWARE_VERSION
+           "\",\"slt\":\"");
   out += rollbackRunningPartition();
-  out += F("\",\"confirmed\":");
+  out += F("\",\"cnf\":");
   out += rollbackPending() ? F("false") : F("true");
-  out += F(",\"mode\":\"");
+  out += F(",\"net\":\"");
   out += inSetupMode() ? F("ap") : F("station");
   out += F("\",\"ip\":\"");
   out += wifiAddress();
-  /* Closing the address string, then the separator. The quote used to be
-   * fused onto the front of the next field, which is exactly how it went
-   * missing when that field moved into its own builder. */
-  out += F("\",\"defaultPin\":");
+  /* Closing the address string, then the separator. Kept here rather than
+   * fused onto the front of the next field, so that moving that field into
+   * its own builder cannot take the quote with it. */
+  out += F("\",\"dpn\":");
   out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
-  out += F(",\"heap\":");
+  out += F(",\"hep\":");
   out += String(ESP.getFreeHeap());
   out += F(",\"up\":");
   out += String(millis() / 1000UL);
@@ -1471,7 +1547,7 @@ static String buildState(void) {
  *
  * Keys are short on purpose. They are the names already used on the radio's
  * own screen and in `test/fixtures/agc/`, so a telemetry capture, a test
- * fixture and this endpoint all use one vocabulary. Decision 25 asks for one
+ * fixture and this endpoint all use one vocabulary. Decision 24 asks for one
  * schema across the API and telemetry, and this is it.
  *
  * Every number is an integer. Anything with a fraction is sent in tenths, so
@@ -1479,59 +1555,59 @@ static String buildState(void) {
  *
  * | Key | Full name | Unit |
  * |---|---|---|
- * | `board` | Board id | |
+ * | `brd` | Board id | |
  * | `ver` | Firmware version | |
- * | `slot` | Application partition this image booted from | |
- * | `confirmed` | Image passed its self check and will not roll back | |
- * | `mode` | `station` on a network, `ap` on its own access point | |
+ * | `slt` | Application partition this image booted from | |
+ * | `cnf` | Image passed its self check and will not roll back | |
+ * | `net` | `station` on a network, `ap` on its own access point | |
  * | `ip` | Address it can be reached on | |
- * | `defaultPin` | Access PIN is still 000000 | |
- * | `heap` | Free heap | bytes |
+ * | `dpn` | Access PIN is still 000000 | |
+ * | `hep` | Free heap | bytes |
  * | `up` | Time since boot | seconds |
  *
  * Inside `tuner`, when the tuner started:
  *
  * | Key | Full name | Unit |
  * |---|---|---|
- * | `part` | Which TEF668x is fitted | |
- * | `patch` | Tuner firmware version loaded into it | |
- * | `fmsi` | Has FM stereo improvement | |
- * | `fsrds` | Has full search RDS | |
+ * | `prt` | Which TEF668x is fitted | |
+ * | `pch` | Tuner firmware version loaded into it | |
+ * | `fsi` | Has FM stereo improvement | |
+ * | `frd` | Has full search RDS | |
  * | `dr` | Has digital radio | |
  * | `sig` | Signal level | tenths of a dBuV |
  * | `usn` | Ultrasonic noise | tenths of a percent |
  * | `wam` | Multipath, what the chip calls weighted AM | tenths of a percent |
- * | `offset` | How far off centre the station is | tenths of a kHz |
+ * | `off` | How far off centre the station is | tenths of a kHz |
  * | `bw` | Bandwidth the tuner settled on | kHz |
  * | `mod` | Modulation depth | percent |
  * | `st` | You are hearing stereo | |
- * | `pilot` | The station is transmitting a stereo pilot | |
+ * | `plt` | The station is transmitting a stereo pilot | |
  * | `ims` | Multipath suppression, iMS on the old radio | |
  * | `eq` | Channel equalizer | |
- * | `mono` | Stereo refused on purpose | |
+ * | `mno` | Stereo refused on purpose | |
  * | `snr` | Signal to noise, worked out and not read from the chip | dB |
- * | `wide` | The adaptive filter is allowed to open | |
+ * | `wid` | The adaptive filter is allowed to open | |
  * | `cut` | The treble roll off the chip is applying now | no known unit |
- * | `blend` | The stereo blend it is applying now | no known unit |
- * | `hiblend` | The combined blend | no known unit |
+ * | `bld` | The stereo blend it is applying now | no known unit |
+ * | `hbl` | The combined blend | no known unit |
  * | `sql` | Off, Auto or Manual | |
- * | `sqlOpen` | The squelch is letting sound through | |
- * | `sqlAt` | The manual threshold. Manual only | tenths of a dBuV |
- * | `hwMute` | What the tuner was told, against `mute` which is what was asked | |
+ * | `sqo` | The squelch is letting sound through | |
+ * | `sqa` | The manual threshold. Manual only | tenths of a dBuV |
+ * | `hmu` | What the tuner was told, against `mute` which is what was asked | |
  *
  * Inside `tuner` when it did not start, so a fault can be read without a
  * serial cable:
  *
  * | Key | Full name |
  * |---|---|
- * | `error` | What stopped it, in words |
+ * | `err` | What stopped it, in words |
  * | `device`, `hw`, `sw` | The three identification words, hex |
- * | `sawChip` | Something acknowledged at the I2C address |
- * | `readBoot` | The operation status came back |
- * | `boot` | What it said. 0 means not patched yet |
- * | `patched` | A patch was written this boot |
- * | `tried` | Which patch version was written |
- * | `wanted` | Which one the chip then asked for |
+ * | `saw` | Something acknowledged at the I2C address |
+ * | `rbt` | The operation status came back |
+ * | `bot` | What it said. 0 means not patched yet |
+ * | `ptd` | A patch was written this boot |
+ * | `try` | Which patch version was written |
+ * | `wnt` | Which one the chip then asked for |
  */
 static void handleStatusJson(void) {
   sRequests++;
@@ -1540,7 +1616,7 @@ static void handleStatusJson(void) {
 
 /* ------------------------------------------------------------ control API -
  *
- * Decision 25: every command the radio can carry out is reachable over HTTP,
+ * Decision 24: every command the radio can carry out is reachable over HTTP,
  * and the screen is one caller of the same queue. Nothing here talks to the
  * tuner. A request becomes a RadioCommand and goes on the queue, which is the
  * same path the buttons will use.
@@ -1721,7 +1797,7 @@ static void handleApiStep(void) {
     return;
   }
   long steps = 0;
-  if (!apiNumber("steps", &steps, -1000, 1000)) {
+  if (!apiNumber("stp", &steps, -1000, 1000)) {
     return;
   }
 
@@ -1740,11 +1816,11 @@ static void handleApiBand(void) {
   if (!requireAuth(false)) {
     return;
   }
-  if (!sServer.hasArg("band")) {
+  if (!sServer.hasArg("bnd")) {
     apiFail(400, "Give band, one of LW MW SW OIRT FM.");
     return;
   }
-  String want = sServer.arg("band");
+  String want = sServer.arg("bnd");
   want.toUpperCase();
 
   BandId band = BAND_COUNT;
@@ -1838,11 +1914,11 @@ static void handleApiMode(void) {
   if (!requireAuth(false)) {
     return;
   }
-  if (!sServer.hasArg("mode")) {
+  if (!sServer.hasArg("mod")) {
     apiFail(400, "Give mode, one of Manual Auto Memory MeterBand.");
     return;
   }
-  String want = sServer.arg("mode");
+  String want = sServer.arg("mod");
   want.toLowerCase();
   want.replace(" ", "");
 
@@ -1879,22 +1955,23 @@ static void handleApiMode(void) {
  *
  * | Key | Full name |
  * |---|---|
- * | `ssid` | The stored network name, empty when there is none |
- * | `hasPass` | A passphrase is stored. False is an open network |
- * | `defaultPin` | The access PIN is still 000000 |
- * | `region` | Which slice of the FM band, 0 to 4 |
- * | `spacing` | Medium wave channel spacing, 0 for 9 kHz and 1 for 10 |
- * | `encoder` | Which encoder is fitted, 0 standard and 1 optical |
- * | `direction` | 0 normal, 1 reversed |
- * | `squelch` | The squelch mode this radio comes up in |
+ * | `sid` | The stored network name, empty when there is none |
+ * | `pss` | A passphrase is stored. False is an open network |
+ * | `dpn` | The access PIN is still 000000 |
+ * | `ldd` | The stored settings were read back. False means the defaults |
+ * | `rgn` | Which slice of the FM band, 0 to 4 |
+ * | `spc` | Medium wave channel spacing, 0 for 9 kHz and 1 for 10 |
+ * | `enc` | Which encoder is fitted, 0 standard and 1 optical |
+ * | `edr` | 0 normal, 1 reversed |
+ * | `sql` | The squelch mode this radio comes up in |
  * | `startBand`, `startFreqKHz` | Where it comes up |
- * | `startVolumeDb` | The volume it comes up at, in manual squelch only |
+ * | `svl` | The volume it comes up at, in manual squelch only |
  * | `fmsens`, `amsens` | How fussy seek is, per band |
  * | `ims`, `eq`, `mono` | The stored FM features |
  * | `cut`, `blend`, `hiblend` | The stored weak signal start levels |
  * | `fmnb`, `amnb` | The stored noise blanker percentages |
- * | `deemph` | The stored FM de-emphasis, in microseconds |
- * | `amBandwidthKHz` | The width the AM bands come up on |
+ * | `dem` | The stored FM de-emphasis, in microseconds |
+ * | `abw` | The width the AM bands come up on |
  *
  * These are what is stored, which is not always what the radio is set to now.
  * /api/state says what it is set to now. POST /api/save makes the two agree.
@@ -1907,28 +1984,33 @@ static void handleApiSettingsGet(void) {
   const Settings *st = sSettings;
   String out;
   out.reserve(512);
-  out += F("{\"ssid\":\"");
+  out += F("{\"sid\":\"");
   out += jsonEscape(st->wifiSsid);
-  out += F("\",\"hasPass\":");
+  out += F("\",\"pss\":");
   out += st->wifiPass[0] != '\0' ? F("true") : F("false");
-  out += F(",\"defaultPin\":");
+  out += F(",\"dpn\":");
   out += accessPinIsDefault(sAccessPin) ? F("true") : F("false");
-  out += F(",\"squelch\":\"");
+  /* Whether these are the stored settings at all. False means the blob could
+   * not be read and the radio is running on the defaults, which otherwise
+   * only shows as everything having gone back to how it was. */
+  out += F(",\"ldd\":");
+  out += settingsWereLoaded() ? F("true") : F("false");
+  out += F(",\"sql\":\"");
   out += squelchModeName((SquelchMode)st->squelchMode);
   out += F("\"");
-  out += F(",\"region\":");
+  out += F(",\"rgn\":");
   out += st->fmRegion;
-  out += F(",\"spacing\":");
+  out += F(",\"spc\":");
   out += st->mwSpacing;
-  out += F(",\"encoder\":");
+  out += F(",\"enc\":");
   out += st->encoderKind;
-  out += F(",\"direction\":");
+  out += F(",\"edr\":");
   out += st->encoderDirection;
-  out += F(",\"startBand\":");
+  out += F(",\"sbd\":");
   out += st->startBand;
-  out += F(",\"startFreqKHz\":");
+  out += F(",\"sfq\":");
   out += st->startFreqKHz;
-  out += F(",\"startVolumeDb\":");
+  out += F(",\"svl\":");
   /* Through String, not straight in. This one is signed, and String appends a
    * signed char as the character it stands for rather than as a number. */
   out += String((int)st->startVolumeDb);
@@ -1936,25 +2018,25 @@ static void handleApiSettingsGet(void) {
   out += st->fmMultipathSuppression;
   out += F(",\"eq\":");
   out += st->fmEqualizer;
-  out += F(",\"mono\":");
+  out += F(",\"mno\":");
   out += st->fmForcedMono;
   out += F(",\"cut\":");
   out += st->fmHighCutStart;
-  out += F(",\"blend\":");
+  out += F(",\"bld\":");
   out += st->fmStereoBlendStart;
-  out += F(",\"hiblend\":");
+  out += F(",\"hbl\":");
   out += st->fmStHiBlendStart;
-  out += F(",\"fmnb\":");
+  out += F(",\"fnb\":");
   out += st->fmNoiseBlankerStart;
-  out += F(",\"amnb\":");
+  out += F(",\"anb\":");
   out += st->amNoiseBlankerStart;
-  out += F(",\"deemph\":");
+  out += F(",\"dem\":");
   out += st->fmDeemphasisUs;
-  out += F(",\"amBandwidthKHz\":");
+  out += F(",\"abw\":");
   out += st->amBandwidthKHz;
-  out += F(",\"fmsens\":");
+  out += F(",\"fsn\":");
   out += st->fmScanSensitivity;
-  out += F(",\"amsens\":");
+  out += F(",\"asn\":");
   out += st->amScanSensitivity;
   out += F("}");
   sServer.send(200, "application/json", out);
@@ -1968,12 +2050,12 @@ static void handleApiSettingsGet(void) {
  *
  * | Argument | Range | What it is |
  * |---|---|---|
- * | `region` | 0 to 4 | Which slice of the FM band |
- * | `spacing` | 0 or 1 | Medium wave channels, 9 kHz or 10 kHz |
- * | `encoder` | 0 or 1 | Which encoder is fitted, standard or optical |
- * | `direction` | 0 or 1 | Normal, or reversed |
- * | `fmsens` | 1 to 6 | How fussy seek is on FM. Higher finds weaker |
- * | `amsens` | 1 to 6 | The same on the AM bands |
+ * | `rgn` | 0 to 4 | Which slice of the FM band |
+ * | `spc` | 0 or 1 | Medium wave channels, 9 kHz or 10 kHz |
+ * | `enc` | 0 or 1 | Which encoder is fitted, standard or optical |
+ * | `edr` | 0 or 1 | Normal, or reversed |
+ * | `fsn` | 1 to 6 | How fussy seek is on FM. Higher finds weaker |
+ * | `asn` | 1 to 6 | The same on the AM bands |
  *
  * Everything given is checked before anything is written, and then one save
  * puts the lot in NVS. A half applied change, say a new PIN stored against
@@ -1995,29 +2077,37 @@ static void handleApiSettingsPost(void) {
     return;
   }
 
-  bool wantWifi = sServer.hasArg("ssid");
+  bool wantWifi = sServer.hasArg("sid");
   bool wantPin = sServer.hasArg("pin");
 
   /* The four that only take effect at the next start. Each is a number with
    * a fixed set of values, and settingsValid checks the lot again below
    * against the enums they name. */
+  /* `atStart` says whether the radio can only act on it when it next starts,
+   * which is what the reply has to tell the caller. Carried on the row rather
+   * than worked out from the index, so reordering the table cannot silently
+   * change which settings claim to need a reboot. */
   struct {
     const char *name;
     long low;
     long high;
+    bool atStart;
   } stored[] = {
-      {"region", 0, (long)FM_REGION_COUNT - 1},
-      {"spacing", 0, (long)MW_SPACING_10K},
-      {"encoder", 0, (long)ENCODER_OPTICAL},
-      {"direction", 0, (long)ENCODER_REVERSED},
-      {"fmsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX},
-      {"amsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX},
+      {"region", 0, (long)FM_REGION_COUNT - 1, true},
+      {"spacing", 0, (long)MW_SPACING_10K, true},
+      {"encoder", 0, (long)ENCODER_OPTICAL, true},
+      {"direction", 0, (long)ENCODER_REVERSED, true},
+      {"fmsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
+      {"amsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX, false},
   };
+  /* Sized from the table, not from a number written beside it. A seventh row
+   * would otherwise run off the end of all three of these with no warning. */
   const int kStored = (int)(sizeof(stored) / sizeof(stored[0]));
-  long values[6] = {0, 0, 0, 0, 0, 0};
-  bool given[6] = {false, false, false, false, false, false};
+  long values[sizeof(stored) / sizeof(stored[0])] = {0};
+  bool given[sizeof(stored) / sizeof(stored[0])] = {false};
   bool wantStored = false;
   bool wantSeek = false;
+  bool wantReboot = false;
   for (int i = 0; i < kStored; i++) {
     if (!sServer.hasArg(stored[i].name)) {
       continue;
@@ -2027,7 +2117,9 @@ static void handleApiSettingsPost(void) {
     }
     given[i] = true;
     wantStored = true;
-    if (i >= 4) {
+    if (stored[i].atStart) {
+      wantReboot = true;
+    } else {
       wantSeek = true;
     }
   }
@@ -2052,8 +2144,8 @@ static void handleApiSettingsPost(void) {
   }
 
   if (wantWifi) {
-    String ssid = sServer.arg("ssid");
-    String pass = sServer.hasArg("pass") ? sServer.arg("pass") : String("");
+    String ssid = sServer.arg("sid");
+    String pass = sServer.hasArg("pwd") ? sServer.arg("pwd") : String("");
     if (ssid.length() == 0) {
       apiFail(400, "A network name is needed.");
       return;
@@ -2100,7 +2192,7 @@ static void handleApiSettingsPost(void) {
   if (wantSeek) {
     said += F("Seek sensitivity saved and in use now.");
   }
-  if (given[0] || given[1] || given[2] || given[3]) {
+  if (wantReboot) {
     if (said.length() > 0) {
       said += F(" ");
     }
@@ -2141,6 +2233,86 @@ static void handleApiSettingsPost(void) {
     delay(200);
     wifiRetryNow(sSettings);
   }
+}
+
+/**
+ * POST /api/pot. Learn how far this unit's volume knob turns.
+ *
+ * Takes `action`: `start`, `finish` or `cancel`.
+ *
+ * The built in ends of travel, 120 to 4000, are one radio's numbers taken
+ * from the reference firmware. This unit reaches 0 and 4095, so they are not
+ * wrong here, but a knob that read 200 to 3800 would lose travel at both ends
+ * with nothing to say so.
+ *
+ * Between `start` and `finish` the knob sets neither the volume nor the
+ * squelch. It only records how far it goes, because finding the loud end stop
+ * should not mean sweeping the volume to full on the way. `GET /api/state`
+ * reports `potCal` while it runs, with the lowest and highest seen so far.
+ *
+ * `finish` refuses a sweep narrower than a quarter of the converter, because
+ * a knob that barely moved was not swept end to end and storing what it saw
+ * would leave the radio with almost no usable travel.
+ */
+static void handleApiPot(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("act")) {
+    apiFail(400, "Give action, one of start finish cancel.");
+    return;
+  }
+  String want = sServer.arg("act");
+  want.toLowerCase();
+
+  if (want == "start") {
+    inputPotCalibrateStart();
+    sServer.send(
+        200, "text/plain",
+        "Turn the volume knob all the way to each end, then finish.\n");
+    return;
+  }
+
+  if (want == "cancel") {
+    inputPotCalibrateCancel();
+    sServer.send(200, "text/plain", "Nothing changed.\n");
+    return;
+  }
+
+  if (want != "finish") {
+    apiFail(400, "That is not an action. Use start, finish or cancel.");
+    return;
+  }
+
+  uint16_t rawMin = 0;
+  uint16_t rawMax = 0;
+  if (!inputPotCalibrateFinish(&rawMin, &rawMax)) {
+    apiFail(400, String("The knob only moved from ") + rawMin + " to " +
+                     rawMax +
+                     ", which is not a full sweep. Nothing changed. Start "
+                     "again and turn it all the way to both ends.");
+    return;
+  }
+
+  Settings pending = *sSettings;
+  pending.potRawMin = rawMin;
+  pending.potRawMax = rawMax;
+  if (!settingsValid(&pending) || !settingsNvsSave(&pending)) {
+    /* The knob is already using the new travel, because that is what made it
+     * worth telling the person about. Say plainly that it will not survive a
+     * power cycle rather than implying the whole thing failed. */
+    apiFail(500, String("The knob now runs ") + rawMin + " to " + rawMax +
+                     ", but it could not be stored, so it goes back at the "
+                     "next start.");
+    return;
+  }
+  *sSettings = pending;
+
+  String said =
+      String("The knob runs ") + rawMin + " to " + rawMax + ", stored.";
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
 }
 
 /**
@@ -2243,7 +2415,7 @@ static void handleApiSave(void) {
  *
  * Takes `what`: `band`, `bandwidth`, `mode` or `mute`. This is what the BAND,
  * BW and MODE buttons and the push on the knob send, so a script can drive
- * the radio the way a hand does. Decision 25: if the panel can do it, the API
+ * the radio the way a hand does. Decision 24: if the panel can do it, the API
  * can do it.
  *
  * The radio works out the next value from its own state rather than being
@@ -2255,11 +2427,11 @@ static void handleApiCycle(void) {
   if (!requireAuth(false)) {
     return;
   }
-  if (!sServer.hasArg("what")) {
+  if (!sServer.hasArg("wht")) {
     apiFail(400, "Give what, one of band bandwidth mode mute.");
     return;
   }
-  String want = sServer.arg("what");
+  String want = sServer.arg("wht");
   want.toLowerCase();
 
   RadioCommand cmd = {};
@@ -2307,18 +2479,18 @@ static void handleApiSquelch(void) {
     return;
   }
 
-  if (sServer.hasArg("threshold")) {
+  if (sServer.hasArg("thr")) {
     apiFail(400,
             "The knob sets the threshold in manual, so it cannot be set "
             "here. Read it back from sqlAt.");
     return;
   }
-  if (!sServer.hasArg("mode")) {
+  if (!sServer.hasArg("mod")) {
     apiFail(400, "Give mode, one of off auto manual.");
     return;
   }
 
-  String want = sServer.arg("mode");
+  String want = sServer.arg("mod");
   want.toLowerCase();
   SquelchMode mode = SQUELCH_MODE_COUNT;
   for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
@@ -2360,13 +2532,13 @@ static void handleApiSquelch(void) {
  * |---|---|---|
  * | `ims` | 0 or 1 | Multipath suppression. FM only |
  * | `eq` | 0 or 1 | Channel equalizer. FM only |
- * | `mono` | 0 or 1 | Refuse stereo on purpose. FM only |
+ * | `mno` | 0 or 1 | Refuse stereo on purpose. FM only |
  * | `cut` | dBuV, 0 for off | Roll the treble off below this. FM only |
- * | `blend` | dBuV, 0 for off | Blend towards mono below this. FM only |
- * | `hiblend` | dBuV, 0 for off | Do both together below this. FM only |
- * | `amnb` | per cent, 0 or 50 to 150 | AM impulse noise blanker |
- * | `fmnb` | per cent, 0 or 50 to 150 | FM impulse noise blanker |
- * | `deemph` | 50, 75 or 0 | FM de-emphasis, in microseconds |
+ * | `bld` | dBuV, 0 for off | Blend towards mono below this. FM only |
+ * | `hbl` | dBuV, 0 for off | Do both together below this. FM only |
+ * | `anb` | per cent, 0 or 50 to 150 | AM impulse noise blanker |
+ * | `fnb` | per cent, 0 or 50 to 150 | FM impulse noise blanker |
+ * | `dem` | 50, 75 or 0 | FM de-emphasis, in microseconds |
  *
  * `cut`, `blend` and `hiblend` go to the chip together, and so do `amnb` and
  * `fmnb`. Whichever of a group is not given keeps the value it has, so
@@ -2441,8 +2613,8 @@ static void handleApiFm(void) {
   /* The three weak signal start levels, in dBuV, 0 for off. All three move
    * together, because sending one without the others would mean remembering
    * the rest here. */
-  bool wantWeak = sServer.hasArg("cut") || sServer.hasArg("blend") ||
-                  sServer.hasArg("hiblend");
+  bool wantWeak =
+      sServer.hasArg("cut") || sServer.hasArg("bld") || sServer.hasArg("hbl");
   long weak[3] = {0, 0, 0};
   if (wantWeak) {
     /* Started from what the radio is set to, not from zero. These three go to
@@ -2482,7 +2654,7 @@ static void handleApiFm(void) {
 
   /* The noise blankers, which take impulse noise out rather than hiss. The
    * AM one is the lever for medium wave and shortwave. */
-  bool wantBlanker = sServer.hasArg("amnb") || sServer.hasArg("fmnb");
+  bool wantBlanker = sServer.hasArg("anb") || sServer.hasArg("fnb");
   long blanker[2] = {0, 0};
   if (wantBlanker) {
     /* The same, and the same reason. */
@@ -2514,10 +2686,10 @@ static void handleApiFm(void) {
 
   /* De-emphasis, in microseconds. Only the two real standards and off: any
    * other number is a guess, and the chip would take it and sound wrong. */
-  bool wantDeemph = sServer.hasArg("deemph");
+  bool wantDeemph = sServer.hasArg("dem");
   long deemph = 0;
   if (wantDeemph) {
-    if (!apiNumber("deemph", &deemph, 0, 75)) {
+    if (!apiNumber("dem", &deemph, 0, 75)) {
       return;
     }
     if (deemph != 0 && deemph != 50 && deemph != 75) {
@@ -2661,6 +2833,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/api/save", HTTP_POST, handleApiSave);
   sServer.on("/api/seek", HTTP_POST, handleApiSeek);
+  sServer.on("/api/pot", HTTP_POST, handleApiPot);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);

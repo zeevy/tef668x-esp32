@@ -7,22 +7,28 @@ an ILI9341 320x240 touch display. The code is structured so other TEF668x radios
 can be added as a board header and a build environment, without touching the
 application.
 
-> **Status: it receives.** The radio tunes FM and AM, and is flashed and driven over Wi-Fi. There is no display, no encoder and no buttons yet, so today it is controlled from a browser or from `curl`. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
+> **Status: it works as a radio.** It tunes FM and AM, shows what it is doing on the panel, and is worked from the knob, the keypad and the volume pot, or from a browser and the HTTP control API. It seeks for stations, holds a squelch, and comes back up where you left it. The design is settled in [DECISIONS.md](DECISIONS.md), the build order is in [ROADMAP.md](ROADMAP.md), and the proposed screens, type scale and palette are in [docs/design.html](docs/design.html).
 
 ## What works today
 
-Phases 0 and 1 are done and phase 2 is most of the way through.
+Phases 0 to 2 are done and phase 3 is well under way.
 
 | | |
 |---|---|
 | Wi-Fi | Joins a network, or starts its own access point when the stored credentials do not work |
 | Updates | Over the air from the browser. Two application slots, and the bootloader rolls back an image that will not boot |
-| Web page | Status, Wi-Fi setup, PIN change and firmware upload, behind a six digit access PIN |
+| Web pages | Four of them, behind a six digit access PIN: status, the radio, the network and the system |
 | Tuner | TEF6686 brought up with its patch, FM and AM, bandwidth, volume, mute and signal readings |
+| Reception | iMS, the channel equalizer, forced mono, the weak signal blends, both noise blankers and the de-emphasis |
 | Band plan | FM, OIRT, LW, MW and SW, with every step size and both band edges |
+| Panel | The band, the frequency, the signal, stereo, mute and the last fault, on the ILI9341 |
+| Controls | The tuning knob, the keypad and the volume pot, all sharing one path into the tuner with the API |
+| Seek | Stops on a station and not on noise, with the thresholds measured off this radio |
+| Squelch | Off, automatic or manual, with the pot as the threshold in manual |
+| Settings | Kept across a power cycle, including the station it comes up on |
 | Control API | Every control the radio has, over HTTP. See below |
 
-Not built yet: the display, touch, the encoder, the keypad, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 3 to 6.
+Not built yet: touch, LVGL, RDS, memory channels, the volume AGC, telemetry, the spectrum and the clock. Those are phases 4 to 6.
 
 ## The control API
 
@@ -33,15 +39,46 @@ R=http://tef668x.local
 curl -s $R/api/state                       # everything, as JSON. No PIN needed
 curl -s -c jar -d 'pin=000000' $R/auth     # sign in, keep the session cookie
 curl -s -b jar -d 'khz=102800' $R/api/tune # FM 102.80 MHz
-curl -s -b jar -d 'steps=-1'   $R/api/step # one step down
-curl -s -b jar -d 'band=MW'    $R/api/band
+curl -s -b jar -d 'stp=-1'   $R/api/step # one step down
+curl -s -b jar -d 'bnd=MW'    $R/api/band
 ```
 
-The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 25 is the rule: if the screen can do it, the API can do it.
+The rest are `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/settings` and `/api/save`. Every reply names the state the radio actually reached, and a refusal says why in plain words. Decision 24 is the rule: if the screen can do it, the API can do it.
 
 Everything the radio is set to is held in one place and changed through the endpoints above, which act at once. `POST /api/save` writes what it is set to now into NVS, so it comes up that way next time. `GET /api/settings` says what is stored, which is not always what it is set to now, and `POST /api/settings` takes the four that can only be read at start up: the FM band plan, the medium wave spacing, and which encoder is fitted and which way round.
 
 The same settings are on the web page, as forms that post to these endpoints rather than to handlers of their own. Each form offers only what the band the radio is on can actually take, so a press can never reach a setting the API would refuse.
+
+### The names are three letters
+
+Every key in a document and every argument in a request is three characters or fewer, lowercase. The radio serves this a few times a second to a browser and, from phase 5, ten times a second as telemetry, so the names are short on purpose. It takes the state document from 744 bytes to 654.
+
+| | | | | | | |
+|---|---|---|---|---|---|---|
+| `brd` | board | `ver` | firmware version | `slt` | running slot |
+| `cnf` | image confirmed | `net` | ap or station | `ip` | address |
+| `dpn` | PIN is still 000000 | `hep` | free heap | `up` | seconds up |
+| `ldd` | settings were loaded | `inp` | the input block | `tun` | the tuner block |
+| `bnd` | band | `khz` | frequency | `f` | frequency as shown |
+| `unt` | MHz or kHz | `stp` | step size | `vol` | volume in dB |
+| `mut` | muted on purpose | `tmd` | tune mode | `seq` | snapshot number |
+| `sig` | level, tenths of a dBuV | `usn` | ultrasonic noise | `wam` | multipath |
+| `off` | carrier offset | `bw` | bandwidth | `mod` | modulation |
+| `snr` | signal to noise | `st` | you are hearing stereo | `plt` | station sends stereo |
+| `sql` | squelch mode | `sqo` | squelch is open | `sqa` | manual threshold |
+| `hmu` | what the tuner was told | `skg` | a seek is running | `skf` | the last seek found one |
+| `ims` | multipath suppression | `eq` | channel equalizer | `mno` | forced mono |
+| `cut` | high cut applied now | `bld` | stereo blend applied | `hbl` | both applied |
+| `fnb` | FM noise blanker | `anb` | AM noise blanker | `dem` | de-emphasis, us |
+| `wid` | bandwidth extension open | `prt` | tuner part | `pch` | patch version |
+| `pot` | knob, raw | `pdb` | knob as dB | `pcl` | calibration in progress |
+| `clk` | encoder clicks | `prs` | button presses | `lst` | last input event |
+| `rgn` | FM band plan | `spc` | medium wave spacing | `enc` | encoder kind |
+| `edr` | encoder direction | `fsn` | FM seek sensitivity | `asn` | AM seek sensitivity |
+| `sbd` | band it comes up on | `sfq` | frequency it comes up on | `svl` | volume it comes up at |
+| `abw` | AM bandwidth | `sid` | network name | `pss` | a passphrase is stored |
+
+The same three letter names are the request arguments: `khz`, `stp`, `bnd`, `dir`, `wht`, `act`, `mod`, `thr`, and the reception ones above.
 
 This is how the radio is tested. A script can tune it across a band edge and read back what happened, with nobody standing at it.
 

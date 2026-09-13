@@ -325,10 +325,10 @@ static void stepping_from_outside_the_band_comes_back_inside(void) {
 }
 
 static void an_absurd_frequency_still_wraps_to_the_low_edge(void) {
-  /* The step arithmetic used to overflow. On shortwave, stepping up from
-   * 4294967295 computed 1700 + (858993118 + 1) * 5, which wraps a uint32 and
-   * came back as 4, a frequency outside the band and off the grid. Reachable
-   * from POST /api/tune the moment that endpoint exists. */
+  /* The step arithmetic must not overflow. On shortwave, stepping up from
+   * 4294967295 works out 1700 + (858993118 + 1) * 5, which wraps a uint32 and
+   * lands on 4: a frequency outside the band and off the grid. Reachable from
+   * POST /api/tune. */
   for (int b = 0; b < BAND_COUNT; b++) {
     size_t n = bandStepCount((BandId)b, &cfg);
     uint32_t lo, hi;

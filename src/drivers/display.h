@@ -2,7 +2,7 @@
  * @file display.h
  * @brief The ILI9341 panel: SPI, colours, rectangles and text.
  *
- * Small on purpose. Decision 26: LVGL draws the user interface in phase 4 and
+ * Small on purpose. Decision 25: LVGL draws the user interface in phase 4 and
  * asks a panel driver for one thing, which is to take a rectangle of pixels
  * and push it. That is displayPush, and it is the only part of this file that
  * survives phase 4.

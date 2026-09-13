@@ -208,6 +208,23 @@ Rules for the checklist:
 - Doc comments on every public function and every header. Say what it does and
   what the caller has to know, not how it works line by line.
 - Comments explain why, not what. A comment restating the code is noise.
+- **Comments describe the code as it is, never its history.** This project is
+  being written for the first time, so nobody has ever seen an earlier version.
+  A comment saying what a bug used to do, what an earlier attempt got wrong, or
+  how long something took to find is noise to every reader who comes after.
+  - Write: `4 kHz on FM pins the filter narrower than a station, so the radio
+    reports no pilot and reads as one with no aerial.`
+  - Not: `This used to accept anything up to 6000, which let a form meant for
+    AM silence FM.`
+  - The reasoning stays. Only the story goes. If a value came from a
+    measurement, say which measurement and what it showed, because that is the
+    code's justification and not its history.
+  - The same applies to test comments. A test explains the case it covers, not
+    the bug that prompted it.
+  - Where history genuinely belongs is DECISIONS.md for a settled choice,
+    HARDWARE.md for something measured off the board, and the security audit
+    for a defect worth recording. Those are documents about the project. Code
+    comments are documentation of the code.
 - All prose follows the English rules below.
 
 ---

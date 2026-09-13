@@ -518,10 +518,10 @@ static Tef668xError bringUpWithPatch(const Tef668xPatch *patch) {
 /**
  * Tell the tuner how to receive and how to sound.
  *
- * None of this was sent at all until issue 16. The chip was left on whatever
- * it powers up with after the patch, which is why medium wave was hissy on a
- * station reading a strong 41 dBuV. Measured on 738 kHz before and after:
- * ultrasonic noise fell from 1025 to 138, and it went from hissy to clear.
+ * Without these the chip keeps whatever it powers up with after the patch,
+ * and medium wave is hissy even on a station reading a strong 41 dBuV.
+ * Measured on 738 kHz with and without: ultrasonic noise 1025 against 138,
+ * and hissy against clear.
  *
  * The AM half is what did that. The FM writes below are all the reference
  * firmware's defaults, and most of those defaults are "off", so they change
@@ -644,10 +644,9 @@ static Tef668xError applyReceptionDefaults(void) {
    *
    * Mode 0 is off. In the reference firmware mode 3 is on and mode 0 is off,
    * and its blend setting defaults to 0, so this turns the blend off, exactly
-   * as it ships. It does not make a weak station go to mono, which is what a
-   * comment here claimed until the review checked it against the source. The
-   * start and slope words are written anyway, so turning it on later is a
-   * change of mode and nothing else. */
+   * as it ships. It does not make a weak station go to mono: that is what the
+   * mode word decides, not the levels. The start and slope words are written
+   * anyway, so turning it on later is a change of mode and nothing else. */
   args[0] = 0;
   args[1] = 0;
   args[2] = 60;

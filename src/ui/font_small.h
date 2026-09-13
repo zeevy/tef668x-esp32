@@ -3,7 +3,7 @@
  * @brief Generated bitmap font, 16px. Do not edit by hand.
  *
  * Made by tools/make_font.py from Roboto Condensed at weight 400,
- * which is the face decision 21 settled on for the screen. Roboto is Apache
+ * which is the face docs/design.html settled on for the screen. Roboto is Apache
  * 2.0, so these bitmaps are fine in a GPLv3 project.
  *
  * One bit per pixel. Each row of a glyph is padded out to whole bytes, so a

@@ -155,6 +155,94 @@ typedef struct {
 void potDefaults(PotConfig *out);
 
 /**
+ * How long a calibration may sit unfinished, in milliseconds.
+ *
+ * While one runs the knob sets neither the volume nor the squelch, so one
+ * that is started and forgotten leaves the radio with no working volume
+ * control and nothing on it to say why. Two minutes is far longer than
+ * turning a knob to both ends takes.
+ */
+#define POT_CALIBRATE_TIMEOUT_MS 120000
+
+/**
+ * The narrowest sweep worth keeping, in raw counts.
+ *
+ * A knob that moved less than this was not swept end to end, and storing what
+ * it saw would leave almost no usable travel with nothing to say why. The
+ * converter is 4096 counts, so this is a quarter of it.
+ */
+#define POT_CALIBRATE_MIN_SPAN 1000
+
+/** Learning how far this unit's knob actually turns. */
+typedef struct {
+  bool active;        /**< A calibration is running. */
+  uint16_t rawMin;    /**< The lowest seen so far. */
+  uint16_t rawMax;    /**< The highest. */
+  uint32_t startedMs; /**< When it began, for the timeout. */
+} PotCalibration;
+
+/**
+ * Begin learning, from where the knob is now.
+ *
+ * Started from the current reading rather than from the ends of the
+ * converter, or the first comparison would never beat them.
+ *
+ * @param c      The calibration. Cleared and started.
+ * @param raw    Where the knob is now.
+ * @param nowMs  The millisecond count now.
+ */
+void potCalibrateStart(PotCalibration *c, uint16_t raw, uint32_t nowMs);
+
+/**
+ * Offer a reading, and give up if it has been running too long.
+ *
+ * @param c      The calibration.
+ * @param raw    What the knob reads.
+ * @param nowMs  The millisecond count now.
+ * @return true while it is still running. False once it has timed out, at
+ *         which point the knob goes back to its usual job.
+ */
+bool potCalibrateSample(PotCalibration *c, uint16_t raw, uint32_t nowMs);
+
+/**
+ * Set the ends of travel from a measured sweep.
+ *
+ * Not a plain copy. The knob has to keep a mute zone at the bottom, and that
+ * zone is a stretch of travel rather than a single reading: an ADC at rest
+ * wanders by a few counts, so a mute that needed one exact value would almost
+ * never fire and the radio could not be switched off by the knob. The same
+ * goes for the always open end of a manual squelch.
+ *
+ * The zone is kept at the same share of the travel the built in figures use,
+ * which is the bottom 2.5 per cent.
+ *
+ * @param cfg     The mapping to change.
+ * @param rawMin  What the knob reads at the quiet end.
+ * @param rawMax  What it reads at the loud end.
+ */
+void potApplyCalibration(PotConfig *cfg, uint16_t rawMin, uint16_t rawMax);
+
+/**
+ * Stop, and keep what was learned if the knob was swept far enough.
+ *
+ * Refuses when no calibration is running, which is what makes cancelling
+ * mean something: without that check a finish after a cancel would apply the
+ * extremes the cancelled sweep had recorded.
+ *
+ * @param c    The calibration. Stopped either way.
+ * @param cfg  Receives the new ends of travel, only when this returns true.
+ * @return true when it was applied.
+ */
+bool potCalibrateFinish(PotCalibration *c, PotConfig *cfg);
+
+/**
+ * Give up, keeping whatever was in use before.
+ *
+ * @param c  The calibration.
+ */
+void potCalibrateCancel(PotCalibration *c);
+
+/**
  * Turn a pot reading into a volume.
  *
  * @param raw  The averaged ADC reading.

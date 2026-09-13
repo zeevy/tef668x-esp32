@@ -4,8 +4,8 @@
  *
  * Most of these replay a real sweep of the FM band taken off this radio, in
  * `test/fixtures/seek/`, rather than readings somebody invented. A stop
- * decision made from invented numbers is a guessed threshold wearing a test's
- * clothing, and CLAUDE.md bans those for a reason that already cost a week.
+ * decision checked against invented numbers is a guessed threshold wearing a
+ * test's clothing.
  */
 #include <unity.h>
 
@@ -173,10 +173,8 @@ static void the_shoulder_of_a_strong_station_is_refused(void) {
   /* 102.0 MHz, measured on the radio on 13 September 2026. It sits beside
    * 101.9, the strongest station on the band, so the receiver is hearing that
    * station's sidebands: the noise reads 25 to 87 and the multipath under
-   * 130, both well inside the limits. Only the level gives it away.
-   *
-   * The first version of this seek stopped there, and this test is why the
-   * level gate exists. */
+   * 130, both well inside the limits. Only the level gives it away, which is
+   * the case the level gate exists for. */
   SeekReading r;
   memset(&r, 0, sizeof(r));
   r.valid = true;
@@ -247,6 +245,20 @@ static void a_weak_station_with_reflections_is_kept(void) {
   r.multipathTenths = 279;
   r.offsetTenths = 60;
   TEST_ASSERT_TRUE(seekShouldStop(NULL, BAND_FM, &r));
+}
+
+static void the_level_floor_is_fm_only(void) {
+  /* The floor is fitted to an FM sweep on an FM level scale. There is no AM
+   * sweep to fit an AM one to, so the AM side keeps to the rule the reference
+   * firmware uses: noise and offset. */
+  SeekReading r = aStation();
+  r.levelTenths = -200; /* Far under the FM floor. */
+  TEST_ASSERT_FALSE(seekShouldStop(NULL, BAND_FM, &r));
+  TEST_ASSERT_TRUE(seekShouldStop(NULL, BAND_MW, &r));
+
+  /* Noise still decides on AM. */
+  r.noiseTenths = 500;
+  TEST_ASSERT_FALSE(seekShouldStop(NULL, BAND_MW, &r));
 }
 
 static void multipath_is_ignored_on_the_am_bands(void) {
@@ -327,6 +339,7 @@ int main(int, char **) {
   RUN_TEST(a_carrier_far_off_centre_is_still_refused);
   RUN_TEST(the_am_side_keeps_the_tight_window);
   RUN_TEST(a_weak_station_with_reflections_is_kept);
+  RUN_TEST(the_level_floor_is_fm_only);
   RUN_TEST(multipath_is_ignored_on_the_am_bands);
   RUN_TEST(the_two_bands_have_their_own_sensitivity);
 

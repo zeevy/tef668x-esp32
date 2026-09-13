@@ -2,8 +2,6 @@
  * @file analog.h
  * @brief The two analogue things on this board: the pot in, the meter out.
  *
- * Both were defined in the board header and driven by nothing until issue 18.
- *
  * The pot is on ADC1, which is the half of the ESP32's converter that keeps
  * working while Wi-Fi is on. ADC2 does not, and this radio is never without
  * Wi-Fi, so that is not a detail to lose.

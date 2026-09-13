@@ -47,12 +47,24 @@ void squelchInit(Squelch *s) {
   s->open = true;
 }
 
-int16_t squelchThresholdFromPot(uint16_t raw) {
-  if (raw > 4095) {
-    raw = 4095;
+int16_t squelchThresholdFromPot(uint16_t raw, uint16_t rawMin,
+                                uint16_t rawMax) {
+  /* An uncalibrated radio uses the whole converter range, which is what this
+   * did before the ends could be given at all. */
+  if (rawMax <= rawMin) {
+    rawMin = 0;
+    rawMax = 4095;
+  }
+  if (raw < rawMin) {
+    raw = rawMin;
+  }
+  if (raw > rawMax) {
+    raw = rawMax;
   }
   int32_t span = MANUAL_MAX_TENTHS - MANUAL_MIN_TENTHS;
-  return (int16_t)(MANUAL_MIN_TENTHS + ((int32_t)raw * span) / 4095);
+  int32_t along = (int32_t)raw - rawMin;
+  int32_t width = (int32_t)rawMax - rawMin;
+  return (int16_t)(MANUAL_MIN_TENTHS + (along * span) / width);
 }
 
 /** Whether one reading is good enough to listen to. */

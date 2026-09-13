@@ -23,9 +23,9 @@
 /**
  * How the panel is turned. 1 and 3 are the two landscape views.
  *
- * Settled by looking at the radio, which is the only way. Three of the four
- * tries were wrong in a different way each time: mirrored, mirrored the other
- * way, then the right way round but upside down. This is the fourth.
+ * Settled by looking at the radio, which is the only way. The wrong values
+ * are not subtly wrong: they give a mirror image, a mirror image the other
+ * way, or the right image upside down.
  */
 #define DISPLAY_ROTATION 1
 
@@ -76,9 +76,9 @@ static Colour sGlyph[GLYPH_MAX_W * GLYPH_MAX_H];
  * Take the SPI bus for one operation.
  *
  * Each drawing call takes it and gives it back. Holding it open for the life
- * of the firmware, which is what this did at first, keeps the bus semaphore
- * locked for ever: the touch controller in phase 4 shares this bus, needs a
- * slower clock, and would block on its first read with no timeout.
+ * of the firmware would keep the bus semaphore locked for ever: the touch
+ * controller in phase 4 shares this bus, needs a slower clock, and would
+ * block on its first read with no timeout.
  */
 static void busTake(void) {
   sSpi.beginTransaction(sSettings);
@@ -180,7 +180,7 @@ bool displayBegin(void) {
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
   /* MISO is deliberately not given a pin. Nothing reads from this panel, and
-   * the pin the bus would use is the standby LED. See decision 26. Touch in
+   * the pin the bus would use is the standby LED. See decision 25. Touch in
    * phase 4 does have to read, so it will have to attach MISO and settle that
    * pin first. */
   sSpi.begin(PIN_SPI_SCK, -1, PIN_SPI_MOSI, -1);
@@ -201,9 +201,9 @@ bool displayBegin(void) {
    * These are not optional decoration. Without them the panel powers up with a
    * gamma curve that lifts the bottom of the scale hard: the background colour
    * this radio uses is red 1, green 3 and blue 2 out of 31, 63 and 31, which
-   * is all but black, and it came out as a solid medium blue. Pure red, green,
-   * blue, black and white all looked right, which is what made it look like a
-   * colour order problem rather than a gamma one.
+   * is all but black, and it comes out as a solid medium blue. Pure red,
+   * green, blue, black and white all look right without them, which makes it
+   * read as a colour order problem rather than a gamma one.
    *
    * Each line is a command and the bytes that follow it. */
   static const uint8_t kInit[] = {
@@ -244,8 +244,7 @@ bool displayBegin(void) {
   /* Only two of the four combinations of MX and MY are rotations. Mirroring
    * one axis alone gives a mirror image, which reads backwards. Landscape is
    * MV on its own, or MV with both MX and MY for the same view turned round.
-   * Setting just one of them was the first two attempts on real hardware, and
-   * both came out mirrored. */
+   * Those are the only two combinations that are a rotation. */
   uint8_t madctl = MADCTL_MV | MADCTL_BGR;
   if (DISPLAY_ROTATION == 3) {
     madctl |= MADCTL_MX | MADCTL_MY;

@@ -135,10 +135,18 @@ bool squelchUpdate(Squelch *s, const SquelchConfig *cfg, SquelchMode mode,
  * The bottom of the travel is always open and the top is the highest level
  * the chip reports, so the whole knob is usable.
  *
- * @param raw  The pot, 0 to 4095.
+ * The ends are given rather than assumed. A pot that only reaches 200 to 3800
+ * would otherwise lose travel at both ends with nothing to say so: the knob
+ * would sit at "always open" for the first stretch and hit the ceiling before
+ * the end. Pass 0 and 0 for the full converter range, which is what an
+ * uncalibrated radio uses.
+ *
+ * @param raw     The pot reading.
+ * @param rawMin  What the knob reads at the quiet end, or 0 for the default.
+ * @param rawMax  What it reads at the loud end, or 0 for the default.
  * @return The threshold in tenths of a dBuV.
  */
-int16_t squelchThresholdFromPot(uint16_t raw);
+int16_t squelchThresholdFromPot(uint16_t raw, uint16_t rawMin, uint16_t rawMax);
 
 #ifdef __cplusplus
 }

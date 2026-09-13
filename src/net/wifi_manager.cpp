@@ -152,6 +152,10 @@ bool wifiReachable(void) {
   return sState == WIFI_STATE_ONLINE || sState == WIFI_STATE_ACCESS_POINT;
 }
 
+bool wifiJoinedNetwork(void) {
+  return sState == WIFI_STATE_ONLINE;
+}
+
 const char *wifiAddress(void) {
   return sAddress;
 }

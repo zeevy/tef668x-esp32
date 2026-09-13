@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 3
+#define SETTINGS_VERSION 4
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -41,7 +41,7 @@ typedef struct {
   char wifiSsid[SETTINGS_SSID_LEN]; /**< Empty means no credentials yet. */
   char wifiPass
       [SETTINGS_PASS_LEN]; /**< Empty is allowed, for an open network. */
-  uint32_t accessPin;      /**< 0 means use the MAC derived default. */
+  uint32_t accessPin;      /**< 0 is the default PIN, 000000. */
 
   /* --- Added in version 2. Everything below here defaults on an older blob.
    *
@@ -70,7 +70,7 @@ typedef struct {
    *
    * In every other mode the knob wins and this is not read. That is why a
    * volume is stored at all, given that a stored volume arguing with the
-   * knob is exactly what decision 27 refuses.
+   * knob is exactly what decision 26 refuses.
    */
   int8_t startVolumeDb;
 
@@ -99,6 +99,12 @@ typedef struct {
    * numbers behind them. See SeekConfig in seek.h. */
   uint8_t fmScanSensitivity; /**< 1 to 6. Higher stops on weaker signals. */
   uint8_t amScanSensitivity; /**< 1 to 6. */
+
+  /* Version 4. What this unit's volume knob actually reaches, learned by
+   * turning it end to end. Zero for both means it has never been calibrated
+   * and the built in figures are used, which are one radio's numbers. */
+  uint16_t potRawMin; /**< Reading at the quiet end. */
+  uint16_t potRawMax; /**< Reading at the loud end. */
 } Settings;
 
 /**

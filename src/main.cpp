@@ -43,6 +43,13 @@ static Settings gSettings;
 /** The PIN this radio is using. */
 static uint32_t gAccessPin = 0;
 
+/** Whether the stored settings were read back. False means they were lost. */
+static bool gSettingsLoaded = false;
+
+bool settingsWereLoaded(void) {
+  return gSettingsLoaded;
+}
+
 /** How the tuner start up went, so the banner and the web page can say. */
 static Tef668xError gTunerError = TEF668X_ERR_NOT_READY;
 
@@ -126,7 +133,10 @@ void setup() {
    * fail. */
   rollbackBegin();
 
-  settingsNvsLoad(&gSettings);
+  /* Kept, because a failed load is silent otherwise: the radio comes up on
+   * the defaults, the PIN goes back to 000000 and the stored station and
+   * calibration are gone, with nothing anywhere saying why. */
+  gSettingsLoaded = settingsNvsLoad(&gSettings);
 
   gAccessPin = gSettings.accessPin;
 
@@ -155,6 +165,15 @@ void setup() {
    * The task unmutes at the end of its first push, so a volume sent after
    * that is heard as a moment at whatever the default was, which is full. */
   analogBegin();
+
+  /* What this unit's knob actually reaches, if anybody has ever measured it.
+   * Built before the start volume is read, because that reading goes through
+   * the same mapping. */
+  PotConfig pot;
+  potDefaults(&pot);
+  if (gSettings.potRawMax != 0) {
+    potApplyCalibration(&pot, gSettings.potRawMin, gSettings.potRawMax);
+  }
   /* There is one knob. In manual squelch it is the squelch control, so
    * reading a volume off it would come up at whatever the threshold maps to,
    * which is full volume at one end and silence at the other, and nothing
@@ -162,7 +181,7 @@ void setup() {
    * stored volume is for that one case. Everywhere else the knob wins. */
   int8_t startVolume = gSettings.startVolumeDb;
   if (gSettings.squelchMode != (uint8_t)SQUELCH_MANUAL) {
-    startVolume = potVolumeDb(potRead(), NULL);
+    startVolume = potVolumeDb(potRead(), &pot);
   }
 
   if (!radioTaskStart(&gSettings, &plan, startVolume)) {
@@ -188,6 +207,8 @@ void setup() {
                   (EncoderDirection)gSettings.encoderDirection)) {
     Serial.println(F("[input] no keypad answered at 0x20, knob only"));
   }
+  /* After inputBegin, which puts the built in figures back. */
+  inputSetPotConfig(&pot);
 
   /* How fussy seek is, which is stored per band. Set after the task exists,
    * because it is held under the task's lock. */
@@ -231,7 +252,11 @@ void loop() {
    * still be reached. Being reachable is the whole job of this phase, so it
    * is the right thing to check. */
   if (!otaInProgress()) {
-    rollbackTick(wifiReachable());
+    /* Joined the stored network, not merely answering on its own access
+     * point. An image that cannot join is an image that cannot be updated
+     * over the air, so marking it good would leave the cable as the only way
+     * back, which is what the rollback exists to avoid. */
+    rollbackTick(wifiJoinedNetwork());
   }
 
   delay(2);

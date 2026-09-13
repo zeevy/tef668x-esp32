@@ -12,6 +12,7 @@
 #define CORE_SIGNAL_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -45,6 +46,21 @@ extern "C" {
  * @return The ratio in dB.
  */
 int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm);
+
+/**
+ * Write a level in tenths of a dBuV as text.
+ *
+ * One place, because there were three and they did not agree. Dividing minus
+ * five tenths by ten gives zero, so a level just below zero shows as "0.0"
+ * unless the sign is taken before the value is split. A dead band really does
+ * read a little below zero, so this matters on exactly the readings a person
+ * is squinting at.
+ *
+ * @param tenths  The level, in tenths of a dBuV.
+ * @param out     Receives the text, always terminated.
+ * @param outLen  How big `out` is.
+ */
+void signalFormatLevel(int16_t tenths, char *out, size_t outLen);
 
 /**
  * A running average. Zero it before first use.

@@ -414,6 +414,156 @@ static void a_null_pot_config_uses_the_defaults(void) {
   TEST_ASSERT_EQUAL_INT(potMoved(1000, 1030, &cfg), potMoved(1000, 1030, NULL));
 }
 
+/* --------------------------------------------------- pot calibration */
+
+static void a_sweep_is_kept_and_moves_the_ends(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+
+  potCalibrateStart(&c, 2000, 1000);
+  TEST_ASSERT_TRUE(potCalibrateSample(&c, 250, 1100));
+  TEST_ASSERT_TRUE(potCalibrateSample(&c, 3800, 1200));
+  TEST_ASSERT_TRUE(potCalibrateSample(&c, 2000, 1300));
+  TEST_ASSERT_TRUE(potCalibrateFinish(&c, &cfg));
+
+  TEST_ASSERT_EQUAL_UINT16(3800, cfg.rawMax);
+  /* The mute zone moves with the quiet end, or a knob that starts at 900
+   * would never reach the built in 100 and could not switch the radio off. */
+  TEST_ASSERT_TRUE(cfg.rawMute > 250);
+  TEST_ASSERT_TRUE(cfg.rawMin > cfg.rawMute);
+
+  /* And the whole travel is usable afterwards. */
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(250, &cfg));
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(3800, &cfg));
+}
+
+static void the_mute_zone_stays_a_zone_not_a_point(void) {
+  /* An ADC at rest wanders by a few counts. A mute that needed one exact
+   * reading would almost never fire, and the knob could not switch the radio
+   * off. The zone keeps the same share of the travel the built in figures
+   * use, the bottom 2.5 per cent. */
+  PotConfig cfg;
+  potDefaults(&cfg);
+  potApplyCalibration(&cfg, 0, 4095);
+
+  TEST_ASSERT_TRUE(cfg.rawMute >= 80);
+  /* Every reading across the bottom of the travel mutes, not just one. */
+  for (uint16_t raw = 0; raw <= 80; raw = (uint16_t)(raw + 8)) {
+    TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(raw, &cfg));
+  }
+  /* And the top of the travel is still the loud end. */
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(4095, &cfg));
+
+  /* A knob that does not start at zero keeps a zone of its own. */
+  potDefaults(&cfg);
+  potApplyCalibration(&cfg, 900, 3900);
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(900, &cfg));
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMute, potVolumeDb(940, &cfg));
+  TEST_ASSERT_EQUAL_INT8(cfg.dbMax, potVolumeDb(3900, &cfg));
+
+  /* Ends that say nothing change nothing. */
+  PotConfig before;
+  potDefaults(&before);
+  PotConfig same = before;
+  potApplyCalibration(&same, 3000, 100);
+  TEST_ASSERT_EQUAL_UINT16(before.rawMute, same.rawMute);
+  potApplyCalibration(NULL, 0, 4095);
+}
+
+static void cancelling_really_cancels(void) {
+  /* Cancelling has to forget the sweep, not just stop it. A finish afterwards
+   * must not apply the extremes the cancelled sweep recorded. */
+  PotConfig cfg;
+  potDefaults(&cfg);
+  PotConfig before = cfg;
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+
+  potCalibrateStart(&c, 2000, 1000);
+  potCalibrateSample(&c, 250, 1100);
+  potCalibrateSample(&c, 3800, 1200);
+  potCalibrateCancel(&c);
+
+  TEST_ASSERT_FALSE(potCalibrateFinish(&c, &cfg));
+  TEST_ASSERT_EQUAL_UINT16(before.rawMin, cfg.rawMin);
+  TEST_ASSERT_EQUAL_UINT16(before.rawMax, cfg.rawMax);
+  TEST_ASSERT_EQUAL_UINT16(before.rawMute, cfg.rawMute);
+}
+
+static void finishing_without_starting_changes_nothing(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  PotConfig before = cfg;
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+  TEST_ASSERT_FALSE(potCalibrateFinish(&c, &cfg));
+  TEST_ASSERT_EQUAL_UINT16(before.rawMin, cfg.rawMin);
+}
+
+static void a_knob_that_barely_moved_is_refused(void) {
+  /* Storing it would leave the radio with almost no usable travel and
+   * nothing to say why. */
+  PotConfig cfg;
+  potDefaults(&cfg);
+  PotConfig before = cfg;
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+
+  potCalibrateStart(&c, 2000, 1000);
+  potCalibrateSample(&c, 1990, 1100);
+  potCalibrateSample(&c, 2010, 1200);
+  TEST_ASSERT_FALSE(potCalibrateFinish(&c, &cfg));
+  TEST_ASSERT_EQUAL_UINT16(before.rawMin, cfg.rawMin);
+}
+
+static void one_left_running_gives_up_on_its_own(void) {
+  /* While a calibration runs the knob sets neither the volume nor the
+   * squelch, so one started and walked away from would leave the radio with
+   * no working volume control and nothing on it to say why. */
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+  potCalibrateStart(&c, 2000, 1000);
+  TEST_ASSERT_TRUE(potCalibrateSample(&c, 2100, 1000 + 1000));
+  TEST_ASSERT_TRUE(
+      potCalibrateSample(&c, 2100, 1000 + POT_CALIBRATE_TIMEOUT_MS - 1));
+  TEST_ASSERT_FALSE(
+      potCalibrateSample(&c, 2100, 1000 + POT_CALIBRATE_TIMEOUT_MS));
+  TEST_ASSERT_FALSE(c.active);
+
+  /* And a timed out one cannot then be finished. */
+  PotConfig cfg;
+  potDefaults(&cfg);
+  PotConfig before = cfg;
+  TEST_ASSERT_FALSE(potCalibrateFinish(&c, &cfg));
+  TEST_ASSERT_EQUAL_UINT16(before.rawMax, cfg.rawMax);
+}
+
+static void the_timeout_survives_the_millisecond_wrap(void) {
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+  uint32_t start = 0xFFFFFF00UL;
+  potCalibrateStart(&c, 2000, start);
+  TEST_ASSERT_TRUE(potCalibrateSample(&c, 2100, start + 1000));
+  TEST_ASSERT_FALSE(
+      potCalibrateSample(&c, 2100, start + POT_CALIBRATE_TIMEOUT_MS));
+}
+
+static void nothing_crashes_on_a_null_calibration(void) {
+  PotConfig cfg;
+  potDefaults(&cfg);
+  potCalibrateStart(NULL, 0, 0);
+  TEST_ASSERT_FALSE(potCalibrateSample(NULL, 0, 0));
+  TEST_ASSERT_FALSE(potCalibrateFinish(NULL, &cfg));
+  potCalibrateCancel(NULL);
+
+  PotCalibration c;
+  memset(&c, 0, sizeof(c));
+  potCalibrateStart(&c, 100, 0);
+  TEST_ASSERT_FALSE(potCalibrateFinish(&c, NULL));
+}
+
 int main(void) {
   UNITY_BEGIN();
 
@@ -456,6 +606,15 @@ int main(void) {
   RUN_TEST(a_reading_that_only_jitters_is_ignored);
   RUN_TEST(a_pot_wired_the_other_way_does_not_divide_by_zero);
   RUN_TEST(a_null_pot_config_uses_the_defaults);
+
+  RUN_TEST(a_sweep_is_kept_and_moves_the_ends);
+  RUN_TEST(the_mute_zone_stays_a_zone_not_a_point);
+  RUN_TEST(cancelling_really_cancels);
+  RUN_TEST(finishing_without_starting_changes_nothing);
+  RUN_TEST(a_knob_that_barely_moved_is_refused);
+  RUN_TEST(one_left_running_gives_up_on_its_own);
+  RUN_TEST(the_timeout_survives_the_millisecond_wrap);
+  RUN_TEST(nothing_crashes_on_a_null_calibration);
 
   return UNITY_END();
 }

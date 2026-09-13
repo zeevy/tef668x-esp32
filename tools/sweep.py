@@ -56,14 +56,14 @@ def main():
             continue
         time.sleep(settle)
         try:
-            t = state(op)["tuner"]
+            t = state(op)["tun"]
         except Exception as exc:
             print("read %d failed: %s" % (freq, exc), file=sys.stderr)
             freq += step
             continue
         line = ("khz=%d sig=%s usn=%s wam=%s offset=%s mod=%s st=%s snr=%s"
                 % (freq, t.get("sig"), t.get("usn"), t.get("wam"),
-                   t.get("offset"), t.get("mod"), t.get("st"), t.get("snr")))
+                   t.get("off"), t.get("mod"), t.get("st"), t.get("snr")))
         print(line)
         out.write(line + "\n")
         out.flush()

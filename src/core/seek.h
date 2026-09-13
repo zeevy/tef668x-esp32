@@ -24,20 +24,24 @@
  * level alone stops on the edges of the station it just left.
  *
  * Level still earns a gate of its own, as the third of three, because it
- * catches what the other two cannot. Running the first version of this on the
- * radio it stopped on 102.0 MHz, which sits beside the strongest station on
- * the band. Its noise reads 25 to 87 and its multipath under 130, both well
- * inside the limits, because there is real signal there: the sidebands of
- * 101.9 next door. What it does not have is level, at -1.8 dBuV against 19.6
- * for the weakest real station.
+ * catches what the other two cannot. 102.0 MHz sits beside the strongest
+ * station on the band and measures a noise of 25 to 87 and a multipath under
+ * 130, both well inside the limits, because there is real signal there: the
+ * sidebands of 101.9 next door. What it does not have is level, at -1.8 dBuV
+ * against 19.6 for the weakest real station.
  *
  * Each gate rejects a different thing, and none of the three is enough alone:
  *
- * | Gate | Rejects |
- * |---|---|
- * | Noise | an empty channel, which is all hiss |
- * | Multipath | a channel that is mostly reflections |
- * | Level | the shoulder of a strong station, which is quiet but clean |
+ * | Gate | Rejects | Bands |
+ * |---|---|---|
+ * | Noise | an empty channel, which is all hiss | both |
+ * | Multipath | a channel that is mostly reflections | FM |
+ * | Level | the shoulder of a strong station, quiet but clean | FM |
+ *
+ * The AM side keeps to noise and offset, which is the rule the reference
+ * firmware uses and which runs on this board today. The other two gates are
+ * fitted to an FM sweep, on an FM level scale, and there is no AM sweep to
+ * fit an AM pair to yet. Carrying FM numbers across would be a guess.
  *
  * The multipath limit is the loosest of the three, and deliberately. A real
  * but weak station with reflections is the case a seek must never skip, and
@@ -66,9 +70,9 @@ extern "C" {
  * The default, which is the reference firmware's default.
  *
  * On the sweep in `test/fixtures/seek/` this stops on all six stations that
- * were on air and on nothing else, with room to spare on both gates: the
- * worst station uses 31 of the 120 it is allowed for noise and 36 of the 200
- * for multipath.
+ * were on air and on nothing else, with room to spare on every gate: the
+ * worst station uses 31 of the 120 it is allowed for noise, 36 of the 320 for
+ * multipath, and reads 26.7 dBuV against a floor of 10.0.
  */
 #define SEEK_SENSITIVITY_DEFAULT 4
 
@@ -82,10 +86,10 @@ extern "C" {
  *
  * The reference firmware's seek allows plus or minus 80 here. Against a bias
  * of plus 42 to plus 84 that has almost no margin left, and in the sweep
- * 106.4 MHz read plus 84 and would have been skipped. A gate that quietly
- * skips a real station is exactly the failure this project keeps finding, so
- * this window is wide enough that the bias cannot reach it, and the real work
- * is left to noise and multipath.
+ * 106.4 MHz read plus 84 and would be skipped. A gate that quietly skips a
+ * real station fails without saying so, so this window is wide enough that
+ * the bias cannot reach it and the real work is left to noise and
+ * multipath.
  *
  * The AM window stays tight. The same 50 ppm at 738 kHz is 0.04 kHz, far too
  * small to see, so there is no bias to allow for on that side.

@@ -72,4 +72,45 @@ void inputPoll(void);
  */
 void inputStatusGet(InputStatus *out);
 
+/**
+ * Use these ends of travel for the knob.
+ *
+ * @param cfg  The mapping. NULL puts the built in defaults back.
+ */
+void inputSetPotConfig(const PotConfig *cfg);
+
+/**
+ * Start learning how far the knob actually turns.
+ *
+ * While this is running the knob sets neither the volume nor the squelch. It
+ * only records the lowest and highest it reads, so that sweeping to the loud
+ * end stop does not mean sweeping the volume to full on the way.
+ */
+void inputPotCalibrateStart(void);
+
+/**
+ * Stop learning, and say what was seen.
+ *
+ * @param rawMin  Receives the lowest reading. May be NULL.
+ * @param rawMax  Receives the highest. May be NULL.
+ * @return true when the knob was swept far enough to be worth keeping. False
+ *         means it barely moved, and the caller should keep what it had
+ *         rather than store a travel of nothing.
+ */
+bool inputPotCalibrateFinish(uint16_t *rawMin, uint16_t *rawMax);
+
+/**
+ * Give up, keeping whatever was in use before.
+ */
+void inputPotCalibrateCancel(void);
+
+/**
+ * Whether a calibration is running, and how far the knob has reached.
+ *
+ * @param rawMin  Receives the lowest so far. May be NULL.
+ * @param rawMax  Receives the highest so far. May be NULL.
+ * @return true while it is running.
+ */
+bool inputPotCalibrating(uint16_t *rawMin, uint16_t *rawMax);
+
 #endif /* INPUT_TASK_H */

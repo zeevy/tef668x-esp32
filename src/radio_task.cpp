@@ -25,11 +25,11 @@
 /*
  * The queue carries commands and nothing else.
  *
- * An earlier version let a caller wait for the answer by putting a semaphore
- * and a result pointer on the queue. That is a use after free waiting to
- * happen: a caller that times out deletes the semaphore and returns, and the
- * task then signals a handle that is gone and writes through a pointer into a
- * stack frame that has been reused.
+ * No semaphore and no result pointer. Putting those on the queue so a caller
+ * can wait for its answer is a use after free waiting to happen: a caller
+ * that times out deletes the semaphore and returns, and the task then signals
+ * a handle that is gone and writes through a pointer into a stack frame that
+ * has been reused.
  *
  * Callers that need an answer use radioPostAndSettle, which waits for the
  * task's own verdict. Nothing crosses the task boundary but plain data.
@@ -75,6 +75,16 @@ static SignalAverage sSnrAverage;
 /** What the bandwidth extension was last set to. */
 static bool sBandwidthWide = false;
 static bool sBandwidthKnown = false;
+/**
+ * How long publish waits for the lock before giving up.
+ *
+ * Bounded rather than forever. The readers hold it only long enough to copy a
+ * struct, so this is never reached in practice, but a wait with no end makes
+ * the failure impossible and the recovery below unreachable. The commands are
+ * carried forward and published on the next round.
+ */
+#define RADIO_PUBLISH_WAIT_MS 100
+
 static SquelchMode sSquelchMode = SQUELCH_OFF;
 
 /* ------------------------------------------------------------------ seek --
@@ -83,9 +93,9 @@ static SquelchMode sSquelchMode = SQUELCH_OFF;
  * which is set under the lock like the squelch mode is.
  *
  * Seek is a state machine rather than a loop, so that a command arriving in
- * the middle of it is acted on within a millisecond instead of after the
- * radio has finished walking the band. The ticket asks for that and it is
- * also what makes the stop button work.
+ * the middle of it is acted on within one channel, about 50 ms, instead of
+ * after the radio has finished walking the band. That is what makes it
+ * cancellable.
  */
 static bool sSeeking = false;
 static bool sSeekUp = true;
@@ -126,7 +136,7 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
                     bool qualityValid, Tef668xError lastError, uint32_t drained,
                     const RadioError *results,
                     const Tef668xProcessing *processing, bool processingValid) {
-  if (xSemaphoreTake(sLock, portMAX_DELAY) != pdTRUE) {
+  if (xSemaphoreTake(sLock, pdMS_TO_TICKS(RADIO_PUBLISH_WAIT_MS)) != pdTRUE) {
     return false;
   }
   for (uint32_t i = 0; i < drained; i++) {
@@ -160,20 +170,6 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   return true;
 }
 
-/**
- * Tell the tuner what the settings now say, and only what changed.
- *
- * Order matters on a retune. Mute first so nothing bursts out while the
- * frequency moves, and unmute last.
- *
- * Only on a retune. A volume change that mutes and unmutes around itself
- * chops the audio, and the volume knob sends one of those every fiftieth of
- * a second while it is being turned. That is what it sounded like: the sound
- * breaking up while the knob moved.
- *
- * @param from  What the tuner was last told, or NULL to send everything.
- * @param to    What it should be set to.
- */
 /**
  * Everything the tuner is told about how to receive, beyond the dial.
  *
@@ -219,6 +215,18 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
   return deemp != TEF668X_OK ? deemp : blanker;
 }
 
+/**
+ * Tell the tuner what the settings now say, and only what changed.
+ *
+ * Order matters on a retune. Mute first so nothing bursts out while the
+ * frequency moves, and unmute last. Only on a retune: a volume change that
+ * muted and unmuted around itself would chop the audio, and the volume knob
+ * sends one of those every fiftieth of a second while it is being turned.
+ *
+ * @param from  What the tuner was last told, or NULL to send everything.
+ * @param to    What it should be set to.
+ * @return TEF668X_OK, or the first thing that went wrong.
+ */
 static Tef668xError pushToTuner(const RadioSettings *from,
                                 const RadioSettings *to) {
   RadioPush push = radioPushNeeded(from, to);
@@ -227,10 +235,9 @@ static Tef668xError pushToTuner(const RadioSettings *from,
 
   if (push.retune) {
     /* The mute failing is not a reason to stop. It is a reason to carry on to
-     * the unmute at the bottom, because a chip that may or may not be muted
-     * and is never told otherwise is the permanent silence this whole comment
-     * block exists to prevent. Returning here was exactly that: the next
-     * attempt mutes, fails at the same place, and never unmutes. */
+     * the unmute at the bottom: a chip that may or may not be muted and is
+     * never told otherwise stays silent for good, because every later attempt
+     * mutes, fails at the same place, and never reaches the unmute. */
     err = tef668xSetMute(true);
 
     Tef668xError tuned =
@@ -345,8 +352,8 @@ static void radioTask(void *arg) {
 
   /* Taken from the snapshot, which radioTaskStart has already filled in with
    * the defaults and the frequency the radio is to come up on. Calling
-   * radioDefaults again here would throw that away, which is what left the
-   * radio unmuting on the bottom of the FM band and then retuning. */
+   * radioDefaults again here would throw that away, and the radio would unmute
+   * on the bottom of the FM band and then retune. */
   sFadeFromMs = millis();
   sFadeMs = RADIO_FADE_MS;
   /* The first pass through the loop has already had its fade started, by the
@@ -449,10 +456,14 @@ static void radioTask(void *arg) {
         } else {
           /* Anything else stops a seek where it stands. A person reaching
            * for the knob while the radio is hunting means stop, and so does
-           * a script sending a tune. */
+           * a script sending a tune.
+           *
+           * seekFound goes with it. It says where the radio is now, so once
+           * somebody has tuned somewhere by hand it is no longer true. */
           if (sSeeking) {
             seekEnd(false);
           }
+          sSeekFound = false;
           results[drained++] = radioApply(&wanted, &sPlan, &item);
         }
       }
@@ -538,9 +549,8 @@ static void radioTask(void *arg) {
 
     /* The seek decision, taken on a reading of its own rather than on the one
      * the poll below takes. The poll runs on its own cadence and would often
-     * be looking at the channel before this one, which is the stale reading
-     * this project keeps finding: the radio would stop one channel past the
-     * station, or not at all. */
+     * be looking at the channel before this one, so the radio would stop one
+     * channel past the station, or not at all. */
     if (sSeeking) {
       vTaskDelay(pdMS_TO_TICKS(SEEK_SETTLE_MS));
       bool seekFm = bandModulation(settings.band) == MODULATION_FM;
@@ -566,10 +576,13 @@ static void radioTask(void *arg) {
         seekEnd(true);
         /* The readings taken while walking say nothing about where it has
          * stopped, and the next thing to read them is the bandwidth
-         * extension. */
+         * extension. The squelch starts again for the same reason, open, so
+         * that a station it has just found is not held shut by a hold that
+         * began on a noise channel. */
         signalAverageReset(&sLevelAverage);
         signalAverageReset(&sSnrAverage);
         sBandwidthKnown = false;
+        squelchInit(&sSquelch);
         /* Fade in, the same as a band change, so a station does not arrive
          * at full volume the instant the mute lifts. */
         sFadeFromMs = millis();
@@ -578,6 +591,7 @@ static void radioTask(void *arg) {
         /* One full pass and nothing. Stop rather than go round again, and
          * leave the radio where it ended up rather than pretending. */
         seekEnd(false);
+        squelchInit(&sSquelch);
       }
     }
 
@@ -640,8 +654,14 @@ static void radioTask(void *arg) {
       }
 
       bool wasOpen = sSquelch.open;
-      squelchUpdate(&sSquelch, NULL, mode, settings.band, &reading, threshold,
-                    millis());
+      /* Not while seeking. The readings then come from whatever channel the
+       * sweep is passing, which nobody is listening to, and they would drive
+       * the hold and the hysteresis on noise. The squelch is started again
+       * when the seek stops. */
+      if (!sSeeking) {
+        squelchUpdate(&sSquelch, NULL, mode, settings.band, &reading, threshold,
+                      millis());
+      }
 
       /* Acted on now, not next time round.
        *
@@ -653,7 +673,10 @@ static void radioTask(void *arg) {
        *
        * Only the mute moves, so only the mute is sent. */
       if (sSquelch.open != wasOpen) {
-        bool wantMuted = settings.muted || !sSquelch.open;
+        /* Same three reasons the main push uses, seeking included. Without
+         * it a seek sweeping past a strong station would open the squelch
+         * and blare that channel until the next round re-muted it. */
+        bool wantMuted = settings.muted || !sSquelch.open || sSeeking;
         if (wantMuted != sLastPushedMute) {
           Tef668xError muteErr = tef668xSetMute(wantMuted);
           if (muteErr == TEF668X_OK) {
