@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 /** Bump this whenever a field is added, removed or changes meaning. */
-#define SETTINGS_VERSION 2
+#define SETTINGS_VERSION 3
 
 /** Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -93,6 +93,12 @@ typedef struct {
   /* The AM side. */
   uint8_t amNoiseBlankerStart; /**< Per cent. 0, or 50 to 150. */
   uint8_t amBandwidthKHz;      /**< The width an AM band starts on. */
+
+  /* Version 3. How fussy seek is about what counts as a station. Separate
+   * for the two sides, because the two have different rules and different
+   * numbers behind them. See SeekConfig in seek.h. */
+  uint8_t fmScanSensitivity; /**< 1 to 6. Higher stops on weaker signals. */
+  uint8_t amScanSensitivity; /**< 1 to 6. */
 } Settings;
 
 /**

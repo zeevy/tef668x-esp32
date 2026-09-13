@@ -338,11 +338,19 @@ static const char *pageTail(bool scripted = false) {
          "return r.text().then(function(t){M(t,r.ok);R();return r.ok;});})"
          ".catch(function(){M('The radio did not answer.',false);"
          "return false;});};"
+         /* A seek answers as soon as it has started, so the frequency line
+            has to keep up with it on its own until it stops. */
+         "var F=function(){var n=0;var t=setInterval(function(){"
+         "fetch('/api/state').then(function(r){return r.json();})"
+         ".then(function(d){R();if(!d.tuner||!d.tuner.seeking||++n>200){"
+         "clearInterval(t);}}).catch(function(){clearInterval(t);});},250);};"
          "document.querySelectorAll('[data-post]').forEach(function(b){"
          "b.addEventListener('click',function(e){e.preventDefault();"
          "var p=new URLSearchParams(b.dataset.args||'');"
          "if(b.dataset.from){var f=document.getElementById(b.dataset.from);"
-         "if(f)p.append(f.name,f.value);}P(b.dataset.post,p);});});"
+         "if(f)p.append(f.name,f.value);}"
+         "P(b.dataset.post,p).then(function(ok){"
+         "if(ok&&b.dataset.quiet!==undefined)F();});});});"
          "document.querySelectorAll('[data-now]').forEach(function(el){"
          "el.addEventListener('change',function(){"
          "var v=el.dataset.send==='label'&&el.options?"
@@ -558,6 +566,17 @@ static String radioForms(void) {
   }
   out += F("</select></div>");
 
+  /* Seek sits with the dial, because it is a way of moving the dial. It
+   * answers as soon as it has started, so the button comes back at once and
+   * the frequency line above follows it until it stops. */
+  out +=
+      F("<div class='col-12 mt-1'>"
+        "<button class='btn btn-outline-secondary btn-sm me-2' "
+        "data-post='/api/seek' data-args='dir=down' data-quiet>"
+        "&#8249;&#8249; Seek</button>"
+        "<button class='btn btn-outline-secondary btn-sm' "
+        "data-post='/api/seek' data-args='dir=up' data-quiet>"
+        "Seek &#8250;&#8250;</button></div>");
   out +=
       F("<div class='col-12 mt-2'>"
         "<button class='btn btn-outline-secondary btn-sm me-2' "
@@ -616,6 +635,28 @@ static String radioForms(void) {
   out +=
       F("</div><p class='small text-secondary mt-2 mb-0'>The levels are 0 "
         "to switch off, or 20 to 60. The blankers are 0, or 50 to 150."
+        "</p></details>");
+
+  /* How fussy seek is. Here rather than beside the seek buttons, because it
+   * is a setting and they are an action. */
+  out +=
+      F("<details class='mt-2'><summary class='small text-secondary' "
+        "style='cursor:pointer'>Seek sensitivity</summary>"
+        "<div class='row g-2 mt-1'>");
+  {
+    static const char *sensNames[] = {
+        "1, strong only", "2", "3",
+        "4, the default", "5", "6, finds weak ones"};
+    static const long sensValues[] = {1, 2, 3, 4, 5, 6};
+    out += formSelect("fmsens", "FM", sensNames, sensValues, 6,
+                      st->fmScanSensitivity, "data-api='/api/settings'");
+    out += formSelect("amsens", "AM", sensNames, sensValues, 6,
+                      st->amScanSensitivity, "data-api='/api/settings'");
+  }
+  out +=
+      F("</div><p class='small text-secondary mt-2 mb-0'>Higher settles "
+        "for a weaker signal and stops more often on things that are not "
+        "stations. This one takes effect at once, with no reboot."
         "</p></details>");
 
   if (!onFm) {
@@ -1258,6 +1299,13 @@ static void appendRadioState(String &out) {
       }
       out += F(",\"wide\":");
       out += snap.bandwidthWide ? F("true") : F("false");
+      /* Whether the dial is moving on its own. A caller that cannot tell
+       * seeking from a person turning the knob shows the same thing for
+       * both. */
+      out += F(",\"seeking\":");
+      out += snap.seeking ? F("true") : F("false");
+      out += F(",\"seekFound\":");
+      out += snap.seekFound ? F("true") : F("false");
 
       /* The squelch, so a radio that has gone quiet says why. */
       out += F(",\"sql\":\"");
@@ -1841,6 +1889,7 @@ static void handleApiMode(void) {
  * | `squelch` | The squelch mode this radio comes up in |
  * | `startBand`, `startFreqKHz` | Where it comes up |
  * | `startVolumeDb` | The volume it comes up at, in manual squelch only |
+ * | `fmsens`, `amsens` | How fussy seek is, per band |
  * | `ims`, `eq`, `mono` | The stored FM features |
  * | `cut`, `blend`, `hiblend` | The stored weak signal start levels |
  * | `fmnb`, `amnb` | The stored noise blanker percentages |
@@ -1903,6 +1952,10 @@ static void handleApiSettingsGet(void) {
   out += st->fmDeemphasisUs;
   out += F(",\"amBandwidthKHz\":");
   out += st->amBandwidthKHz;
+  out += F(",\"fmsens\":");
+  out += st->fmScanSensitivity;
+  out += F(",\"amsens\":");
+  out += st->amScanSensitivity;
   out += F("}");
   sServer.send(200, "application/json", out);
 }
@@ -1919,12 +1972,15 @@ static void handleApiSettingsGet(void) {
  * | `spacing` | 0 or 1 | Medium wave channels, 9 kHz or 10 kHz |
  * | `encoder` | 0 or 1 | Which encoder is fitted, standard or optical |
  * | `direction` | 0 or 1 | Normal, or reversed |
+ * | `fmsens` | 1 to 6 | How fussy seek is on FM. Higher finds weaker |
+ * | `amsens` | 1 to 6 | The same on the AM bands |
  *
  * Everything given is checked before anything is written, and then one save
  * puts the lot in NVS. A half applied change, say a new PIN stored against
  * the old network, is worse than no change at all.
  *
- * The four above take effect at the next start, and the reply says so. The
+ * The first four take effect at the next start, and the reply says so. The
+ * two sensitivities act at once, because nothing is tuned to them. The
  * band plan decides which frequencies exist, and changing that under a radio
  * that is tuned to one of them is a change with no right answer. The rest of
  * the radio's settings are not here: they are changed with /api/fm,
@@ -1947,40 +2003,49 @@ static void handleApiSettingsPost(void) {
    * against the enums they name. */
   struct {
     const char *name;
+    long low;
     long high;
   } stored[] = {
-      {"region", (long)FM_REGION_COUNT - 1},
-      {"spacing", (long)MW_SPACING_10K},
-      {"encoder", (long)ENCODER_OPTICAL},
-      {"direction", (long)ENCODER_REVERSED},
+      {"region", 0, (long)FM_REGION_COUNT - 1},
+      {"spacing", 0, (long)MW_SPACING_10K},
+      {"encoder", 0, (long)ENCODER_OPTICAL},
+      {"direction", 0, (long)ENCODER_REVERSED},
+      {"fmsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX},
+      {"amsens", SEEK_SENSITIVITY_MIN, SEEK_SENSITIVITY_MAX},
   };
-  long values[4] = {0, 0, 0, 0};
-  bool given[4] = {false, false, false, false};
+  const int kStored = (int)(sizeof(stored) / sizeof(stored[0]));
+  long values[6] = {0, 0, 0, 0, 0, 0};
+  bool given[6] = {false, false, false, false, false, false};
   bool wantStored = false;
-  for (int i = 0; i < 4; i++) {
+  bool wantSeek = false;
+  for (int i = 0; i < kStored; i++) {
     if (!sServer.hasArg(stored[i].name)) {
       continue;
     }
-    if (!apiNumber(stored[i].name, &values[i], 0, stored[i].high)) {
+    if (!apiNumber(stored[i].name, &values[i], stored[i].low, stored[i].high)) {
       return;
     }
     given[i] = true;
     wantStored = true;
+    if (i >= 4) {
+      wantSeek = true;
+    }
   }
 
   if (!wantWifi && !wantPin && !wantStored) {
     apiFail(400,
-            "Give ssid, pin, region, spacing, encoder or direction, or any "
-            "mix of them.");
+            "Give ssid, pin, region, spacing, encoder, direction, fmsens or "
+            "amsens, or any mix of them.");
     return;
   }
 
   Settings pending = *sSettings;
   uint32_t newPin = sAccessPin;
 
-  uint8_t *fields[4] = {&pending.fmRegion, &pending.mwSpacing,
-                        &pending.encoderKind, &pending.encoderDirection};
-  for (int i = 0; i < 4; i++) {
+  uint8_t *fields[6] = {&pending.fmRegion,          &pending.mwSpacing,
+                        &pending.encoderKind,       &pending.encoderDirection,
+                        &pending.fmScanSensitivity, &pending.amScanSensitivity};
+  for (int i = 0; i < kStored; i++) {
     if (given[i]) {
       *fields[i] = (uint8_t)values[i];
     }
@@ -2020,11 +2085,28 @@ static void handleApiSettingsPost(void) {
   }
   *sSettings = pending;
 
+  /* The seek sensitivities are the one part of this endpoint that acts at
+   * once. They are not read at start up like the band plan: nothing is tuned
+   * to them, so there is nothing for a change to be unfair to. */
+  if (wantSeek) {
+    SeekConfig seekCfg;
+    seekDefaults(&seekCfg);
+    seekCfg.fmSensitivity = pending.fmScanSensitivity;
+    seekCfg.amSensitivity = pending.amScanSensitivity;
+    radioSetSeekConfig(&seekCfg);
+  }
+
   String said;
-  if (wantStored) {
+  if (wantSeek) {
+    said += F("Seek sensitivity saved and in use now.");
+  }
+  if (given[0] || given[1] || given[2] || given[3]) {
+    if (said.length() > 0) {
+      said += F(" ");
+    }
     said +=
-        F("Saved. The band plan and the knob are read at start up, so "
-          "reboot for this to take effect.");
+        F("The band plan and the knob are read at start up, so reboot "
+          "for those to take effect.");
   }
   if (wantPin) {
     if (said.length() > 0) {
@@ -2059,6 +2141,45 @@ static void handleApiSettingsPost(void) {
     delay(200);
     wifiRetryNow(sSettings);
   }
+}
+
+/**
+ * POST /api/seek. Hunt for the next station.
+ *
+ * Takes `dir`: `up` or `down`. Returns as soon as the seek has started, not
+ * when it has finished, because a pass of the FM band takes about ten seconds
+ * and holding an HTTP request open for that would tie up the one connection
+ * this server has.
+ *
+ * Watch `seeking` in `GET /api/state` to see when it stops, and `seekFound`
+ * to see whether it found anything. Any other command stops it.
+ */
+static void handleApiSeek(void) {
+  sRequests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  if (!sServer.hasArg("dir")) {
+    apiFail(400, "Give dir, up or down.");
+    return;
+  }
+  String want = sServer.arg("dir");
+  want.toLowerCase();
+  bool up = false;
+  if (want == "up") {
+    up = true;
+  } else if (want != "down") {
+    apiFail(400, "That is not a direction. Use up or down.");
+    return;
+  }
+
+  if (!radioSeek(up)) {
+    apiFail(503, "The radio is busy. Try again in a moment.");
+    return;
+  }
+  String said = String("seeking ") + (up ? "up" : "down");
+  Serial.printf("[api] %s\n", said.c_str());
+  sServer.send(200, "text/plain", said + "\n");
 }
 
 /**
@@ -2539,6 +2660,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   sServer.on("/api/settings", HTTP_GET, handleApiSettingsGet);
   sServer.on("/api/settings", HTTP_POST, handleApiSettingsPost);
   sServer.on("/api/save", HTTP_POST, handleApiSave);
+  sServer.on("/api/seek", HTTP_POST, handleApiSeek);
   sServer.on("/setpin", HTTP_POST, handleSetPin);
   sServer.on("/reboot", HTTP_POST, handleReboot);
   sServer.onNotFound(handleNotFound);

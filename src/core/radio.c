@@ -407,6 +407,13 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       settings->fmNoiseBlankerStart = command->blanker[1];
       return RADIO_OK;
 
+    case RADIO_SEEK:
+      /* Nothing to apply. Seeking is not a state this struct can hold: it is
+       * something the radio does over the next few seconds, so the task owns
+       * it. Accepted here so that a caller posting it is told the radio took
+       * the command, which it did. */
+      return RADIO_OK;
+
     case RADIO_SET_DEEMPHASIS:
       /* Settable from either side, like the blankers. It only reaches the
        * chip on FM, but refusing it on AM would mean a person has to change

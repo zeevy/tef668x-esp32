@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "core/radio.h"
+#include "core/seek.h"
 #include "core/squelch.h"
 #include "drivers/tef668x.h"
 
@@ -64,6 +65,16 @@ typedef struct {
   bool tunerMuted;
   SquelchMode squelchMode; /**< What decides whether the audio is open. */
   bool squelchOpen;        /**< Whether the squelch is letting sound through. */
+  /**
+   * A seek is running, so the dial is moving on its own.
+   *
+   * Worth publishing rather than leaving the caller to guess from a
+   * frequency that keeps changing. A screen that cannot tell seeking from a
+   * person spinning the knob shows the same thing for both.
+   */
+  bool seeking;
+  /** The last seek found a station. False means it came back empty. */
+  bool seekFound;
   int16_t squelchThresholdTenths; /**< What Manual is set to. */
   /** What came of the last few commands, so a caller can be told the truth
    *  about its own one rather than about the state that followed it. */
@@ -169,6 +180,28 @@ bool radioTaskPlan(BandPlanConfig *out);
  * @param mode  Off, Auto or Manual.
  */
 void radioSetSquelchMode(SquelchMode mode);
+
+/**
+ * Start hunting for the next station.
+ *
+ * Returns as soon as the command is queued. The seek itself takes as long as
+ * it takes, up to one full pass of the band, and the snapshot says while it
+ * is running. Any other command stops it where it stands.
+ *
+ * @param up  true to hunt upwards in frequency.
+ * @return true when the command was queued.
+ */
+bool radioSeek(bool up);
+
+/**
+ * How fussy seek is about what counts as a station.
+ *
+ * Safe from any task. Takes effect on the next seek, not on one already
+ * running.
+ *
+ * @param cfg  The sensitivities. NULL puts the defaults back.
+ */
+void radioSetSeekConfig(const SeekConfig *cfg);
 
 /**
  * Set the threshold Manual mode works to.

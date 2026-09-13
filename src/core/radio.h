@@ -206,7 +206,16 @@ typedef enum {
   RADIO_SET_MONO,            /**< Force mono, or allow stereo. */
   RADIO_SET_WEAK_SIGNAL,     /**< The three weak signal start levels. */
   RADIO_SET_NOISE_BLANKER,   /**< The AM and FM impulse noise blankers. */
-  RADIO_SET_DEEMPHASIS       /**< The FM de-emphasis time constant. */
+  RADIO_SET_DEEMPHASIS,      /**< The FM de-emphasis time constant. */
+  /**
+   * Hunt for the next station, up or down.
+   *
+   * The one command that is not a change of state. It takes time, it walks
+   * the dial, and it is carried out by the radio task rather than by
+   * radioApply, which is why applying it here does nothing. Any other command
+   * arriving stops it.
+   */
+  RADIO_SEEK
 } RadioCommandKind;
 
 /** One thing to do. Only the field its kind names is read. */
@@ -223,6 +232,7 @@ typedef struct {
   uint8_t weak[3];       /**< RADIO_SET_WEAK_SIGNAL: cut, blend, both. */
   uint8_t blanker[2];    /**< RADIO_SET_NOISE_BLANKER: AM then FM. */
   uint16_t deemphasisUs; /**< RADIO_SET_DEEMPHASIS: 50, 75 or 0. */
+  bool up;               /**< RADIO_SEEK: true to hunt upwards. */
   TuneMode tuneMode;     /**< RADIO_SET_TUNE_MODE. */
 } RadioCommand;
 

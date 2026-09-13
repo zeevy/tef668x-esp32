@@ -13,6 +13,7 @@
 #include "band_plan.h"
 #include "input.h"
 #include "radio.h"
+#include "seek.h"
 #include "squelch.h"
 
 /**
@@ -31,6 +32,11 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
        * bytes, and that never changes again. */
       return 108;
     case 2:
+      /* Written out by hand for the same reason version 1 is: sizeof is
+       * version 3 now, and a radio in the field holding a version 2 blob
+       * wrote exactly this many bytes. */
+      return 132;
+    case 3:
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -97,6 +103,12 @@ void settingsDefaults(Settings *s) {
 
   s->amNoiseBlankerStart = 0;
   s->amBandwidthKHz = 4; /* Measured clearest on 738 kHz. */
+
+  /* Version 3. The reference firmware's default, and the one the sweep in
+   * test/fixtures/seek/ shows stopping on every station that was on air and
+   * on nothing else. */
+  s->fmScanSensitivity = SEEK_SENSITIVITY_DEFAULT;
+  s->amScanSensitivity = SEEK_SENSITIVITY_DEFAULT;
 }
 
 bool settingsValid(const Settings *s) {
@@ -156,6 +168,12 @@ bool settingsValid(const Settings *s) {
     return false;
   }
   if (s->startVolumeDb < RADIO_VOLUME_MIN || s->startVolumeDb > 0) {
+    return false;
+  }
+  if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||
+      s->fmScanSensitivity > SEEK_SENSITIVITY_MAX ||
+      s->amScanSensitivity < SEEK_SENSITIVITY_MIN ||
+      s->amScanSensitivity > SEEK_SENSITIVITY_MAX) {
     return false;
   }
   return true;

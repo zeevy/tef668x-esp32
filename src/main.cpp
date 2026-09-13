@@ -20,6 +20,7 @@
 #include "core/band_plan.h"
 #include "core/input.h"
 #include "core/radio.h"
+#include "core/seek.h"
 #include "core/settings.h"
 #include "core/squelch.h"
 #include "core/version.h"
@@ -187,6 +188,14 @@ void setup() {
                   (EncoderDirection)gSettings.encoderDirection)) {
     Serial.println(F("[input] no keypad answered at 0x20, knob only"));
   }
+
+  /* How fussy seek is, which is stored per band. Set after the task exists,
+   * because it is held under the task's lock. */
+  SeekConfig seekCfg;
+  seekDefaults(&seekCfg);
+  seekCfg.fmSensitivity = gSettings.fmScanSensitivity;
+  seekCfg.amSensitivity = gSettings.amScanSensitivity;
+  radioSetSeekConfig(&seekCfg);
 
   wifiBegin(&gSettings);
 

@@ -7,6 +7,7 @@
 
 #include "core/band_plan.h"
 #include "core/radio.h"
+#include "core/seek.h"
 #include "core/settings.h"
 
 #include <stddef.h>
@@ -314,6 +315,87 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
   TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
 }
 
+/** How many bytes version 2 wrote. Fixed for good, like V1_SIZE. */
+#define V2_SIZE 132
+
+/**
+ * Build a version 2 blob out of a current one.
+ *
+ * Version 3 only appended, so the first V2_SIZE bytes of a current struct are
+ * exactly what version 2 wrote. Stamping the header and truncating is
+ * therefore a real version 2 blob, not an approximation of one.
+ */
+static size_t makeV2(uint8_t *blob, const Settings *from) {
+  memcpy(blob, from, V2_SIZE);
+  uint16_t version = 2;
+  uint16_t size = V2_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+  return V2_SIZE;
+}
+
+static void the_version_2_fields_never_moved(void) {
+  /* Everything version 2 wrote has to stay where it was, or a radio in the
+   * field reads its own settings back as something else. */
+  TEST_ASSERT_EQUAL_size_t(104, offsetof(Settings, accessPin));
+  TEST_ASSERT_EQUAL_size_t(V2_SIZE, offsetof(Settings, fmScanSensitivity));
+  TEST_ASSERT_TRUE(sizeof(Settings) > V2_SIZE);
+}
+
+static void a_version_2_blob_gets_the_defaults_for_what_it_never_had(void) {
+  Settings source;
+  settingsDefaults(&source);
+  source.startFreqKHz = 102800;
+  source.fmHighCutStart = 40;
+  source.startVolumeDb = -18;
+
+  uint8_t blob[sizeof(Settings)];
+  size_t len = makeV2(blob, &source);
+
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, len, &out));
+
+  /* What version 2 held comes back. */
+  TEST_ASSERT_EQUAL_UINT32(102800, out.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT8(40, out.fmHighCutStart);
+  TEST_ASSERT_EQUAL_INT8(-18, out.startVolumeDb);
+
+  /* What it never had comes back as the default, not as zero. A scan
+   * sensitivity of zero is outside the range and the radio would refuse the
+   * whole blob at its next start. */
+  Settings fresh;
+  settingsDefaults(&fresh);
+  TEST_ASSERT_EQUAL_UINT8(fresh.fmScanSensitivity, out.fmScanSensitivity);
+  TEST_ASSERT_EQUAL_UINT8(fresh.amScanSensitivity, out.amScanSensitivity);
+  TEST_ASSERT_TRUE(settingsValid(&out));
+
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+  TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
+}
+
+static void a_version_2_blob_of_the_wrong_length_is_refused(void) {
+  Settings source;
+  settingsDefaults(&source);
+  uint8_t blob[sizeof(Settings)];
+  size_t len = makeV2(blob, &source);
+  Settings out;
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len - 1, &out));
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len + 1, &out));
+}
+
+static void a_scan_sensitivity_outside_the_range_is_refused(void) {
+  Settings s;
+  settingsDefaults(&s);
+  s.fmScanSensitivity = 0;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.fmScanSensitivity = SEEK_SENSITIVITY_MAX + 1;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.fmScanSensitivity = SEEK_SENSITIVITY_MAX;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.amScanSensitivity = 9;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
 static void a_version_1_blob_of_the_wrong_length_is_refused(void) {
   /* The size in the header is not enough on its own: a corrupt blob can
    * declare a length that matches its own truncation. */
@@ -444,6 +526,10 @@ int main(int, char **) {
   RUN_TEST(a_version_1_blob_still_reads);
   RUN_TEST(a_version_1_blob_gets_the_defaults_for_what_it_never_had);
   RUN_TEST(a_version_1_blob_of_the_wrong_length_is_refused);
+  RUN_TEST(the_version_2_fields_never_moved);
+  RUN_TEST(a_version_2_blob_gets_the_defaults_for_what_it_never_had);
+  RUN_TEST(a_version_2_blob_of_the_wrong_length_is_refused);
+  RUN_TEST(a_scan_sensitivity_outside_the_range_is_refused);
   RUN_TEST(a_blend_start_is_off_or_somewhere_a_signal_reaches);
   RUN_TEST(a_noise_blanker_is_a_percentage);
   RUN_TEST(only_the_widths_the_am_side_has_are_accepted);

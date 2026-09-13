@@ -423,6 +423,29 @@ The Listening to card is the reason the Radio page exists. Before this it was fo
 | 232 | Do any of the above with the radio unplugged from the network mid press | The line says the radio did not answer, rather than the page hanging |
 | 233 | Press Apply in Reception on an AM band | Only the settings that band can take are sent. Nothing is refused for being an FM idea |
 
+### Auto seek
+
+Seek walks the dial and decides what is a station. Three gates do that, and each rejects something the other two cannot: noise rejects an empty channel, multipath rejects one that is mostly reflections, and level rejects the shoulder of a strong station, which is quiet and clean and is not a station. The numbers behind them are in `test/fixtures/seek/`.
+
+| # | Do this | Expect |
+|---|---|---|
+| 234 | Tune to the bottom of FM, then press Seek up repeatedly | It stops on each local station in turn and on nothing between them. The list is under Known stations below |
+| 235 | Keep pressing past the top | It wraps to the bottom and carries on, rather than stopping at the band edge |
+| 236 | Seek down from the top | The same stations, in the other order |
+| 237 | Watch the frequency on the web page during a seek | It follows the dial while it hunts and settles when it stops. The page does not have to be reloaded |
+| 238 | Listen during a seek | Silent while it moves, and the station fades in when it stops. Not a second of every station and every patch of noise on the way |
+| 239 | Press Seek, then turn the tuning knob while it is running | It stops at once and the knob takes over. Any command cancels a seek |
+| 240 | Press Seek, then press Mute while it is running | The same. It stops and the audio comes back rather than being left muted |
+| 241 | Seek on a band with nothing on it, such as long wave here | It gives up after one full pass, a few seconds, and the audio comes back. `seekFound` is false |
+| 242 | `GET /api/state` during a seek | `seeking` true. After it stops, `seeking` false and `seekFound` says whether it found anything |
+| 243 | `POST /api/seek -d 'dir=sideways'` and with no arguments | `400` both times |
+| 244 | Set Seek sensitivity to 1 and seek the band | It stops on fewer stations, the strong ones only |
+| 245 | Set it to 6 and seek the band | It stops far more often, including on things that are not stations. That is what the setting is for |
+| 246 | `POST /api/settings -d 'fmsens=9'` | `400`, and nothing stored |
+| 247 | Change the sensitivity, then seek | It takes effect at once. This is the one setting on that page that needs no reboot |
+| 248 | Change the sensitivity, save, power cycle, seek | Still the same sensitivity |
+| 249 | Seek on medium wave in the evening | Stops on the stations that are up. The AM rule has no multipath gate, because the chip puts a different measurement in that field on the AM side |
+
 ### Reception and audio
 
 | # | Do this | Expect |

@@ -76,6 +76,32 @@ static SignalAverage sSnrAverage;
 static bool sBandwidthWide = false;
 static bool sBandwidthKnown = false;
 static SquelchMode sSquelchMode = SQUELCH_OFF;
+
+/* ------------------------------------------------------------------ seek --
+ *
+ * Owned by the radio task and touched from nowhere else, except the config,
+ * which is set under the lock like the squelch mode is.
+ *
+ * Seek is a state machine rather than a loop, so that a command arriving in
+ * the middle of it is acted on within a millisecond instead of after the
+ * radio has finished walking the band. The ticket asks for that and it is
+ * also what makes the stop button work.
+ */
+static bool sSeeking = false;
+static bool sSeekUp = true;
+static bool sSeekFound = false;
+static uint32_t sSeekVisited = 0;
+static uint32_t sSeekLimit = 0;
+static SeekConfig sSeekConfig;
+
+/**
+ * How long to wait after a retune before the reading means anything.
+ *
+ * The reference firmware's own figure, from the delay in its seek loop. It
+ * runs on this board, so this is measured rather than chosen. A whole FM band
+ * at 100 kHz steps is 206 channels, so a full pass takes about ten seconds.
+ */
+#define SEEK_SETTLE_MS 50
 static int16_t sSquelchThreshold = 0;
 
 /**
@@ -124,6 +150,8 @@ static bool publish(const RadioSettings *settings, const Tef668xQuality *q,
   sSnapshot.bandwidthWide = sBandwidthWide;
   sSnapshot.tunerMuted = sLastPushedMute;
   sSnapshot.squelchMode = sSquelchMode;
+  sSnapshot.seeking = sSeeking;
+  sSnapshot.seekFound = sSeekFound;
   sSnapshot.squelchOpen = sSquelch.open;
   sSnapshot.squelchThresholdTenths = sSquelchThreshold;
   sSnapshot.updatedMs = millis();
@@ -270,6 +298,47 @@ static Tef668xError pushToTuner(const RadioSettings *from,
   return TEF668X_OK;
 }
 
+/**
+ * How many channels one full pass of a band is.
+ *
+ * So a seek across a band with nothing on it ends instead of going round for
+ * ever. Worked out from the band rather than fixed, because the FM band is
+ * two hundred channels and long wave is sixteen.
+ */
+static uint32_t seekChannelsIn(BandId band, uint16_t stepKHz) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  if (stepKHz == 0 || !bandLimits(band, &sPlan, &lo, &hi)) {
+    return 0;
+  }
+  return (hi - lo) / stepKHz + 1;
+}
+
+/** Begin a seek. The task walks the dial from the next loop round. */
+static void seekBegin(const RadioSettings *from, bool up) {
+  sSeeking = true;
+  sSeekUp = up;
+  sSeekFound = false;
+  sSeekVisited = 0;
+  sSeekLimit = seekChannelsIn(from->band, from->stepKHz);
+  if (sSeekLimit == 0) {
+    sSeeking = false;
+  }
+}
+
+/**
+ * Stop a seek, whether it found something or not.
+ *
+ * Called from the drain loop for any other command, which is what makes seek
+ * cancellable. The audio comes back either way: a radio left muted because a
+ * seek was interrupted is a radio that has gone dead for no reason a person
+ * can see.
+ */
+static void seekEnd(bool found) {
+  sSeeking = false;
+  sSeekFound = found;
+}
+
 /** The radio task. Owns the tuner for the life of the radio. */
 static void radioTask(void *arg) {
   (void)arg;
@@ -349,6 +418,12 @@ static void radioTask(void *arg) {
         wait = step;
       }
     }
+    /* A seek walks one channel per round, so the round has to come quickly.
+     * Waiting out the poll interval between channels would make a pass of the
+     * FM band take a minute instead of ten seconds. */
+    if (sSeeking) {
+      wait = 0;
+    }
 
     if (drained >= RADIO_QUEUE_DEPTH) {
       /* Every slot is already owed to a command that could not be published.
@@ -368,8 +443,30 @@ static void radioTask(void *arg) {
         /* Recorded whether or not the state machine took it. The caller
          * waiting on this one wants to know the radio has dealt with it, and
          * a refusal is dealing with it. */
-        results[drained++] = radioApply(&wanted, &sPlan, &item);
+        if (item.kind == RADIO_SEEK) {
+          seekBegin(&wanted, item.up);
+          results[drained++] = RADIO_OK;
+        } else {
+          /* Anything else stops a seek where it stands. A person reaching
+           * for the knob while the radio is hunting means stop, and so does
+           * a script sending a tune. */
+          if (sSeeking) {
+            seekEnd(false);
+          }
+          results[drained++] = radioApply(&wanted, &sPlan, &item);
+        }
       }
+    }
+
+    /* One channel per round while a seek is running. Moving the frequency
+     * here means the push below carries the retune, so seeking goes through
+     * exactly the same path as a person turning the knob and cannot drift
+     * from it. */
+    if (sSeeking) {
+      wanted.freqKHz = sSeekUp ? bandStepUp(wanted.band, &sPlan, wanted.freqKHz,
+                                            wanted.stepKHz)
+                               : bandStepDown(wanted.band, &sPlan,
+                                              wanted.freqKHz, wanted.stepKHz);
     }
 
     /* pushFailed carries a failure forward, so a retune is attempted again
@@ -384,7 +481,10 @@ static void radioTask(void *arg) {
      * radio the person deliberately muted playing, and the squelch can never
      * unmute something they muted on purpose. */
     RadioSettings heard = wanted;
-    heard.muted = wanted.muted || !sSquelch.open;
+    /* Muted while the dial is moving, or a seek is a second of every station
+     * and every patch of noise between them. The mute comes off when it
+     * stops, including when it stops empty handed. */
+    heard.muted = wanted.muted || !sSquelch.open || sSeeking;
     RadioSettings wasHeard = settings;
     wasHeard.muted = sLastPushedMute;
     wasHeard.volumeDb = sLastPushedVolume;
@@ -435,6 +535,51 @@ static void radioTask(void *arg) {
       }
     }
     settings = wanted;
+
+    /* The seek decision, taken on a reading of its own rather than on the one
+     * the poll below takes. The poll runs on its own cadence and would often
+     * be looking at the channel before this one, which is the stale reading
+     * this project keeps finding: the radio would stop one channel past the
+     * station, or not at all. */
+    if (sSeeking) {
+      vTaskDelay(pdMS_TO_TICKS(SEEK_SETTLE_MS));
+      bool seekFm = bandModulation(settings.band) == MODULATION_FM;
+      Tef668xQuality look;
+      memset(&look, 0, sizeof(look));
+      SeekReading found;
+      memset(&found, 0, sizeof(found));
+      found.valid = tef668xReadQuality(seekFm, &look) == TEF668X_OK;
+      found.levelTenths = look.levelDbuVTenths;
+      found.noiseTenths = look.usnTenths;
+      found.multipathTenths = look.multipathTenths;
+      found.offsetTenths = look.offsetKHzTenths;
+
+      SeekConfig cfg;
+      if (xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+        cfg = sSeekConfig;
+        xSemaphoreGive(sLock);
+      } else {
+        cfg = sSeekConfig;
+      }
+
+      if (seekShouldStop(&cfg, settings.band, &found)) {
+        seekEnd(true);
+        /* The readings taken while walking say nothing about where it has
+         * stopped, and the next thing to read them is the bandwidth
+         * extension. */
+        signalAverageReset(&sLevelAverage);
+        signalAverageReset(&sSnrAverage);
+        sBandwidthKnown = false;
+        /* Fade in, the same as a band change, so a station does not arrive
+         * at full volume the instant the mute lifts. */
+        sFadeFromMs = millis();
+        sFadeMs = RADIO_BAND_FADE_MS;
+      } else if (++sSeekVisited >= sSeekLimit) {
+        /* One full pass and nothing. Stop rather than go round again, and
+         * leave the radio where it ended up rather than pretending. */
+        seekEnd(false);
+      }
+    }
 
     /* The reading keeps its own cadence, whatever the commands are doing. */
     now = xTaskGetTickCount();
@@ -583,6 +728,13 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   }
   sSquelchThreshold = 0;
   sLastPushedMute = false;
+  sSeeking = false;
+  sSeekFound = false;
+  seekDefaults(&sSeekConfig);
+  if (settings != NULL) {
+    sSeekConfig.fmSensitivity = settings->fmScanSensitivity;
+    sSeekConfig.amSensitivity = settings->amScanSensitivity;
+  }
 
   sQueue = xQueueCreate(RADIO_QUEUE_DEPTH, sizeof(QueueItem));
   sLock = xSemaphoreCreateMutex();
@@ -685,6 +837,28 @@ RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
     }
     vTaskDelay(step);
   }
+}
+
+bool radioSeek(bool up) {
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_SEEK;
+  cmd.up = up;
+  return radioPost(&cmd);
+}
+
+void radioSetSeekConfig(const SeekConfig *cfg) {
+  SeekConfig wanted;
+  if (cfg != NULL) {
+    wanted = *cfg;
+  } else {
+    seekDefaults(&wanted);
+  }
+  if (sLock != NULL && xSemaphoreTake(sLock, pdMS_TO_TICKS(50)) == pdTRUE) {
+    sSeekConfig = wanted;
+    xSemaphoreGive(sLock);
+    return;
+  }
+  sSeekConfig = wanted;
 }
 
 void radioSetSquelchMode(SquelchMode mode) {
