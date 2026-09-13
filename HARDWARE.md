@@ -303,6 +303,37 @@ wear question. Fifteen would save one further write per session and leave a
 longer window in which switching the radio off loses the station just found,
 and closing that window is the point of saving at all.
 
+### How to hear the FM de-emphasis, and what hides it
+
+Measured on 13 September 2026. This is written down because the obvious way to
+test it does not work, and two blind tests concluded the feature was broken
+before the method was changed.
+
+**Listen to hiss, not to music.** De-emphasis is a treble shelf. The loudest
+treble a radio makes is hiss, so an empty FM channel is the test signal and a
+station playing music is not. On an empty channel with de-emphasis off the
+hiss is plainly brighter and louder, on the internal speaker, with no
+headphones. With music on a station the same change could not be heard at all,
+twice, because this speaker rolls off the top of a song enough to hide it.
+
+Four blind A/B pairs, off against 50 us, all four called correctly, one of them
+with the order reversed so an order effect cannot explain it.
+
+**Switch the weak signal handling off first.** The chip has its own treble roll
+off, and it moves on its own. With the high cut start at 35 dBuV and a station
+reading 33 to 37, the reported `cut` flickered between 0 and 6 as the signal
+crossed the threshold. That is a treble change coming and going during a test
+about treble, and it was running through the first de-emphasis test unnoticed.
+With the start at 0 the reading holds steady at 0.
+
+| Weak signal high cut start | Station at 33 to 37 dBuV | Reported `cut` |
+|---|---|---|
+| 35 dBuV | signal crosses the threshold | flickers 0 to 6 |
+| 0, off | any | steady 0 |
+
+So the standing rule for any listening test on this radio: read `cut`, `bld`
+and `hbl` in `/api/state` first and make sure all three are 0.
+
 ### The volume pot never sits still, and that is why the dim works
 
 Measured on 13 September 2026, over half a minute with nobody touching the

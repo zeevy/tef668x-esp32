@@ -362,10 +362,12 @@ Everything the radio is set to now lives in one place. `POST /api/save` writes i
 | 188 | `POST /api/settings -d 'edr=1'` then reboot | The tuning knob counts the other way |
 | 189 | `POST /api/settings -d 'rgn=9'` | `400`, and nothing is stored. Read it back to check |
 | 190 | `POST /api/settings` with no arguments | `400` and the list of what it takes |
-| 191 | `POST /api/fm -d 'dem=75'` on FM | Accepted. **Unproven by ear.** Two blind A/B tests on 106.4 MHz on 13 September 2026 found no difference, 75 against 50 and then off against 50. Off against 50 should be obvious, so this needs looking at before the setting is trusted. The write returns OK and the argument matches the reference firmware |
+| 191 | `POST /api/fm -d 'dem=75'` on FM | Accepted, and **proven audible on 13 September 2026**. Four blind A/B pairs on an empty FM channel, off against 50 us, all four called correctly, including one pair with the order reversed so an order effect cannot explain it. See rows 191a and 191b for how to run it, because the method matters more than the patience |
+| 191a | To hear de-emphasis, listen to hiss and not to music | Tune to an **empty** channel, not a station. De-emphasis is a treble shelf, and the loudest treble a radio makes is hiss. With it off the hiss is plainly brighter and louder. An earlier attempt used music on a station and heard nothing twice, which is what the internal speaker does to the top end of a song |
+| 191b | Before any listening test, check `cut`, `bld` and `hbl` in `/api/state` | All three should read 0, or something else is changing the audio while you listen. The first de-emphasis test was run with the weak signal high cut start at 35 dBuV on a station reading 33 to 37, so the treble roll off was switching itself on and off during a test about treble. Switch the three weak signal starts off for the duration |
 | 192 | `POST /api/fm -d 'dem=60'` | `400`. Only 50, 75 and off are real |
 | 193 | `POST /api/fm -d 'dem=75'` on a medium wave band | Accepted. It belongs to the country, not to the band you are on |
-| 194 | Save with de-emphasis 75, power cycle, listen to FM | It is written again on every start, which `GET /api/state` confirms. Whether it is audible is what 191 could not show |
+| 194 | Save with de-emphasis 75, power cycle, listen to FM | It is written again on every start, which `GET /api/state` confirms, and it is audible by the method in 191a |
 | 195 | Open `/radio` | Three cards: Listening to, Reception, Band plan and knob. Every box shows what the radio is set to now, not the defaults |
 | 196 | Change a box in Reception and press Apply | The line at the top of the page says what the radio reached. The page does not reload |
 | 197 | Open Weak signal and noise blankers, set High cut to 10 and press Apply | The line goes red and says 0, or 20 to 60 |
