@@ -10,7 +10,9 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 
 ## Where to start
 
-The wiki is being written. Until the pages below are here, the [README](https://github.com/zeevy/tef668x-esp32#readme) has the short version of each topic:
+- [Supported Hardware](Supported-Hardware.md): the radio this runs on, and what works on it.
+
+The wiki is still being written. Until its other pages are here, the [README](https://github.com/zeevy/tef668x-esp32#readme) has the short version of each topic:
 
 - [Building and flashing](https://github.com/zeevy/tef668x-esp32#building-and-flashing)
 - [First start](https://github.com/zeevy/tef668x-esp32#first-start)
