@@ -596,6 +596,10 @@ void radioSetNetServing(bool serving);
  */
 void radioSetSeekConfig(const SeekConfig *cfg);
 
+/* What seek is set to now, for a caller that judges channels the same way,
+ * such as the band scan. Safe from any task. */
+void radioSeekConfig(SeekConfig *out);
+
 void radioSetSquelchThreshold(int16_t tenths);
 
 /*
