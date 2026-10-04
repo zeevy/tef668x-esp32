@@ -67,7 +67,8 @@ LV_FONT_DECLARE(roboto_label)
  * none of those, the tick and the cross the boot screen and the menus mark
  * with, the chevron on a menu row that opens a list, the four marks on the DX
  * page's PI tile, the NEW badge and the empty inbox of the DX Catches page,
- * the run and stopped marks of the DX scanner, the four on the tiles of RDS
+ * the badge again on the update offer's title, the run and stopped marks of
+ * the DX scanner, the four on the tiles of RDS
  * page 1 and the stereo mark in its header, and the person in bed that says
  * auto off is on, which alone is cut from the filled style.
  *

@@ -94,6 +94,7 @@ Numbers are whole numbers. A value with a fraction is sent in tenths: `"sig":168
 |---|---|
 | `brd`, `ver`, `bid` | The board, the firmware version, and the git commit it was built from, with `+` when built with changes not committed |
 | `slt`, `cnf` | The firmware slot it runs from, and whether that firmware is confirmed (false while on trial after an update) |
+| `upd` | The update check: `st` is `off`, `wait`, `checking`, `none`, `found` or `failed`; `ver` and `sz` are the newer release's version and image size in bytes while `st` is `found`, and null otherwise |
 | `net`, `rssi`, `bars`, `ip` | The network state (`station`, `joining`, `ap` for the hotspot, `offline`), the Wi-Fi signal in dBm and in bars, the address |
 | `rst` | Why the radio last started, for example `power` or `software (update)` |
 | `dpn` | True while the access PIN is still `000000` |
@@ -359,6 +360,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `hsp` | 0 to 2 | Hotspot: Auto, On, Off |
 | `web`, `wif` | 0, 1 | Web server and Wi-Fi. 0 can only be undone from the radio's menu, or by Erase Settings on the recovery screen |
 | `slp` | 0 to 600 | Auto Off in minutes, 0 for off |
+| `upc` | 0, 1 | Check for Updates. Turned on, the radio looks in this start too |
 | `enc`, `edr` | 0, 1 | Encoder type and direction. After a restart |
 | `dst`, `dsc` | 0 to 2 | DX stop condition; DX scan range |
 | `dmf`, `dml` | 1 to 99 | DX preset range |
@@ -380,12 +382,13 @@ Saved. It will come up on 106.40 MHz, squelch Off.
 | Route | PIN | What it does |
 |---|---|---|
 | `POST /update` | Yes | Installs a firmware, sent as the form field `firmware`. See [Updating](Updating.md) |
+| `POST /update/install` | Yes | Installs the newer release the update check found, from GitHub. Answers 202, then downloads and writes it and restarts into it. A failed download or sha256 leaves the old firmware running, with the update still offered. Answers 409 when nothing newer was found, while a new firmware is on trial, or during a station scan |
 | `POST /reboot` | Yes | Restarts the radio. Refused with 409 while a new firmware is on trial |
 | `POST /api/sleep` | Yes | Puts the radio to sleep. Answers `Going to sleep. Press the knob to wake the radio.` Refused with 409 while a new firmware is written or on trial |
 | `POST /setpin` | Yes | Sets a new PIN, field `pin`. Ends the session |
 | `POST /wifi` | Yes, except on the setup hotspot | Saves a network, fields `sid` and `pwd` |
 
-`/update`, `/reboot`, `/setpin`, `/wifi` and a refused `/auth` answer with a short HTML page, made for the browser. A right PIN on `/auth` gets the 303 with no body, and a call without a session gets the plain text 403.
+`/update`, `/update/install`, `/reboot`, `/setpin`, `/wifi` and a refused `/auth` answer with a short HTML page, made for the browser. A right PIN on `/auth` gets the 303 with no body, and a call without a session gets the plain text 403.
 
 ## For measuring
 

@@ -31,6 +31,7 @@
 #include "menu_task.h"
 #include "net/ntp.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
 #include "ui/draw.h"
@@ -598,6 +599,10 @@ bool screenTaskUpdateSkip(void) {
   return updateScreenPress(&sUpdate, millis());
 }
 
+bool screenTaskUpdateHolding(void) {
+  return updateScreenHolds(&sUpdate, millis());
+}
+
 void screenTaskUpdateEnd(bool ok) {
   if (!sReady) {
     return;
@@ -676,6 +681,10 @@ bool screenTaskBootSkip(void) {
   return sBootUp || sSwap != BOOT_SWAP_NONE;
 }
 
+bool screenTaskBootShowing(void) {
+  return sBootUp || sSwap != BOOT_SWAP_NONE;
+}
+
 void screenTaskBootEnd(void) {
   if (!sBootUp || sBootHolding) {
     return;
@@ -726,6 +735,12 @@ bool screenTaskMenuBegin(void) {
   }
   /* At once, with no fade. The caller draws as soon as this returns. */
   const uint32_t began = millis();
+  /* The menu's minute alone starts now, and the light comes up. A menu a
+   * person opened was opened by a key, which did both already; the offer of
+   * a newer release opens by itself, maybe long after the last key, and
+   * would otherwise shut again at once, or sit on a dimmed panel. */
+  sLastActivityMs = began;
+  backlightWake(&sBacklight, began);
   screenEnd();
   sReady = false;
   if (!screenMenuBegin()) {
@@ -1666,6 +1681,9 @@ void screenTaskPoll(void) {
   in.fault =
       snap.lastError != TEF668X_OK ? tef668xErrorText(snap.lastError) : NULL;
   in.logConfirm = screenTaskLogConfirmText();
+  in.notice = updateCheckState() == UPDATE_STATE_CHECKING
+                  ? txt(STR_RADIO_CHECKING_UPDATES)
+                  : NULL;
   in.levelOffsetDb = screenTaskLevelOffsetDb(snap.settings.band);
   in.nowMs = millis();
 

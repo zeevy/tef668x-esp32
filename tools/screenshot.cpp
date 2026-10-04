@@ -315,6 +315,13 @@ static void sceneFmLogged(ScreenState *s) {
   s->logConfirm = fmt(STR_RADIO_FMT_LOGGED, "106.40");
 }
 
+/* The update check running: the line under the panel says so in place of
+ * the radio text. */
+static void sceneFmCheckingUpdates(ScreenState *s) {
+  sceneFm(s);
+  s->notice = txt(STR_RADIO_CHECKING_UPDATES);
+}
+
 /* The longest name the stitching can produce. */
 static void sceneFmLongName(ScreenState *s) {
   sceneFm(s);
@@ -1246,6 +1253,7 @@ int main(int argc, char **argv) {
   } scenes[] = {
       {"fm", sceneFm},
       {"fm-logged", sceneFmLogged},
+      {"fm-checking-updates", sceneFmCheckingUpdates},
       {"fm-no-band", sceneFmNoBand},
       {"mw-fm-first", sceneMwFmFirst},
       {"fm-longname", sceneFmLongName},
@@ -1571,6 +1579,31 @@ int main(int argc, char **argv) {
       screenMenuShow(&menu);
       lv_refr_now(NULL);
       snprintf(path, sizeof(path), "%s/menu-typed-choice.bmp", dir);
+      writeBmp(path);
+      printf("  %s\n", path);
+    }
+
+    /* The offer of a newer release found at start, the knob on Update. The
+     * versions and the size are samples. */
+    {
+      static char size[16];
+      snprintf(size, sizeof(size), txt(STR_MENU_FMT_MEGABYTES), "1.9");
+      ScreenMenuDialog dialog;
+      memset(&dialog, 0, sizeof(dialog));
+      dialog.title = txt(STR_MENU_UPDATE_TITLE);
+      dialog.label[0] = txt(STR_MENU_UPDATE_THIS_RADIO);
+      dialog.value[0] = "0.1.0";
+      dialog.label[1] = txt(STR_MENU_UPDATE_NEW_VERSION);
+      dialog.value[1] = "0.2.0";
+      dialog.label[2] = txt(STR_MENU_UPDATE_DOWNLOAD);
+      dialog.value[2] = size;
+      dialog.label[3] = txt(STR_MENU_UPDATE_SETTINGS);
+      dialog.value[3] = txt(STR_MENU_UPDATE_KEPT);
+      dialog.button[0] = txt(STR_MENU_UPDATE_NOW);
+      dialog.button[1] = txt(STR_MENU_LATER);
+      screenMenuDialogShow(&dialog);
+      lv_refr_now(NULL);
+      snprintf(path, sizeof(path), "%s/menu-update-offer.bmp", dir);
       writeBmp(path);
       printf("  %s\n", path);
     }

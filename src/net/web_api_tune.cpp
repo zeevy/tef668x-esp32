@@ -477,7 +477,9 @@ static void handleApiScan(void) {
     return;
   }
   if (started != BAND_SCAN_STARTED) {
-    apiFail(503, "The radio is busy, or a scan is already running.");
+    apiFail(503,
+            "The radio is busy, checking for updates, or a scan is "
+            "already running.");
     return;
   }
   Serial.printf("[api] scan: %s started\n", bandName(band));

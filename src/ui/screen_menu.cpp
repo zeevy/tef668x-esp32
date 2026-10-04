@@ -3,7 +3,8 @@
  *
  * Three shapes on one set of objects: the list of rows, the value being
  * changed, and a named choice picked from a short list. All three share the
- * header, which is the title alone.
+ * header, which is the title alone. A fourth, a question with two buttons,
+ * is a box of its own over the middle, with the header hidden.
  *
  * Rows are the radio screen's grey tiles, 296 by 29 and 4 apart, six to a
  * page, and the row the knob is on takes the panel's amber with dark type.
@@ -57,6 +58,20 @@
 #define DIGIT_PLACE_BASE 172
 /* A digit still to come: the ground colour 45 % into the panel's. */
 #define DIGIT_STILL_MIX 115
+/* The dialog: a box of the row colour in the middle, its title on the first
+ * line with the icon before it, the facts under it, and the two buttons
+ * along its foot. A button's word sits 6 below its middle, as a row's does. */
+#define DIALOG_X 16
+#define DIALOG_Y 22
+#define DIALOG_W 288
+#define DIALOG_H 196
+#define DIALOG_TITLE_BASE (DIALOG_Y + 30)
+#define DIALOG_FACT_BASE (DIALOG_Y + 62)
+#define DIALOG_FACT_PITCH 24
+#define DIALOG_BUTTON_H 34
+#define DIALOG_BUTTON_W ((DIALOG_W - 2 * UI_PAD - UI_GAP) / 2)
+#define DIALOG_BUTTON_Y (DIALOG_Y + DIALOG_H - UI_PAD - DIALOG_BUTTON_H)
+#define DIALOG_BUTTON_BASE (DIALOG_BUTTON_Y + DIALOG_BUTTON_H / 2 + 6)
 
 static lv_obj_t *sMenu;
 static UiFrame sFrame;
@@ -91,6 +106,13 @@ static uint8_t sDigitAt;
 static int16_t sBarFill;
 static int16_t sBarZero =
     -1; /* -1 for a value with no zero inside its range. */
+/* The dialog, every part a child of one layer so it hides as one. */
+static lv_obj_t *sDialog;
+static lv_obj_t *sDialogTitle;
+static lv_obj_t *sDialogLabel[SCREEN_DIALOG_FACTS];
+static lv_obj_t *sDialogValue[SCREEN_DIALOG_FACTS];
+static lv_obj_t *sButton[2];
+static lv_obj_t *sButtonWord[2];
 
 static void hideRows(void) {
   for (uint8_t i = 0; i < SCREEN_MENU_ROWS; i++) {
@@ -265,6 +287,29 @@ bool screenMenuBegin(void) {
   lv_obj_add_event_cb(sDigitDots, onDotsDraw, LV_EVENT_DRAW_MAIN, NULL);
   sDigitPlace = uiLabel(sMenu, &roboto_small, t->dead);
   showEditor(false);
+
+  /* The dialog last, so it is drawn over everything above. */
+  sDialog = lv_obj_create(sMenu);
+  lv_obj_remove_style_all(sDialog);
+  lv_obj_set_size(sDialog, MENU_W, MENU_H);
+  (void)uiRound(sDialog, t->rule, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H,
+                UI_RADIUS);
+  lv_obj_t *icon = uiLabel(sDialog, &roboto_icons, t->radio);
+  uiSetTextStatic(icon, ICON_NEW);
+  lv_obj_set_pos(icon, DIALOG_X + UI_PAD, uiIconTop(DIALOG_TITLE_BASE));
+  sDialogTitle = uiLabel(sDialog, &roboto_title, t->radio);
+  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
+    sDialogLabel[i] = uiLabel(sDialog, &roboto_small, t->dead);
+    sDialogValue[i] = uiLabel(sDialog, &roboto_small, t->measurement);
+  }
+  for (uint8_t i = 0; i < 2; i++) {
+    sButton[i] =
+        uiRound(sDialog, t->ground,
+                (int16_t)(DIALOG_X + UI_PAD + i * (DIALOG_BUTTON_W + UI_GAP)),
+                DIALOG_BUTTON_Y, DIALOG_BUTTON_W, DIALOG_BUTTON_H, UI_TILE_R);
+    sButtonWord[i] = uiLabel(sDialog, &roboto_text, t->measurement);
+  }
+  uiShowIf(sDialog, false);
   return true;
 }
 
@@ -275,6 +320,7 @@ void screenMenuShow(const ScreenMenu *menu) {
   const Theme *t = themeCurrent();
   showEditor(false);
   hideRows();
+  uiShowIf(sDialog, false);
   uiFrameShow(&sFrame, menu->title, NULL, NULL, NULL, NULL, NULL);
   /* The header is the title alone, so not the sleep mark either. */
   uiShowIf(sFrame.sleep, false);
@@ -418,6 +464,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
               NULL);
   uiShowIf(sFrame.sleep, false);
   hideRows();
+  uiShowIf(sDialog, false);
   if (v->isPicker) {
     showEditor(false);
     showPicker(v);
@@ -500,6 +547,52 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
                   BAR_LIMIT_BASE);
 }
 
+void screenMenuDialogShow(const ScreenMenuDialog *d) {
+  if (sMenu == NULL || d == NULL) {
+    return;
+  }
+  const Theme *t = themeCurrent();
+  /* The box covers the middle of the screen, and the header and the rows
+   * would still show round it, so they go. */
+  showEditor(false);
+  hideRows();
+  showScroll(0, 0);
+  uiFrameShow(&sFrame, NULL, NULL, NULL, NULL, NULL, NULL);
+  uiShowIf(sFrame.sleep, false);
+  uiShowIf(sDialog, true);
+
+  uiSetText(sDialogTitle, d->title != NULL ? d->title : "");
+  uiBaseline(sDialogTitle, &roboto_title,
+             (int16_t)(DIALOG_X + UI_PAD + UI_ICON_SIZE + UI_GAP),
+             DIALOG_TITLE_BASE);
+  bool ended = false;
+  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
+    ended = ended || d->label[i] == NULL;
+    uiShowIf(sDialogLabel[i], !ended);
+    uiShowIf(sDialogValue[i], !ended);
+    if (ended) {
+      continue;
+    }
+    const int16_t base = (int16_t)(DIALOG_FACT_BASE + i * DIALOG_FACT_PITCH);
+    uiSetText(sDialogLabel[i], d->label[i]);
+    uiBaseline(sDialogLabel[i], &roboto_small, DIALOG_X + UI_PAD, base);
+    uiSetText(sDialogValue[i], d->value[i] != NULL ? d->value[i] : "");
+    uiBaselineRight(sDialogValue[i], &roboto_small,
+                    DIALOG_X + DIALOG_W - UI_PAD, base);
+  }
+  for (uint8_t i = 0; i < 2; i++) {
+    const bool on = i == d->cursor;
+    uiSetBgColour(sButton[i], on ? t->radio : t->ground);
+    uiSetColour(sButtonWord[i], on ? t->ground : t->measurement);
+    uiSetText(sButtonWord[i], d->button[i] != NULL ? d->button[i] : "");
+    const int16_t w = uiTextWidth(sButtonWord[i], &roboto_text);
+    uiBaseline(sButtonWord[i], &roboto_text,
+               (int16_t)(DIALOG_X + UI_PAD + i * (DIALOG_BUTTON_W + UI_GAP) +
+                         (DIALOG_BUTTON_W - w) / 2),
+               DIALOG_BUTTON_BASE);
+  }
+}
+
 void screenMenuEnd(void) {
   if (sMenu == NULL) {
     return;
@@ -522,6 +615,16 @@ void screenMenuEnd(void) {
   }
   sDigitDots = NULL;
   sDigitPlace = NULL;
+  sDialog = NULL;
+  sDialogTitle = NULL;
+  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
+    sDialogLabel[i] = NULL;
+    sDialogValue[i] = NULL;
+  }
+  for (uint8_t i = 0; i < 2; i++) {
+    sButton[i] = NULL;
+    sButtonWord[i] = NULL;
+  }
   sDigitCount = 0;
   sDigitAt = 0;
   sBarFill = 0;

@@ -1,6 +1,10 @@
 /*
  * The line under the amber panel: what the station is saying, or the date.
  *
+ * For the few seconds the radio itself is busy with something a person
+ * should know about, such as an update check, it says so here instead, in
+ * `radio`, since it is the radio doing it and not the station.
+ *
  * Radio text in `broadcast`, scrolling inside the margins when it is longer
  * than the line, which a station's 64 characters always are. With no radio
  * text, which is every AM band and many FM stations, the date in the same
@@ -52,15 +56,20 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
 }
 
 static void show(const ScreenState *s) {
+  const Theme *t = themeCurrent();
   const int16_t x = (int16_t)(sAt.x + UI_MARGIN);
   const int16_t base = (int16_t)(sAt.y + LINE_BASE);
-  const bool haveText = s->radioText != NULL && s->radioText[0] != '\0';
+  const bool notice = s->notice != NULL;
+  const bool haveText =
+      !notice && s->radioText != NULL && s->radioText[0] != '\0';
   uiShowIf(sText, haveText);
   if (haveText) {
     uiSetText(sText, s->radioText);
     uiBaseline(sText, &roboto_text, x, base);
   }
-  uiSetOrHide(sDate, haveText ? NULL : s->date);
+  /* The notice takes the date's label, which does not scroll. */
+  uiSetColour(sDate, notice ? t->radio : t->broadcast);
+  uiSetOrHide(sDate, notice ? s->notice : haveText ? NULL : s->date);
   uiBaseline(sDate, &roboto_small, x, base);
 }
 

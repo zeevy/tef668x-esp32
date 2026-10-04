@@ -116,6 +116,10 @@ typedef struct {
   uint8_t modulationPeakPercent; /* Where it is, 0 to 100. */
 
   /* ---- the line under the panel ---- */
+  /* What the radio itself is doing for a few seconds, such as "Checking for
+   * updates...", in `radio` in place of the radio text and the date, or
+   * NULL. */
+  const char *notice;
   const char *radioText; /* Or NULL. */
   /* "WEDNESDAY, 30th September 2026", or NULL until a server has answered.
    * Shown when there is no radio text. */
@@ -334,6 +338,28 @@ typedef struct {
 } ScreenMenuValue;
 
 void screenMenuValueShow(const ScreenMenuValue *value);
+
+/*
+ * A question with two answers, as a box in the middle of the screen: a
+ * title, up to four facts as a label on the left and its value on the
+ * right, and the two answers as buttons along the foot. The knob moves the
+ * amber between the buttons and a press takes the one it is on, so the
+ * answers sit side by side, the way a turn to the right moves right.
+ *
+ * Drawn on the menu's screen, because the LVGL pool holds one screen at a
+ * time, so the radio screen is not behind it.
+ */
+#define SCREEN_DIALOG_FACTS 4
+
+typedef struct {
+  const char *title;
+  const char *label[SCREEN_DIALOG_FACTS]; /* NULL ends the facts. */
+  const char *value[SCREEN_DIALOG_FACTS];
+  const char *button[2];
+  uint8_t cursor; /* The button the knob is on, 0 or 1. */
+} ScreenMenuDialog;
+
+void screenMenuDialogShow(const ScreenMenuDialog *dialog);
 
 /*
  * Everything the RDS decoder knows, over four pages: the station, its radio

@@ -83,7 +83,8 @@ ICON_CODEPOINTS = (
     ("schedule", 0xE8B5, "a PI heard once and waiting for a second hearing"),
     ("block", 0xE14B, "a station that sends 0000, which is no PI"),
     ("new_releases", 0xE031, "a PI caught for the first time, on the DX"
-                             " Catches page. Name checked in the font"),
+                             " Catches page, and the update offer's title."
+                             " Name checked in the font"),
     ("inbox", 0xE156, "the Catches page with nothing caught yet"),
     ("play_arrow", 0xE037, "the DX scanner running"),
     ("pause", 0xE034, "the DX scanner stopped"),

@@ -24,6 +24,7 @@
 #include "net/ntp.h"
 #include "net/restart_reason.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
 #include "screen_task.h"
@@ -772,6 +773,10 @@ static const char *netStateText(void) {
  *           sources had changes not yet committed. Empty when not known.
  *   `slt`   Application partition this image booted from.
  *   `cnf`   The image passed its self check and will not roll back.
+ *   `upd`   The update check. `st` is `off`, `wait`, `checking`, `none`,
+ *           `found` or `failed`; `ver` and `sz` are the newer release's
+ *           version and image size in bytes while `st` is `found`, null
+ *           otherwise.
  *   `net`   `offline`, `joining`, `station` or `ap`.
  *   `rssi`  The joined network's signal, dBm. Null unless `net` is
  *           `station`.
@@ -864,6 +869,18 @@ String buildState(void) {
   out += rollbackRunningPartition();
   out += F("\",\"cnf\":");
   out += rollbackPending() ? F("false") : F("true");
+  out += F(",\"upd\":{\"st\":\"");
+  out += updateCheckStateName();
+  out += F("\",\"ver\":");
+  if (updateCheckVersion() != NULL) {
+    out += F("\"");
+    out += updateCheckVersion();
+    out += F("\",\"sz\":");
+    out += String((unsigned long)updateCheckSize());
+  } else {
+    out += F("null,\"sz\":null");
+  }
+  out += F("}");
   out += F(",\"net\":\"");
   out += netStateText();
   out += F("\",\"rssi\":");

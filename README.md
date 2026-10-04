@@ -54,6 +54,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - A web page served by the radio itself, with no internet needed.
 - An HTTP control API for every control the radio has.
 - Over the air updates with two firmware slots. A new image that fails to boot is rolled back on its own.
+- Optional update check: the radio looks for a newer GitHub release at start and installs it when you say yes, after checking its size and sha256.
 - Network time with a settable UTC offset.
 
 **Power**

@@ -35,16 +35,19 @@
 /* Whether a scan started, and if not, why. */
 typedef enum {
   BAND_SCAN_STARTED = 0,
-  BAND_SCAN_BUSY, /* One is running, the radio could not be read, or it did
-                     not take the band change in time. */
+  BAND_SCAN_BUSY,       /* One is running, the update check is out on the
+                     network, the radio could not be read, or it did not
+                     take the band change in time. */
   BAND_SCAN_NOT_WALKED, /* A band the scan does not walk: OIRT. */
 } BandScanStartResult;
 
 /*
  * Start scanning `band`.
  *
- * Nothing starts while a scan is already running, or while the radio could
- * not be read to know where to go back to once this one ends. On another
+ * Nothing starts while a scan is already running, while the update check is
+ * out on the network, whose transmitting would raise the levels read, or
+ * while the radio could not be read to know where to go back to once this
+ * one ends. On another
  * band, the radio changes to `band` first, as the BAND key would, and the
  * scan starts only once it is there; the call waits up to a second for
  * that, on the caller's task.

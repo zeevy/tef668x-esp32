@@ -278,11 +278,20 @@ bool screenTaskSleepShowing(void);
  */
 bool screenTaskBootSkip(void);
 
+/* Whether the boot screen is still up, held or fading, and nothing more:
+ * unlike screenTaskBootSkip, asking does not end the hold. */
+bool screenTaskBootShowing(void);
+
 /*
  * Whether a firmware write holds the panel. A failed write's message is
  * taken down at the next poll, so a press there only closes it.
  */
 bool screenTaskUpdateSkip(void);
+
+/* Whether a firmware write, or a failed write's message, holds the panel,
+ * and nothing more: unlike screenTaskUpdateSkip, asking does not close the
+ * message. */
+bool screenTaskUpdateHolding(void);
 
 /*
  * The signal number the panel is actually showing, in whole dBuV.

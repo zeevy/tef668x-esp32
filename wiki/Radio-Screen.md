@@ -39,7 +39,7 @@ While you type a frequency, the digits show in place of the frequency, for examp
 
 ## 3. Text line
 
-On FM, the station's radio text, in blue, scrolling round. With no radio text, and on AM, it shows the date, for example `WEDNESDAY, 30th September 2026`. Before the radio has the time from the network, the line is empty.
+On FM, the station's radio text, in blue, scrolling round. With no radio text, and on AM, it shows the date, for example `WEDNESDAY, 30th September 2026`. Before the radio has the time from the network, the line is empty. For the few seconds of an update check it says `Checking for updates…` in amber instead (see [Updating](Updating.md#from-github-on-the-radio)).
 
 ## 4. Tuning scale
 

@@ -166,7 +166,7 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       return 272;
     case 31:
       /* 276: two bytes for auto off past version 30's end, and two of
-       * padding. */
+       * padding, the first of them since used by the update check. */
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -482,6 +482,8 @@ void settingsDefaults(Settings *s) {
    * updated. */
   s->autoOffMinutesV30 = 0;
   s->autoOffMinutes = 0;
+  /* Off: a radio looks on GitHub only when its owner asks. */
+  s->updateCheck = 0;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a
@@ -628,7 +630,7 @@ bool settingsValid(const Settings *s) {
       s->levelOffsetFmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
       s->levelOffsetAmDb < SIGNAL_LEVEL_OFFSET_MIN_DB ||
       s->levelOffsetAmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
-      !autoOffMinutesOk(s->autoOffMinutes)) {
+      !autoOffMinutesOk(s->autoOffMinutes) || s->updateCheck > 1) {
     return false;
   }
   /* The loud end alone says whether this knob has been measured. Zero there
@@ -733,10 +735,33 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
   memcpy(&storedSize, (const uint8_t *)blob + sizeof(version),
          sizeof(storedSize));
 
-  if (version == 0 || version > SETTINGS_VERSION) {
-    /* Written by a newer firmware, or plain corrupt. Defaults are safer than
-     * reading fields that may have moved. */
+  if (version == 0) {
     return false;
+  }
+  if (version > SETTINGS_VERSION) {
+    /*
+     * Written by a newer firmware, which is what an update that rolled back
+     * leaves. A newer version only adds fields after these and never changes
+     * an old one, so its first sizeof(Settings) bytes are this firmware's own
+     * struct. Refusing it would bring the radio up on the defaults, its Wi-Fi
+     * details and PIN gone, after a rollback that is meant to cost nothing.
+     * Shorter than this struct, or with a size that is not its length, it is
+     * corrupt rather than newer.
+     */
+    if (storedSize != len || len < sizeof(Settings)) {
+      return false;
+    }
+    memcpy(out, blob, sizeof(Settings));
+    out->version = SETTINGS_VERSION;
+    out->size = (uint16_t)sizeof(Settings);
+    if (out->updateCheck > 1) {
+      out->updateCheck = 0;
+    }
+    if (!settingsValid(out)) {
+      settingsDefaults(out);
+      return false;
+    }
+    return true;
   }
 
   /* A blob has to be exactly the size the firmware that wrote it used. The
@@ -797,6 +822,12 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
    * chosen. */
   if (version < 27) {
     out->nightTheme = out->theme;
+  }
+
+  /* The update check lives in version 31's padding. Anything but 1 there is
+   * off, so a stray byte costs the setting and not the whole struct. */
+  if (out->updateCheck > 1) {
+    out->updateCheck = 0;
   }
 
   if (!settingsValid(out)) {

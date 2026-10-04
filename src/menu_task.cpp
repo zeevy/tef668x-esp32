@@ -27,6 +27,7 @@
 #include "core/settings_table.h"
 #include "core/squelch.h"
 #include "core/strings.h"
+#include "core/update_check.h"
 #include "core/version.h"
 #include "drivers/battery_adc.h"
 #include "drivers/device_id.h"
@@ -40,6 +41,7 @@
 #include "net/ntp.h"
 #include "net/restart_reason.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
@@ -149,6 +151,8 @@ typedef enum {
   ROW_GOTO_SLEEP,
   ROW_PRESET_ENTRY,
   ROW_AUTO_OFF,
+  ROW_UPDATE_CHECK,
+  ROW_UPDATE_INSTALL,
   ROW_RESTART,
 
   ROW_NET_STATE,
@@ -661,6 +665,15 @@ static const MenuRow kSystemRows[] = {
      * is shown as it is. */
     {STR_MENU_AUTO_OFF, ROW_AUTO_OFF, SRC_STORED, TABLE_RANGE, 5, NOLIST, true,
      false, false},
+    /* Turned on, the radio looks in this start too, once it is on the
+     * network. */
+    {STR_MENU_UPDATE_CHECK, ROW_UPDATE_CHECK, SRC_STORED, TABLE_RANGE, 1,
+     NOLIST, false, false, false},
+    /* Named for the newer version while one is known, and then its press
+     * opens the same offer the radio shows at start. Otherwise its value says
+     * why there is nothing to install. */
+    {STR_MENU_FIRMWARE_UPDATE, ROW_UPDATE_INSTALL, SRC_ACTION, 0, 0, 1, NOLIST,
+     false, false, false},
     {STR_MENU_RESTART, ROW_RESTART, SRC_ACTION, 0, 1, 1, NOLIST, false, false,
      true},
 };
@@ -1038,6 +1051,7 @@ static const struct {
     {ROW_BACKLIGHT_DIM, "bdm"},
     {ROW_DIM_AFTER, "bds"},
     {ROW_AUTO_OFF, "slp"},
+    {ROW_UPDATE_CHECK, "upc"},
     {ROW_FADE_AT_START, "blf"},
     {ROW_BATTERY, "bat"},
     {ROW_DX_DWELL, "ddw"},
@@ -1719,6 +1733,36 @@ static void dxNumber(const MenuRow *row, int32_t v, char *out, size_t len) {
   }
 }
 
+/* What the update row says: the newer release's size, or why there is
+ * nothing to install. */
+static void updateRowValue(char *out, size_t len) {
+  StrId why = STR_COMMON_OFF;
+  switch (updateCheckState()) {
+    case UPDATE_STATE_FOUND: {
+      char mb[12];
+      updateFormatMegabytes(updateCheckSize(), mb, sizeof(mb));
+      snprintf(out, len, txt(STR_MENU_FMT_MEGABYTES), mb);
+      return;
+    }
+    case UPDATE_STATE_NONE:
+      why = STR_MENU_UPDATE_UP_TO_DATE;
+      break;
+    case UPDATE_STATE_WAITING:
+      why = STR_MENU_UPDATE_NOT_CHECKED;
+      break;
+    case UPDATE_STATE_CHECKING:
+      why = STR_MENU_UPDATE_CHECKING;
+      break;
+    case UPDATE_STATE_FAILED:
+      why = STR_MENU_UPDATE_CHECK_FAILED;
+      break;
+    case UPDATE_STATE_OFF:
+    default:
+      break;
+  }
+  snprintf(out, len, "%s", txt(why));
+}
+
 static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
   if (row == NULL) {
     out[0] = '\0';
@@ -1763,6 +1807,10 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
       } else {
         snprintf(out, len, txt(STR_MENU_FMT_SCAN_SAVED), (unsigned)last.added);
       }
+      return;
+    }
+    if (row->id == ROW_UPDATE_INSTALL) {
+      updateRowValue(out, len);
       return;
     }
     /* A plain action has nothing to say until it is pressed. One that asks
@@ -2375,6 +2423,12 @@ static void draw(void) {
         txt(row->id == ROW_NET_NAME && wifiState() == WIFI_STATE_ACCESS_POINT
                 ? STR_MENU_HOTSPOT_NAME
                 : row->name);
+    if (row->id == ROW_UPDATE_INSTALL && updateCheckVersion() != NULL) {
+      static char sUpdateName[32];
+      snprintf(sUpdateName, sizeof(sUpdateName), txt(STR_MENU_FMT_UPDATE_TO),
+               updateCheckVersion());
+      view.rows[i].name = sUpdateName;
+    }
     view.rows[i].secret = row->id == ROW_WEB_PIN;
     const RowAvailable here = rowAvailable(row);
     if (here == ROW_OFF_BAND) {
@@ -2595,6 +2649,11 @@ static void fire(const MenuRow *row) {
       }
       menuTaskClose();
       return;
+    case ROW_UPDATE_INSTALL:
+      if (!menuTaskOpenUpdateOffer()) {
+        sNote = txt(STR_MENU_NOTE_NO_UPDATE);
+      }
+      return;
     case ROW_RESTART:
       /* The same reason `/reboot` gives: a restart before the self check
        * passes rolls the new firmware back. */
@@ -2766,9 +2825,11 @@ static void keepWhereLeft(void) {
   sLeftKept = true;
 }
 
-/* The choice of bands for a typed number, menuTaskOpenChoice. */
+/* The choice of bands for a typed number, menuTaskOpenChoice, or the offer
+ * of a newer release, menuTaskOpenUpdateOffer. */
 static struct {
   bool active;
+  bool update; /* The offer: Update and Later. */
   uint8_t count;
   uint8_t cursor;
   char typed[INPUT_DIGITS_MAX + 1];
@@ -2779,6 +2840,32 @@ static void drawChoice(void) {
   static char title[32];
   ScreenMenu view;
   memset(&view, 0, sizeof(view));
+  if (sChoice.update) {
+    /* What a person would want to know before saying yes: what they have,
+     * what they would get, how big it is, and that nothing they set is
+     * lost. */
+    const char *version = updateCheckVersion();
+    char mb[12];
+    updateFormatMegabytes(updateCheckSize(), mb, sizeof(mb));
+    snprintf(sValueText[0], sizeof(sValueText[0]), txt(STR_MENU_FMT_MEGABYTES),
+             mb);
+    ScreenMenuDialog dialog;
+    memset(&dialog, 0, sizeof(dialog));
+    dialog.title = txt(STR_MENU_UPDATE_TITLE);
+    dialog.label[0] = txt(STR_MENU_UPDATE_THIS_RADIO);
+    dialog.value[0] = FIRMWARE_VERSION;
+    dialog.label[1] = txt(STR_MENU_UPDATE_NEW_VERSION);
+    dialog.value[1] = version != NULL ? version : "";
+    dialog.label[2] = txt(STR_MENU_UPDATE_DOWNLOAD);
+    dialog.value[2] = sValueText[0];
+    dialog.label[3] = txt(STR_MENU_UPDATE_SETTINGS);
+    dialog.value[3] = txt(STR_MENU_UPDATE_KEPT);
+    dialog.button[0] = txt(STR_MENU_UPDATE_NOW);
+    dialog.button[1] = txt(STR_MENU_LATER);
+    dialog.cursor = sChoice.cursor;
+    screenMenuDialogShow(&dialog);
+    return;
+  }
   snprintf(title, sizeof(title), txt(STR_MENU_FMT_TUNE_TO), sChoice.typed);
   view.title = title;
   for (uint8_t i = 0; i < sChoice.count; i++) {
@@ -2805,11 +2892,39 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
     return false;
   }
   sChoice.active = true;
+  sChoice.update = false;
   sChoice.count = count < SCREEN_MENU_ROWS ? count : SCREEN_MENU_ROWS;
   sChoice.cursor = 0;
   snprintf(sChoice.typed, sizeof(sChoice.typed), "%s",
            typed != NULL ? typed : "");
   memcpy(sChoice.reading, readings, sizeof(readings[0]) * sChoice.count);
+  drawChoice();
+  return true;
+}
+
+/*
+ * The offer of a newer release: at start, when the check finds one, and from
+ * the System row. From the row it takes over the menu's screen, so the menu
+ * shuts and the offer is drawn where it was, with no fade between them.
+ * Later, or a minute with no answer, leaves it in the System group.
+ */
+bool menuTaskOpenUpdateOffer(void) {
+  if (sLive == NULL || sChoice.active || updateCheckVersion() == NULL) {
+    return false;
+  }
+  if (menuIsOpen(&sMenu)) {
+    keepWhereLeft();
+    (void)menuClose(&sMenu);
+  } else if (!screenTaskMenuBegin()) {
+    return false;
+  }
+  sChoice.active = true;
+  sChoice.update = true;
+  sChoice.count = 2;
+  sChoice.cursor = 0;
+  /* Shown now, so an offer still waiting from the check is not shown again
+   * after Later. */
+  (void)updateCheckTakeOffer();
   drawChoice();
   return true;
 }
@@ -2921,6 +3036,19 @@ void menuTaskTurn(int32_t clicks) {
 
 void menuTaskPress(void) {
   gestureBegins();
+  if (sChoice.active && sChoice.update) {
+    /* Update, or Later. Either way the offer shuts; the install runs on
+     * the loop's next pass and takes the panel for its progress. */
+    const bool now = sChoice.cursor == 0;
+    choiceEnd();
+    if (now) {
+      const UpdateInstallAsk ask = updateCheckInstall();
+      if (ask != UPDATE_INSTALL_STARTING) {
+        Serial.printf("[menu] update not started, reason %d\n", (int)ask);
+      }
+    }
+    return;
+  }
   if (sChoice.active) {
     /* The command ENTER on a number that needed no choice sends, which
      * changes band as well as tuning. */
