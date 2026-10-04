@@ -1,0 +1,1 @@
+This wiki is published from the [`wiki/` folder](https://github.com/zeevy/tef668x-esp32/tree/master/wiki) of the repository. To change a page, open a pull request there. Edits made here are replaced by the next publish.
