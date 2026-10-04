@@ -1,6 +1,6 @@
 # Controls
 
-Every button, knob and key, on every screen. Each control can be tapped or held. A hold is 600 ms: it acts while the key is still down. A tap acts when you let go.
+Every button, knob and key, on every screen. The buttons, the knob press and ENTER can be tapped or held. A hold is 600 ms: it acts while the key is still down. A tap acts when you let go. The digits and DX act as soon as they go down, and have no hold.
 
 <!-- photo: the front of the ATS-125 with numbered callouts on the tuning knob, the volume knob, BAND, BW, MODE, the keypad, ENTER and DX -->
 
@@ -13,7 +13,7 @@ Every button, knob and key, on every screen. Each control can be tapped or held.
 | BAND, BW, MODE | Three buttons |
 | Keypad | Digits 0 to 9, ENTER and DX |
 
-Turning the tuning knob fast moves it further: two, four or six steps for each click. If you turn the knob while you press it, the press is dropped.
+In MAN mode, turning the tuning knob fast moves it further: two, four or six steps for each click. Everywhere else one click is one step. If you turn the knob while you press it, the press is dropped.
 
 ## On the radio screen
 
@@ -31,13 +31,13 @@ Turning the tuning knob fast moves it further: two, four or six steps for each c
 
 In AUTO, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
 
-After a station log hold, the line under the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already Logged`, `Not logged` or `Still tuning - wait`.
+After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already Logged`, `Not logged` or `Still tuning - wait`.
 
 ## Typing a frequency
 
 Type the digits on the keypad, then press ENTER. [Tuning](Tuning.md#typing-a-frequency) has the details. You do not type a decimal point: the radio reads the number in the unit of the band, and tries the band you are on first. For example, `1064` on FM tunes 106.4 MHz, and `909` on MW tunes 909 kHz.
 
-- If the number fits more than one band, a list asks which band to tune.
+- If the number does not fit the band you are on, and fits more than one other band, a list asks which band to tune.
 - If it fits no band, the screen says that the number `is in no band`.
 - Up to 7 digits are taken. The number is dropped 10 seconds after the last digit.
 - A turn of the knob, the knob press, BAND, BW, MODE or DX drops the number and does nothing else.
@@ -55,13 +55,13 @@ The menu has three levels: the groups, the rows of a group, and some rows that o
 | BAND, BW | Nothing | Nothing |
 | Keypad | Nothing, except the digits of the Web PIN | |
 
-A value changes as you turn, so you hear or see the result at once. If you go back without keeping it, the row shows `Not Saved` and the old value comes back. With no input for one minute, the menu closes and the radio screen comes back.
+Most values change as you turn, so you hear or see the result at once. A few act only when you press to keep them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without keeping a value, the row shows `Not Saved` and the old value comes back. With no input for one minute, the menu closes and the radio screen comes back.
 
 The menu opens again on the row you left, until the radio restarts.
 
 ## On the RDS pages
 
-Hold BAND on FM to open them. They always open on the first page, and they do not time out.
+Hold BAND on FM to open them. They always open on the first page, and they do not time out. See [RDS](RDS.md) for what each page shows.
 
 | Control | Tap or turn | Hold |
 |---|---|---|
@@ -71,11 +71,11 @@ Hold BAND on FM to open them. They always open on the first page, and they do no
 | BW | The next filter width | The bandwidth page |
 | MODE | Closes the RDS pages | The menu |
 | ENTER | The next page | Writes the station to the station log |
-| DX | Opens DX mode, or goes back to it when the RDS pages were opened over it | |
+| DX | Opens DX mode. When the RDS pages were opened over DX mode, it closes both and goes back to the radio screen | |
 
 ## In DX mode
 
-Press DX on FM to open it. It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio leaves FM.
+Press DX on FM to open it. See [DX Mode](DX-Mode.md). It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio leaves FM.
 
 These work on every page:
 
@@ -100,7 +100,7 @@ While the scanner runs, any key or turn only stops it.
 
 ## On the bandwidth page
 
-Hold BW to open it. It shows a tile for each filter width of the band, and on FM also **iMS** and **EQ**.
+Hold BW to open it. It shows a tile for each filter width of the band, and on FM also **iMS** and **EQ**. See [Sound and Bandwidth](Sound-and-Bandwidth.md).
 
 | Control | Tap or turn | Hold |
 |---|---|---|
@@ -115,7 +115,7 @@ With no input for one minute, the page closes. It also closes if the band change
 
 ## The volume knob
 
-The volume knob goes from -60 dB to 0 dB. The bottom of its travel is mute. The first tenth of the travel covers -60 to -30 dB, and the rest covers -30 to 0 dB, where most listening happens.
+The volume knob goes from -60 dB, the quietest the tuner takes, to 0 dB. The first tenth of the travel covers -60 to -30 dB, and the rest covers -30 to 0 dB, where most listening happens.
 
 When squelch is set to Manual, the volume knob sets the squelch level instead, and the volume stays where it was. The bottom of the travel then means the squelch is always open.
 
@@ -133,4 +133,4 @@ Only a press of the tuning knob wakes the radio from sleep. The radio then start
 
 ## On the recovery screen
 
-Only the tuning knob works: turn it to move between rows, and press it to choose.
+Only the tuning knob works: turn it to move between rows, and press it to choose. Every row but Exit & Start Radio asks for a second press.

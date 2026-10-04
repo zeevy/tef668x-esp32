@@ -47,7 +47,7 @@ As a CSV file for a spreadsheet:
 curl -s -o logbook.csv http://tef668x.local:8080/api/log.csv
 ```
 
-The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt`. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as `+` and milliseconds since start when the radio had no time.
+The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt`. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
 
 `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths: `452` means 45.2 dBµV. The level includes the band's Level Offset.
 
@@ -59,7 +59,7 @@ curl -s http://tef668x.local:8080/api/log
 
 Both need no PIN. To log the station the radio is on from a script, `POST /api/log` with the access PIN. It answers 409 when the station is already logged or the radio is still tuning.
 
-## Logging from DX mode
+## Logging from [DX mode](DX-Mode.md)
 
 With **DX Scanner > Auto-Log Stations** On, which it is at the start, DX mode writes each new station to the log by itself: one whose PI it has never caught before and which is not in the log yet. It writes it when the RDS name arrives, or when you tune away or leave DX mode. The same check for a station already logged and the same 250 limit apply.
 

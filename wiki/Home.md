@@ -24,6 +24,12 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - [Tuning](Tuning.md): the bands, the tuning modes, seek and typing a frequency.
 - [Presets and Station Scan](Presets-and-Station-Scan.md): the 99 presets, filling them with a scan, and CSV import and export.
 - [Station Log](Station-Log.md): writing down the stations you hear, and exporting the log.
+- [RDS](RDS.md): the station data on the radio screen and the four RDS pages.
+- [DX Mode](DX-Mode.md): the DX, Scope, Scanner and Catches pages for finding far away stations.
+- [Sound and Bandwidth](Sound-and-Bandwidth.md): filter width, volume, squelch, the volume AGC and the reception settings.
+- [Display and Themes](Display-and-Themes.md): the themes, brightness and dimming, rotation and the battery mark.
+- [Sleep and Auto Off](Sleep-and-Auto-Off.md): the sleep timer, and putting the radio to sleep.
+- [Menu Guide](Menu-Guide.md): every row of the menu, with its values and what it does.
 
 The wiki is still being written. Until its other pages are here, the README's [Control API](https://github.com/zeevy/tef668x-esp32#control-api) section has the short version of the HTTP API.
 

@@ -21,7 +21,7 @@ There are two ways on the radio:
 - **Tuning mode MEM.** Press MODE until the first tile shows `MEM`. Each click of the tuning knob goes to the next stored preset, across all bands, and round again. The radio screen shows the preset number, such as `P03`.
 - **The menu.** Open **Stations > Presets**. It lists the stored presets in slot order, each as `P03` with its name, and the frequency. Press a row to tune it. The menu stays open, so you can try the next one.
 
-A preset whose frequency is not on the band plan in use, for example after a change of FM Band Plan, is skipped in MEM mode, and in the menu it shows `Not on the band plan`.
+A preset whose frequency is not on the band plan in use, for example after a change of FM Band Plan, is skipped in MEM mode. In the menu, pressing it shows the note `Not on the band plan` and tunes nothing.
 
 The keypad always types a frequency, never a preset number.
 
@@ -35,13 +35,13 @@ Presets cannot be saved, renamed or cleared on the radio itself. They are writte
 
 ## Station scan
 
-A station scan walks one band and saves each station it finds to the next empty preset. Open the menu and go to **Stations > Station Scans**:
+A station scan walks one band and saves each station it finds to the next empty preset. The four scan rows are in the menu's **Stations** group, between Presets and Station Log:
 
 | Row | Band | Step |
 |---|---|---|
 | FM Station Scan | FM | 100 kHz |
 | AM Station Scan | Medium wave | 9 or 10 kHz, by MW Step |
-| SW Station Scan | The shortwave broadcast bands only, about 1000 channels | 5 kHz |
+| SW Station Scan | The shortwave metre bands from 160 m to 11 m only, 1000 channels | 5 kHz |
 | LW Station Scan | Long wave | 9 kHz |
 
 OIRT is not scanned.
@@ -51,11 +51,11 @@ OIRT is not scanned.
 - A found station gets the lowest free slot, with automatic width and no name. A used slot is never overwritten.
 - The sound is muted while it scans. A scan of another band switches to that band first and comes back at the end.
 - A scan takes from about 10 seconds to 4 minutes. FM takes about a minute.
-- While it runs, the row shows its progress, `Scan` and the channel count, and the menu does not time out. Auto Off waits for it.
+- While it runs, the row shows its progress, for example `Scan 12/206`, and the menu does not time out. Auto Off waits for it.
 
 To stop a scan, press the same row again: the radio goes back to where it was. Tuning, seeking or changing the band also stops it, and the radio stays where you put it. The presets found up to then are kept either way.
 
-When it ends, the row shows `Saved` and how many were saved, `Stopped` and how many, or `Full` and how many could not be saved because all 99 slots were in use.
+When it ends, the row shows `Saved 12`, `Stopped, 3 saved`, or `Full, 5 not saved` when stations were found after all 99 slots were in use.
 
 ## Presets as a CSV file
 

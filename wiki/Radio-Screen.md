@@ -4,6 +4,8 @@ The radio screen is the main screen. It shows the band, the station, the frequen
 
 ![The radio screen on FM 106.40 with the station MAGIC](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/fm.png)
 
+The colours named on this page are those of the Nightwatch theme in the pictures. Other [themes](Display-and-Themes.md) use other colours in the same places.
+
 From top to bottom:
 
 1. **Header:** the band, and at the right the status marks and the clock.
@@ -49,7 +51,7 @@ The tuned frequency stays in the middle, under the amber pointer, and the scale 
 |---|---|---|
 | Tuning mode | `MAN`, `AUTO`, `MEM`, `MTR` | What a turn of the tuning knob does. See [Tuning](Tuning.md#tuning-modes) |
 | `SQ:` | `OFF`, `AUTO`, or a level such as `15dB` | Squelch off, automatic, or Manual at that level, set with the volume knob |
-| `BW:` | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM only |
+| `BW:` | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM and OIRT |
 | `V:` | `-6dB`, or `MUTE` | The volume. `MUTE` shows in red. The value turns grey while the squelch holds the sound back |
 
 ## Other bands and states
