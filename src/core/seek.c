@@ -1,0 +1,187 @@
+/* Implementation of the seek stop decision. */
+#include "seek.h"
+
+/*
+ * Noise and multipath limits, per step of sensitivity.
+ *
+ * The noise step is the PE5PVB TEF6686_ESP32 firmware's own, the reference
+ * firmware below: its seek compares against `fmscansens * 30`, so a sensitivity
+ * set here means the same thing as the same number on that firmware. The
+ * multipath step is the same shape, fitted to a sweep of the FM band on this
+ * radio. The reference uses a fixed 230 instead.
+ *
+ * A fixed 230 is too loose to seek with on this radio. At the default
+ * sensitivity it would stop on 104.9 MHz, which reads 1.1 dBuV with a
+ * multipath of 228 and is nothing at all. Scaling it keeps every real station
+ * without that stop, and gives the sensitivity control something useful to do
+ * at its loose end.
+ */
+#define SEEK_NOISE_PER_STEP 30
+/*
+ * The multipath limit per step of sensitivity, tenths of a per cent.
+ *
+ * 320 at the default, which is looser than the reference firmware's fixed 230,
+ * and the reason is measurement. Multipath changes from one day to the next. On
+ * a quiet day nothing on the band reads above 36, so a limit fitted to that
+ * alone looks safe at 200. On another day 95.0 MHz reads 204 to 279 across nine
+ * samples and is plainly a real station: a weaker one with reflections, which
+ * is exactly the case a seek must not skip. A limit of 200 skips it.
+ *
+ * This is affordable because the level floor below does the work of
+ * rejecting what is not a station, which a tight multipath limit cannot do
+ * on its own: the shoulder of a strong station has very little of it.
+ */
+#define SEEK_MULTIPATH_PER_STEP 80
+
+/*
+ * The level floor, in tenths of a dBuV, as a starting point less a step per
+ * sensitivity. It runs the other way to the other two: a higher sensitivity
+ * settles for a weaker signal.
+ *
+ * At the default of 4 that is 10.0 dBuV. Every real station in the sweep read
+ * 26.7 dBuV or better, and the two nearest things that are not stations read
+ * -1.8 and -5.0. The gap is wide and the floor sits in the middle of it.
+ */
+/* Where the level floor starts before sensitivity is taken off it. */
+#define SEEK_LEVEL_BASE_TENTHS 220
+/* How much of the floor each step of sensitivity gives away. */
+#define SEEK_LEVEL_PER_STEP 30
+
+static uint8_t clampSensitivity(uint8_t sensitivity) {
+  if (sensitivity < SEEK_SENSITIVITY_MIN) {
+    return SEEK_SENSITIVITY_MIN;
+  }
+  if (sensitivity > SEEK_SENSITIVITY_MAX) {
+    return SEEK_SENSITIVITY_MAX;
+  }
+  return sensitivity;
+}
+
+void seekDefaults(SeekConfig *out) {
+  if (out == NULL) {
+    return;
+  }
+  out->fmSensitivity = SEEK_SENSITIVITY_DEFAULT;
+  out->amSensitivity = SEEK_SENSITIVITY_DEFAULT;
+  /* Nothing until a caller says what the squelch will do. Assuming one would
+   * make a seek fussier than anybody asked for on the strength of a squelch
+   * that may be switched off. */
+  out->checkAudible = false;
+  out->squelchMode = SQUELCH_OFF;
+  squelchDefaults(&out->squelchCfg);
+  out->squelchThresholdTenths = 0;
+}
+
+uint16_t seekNoiseLimit(uint8_t sensitivity) {
+  return (uint16_t)(clampSensitivity(sensitivity) * SEEK_NOISE_PER_STEP);
+}
+
+uint16_t seekMultipathLimit(uint8_t sensitivity) {
+  return (uint16_t)(clampSensitivity(sensitivity) * SEEK_MULTIPATH_PER_STEP);
+}
+
+int16_t seekLevelFloor(uint8_t sensitivity) {
+  return (int16_t)(SEEK_LEVEL_BASE_TENTHS -
+                   clampSensitivity(sensitivity) * SEEK_LEVEL_PER_STEP);
+}
+
+bool seekShouldStop(const SeekConfig *cfg, BandId band,
+                    const SeekReading *reading) {
+  if (reading == NULL || !reading->valid) {
+    /* A reading that did not arrive is not a station. Stopping on one would
+     * park the radio wherever the bus happened to fail, and report it as a
+     * find. */
+    return false;
+  }
+
+  SeekConfig defaults;
+  if (cfg == NULL) {
+    seekDefaults(&defaults);
+    cfg = &defaults;
+  }
+
+  bool fm = bandModulation(band) == MODULATION_FM;
+  uint8_t sensitivity = fm ? cfg->fmSensitivity : cfg->amSensitivity;
+
+  if (reading->noiseTenths >= seekNoiseLimit(sensitivity)) {
+    return false;
+  }
+
+  /* The shoulder of a strong station is quiet and clean and is not a station.
+   * Only level tells it apart: everything else about it looks right, because
+   * what the receiver is hearing really is a transmitter, just the one next
+   * door.
+   *
+   * FM only. On AM, level says nothing about a station: a channel of noise
+   * alone reads up to 48.5 dBuV, more than a station heard clearly at 30.5.
+   * The AM side keeps to noise and offset. */
+  if (fm && reading->levelTenths < seekLevelFloor(sensitivity)) {
+    return false;
+  }
+
+  /* Multipath is an FM idea. The chip puts a co-channel figure in the same
+   * field on the AM side, which is a different measurement on a different
+   * scale, so it is not judged against a multipath limit. */
+  if (fm && reading->multipathTenths >= seekMultipathLimit(sensitivity)) {
+    return false;
+  }
+
+  int16_t window = fm ? SEEK_OFFSET_FM_TENTHS : SEEK_OFFSET_AM_TENTHS;
+  if (reading->offsetTenths <= -window || reading->offsetTenths >= window) {
+    return false;
+  }
+
+  /*
+   * And it must be a channel the audio will actually open on.
+   *
+   * Asked of the squelch rather than answered again here, so the two cannot
+   * disagree about the level, the multipath, how far off centre a carrier may
+   * sit, or anything added later. A stop the squelch would immediately mute
+   * is a find nobody can hear.
+   */
+  if (cfg->checkAudible) {
+    SquelchReading heard;
+    heard.valid = true;
+    heard.levelTenths = reading->levelTenths;
+    heard.noiseTenths = reading->noiseTenths;
+    heard.multipathTenths = reading->multipathTenths;
+    heard.offsetTenths = reading->offsetTenths;
+    if (!squelchWouldOpen(&cfg->squelchCfg, cfg->squelchMode, band, &heard,
+                          cfg->squelchThresholdTenths)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+void seekWalkBegin(SeekWalk *w, uint32_t atKHz, bool up, uint32_t lap) {
+  if (!w->walking) {
+    w->fromKHz = atKHz;
+  }
+  w->walking = lap != 0;
+  w->up = up;
+  w->found = false;
+  w->visited = 0;
+  w->lap = lap;
+}
+
+void seekWalkEnd(SeekWalk *w, bool found) {
+  w->walking = false;
+  w->found = found;
+}
+
+SeekWalkStep seekWalkJudge(SeekWalk *w, const SeekConfig *cfg, BandId band,
+                           const SeekReading *reading) {
+  if (seekShouldStop(cfg, band, reading)) {
+    seekWalkEnd(w, true);
+    return SEEK_WALK_FOUND;
+  }
+  /* One full lap and nothing. Stop rather than go round again, and leave the
+   * radio where it ended up rather than pretending. */
+  if (++w->visited >= w->lap) {
+    seekWalkEnd(w, false);
+    return SEEK_WALK_EMPTY;
+  }
+  return SEEK_WALK_ON;
+}

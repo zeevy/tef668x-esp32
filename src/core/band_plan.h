@@ -1,0 +1,302 @@
+/*
+ * Which frequencies exist, what steps are allowed, and what happens at
+ * the edges.
+ *
+ * Everything in here is in **kilohertz**, on every band. The PE5PVB
+ * TEF6686_ESP32 firmware mixes units: FM is in tenths of a kilohertz so 8750
+ * means 87.50 MHz, while AM is in kilohertz. That is a standing invitation to a
+ * bug that only shows on one band, so this layer picks one unit and the tuner
+ * driver converts to whatever the chip wants.
+ *
+ * Nothing in here touches hardware, so it builds and is tested on a PC.
+ *
+ * Sources for the numbers, none of them guessed:
+ * - Band edges and steps: `src/constants.h` in the PE5PVB firmware, which runs
+ *   on this radio, cross checked against the seller's product listing.
+ * - Shortwave meter bands: the same file, which cites short-wave.info.
+ */
+#ifndef CORE_BAND_PLAN_H
+#define CORE_BAND_PLAN_H
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* The bands this radio has. */
+typedef enum {
+  BAND_LW = 0, /* Long wave. */
+  BAND_MW,     /* Medium wave. */
+  BAND_SW,     /* Short wave. */
+  BAND_OIRT,   /* The eastern European FM band, 65 to 74 MHz. */
+  BAND_FM,     /* FM broadcast. */
+  BAND_COUNT   /* How many bands there are. Not a band. */
+} BandId;
+
+/* How a band is modulated, which decides what the tuner is told to do. */
+typedef enum {
+  MODULATION_AM, /* LW, MW and SW. */
+  MODULATION_FM  /* OIRT and FM. */
+} Modulation;
+
+/*
+ * Which slice of FM is in use.
+ *
+ * These are regional band plans, not different hardware. The tuner covers the
+ * whole 65 to 108 MHz range whichever one is picked.
+ */
+typedef enum {
+  FM_REGION_FULL = 0, /* 65.0 to 108.0 MHz, everything the tuner can do. */
+  FM_REGION_JAPAN,    /* 76.0 to 95.0 MHz. */
+  FM_REGION_WIDE,     /* 76.0 to 108.0 MHz. */
+  FM_REGION_87_108,   /* 87.0 to 108.0 MHz. */
+  FM_REGION_WORLD,    /* 87.5 to 108.0 MHz. Most of the world, the default. */
+  FM_REGION_COUNT     /* How many regions there are. Not a region. */
+} FmRegion;
+
+/*
+ * Medium wave channel spacing.
+ *
+ * The two do not cover the same range, so this changes the band edges as well
+ * as the step.
+ */
+typedef enum {
+  MW_SPACING_9K = 0, /* 9 kHz, 522 to 1791 kHz. Europe, Africa, Asia. */
+  MW_SPACING_10K     /* 10 kHz, 520 to 1720 kHz. The Americas. */
+} MwSpacing;
+
+/* The regional choices that change what a band looks like. */
+typedef struct {
+  FmRegion fmRegion;   /* Which slice of FM. */
+  MwSpacing mwSpacing; /* Medium wave channel spacing. */
+} BandPlanConfig;
+
+/*
+ * A shortwave meter band, the ones the Meter band tuning mode keeps to.
+ *
+ * Mostly broadcast bands, plus 160 metres, which is amateur but which the
+ * PE5PVB TEF6686_ESP32 firmware steps through.
+ */
+typedef struct {
+  uint16_t metres;  /* 49 for the 49 metre band, and so on. */
+  uint32_t lowKHz;  /* First frequency in the band. */
+  uint32_t highKHz; /* Last frequency in the band. */
+} SwMeterBand;
+
+void bandPlanDefaults(BandPlanConfig *config);
+
+const char *bandName(BandId band);
+
+Modulation bandModulation(BandId band);
+
+bool bandLimits(BandId band, const BandPlanConfig *config, uint32_t *lowKHz,
+                uint32_t *highKHz);
+
+size_t bandStepCount(BandId band, const BandPlanConfig *config);
+
+/*
+ * The most steps bandStepCount can ever return, for a caller that copies them
+ * into a fixed size buffer of its own. FM's three is the largest of any band
+ * today. Named here rather than left as a literal in each caller, so a fourth
+ * step added to a band's list only has to grow one buffer size, not one in
+ * every file that reads bandStepAt.
+ */
+#define BAND_STEP_MAX_COUNT 3
+
+uint16_t bandStepAt(BandId band, const BandPlanConfig *config, size_t index);
+
+uint16_t bandDefaultStep(BandId band, const BandPlanConfig *config);
+
+bool bandStepAllowed(BandId band, const BandPlanConfig *config,
+                     uint16_t stepKHz);
+
+/*
+ * Whether a frequency falls inside a band.
+ *
+ * This only checks the edges. A frequency between two channels is still inside
+ * the band.
+ */
+bool bandContains(BandId band, const BandPlanConfig *config, uint32_t freqKHz);
+
+/*
+ * The channel nearest a frequency, on this band's grid.
+ *
+ * Being inside a band and being on one of its channels are two different
+ * questions, and most of this file only asks the first. They come apart when
+ * the grid moves under a frequency that was stored earlier: 738 kHz is a real
+ * medium wave channel at 9 kHz spacing and is not one at 10 kHz, but it is
+ * inside the band either way. A radio that comes up there is slightly off
+ * every station until somebody moves it, with nothing to say why.
+ *
+ * A frequency exactly between two channels goes up, which is arbitrary but
+ * has to be decided somewhere.
+ */
+uint32_t bandNearestChannel(BandId band, const BandPlanConfig *config,
+                            uint32_t freqKHz, uint16_t stepKHz);
+
+/*
+ * The next channel up, wrapping round to the bottom at the top edge.
+ *
+ * The channel grid starts at the band's low edge, so a frequency that is not
+ * on the grid moves to the next one that is rather than staying off it.
+ */
+uint32_t bandStepUp(BandId band, const BandPlanConfig *config, uint32_t freqKHz,
+                    uint16_t stepKHz);
+
+uint32_t bandStepDown(BandId band, const BandPlanConfig *config,
+                      uint32_t freqKHz, uint16_t stepKHz);
+
+/*
+ * The highest channel on the grid inside a band.
+ *
+ * This is not always the top edge. With a 9 kHz step from 522 kHz the last
+ * channel is 1791, but a step that does not divide the range evenly stops
+ * short.
+ */
+uint32_t bandTopChannel(BandId band, const BandPlanConfig *config,
+                        uint16_t stepKHz);
+
+bool bandForFrequency(const BandPlanConfig *config, uint32_t freqKHz,
+                      BandId *band);
+
+/* How many meter bands the table holds. Only the unit tests use it, to walk
+ * the whole table. */
+size_t swMeterBandCount(void);
+
+const SwMeterBand *swMeterBandAt(size_t index);
+
+const SwMeterBand *swMeterBandFor(uint32_t freqKHz);
+
+/*
+ * One channel up inside the metre bands, for the Meter band tuning mode.
+ *
+ * Past the top of a band it goes to the bottom of the next, and past the top
+ * of the last band to the bottom of the first, so the bands are a circle and
+ * the gaps between them are never tuned. From a gap it goes to the bottom of
+ * the next band up. The grid starts at each band's low edge, so a frequency
+ * off it moves to the next channel on it. A step of 0 leaves the frequency
+ * where it is.
+ */
+uint32_t swMeterStepUp(uint32_t freqKHz, uint16_t stepKHz);
+
+/*
+ * One channel down, the mirror of swMeterStepUp. Below the bottom of a band
+ * it goes to the top channel of the band below, and from a gap to the top
+ * channel of the next band down.
+ */
+uint32_t swMeterStepDown(uint32_t freqKHz, uint16_t stepKHz);
+
+/* How many channels all the metre bands hold at a step, so a seek round the
+ * circle knows when it has been all the way round. 0 for a step of 0. */
+uint32_t swMeterChannels(uint16_t stepKHz);
+
+/*
+ * Write the metre band the radio is inside, "31 m", as the header shows it.
+ *
+ * False, with `out` empty, on any band but SW, between two metre bands, and
+ * when `out` is too small, so the header shows nothing rather than a band
+ * the radio is not in.
+ */
+bool swMeterBandFormat(BandId band, uint32_t freqKHz, char *out, size_t outLen);
+
+size_t bandBandwidthCount(BandId band);
+
+/*
+ * One of the bandwidths a band offers, in kHz.
+ *
+ * The FM list starts at 0, which means the tuner picks the width itself from
+ * how much interference it can see. There is no such mode on the AM side, so
+ * that list has no 0 in it.
+ */
+uint16_t bandBandwidthAt(BandId band, size_t index);
+
+/*
+ * Whether a band offers this bandwidth.
+ *
+ * The filter is built from what the silicon can do, so the two lists are not
+ * round numbers and they do not overlap: the AM widths are 3 to 8 kHz and the
+ * FM ones 56 to 311. A width from the wrong list is not a near miss. Asking
+ * the FM side for 4 pins its filter at 4.0 kHz, which is narrower than a
+ * station, and the radio then reports no stereo pilot and no signal and looks
+ * exactly like one with no aerial.
+ */
+bool bandBandwidthAllowed(BandId band, uint16_t khz);
+
+/*
+ * The next bandwidth after this one, wrapping at the end.
+ *
+ * For the BW button, which walks the list. A current value that is not in the
+ * list starts again at the beginning rather than getting stuck.
+ */
+uint16_t bandBandwidthNext(BandId band, uint16_t current);
+
+/*
+ * Work out what a typed number means.
+ *
+ * Somebody keying 1028 on the pad means 102.8 MHz, and keying 738 means
+ * 738 kHz. The digits alone do not say which, so the number is multiplied by
+ * ten until it lands inside a band. That is the rule the working PE5PVB
+ * firmware uses, so it is the one people already expect from this radio.
+ *
+ * The band in use is tried first, so a number that could be read two ways
+ * stays on the band the radio is already on. 1000 is both 1000 kHz on medium
+ * wave and 100.0 MHz on FM, and someone on medium wave typing it means the
+ * medium wave station.
+ */
+bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
+                         BandId prefer, uint32_t *freqKHz, BandId *band);
+
+/* One reading of a typed number: a band, and the frequency in it. */
+typedef struct {
+  BandId band;
+  uint32_t freqKHz;
+} BandTypedReading;
+
+/*
+ * More than a typed number can have. It is multiplied by ten up to
+ * 10000000 kHz, and at most three of those steps fall between 144 kHz and
+ * 108 MHz. A step lands in two bands at most, where MW meets SW at 1700 to
+ * 1791 kHz and where OIRT meets FM with region Full, so six is the most.
+ */
+#define BAND_TYPED_READINGS_MAX 8
+
+/*
+ * Every reading of a typed number that a band holds, lowest frequency first:
+ * the number times each power of ten, for each band it lands in. 123 is
+ * medium wave 1230 and shortwave 12300. For a person to choose from when the
+ * number does not fit the band in use, where bandFromTypedNumber would pick
+ * one without asking. Returns how many were written, at most `max`.
+ */
+uint8_t bandTypedReadings(const BandPlanConfig *config, uint32_t typed,
+                          BandTypedReading *out, uint8_t max);
+
+/* A band's full name, "Medium Wave", for a list that names bands. */
+const char *bandLongName(BandId band);
+
+/*
+ * Write a frequency the way it is shown on screen, without the unit.
+ *
+ * FM and OIRT come out as megahertz with two decimals, "104.00". AM bands come
+ * out as plain kilohertz, "9420" and "1377", with nothing between the digits.
+ */
+bool bandFormatFrequency(BandId band, uint32_t freqKHz, char *out,
+                         size_t outLen);
+
+const char *bandFrequencyUnit(BandId band);
+
+/*
+ * The frequency with its unit, "98.30 MHz" or "11990 kHz", as a list row
+ * shows it. False, and an empty string, for a band that is not a real one
+ * or an `out` too small.
+ */
+bool bandFormatWithUnit(BandId band, uint32_t freqKHz, char *out,
+                        size_t outLen);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* CORE_BAND_PLAN_H */

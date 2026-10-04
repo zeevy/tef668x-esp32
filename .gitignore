@@ -1,0 +1,25 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Build and capture output
+*.bin
+*.elf
+*.map
+# gcovr leaves these in the working directory on a coverage run
+*.gcov
+captures/
+build/
+__pycache__/
+
+# Local notes and radio captures, kept out of this repository.
+private/

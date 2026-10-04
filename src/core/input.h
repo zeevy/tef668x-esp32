@@ -1,0 +1,422 @@
+/*
+ * Turning knobs and pressing keys, with no pins in sight.
+ *
+ * Three small state machines live here. A quadrature decoder that turns two
+ * changing levels into detents. A button that tells a short press from a long
+ * one and from a double. And an acceleration rule that says how far one
+ * detent should move the dial when the knob is being spun.
+ *
+ * None of them read a pin or know what a pin is. They are fed levels and a
+ * millisecond count, which is what makes them testable on a PC: a double
+ * press that arrives one millisecond too late, a press held exactly on the
+ * long press boundary, a knob turned back and forth across a detent. Those
+ * are miserable to check by hand on a radio and easy to get wrong.
+ *
+ * Every millisecond count is compared by subtraction, so the machines keep
+ * working across the 49 day wrap of millis().
+ */
+#ifndef CORE_INPUT_H
+#define CORE_INPUT_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ---------------------------------------------------------------- encoder */
+
+/*
+ * Which encoder is fitted.
+ *
+ * Both exist on ATS-125 units, and they differ in how many quadrature steps
+ * make one click of the knob. Getting it wrong does not fail, it just makes
+ * the dial move twice as far as the hand did, or half as far, which is why
+ * this is a setting and not a guess. Taken from the PE5PVB firmware, which
+ * carries the same switch for the same reason.
+ */
+typedef enum {
+  ENCODER_STANDARD, /* Four transitions per click. The common part. */
+  ENCODER_OPTICAL   /* More transitions per click. The optical variant. */
+} EncoderKind;
+
+/* Which way round the knob is wired. */
+typedef enum {
+  ENCODER_NORMAL,  /* Clockwise counts up. */
+  ENCODER_REVERSED /* Clockwise counts down. Some units are wired this way. */
+} EncoderDirection;
+
+/* A quadrature decoder. Zero it before first use. */
+typedef struct {
+  uint8_t history;            /* The last two AB readings, four bits. */
+  int8_t count;               /* Transitions since the last detent. */
+  bool started;               /* A first reading has been taken. */
+  EncoderKind kind;           /* How many transitions make a detent. */
+  EncoderDirection direction; /* Which way round it is wired. */
+} Encoder;
+
+void encoderInit(Encoder *e, EncoderKind kind, EncoderDirection direction);
+
+/*
+ * Feed the decoder one reading of both lines.
+ *
+ * Call this every time either line changes, which on the radio means from an
+ * interrupt on both pins.
+ *
+ * The first reading after encoderInit only establishes where the knob is
+ * sitting. It never reports a detent, because there is nothing to compare it
+ * with, and a decoder that invented one would move the dial at power on.
+ */
+int8_t encoderFeed(Encoder *e, bool a, bool b);
+
+/* ----------------------------------------------------------- acceleration */
+
+/* How fast the knob has to be turning before the dial moves further. */
+typedef struct {
+  uint16_t fastMs;     /* Detents closer together than this are fast. */
+  uint16_t fasterMs;   /* Closer than this is faster. */
+  uint16_t spinMs;     /* Closer than this is a flick of the wrist. */
+  uint8_t fastSteps;   /* Steps per detent when fast. */
+  uint8_t fasterSteps; /* Steps per detent when faster. */
+  uint8_t spinSteps;   /* Steps per detent when spinning. */
+} AccelerationConfig;
+
+/*
+ * The acceleration the ATS-125 ships with.
+ *
+ * The thresholds are the ones in the PE5PVB firmware, which has been turned
+ * by a lot of hands on this exact knob. They are not a guess, and they are
+ * not arbitrary either: 15, 30 and 45 milliseconds between detents is roughly
+ * 65, 33 and 22 clicks per second, which is the range a person can actually
+ * produce on a knob this size.
+ */
+void accelerationDefaults(AccelerationConfig *out);
+
+/* Works out how far one detent should move the dial. Zero before use. */
+typedef struct {
+  uint32_t lastMs; /* When the previous detent arrived. */
+  bool started;    /* A first detent has been seen. */
+} Acceleration;
+
+uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
+                          uint32_t nowMs);
+
+/* The most steps one batch of clicks may carry: the queue holds an int16_t,
+ * and the state machine caps a move at a band's width anyway. */
+#define INPUT_KNOB_MAX_STEPS 1000
+
+/*
+ * The steps a batch of knob clicks becomes.
+ *
+ * `factor` is what accelerationSteps answered for the batch. On a `list`,
+ * which is memory mode walking the stored channels, the factor is not used:
+ * one click is one channel, however fast the knob turns. A list is somewhere
+ * to land rather than a distance to cross, the same reason the menu and the
+ * RDS pages take one click as one row, and a fast spin that goes round it
+ * several times lands somewhere nobody chose. Signed like `clicks`, and held
+ * to INPUT_KNOB_MAX_STEPS either way.
+ */
+int32_t inputKnobSteps(int32_t clicks, uint8_t factor, bool list);
+
+/* ------------------------------------------------------------------- beep */
+
+/*
+ * Which presses make a sound.
+ *
+ * Ordered from quietest to loudest, so a higher number is always more beeping
+ * and the range check is a simple one.
+ *
+ * The middle setting is the useful one, and it is the default for anybody who
+ * turns beeping on: a beep then always means something happened that could
+ * not otherwise be told. A keypad digit has nothing else to confirm it until
+ * enter is pressed, and a long press has nothing at all, because there is no
+ * detent and the moment it fires is decided by a timer. A short press of BAND
+ * or BW needs no beep, because the band or the filter changing is the
+ * feedback.
+ */
+typedef enum {
+  BEEP_OFF = 0,       /* Silent. */
+  BEEP_KEYS,          /* Keypad digits only. */
+  BEEP_KEYS_AND_LONG, /* Keypad digits and long presses. */
+  BEEP_EVERY_PRESS,   /* Every key and every button. */
+  BEEP_MODE_COUNT     /* How many there are. Not a mode. */
+} BeepMode;
+
+/* -------------------------------------------------------------------- pot */
+
+/* How the pot's travel maps to volume. */
+typedef struct {
+  uint16_t rawMute;    /* At or below this the pot is off. */
+  uint16_t rawMin;     /* Start of the usable travel. */
+  uint16_t rawMax;     /* End of it. */
+  int8_t dbMute;       /* What "off" means, in dB. */
+  int8_t dbMin;        /* The quiet end. */
+  int8_t dbKnee;       /* Where the first stretch of travel ends, in dB. */
+  uint8_t kneePercent; /* How far along the travel that is, 0 to 99. */
+  int8_t dbMax;        /* The loud end. */
+  uint16_t deadband;   /* Raw counts it must move before anything changes. */
+} PotConfig;
+
+/*
+ * The pot settings this radio ships with.
+ *
+ * The travel is from the working PE5PVB firmware, which drives the same 10k
+ * linear pot on the same ADC pin. The knob runs from -60 dB, the quietest the
+ * chip takes, to 0 dB in two straight lines: the first 10% of the travel covers
+ * -60 to -30 dB and the other 90% covers -30 to 0 dB, where most listening
+ * happens. The 10% split is chosen by ear on the radio. PE5PVB starts the
+ * travel at -30 dB, so the step off the mute zone jumps by 30 dB. A single line
+ * from -60 dB has no jump but leaves half the knob very quiet.
+ *
+ * The bottom of the travel is a mute zone at -60 dB, the same as the quiet
+ * end of the first line, so turning the knob off it gives no step.
+ */
+void potDefaults(PotConfig *out);
+
+/*
+ * How long a calibration may sit unfinished, in milliseconds.
+ *
+ * While one runs the knob sets neither the volume nor the squelch, so one
+ * that is started and forgotten leaves the radio with no working volume
+ * control and nothing on it to say why. Two minutes is far longer than
+ * turning a knob to both ends takes.
+ */
+#define POT_CALIBRATE_TIMEOUT_MS 120000
+
+/*
+ * The narrowest sweep worth keeping, in raw counts.
+ *
+ * A knob that moved less than this was not swept end to end, and storing what
+ * it saw would leave almost no usable travel with nothing to say why. The
+ * converter is 4096 counts, so this is a quarter of it.
+ */
+#define POT_CALIBRATE_MIN_SPAN 1000
+
+/* Learning how far this unit's knob actually turns. */
+typedef struct {
+  bool active;        /* A calibration is running. */
+  uint16_t rawMin;    /* The lowest seen so far. */
+  uint16_t rawMax;    /* The highest. */
+  uint32_t startedMs; /* When it began, for the timeout. */
+} PotCalibration;
+
+/*
+ * Begin learning, from where the knob is now.
+ *
+ * Started from the current reading rather than from the ends of the
+ * converter, or the first comparison would never beat them.
+ */
+void potCalibrateStart(PotCalibration *c, uint16_t raw, uint32_t nowMs);
+
+bool potCalibrateSample(PotCalibration *c, uint16_t raw, uint32_t nowMs);
+
+/*
+ * Set the ends of travel from a measured sweep.
+ *
+ * Not a plain copy. The knob has to keep a mute zone at the bottom, and that
+ * zone is a stretch of travel rather than a single reading: an ADC at rest
+ * wanders by a few counts, so a mute that needed one exact value would almost
+ * never fire and the radio could not be switched off by the knob. The same
+ * goes for the always open end of a manual squelch.
+ *
+ * The zone is kept at the same share of the travel the built in figures use,
+ * which is the bottom 2.5 per cent.
+ */
+void potApplyCalibration(PotConfig *cfg, uint16_t rawMin, uint16_t rawMax);
+
+/*
+ * Stop, and keep what was learned if the knob was swept far enough.
+ *
+ * Refuses when no calibration is running, which is what makes cancelling
+ * mean something: without that check a finish after a cancel would apply the
+ * extremes the cancelled sweep had recorded.
+ */
+bool potCalibrateFinish(PotCalibration *c, PotConfig *cfg);
+
+void potCalibrateCancel(PotCalibration *c);
+
+int8_t potVolumeDb(uint16_t raw, const PotConfig *cfg);
+
+/*
+ * Whether the pot has moved far enough to act on.
+ *
+ * An ADC reading jitters by a few counts with nothing touching it, and acting
+ * on that would send a volume command several times a second for ever.
+ */
+bool potMoved(uint16_t previous, uint16_t now, const PotConfig *cfg);
+
+/* ----------------------------------------------------------------- button */
+
+/* What a button did. */
+typedef enum {
+  BUTTON_NONE = 0, /* Nothing happened this time round. */
+  BUTTON_SHORT,    /* Pressed and let go. */
+  BUTTON_LONG,     /* Held past the long press time, reported once. */
+  BUTTON_DOUBLE    /* Two short presses close together. */
+} ButtonEvent;
+
+/* How long a press has to be, and how close two have to be. */
+typedef struct {
+  uint16_t debounceMs; /* Ignore changes closer together than this. */
+  uint16_t longMs;     /* Held this long is a long press. */
+  uint16_t doubleMs;   /* A second press within this is a double. */
+  /*
+   * Watch for a double press on this button.
+   *
+   * Off by default, and that is not laziness. Telling a single press from a
+   * double means holding the single back until it is certain no second press
+   * is coming, so every press on the button arrives `doubleMs` late. On a
+   * button pressed repeatedly, such as MODE, that also swallows the second of
+   * two quick presses into one double that the caller then ignores.
+   *
+   * So a button only pays that price if something actually uses its double
+   * press. No button in the firmware turns it on yet. The double press is
+   * kept for a future gesture, and only the unit tests use it now.
+   */
+  bool wantDouble;
+} ButtonConfig;
+
+/*
+ * The press timings the radio ships with.
+ *
+ * 25 ms of debounce is longer than any switch bounce on this board and
+ * shorter than a person can press twice. 600 ms for a long press is the
+ * usual feel: long enough not to fire while someone is tapping, short enough
+ * not to feel stuck. 350 ms for a double is inside what a hand can do twice.
+ *
+ * Double press watching is off. Turn it on only for a button that has
+ * something bound to its double press. No button has one bound yet.
+ */
+void buttonDefaults(ButtonConfig *out);
+
+/* One button. Zero it before first use. */
+typedef struct {
+  bool level;          /* The debounced level. True means pressed. */
+  bool raw;            /* The last level seen, before debouncing. */
+  bool handled;        /* This press has already produced its event, so
+                      *   letting go must not produce another one. */
+  bool waitingDouble;  /* A short press is being held back to see if a
+                       *   second one follows. */
+  uint32_t changedMs;  /* When the raw level last changed. */
+  uint32_t pressedMs;  /* When the current press started. */
+  uint32_t releasedMs; /* When the last press ended. */
+} Button;
+
+/*
+ * Feed a button its current level.
+ *
+ * Call this often, whether or not the level changed. It needs to be called
+ * with the level unchanged as well, because a long press is a thing that
+ * happens while nothing is happening.
+ *
+ * With `wantDouble` off, a short press is reported the moment the finger comes
+ * off. With it on, the short press is held back `doubleMs` to see whether a
+ * second one follows, which is the price of telling the two apart.
+ */
+ButtonEvent buttonFeed(Button *b, const ButtonConfig *cfg, bool pressed,
+                       uint32_t nowMs);
+
+/*
+ * Start a button as already held, so this press reports nothing, not a
+ * short or a long press when it is let go.
+ *
+ * For a press that was down before the radio started: the knob press that
+ * woke it from sleep, which must not then open the menu or log the station.
+ */
+void buttonStartHeld(Button *b, uint32_t nowMs);
+
+const char *buttonEventName(ButtonEvent event);
+
+/*
+ * "short" or "long", the two a person can make on purpose, for POST
+ * /api/key. False for anything else, "double" too, and for a NULL.
+ */
+bool buttonEventFromName(const char *name, ButtonEvent *out);
+
+/* Every control a press can be sent to over POST /api/key. */
+typedef enum {
+  INPUT_KEY_BAND = 0,
+  INPUT_KEY_BW,
+  INPUT_KEY_MODE,
+  INPUT_KEY_PUSH, /* The knob's own push. */
+  INPUT_KEY_ENTER,
+  INPUT_KEY_DX,
+  INPUT_KEY_DIGIT_0, /* Then 1 to 9 in order. */
+  INPUT_KEY_COUNT = INPUT_KEY_DIGIT_0 + 10
+} InputKey;
+
+/*
+ * The key a name stands for: BAND, BW, MODE, PUSH, ENTER, DX, or one digit
+ * 0 to 9. False for anything else, and for a NULL.
+ */
+bool inputKeyFromName(const char *name, InputKey *out);
+
+/* The name inputKeyFromName reads, or "?" for a key that is not one. */
+const char *inputKeyName(InputKey key);
+
+/*
+ * Whether the key has a long press. The panel buttons and ENTER do; a digit
+ * and the DX key act as they go down, so they have only the one.
+ */
+bool inputKeyTakesLong(InputKey key);
+
+/*
+ * How long after the menu closes the gestures that mean back in it, a tap of
+ * MODE and a hold of the knob or of ENTER, are let go by unused. Backing out
+ * of the menu takes several of them in a row, and one too many would
+ * otherwise land on the radio screen, where a tap of MODE changes the tuning
+ * mode and a hold writes a log entry. Long enough for one more hold, 600 ms,
+ * to start and finish after the last one shut the menu.
+ */
+#define INPUT_AFTER_MENU_QUIET_MS 1500
+
+/* Whether `nowMs` is still inside that time after the menu shut at `shutMs`.
+ * False when it has not shut since start up, `shut` false. */
+bool inputAfterMenuQuiet(bool shut, uint32_t shutMs, uint32_t nowMs);
+
+/*
+ * How long the menu or the bandwidth page stays up with no key, knob or
+ * touch before it goes back to the radio screen, so the radio is not found
+ * later on a page nobody remembers opening. Long enough to read the longest
+ * page, the diagnostics, without being cut off.
+ */
+#define INPUT_PAGE_IDLE_MS 60000
+
+/* Whether that time has passed since the last input at `lastMs`. */
+bool inputPageIdle(uint32_t lastMs, uint32_t nowMs);
+
+/* ------------------------------------------------------------ keypad hold */
+
+/*
+ * Whether a keypad key is held long enough to be a tap or a hold, reusing
+ * buttonFeed so there is one idea of a long press on this radio, not a
+ * second one with its own timing.
+ *
+ * A keypad reports at most one key down at a time, so this watches one key
+ * by identity rather than one Button per key. A different key appearing
+ * while this one is still watched is the same ambiguity the keypad driver
+ * itself refuses to turn into an answer, so it ends the watch as a release
+ * rather than guessing which key was meant.
+ */
+typedef struct {
+  Button button; /* Whether the watched key is currently down. */
+  bool active;   /* Whether a key is being watched at all. */
+  int8_t key;    /* Which one. Meaningful only while active. */
+} KeypadHold;
+
+/*
+ * Feed which key is down right now, or a negative number for none.
+ *
+ * Call every poll, whether or not the key changed, the same as buttonFeed.
+ * `key`, if not NULL, is set to whichever key the returned event belongs to,
+ * or a negative number when nothing was reported.
+ */
+ButtonEvent keypadHoldFeed(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
+                           uint32_t nowMs, int8_t *key);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* CORE_INPUT_H */
