@@ -1,0 +1,65 @@
+name: Bug report
+description: Something on the radio, the web page or the API does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw. Copy any message on the screen word for word.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen
+      placeholder: |
+        1. Tune to FM 98.3
+        2. Press BAND
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: radio
+    attributes:
+      label: Radio
+      options:
+        - ATS-125
+        - Another TEF668x radio (say which below)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version and build
+      description: In the menu under About, or `ver` and `bid` in `http://<radio>:8080/api/state`.
+      placeholder: 0.1.0, 468000d
+    validations:
+      required: true
+  - type: dropdown
+    id: often
+    attributes:
+      label: How often
+      options:
+        - Every time
+        - Sometimes
+        - Once
+    validations:
+      required: true
+  - type: textarea
+    id: state
+    attributes:
+      label: Output of /api/state
+      description: "Optional. Run `curl -s http://<radio>:8080/api/state` while the problem is on the screen. It holds the radio's local IP address. Remove it if you want to."
+      render: json
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Pictures of the screen, the band and frequency, the antenna, the Wi-Fi setup.
