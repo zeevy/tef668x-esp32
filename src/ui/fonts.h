@@ -56,22 +56,20 @@ LV_FONT_DECLARE(roboto_text)
 LV_FONT_DECLARE(roboto_small)
 
 /* 13px, Medium. A label, the signal unit, a hint and a scale marking.
- * Carries the micro sign, the middle dot, the ellipsis and the times sign,
- * and four gesture symbols that no text uses now. */
+ * Carries the micro sign, the middle dot, the ellipsis and the times sign. */
 LV_FONT_DECLARE(roboto_label)
 
 /*
  * The status symbols, out of Material Symbols Outlined rather than Roboto.
  *
- * Twenty four glyphs: the network symbol's six, which are joined with its
+ * Twenty three glyphs: the network symbol's six, which are joined with its
  * two partial strengths, trying to join, serving its own access point and
  * none of those, the tick and the cross the boot screen and the menus mark
  * with, the chevron on a menu row that opens a list, the four marks on the DX
  * page's PI tile, the NEW badge and the empty inbox of the DX Catches page,
  * the run and stopped marks of the DX scanner, the four on the tiles of RDS
  * page 1 and the stereo mark in its header, and the person in bed that says
- * auto off is on, which alone is cut from the filled style. One more,
- * U+E047, a stop square, is in the face but no screen draws it now.
+ * auto off is on, which alone is cut from the filled style.
  *
  * They live in their own face because they come from a different typeface,
  * and they are 16px, which is the smallest Material Symbols stays legible at

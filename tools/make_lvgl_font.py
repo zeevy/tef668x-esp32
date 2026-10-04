@@ -87,7 +87,6 @@ ICON_CODEPOINTS = (
     ("inbox", 0xE156, "the Catches page with nothing caught yet"),
     ("play_arrow", 0xE037, "the DX scanner running"),
     ("pause", 0xE034, "the DX scanner stopped"),
-    ("stop", 0xE047, "the DX scanner not started"),
     ("traffic", 0xE565, "TP, a station that carries traffic news, on the"
                         " RDS Station page"),
     ("campaign", 0xEF49, "TA, a traffic announcement on air, on the RDS"
@@ -105,17 +104,6 @@ ICON_FILLED_CODEPOINTS = (
                       " five minutes, in the header"),
 )
 ICONS_FILLED = ",".join("0x%04X" % c for _, c, _ in ICON_FILLED_CODEPOINTS)
-
-# Gesture symbols cut into the label face at its own size, so a hint with a
-# symbol stays one label: the words say what the gesture does, the symbol says
-# which gesture. No text on the screens uses them now; they stay in the face.
-HINT_CODEPOINTS = (
-    ("rotate_right", 0xE41A, "turn the knob"),
-    ("radio_button_checked", 0xE837, "press the knob, or ENTER"),
-    ("timer", 0xE425, "hold the knob, or ENTER"),
-    ("keyboard", 0xE312, "any key"),
-)
-HINT_ICONS = ",".join("0x%04X" % c for _, c, _ in HINT_CODEPOINTS)
 
 # Ten digits, the point, the plus, the minus, the space and the colon. What
 # a frequency and a setting value are made of, and nothing else. The colon
@@ -154,7 +142,7 @@ FONTS = (
     ("label", 13, 500,
      ASCII + "," + MICRO + "," + MIDDOT + "," + ELLIPSIS + "," + TIMES,
      "roboto",
-     "a label, a unit, a hint or a scale marking", ("icons", HINT_ICONS)),
+     "a label, a unit, a hint or a scale marking"),
     # 16, and placed by their middle rather than their baseline. A Material
     # Symbol fills its em box while a capital fills about three quarters of
     # one, so an icon set to the same size as the words beside it is visibly

@@ -280,7 +280,7 @@ Some parts come from others, each with its own licence. [THIRD_PARTY_LICENSES.md
 |---|---|---|
 | [LVGL](https://lvgl.io) 9.5.0 | Downloaded at build time | MIT |
 | [Roboto Condensed](https://fonts.google.com/specimen/Roboto+Condensed) | Converted to bitmaps in `src/ui/fonts/` | SIL Open Font License 1.1 |
-| [Material Symbols](https://fonts.google.com/icons) | Converted to bitmaps in `src/ui/fonts/font_icons.c` and `font_label.c` | Apache 2.0 |
+| [Material Symbols](https://fonts.google.com/icons) | Converted to bitmaps in `src/ui/fonts/font_icons.c` | Apache 2.0 |
 | [Pico CSS](https://picocss.com) 2.1.1 | Compressed in `src/net/web_assets.h` | MIT |
 | [htmx](https://htmx.org) 2.0.10 | Compressed in `src/net/web_assets.h` | Zero-Clause BSD |
 | TEF668x patch data | `src/drivers/tef668x_patch.cpp` | NXP's firmware for the tuner, which it needs at every power on. It is carried here as the GPLv3 [PE5PVB](https://github.com/PE5PVB/TEF6686_ESP32) firmware carries the same bytes. NXP has not published terms for it that this project knows of |
