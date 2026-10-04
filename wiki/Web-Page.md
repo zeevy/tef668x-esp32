@@ -20,7 +20,7 @@ The buttons at the top lead to seven pages:
 | DX | `/dx` | Yes | RDS as it arrives, the band sweep chart and the DX catches |
 | System | `/system` | Yes | The firmware, updates and reboot |
 
-On the Radio, FM & RDS, Settings and DX pages, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. The sign in, Wi-Fi, PIN, firmware and reboot buttons open a short result page instead.
+On the Radio, FM & RDS, Settings and DX pages, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. The Wi-Fi, PIN, firmware and reboot buttons, and a refused sign in, open a short result page instead.
 
 ## Signing in
 
@@ -75,7 +75,7 @@ The frequency and band update when the page opens, after each change you make on
 |---|---|
 | Seek | Seek sensitivity for FM and for AM, from 1 (strong only) to 6 (finds weak ones), and the squelch floor |
 | Sound | The volume AGC target and boost. The mute and squelch ramp, which presses beep, the band edge beep, and the chime at start up |
-| Display | Brightness, the dimmed level, how many seconds before it dims, and the fade at start. The day and night themes, and **Custom's colours**, the eight colours of the custom theme |
+| Display | Brightness, the dimmed level, how many seconds before it dims, and the fade at start. The day and night themes, and **Custom's colours**, eight of the custom theme's colours (a ninth, for a header, is stored but drawn nowhere) |
 | Advanced, needs a reboot | The FM band plan, the medium wave steps, the encoder type and the knob direction. These take effect after a reboot |
 | The volume knob | **Measure**, **Done** and **Cancel** teach the radio the two ends of the volume knob's travel |
 

@@ -14,16 +14,18 @@ The ATS-125 is a portable FM and AM receiver with a 320 x 240 colour screen.
 | Memory | 8 MB flash, no PSRAM | Yes |
 | Tuner | NXP TEF6686 | Yes |
 | Screen | ILI9341, 320 x 240 pixels, colour | Yes |
-| Touch | XPT2046 touch controller on the screen | Not yet |
+| Touch | XPT2046 touch controller on the main board, for the screen's resistive touch | Not yet |
 | Knobs | The tuning knob, which also presses, and the volume knob | Yes |
 | Buttons | BAND, BW and MODE | Yes |
 | Keypad | Digits 0 to 9, ENTER and DX, read through a PCA9555 chip | Yes |
-| Battery | One lithium polymer cell, 3.7 V, 2500 mAh | The level is read once, at start up |
-| USB | An FT232R USB serial chip. It has no auto reset, so the first install needs the BOOT and RESET buttons | Yes |
+| Battery | One lithium polymer cell, 3.7 V, 2500 mAh | The level. While Wi-Fi is on, it is read once at start up |
+| USB | USB-C, for charging and for the first install. The test radio has an FT232R USB serial chip with no auto reset, so its first install needs the BOOT and RESET buttons. The seller lists a CH340 chip for this model, so other batches may have that instead | Yes |
 | Clock chip | An RX8010 real time clock, on some radios | Not used. The clock is set from the network |
 | Standby LED | | Not used |
 
-The battery is read only at start up because Wi-Fi uses the same part of the ESP32 while it runs. The radio does not use Bluetooth.
+While Wi-Fi is on, the battery is read only at start up, because Wi-Fi uses the same part of the ESP32 while it runs. With Wi-Fi off it is read every second.
+
+The radio's Bluetooth is a separate chip, with its own aerial connector marked `BT ANT1`. This firmware does not control it, and does not use the ESP32's own Bluetooth either.
 
 ## The tuner
 

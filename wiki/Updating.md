@@ -47,7 +47,7 @@ Keep the radio powered until it restarts. If the write fails, the screen shows *
 
 ## Rollback: when the new firmware does not work
 
-The radio has two firmware slots. A new firmware is written to the slot that is not running, and starts on trial. It has to prove that the next update can still reach it: it must be on the network its settings ask for, and stay there for 10 seconds, within 7 minutes of starting. Then it is marked good. If it does not manage that, or if it crashes before, the radio restarts and goes back to the old firmware by itself.
+The radio has two firmware slots. A new firmware is written to the slot that is not running, and starts on trial. It must be on the network its settings ask for, and stay there for 10 seconds, within 7 minutes of starting. That proves the next update can still reach it. Then it is marked good. If it does not manage that, or if it crashes before, the radio restarts and goes back to the old firmware by itself.
 
 ```mermaid
 flowchart TD
@@ -66,6 +66,8 @@ The wanted network depends on the Connectivity settings:
 |---|---|
 | Hotspot on Auto, the usual case | Joined to your Wi-Fi. Falling back to the setup hotspot does not count, because then the next update could not reach it |
 | Hotspot set to On | Serving its hotspot |
+| Hotspot set to Off | Joined to your Wi-Fi |
+| Wi-Fi set to Off | On no network. It is marked good after 10 seconds |
 
 The 7 minutes leave time for a second try at your network, so a router that is down for a moment does not throw away a good firmware.
 

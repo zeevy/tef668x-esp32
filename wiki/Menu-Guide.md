@@ -25,9 +25,9 @@ Press a row to change it. Depending on the row you get a bar with its two ends, 
 - Press to keep the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
 - Rows marked **after restart** below show `Applies after restart`, and take effect the next time the radio starts.
 
-### Notes along the bottom
+### Notes
 
-A short note shows at the bottom of the menu when something could not be done. It clears on the next turn or press.
+A short note shows when something could not be done: in a list, on the row in place of its value, and on a value screen, on its bottom line. It clears on the next turn or press.
 
 | Note | When |
 |---|---|
@@ -35,7 +35,7 @@ A short note shows at the bottom of the menu when something could not be done. I
 | `Not on the band plan` | A preset or log entry whose frequency is not on its band under the band plan in use |
 | `Switch to FM first` | DX Mode, Start Scan or Learn Local Stations on AM |
 | `Turn on RDS first` | Learn Local Stations with the RDS Decoder off |
-| `Update on trial - wait` | Restart Radio or Sleep while a new firmware is on trial |
+| `Update on trial - wait` | Restart Radio while a new firmware is on trial, or Sleep while one is written or on trial |
 | `Not saved - restored` | The setting could not be saved, so the old value came back |
 | `Radio busy - not restored` | A cancel could not reach the tuner, so the tuner kept the new value |
 
@@ -48,7 +48,7 @@ Each row does one thing and closes the menu. When it cannot, for example DX Mode
 | Next Band | The next band, as a tap of BAND |
 | Bandwidth | Opens the bandwidth page, as a hold of BW |
 | RDS | Opens the RDS pages, as a hold of BAND |
-| DX Mode | Opens DX mode. FM only |
+| DX Mode | Opens DX mode. FM and OIRT only |
 | Log Current Station | Writes the station to the station log |
 | Sleep | The radio fades and sleeps until the knob is pressed. See [Sleep and Auto Off](Sleep-and-Auto-Off.md) |
 
@@ -122,7 +122,7 @@ See [DX Mode](DX-Mode.md).
 
 | Row | Values | New radio | What it does |
 |---|---|---|---|
-| Start Scan | | | Opens DX mode and starts a scan. FM only |
+| Start Scan | | | Opens DX mode and starts a scan. FM and OIRT only |
 | Scan Dwell | 0.5 to 30.0 s in steps of 0.5 | 2.5 s | How long to wait on each channel for a PI |
 | Stop Condition | New Stations Only, Any PI, Never | New Stations Only | When the scanner stops |
 | Scan Range | Band + Presets, Whole Band, Presets Only | Band + Presets | What to scan. Band + Presets walks the band and skips the stored presets. Applies at the next scan |
@@ -162,7 +162,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Wi-Fi | Off, On | On | Off stops Wi-Fi and the hotspot, and with them the web page and the API. Only this row, or Erase Settings on the recovery screen, turns it back on |
 | Hotspot | Auto, On, Off | Auto | Auto: the radio's own hotspot only when your network cannot be joined or none is stored. On: always, in place of your network. Off: never |
 | Web Server | Off, On | On | The web page, the API and updates over Wi-Fi |
-| Web PIN | Six digits | 000000 | The access PIN. Shown as stars. Turn to set a digit, press for the next one, or type the digits on the keypad. Saved on the sixth digit |
+| Web PIN | Six digits | 000000 | The access PIN. The row shows the six digits. Turn to set a digit, press for the next one, or type the digits on the keypad. Saved on the sixth digit |
 | Network Time | Off, -12:00 to +14:00 in steps of 15 minutes | +00:00 | Sets the clock from the network, at this offset from UTC |
 | Network Info | Read only | | Connection Status, Web Address, IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address |
 

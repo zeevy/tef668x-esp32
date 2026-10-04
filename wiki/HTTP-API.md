@@ -58,7 +58,7 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 202 | The radio took it but has not confirmed it yet. Read `/api/state` to see where it got to. Do not send it again |
 | 400 | Refused, and the line says why, for example `That is not a band. Use one of LW MW SW OIRT FM.` |
 | 403 | Not signed in: `Enter the access PIN first.` |
-| 404 | No such route, or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` |
+| 404 | Under `/api/`, no such route or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` Also an empty preset or a catch no longer in the list. Any other unknown path is sent to `/` |
 | 409 | Not now. For a key: `The last key sent has not been handled yet. Send again.` |
 | 413 | A form or text body over 8192 bytes. A firmware upload is not limited by this |
 | 429 | Too many wrong PINs |
@@ -169,7 +169,7 @@ All need the PIN.
 | `POST /api/seek` | `dir`: `up` or `down` | `seeking up` |
 | `POST /api/mode` | `mod`: `Manual`, `Auto`, `Presets` or `MeterBand` | `mode Manual`. MeterBand answers `mode Meter band` |
 | `POST /api/step-size` | `khz`, a step the band offers. `bnd` sets another band's step | `step 100 kHz` |
-| `POST /api/cycle` | `wht`: `band`, `bandwidth`, `mode`, `mute` or `features`. Steps it on, as the button would | `mode Presets` |
+| `POST /api/cycle` | `wht`: `band`, `bandwidth`, `mode`, `mute` or `features`. Steps it on: band, width and mode as their buttons do, mute on and off, and `features` through off, iMS, EQ and both | `mode Presets` |
 
 ```bash
 curl -s -b jar -d khz=106400 $R/api/tune

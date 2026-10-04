@@ -50,7 +50,7 @@ After five wrong PINs, signing in is locked for a minute.
 - **Every station reads a very low level, on every frequency.** This is what a wrong tuner crystal looks like. Check `xtl` in `http://tef668x.local:8080/api/state` against your radio. See [Supported Hardware](Supported-Hardware.md#the-tuner).
 - **Squelch.** If the `V:` tile is grey, the squelch is holding the sound back. Set **Audio > Squelch > Squelch Mode** to Off to check.
 - **Mute.** If the `V:` tile says `MUTE`, the radio is muted. Mute is turned off on the web page's Radio page.
-- **The volume knob.** The bottom of its travel is mute.
+- **The volume knob.** The bottom of its travel is -60 dB, which is almost silent.
 - **The aerial.** Pull the FM aerial out fully. Weak stations come and go with it pushed in.
 
 ## The screen cannot be read

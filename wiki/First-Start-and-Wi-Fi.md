@@ -8,14 +8,14 @@ At every start the radio runs a short self test and shows each check as it is do
 
 ![The boot screen, with six checks and a progress bar](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/boot.png)
 
-The top line shows the tuner chip and the firmware version, for example `TEF6686 v0.1.0`. Each check shows a tick when it passed, a cross when it failed, and `-` while it is still waiting.
+The top line shows `TEF668X` and the radio, `ATS125`. The amber banner under it shows the tuner chip and the firmware version, for example `TEF6686 v0.1.0`, or `---` until the tuner answers. A check shows a tick when it passed, a cross when it failed, and `-` while it is still waiting. A check with a value, such as the number of presets, shows the value instead: in red when the check failed.
 
 | Check | What it means |
 |---|---|
-| Settings | The stored settings were read. `New` means the radio started with its defaults, which is normal on the first start |
+| Settings | The stored settings were read. `New` means the radio started with its defaults, which is normal on the first start. `New` in red means the stored settings could not be read |
 | Tuner | The tuner answered and took its patch |
 | Radio | The radio started on its band and frequency |
-| Presets | The stored presets were read. The number is how many there are. A cross with a number means some could not be read |
+| Presets | The stored presets were read. The number is how many there are. A number in red means some could not be read |
 | Keypad | The keypad answered. Without it the knob still works |
 | Battery | The battery voltage, read once at start up |
 
@@ -63,7 +63,7 @@ The web server is on port 8080, not 80, so the address always needs `:8080` at t
 
 ## Change the access PIN
 
-Every change made from a browser or the HTTP API needs the access PIN, and so does an [update](Updating.md). It starts as `000000`, and until you change it the web pages show a note that the radio is still on its default PIN.
+Every change made from a browser or the HTTP API needs the access PIN, and so does an [update](Updating.md). It starts as `000000`, and until you change it the web page's Home and Network pages show a note that the radio is still on its default PIN.
 
 - **On the web page:** open the **Network** page, sign in with `000000`, and enter six digits under **Access PIN**. Press **Change PIN**. It works at once, and every browser has to sign in again, this one too.
 - **On the radio:** open the menu and go to **Connectivity > Web PIN**. Set one digit at a time. The new PIN is saved when the sixth digit is set.

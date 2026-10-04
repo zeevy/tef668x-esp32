@@ -61,9 +61,9 @@ A channel counts as a station when all of these hold:
 
 **Seek Sensitivity** is a row in FM Reception and another in AM Reception, from 1 to 6, with 4 at the start. A higher number stops on weaker stations. At 4 on FM, a station must have a noise reading (USN) under 12.0 %, multipath under 32.0 % and a level of at least 10.0 dBµV.
 
-A seek goes round at the band edge and keeps going. If it goes round the whole band and finds nothing, it stops where it is. Any other key or command also stops it.
+A seek goes round at the band edge and keeps going. If it goes round the whole band and finds nothing, it stops where it is. A tune, a step, a band change, the volume knob, or any other command to the radio also stops it. Opening the menu or the RDS pages does not.
 
-**Controls > Band Edge Beep** beeps when the knob steps over a band edge in MAN mode. It is off at the start. A seek does not beep.
+**Controls > Band Edge Beep** beeps when a step goes round a band edge: in MAN or MTR mode, on the DX page, or from the API. It is off at the start. A seek does not beep.
 
 ## Typing a frequency
 

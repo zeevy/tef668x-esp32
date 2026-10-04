@@ -21,7 +21,7 @@ Plug the radio into the computer and look for its port:
 
 | System | Where to look | Looks like |
 |---|---|---|
-| macOS | `ls /dev/cu.usbserial-*` | `/dev/cu.usbserial-AB12CD34` |
+| macOS | `ls /dev/cu.usbserial-* /dev/cu.wchusbserial*` | `/dev/cu.usbserial-AB12CD34` for an FT232R, `/dev/cu.wchusbserial...` for a CH340 |
 | Linux | `ls /dev/ttyUSB*` | `/dev/ttyUSB0` |
 | Windows | Device Manager, under Ports (COM & LPT) | `COM3` |
 
@@ -29,7 +29,7 @@ Use your own port name in place of `PORT` in the commands below.
 
 ## Put the radio into download mode
 
-The radio's USB chip cannot start download mode by itself, so you do it with two buttons:
+The FT232R USB chip of the test radio cannot start download mode by itself, so you do it with two buttons. A radio with a CH340 chip may do it by itself: if esptool connects without the buttons, skip this step.
 
 1. Hold **BOOT**.
 2. Tap **RESET**.

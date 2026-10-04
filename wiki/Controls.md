@@ -13,7 +13,7 @@ Every button, knob and key, on every screen. The buttons, the knob press and ENT
 | BAND, BW, MODE | Three buttons |
 | Keypad | Digits 0 to 9, ENTER and DX |
 
-In MAN mode, turning the tuning knob fast moves it further: two, four or six steps for each click. Everywhere else one click is one step. If you turn the knob while you press it, the press is dropped.
+When the tuning knob tunes, turning it fast moves it further: two, four or six steps for each click. In MEM mode, the menu, the RDS pages, the bandwidth page and the cursors of the DX Scope and Catches pages, one click is always one step. If you turn the knob while you press it, the press is dropped.
 
 ## On the radio screen
 
@@ -55,27 +55,27 @@ The menu has three levels: the groups, the rows of a group, and some rows that o
 | BAND, BW | Nothing | Nothing |
 | Keypad | Nothing, except the digits of the Web PIN | |
 
-Most values change as you turn, so you hear or see the result at once. A few act only when you press to keep them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without keeping a value, the row shows `Not Saved` and the old value comes back. With no input for one minute, the menu closes and the radio screen comes back.
+Most values change as you turn, so you hear or see the result at once. A few act only when you press to keep them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without keeping a value, the old value comes back, and a bar row whose value you moved shows `Not Saved`. With no input for one minute, the menu closes and the radio screen comes back.
 
 The menu opens again on the row you left, until the radio restarts.
 
 ## On the RDS pages
 
-Hold BAND on FM to open them. They always open on the first page, and they do not time out. See [RDS](RDS.md) for what each page shows.
+Hold BAND on FM or OIRT to open them. They always open on the first page, and they do not time out. See [RDS](RDS.md) for what each page shows.
 
 | Control | Tap or turn | Hold |
 |---|---|---|
 | Tuning knob, turn | The next or previous page | |
 | Tuning knob, press | Nothing | Closes the RDS pages |
 | BAND | Nothing | Closes the RDS pages |
-| BW | The next filter width | The bandwidth page |
+| BW | The next filter width. Over DX mode, DX mode's width, and only when the DX page is under the RDS pages | The bandwidth page |
 | MODE | Closes the RDS pages | The menu |
 | ENTER | The next page | Writes the station to the station log |
 | DX | Opens DX mode. When the RDS pages were opened over DX mode, it closes both and goes back to the radio screen | |
 
 ## In DX mode
 
-Press DX on FM to open it. See [DX Mode](DX-Mode.md). It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio leaves FM.
+Press DX on FM or OIRT to open it. See [DX Mode](DX-Mode.md). It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio goes to an AM band.
 
 These work on every page:
 

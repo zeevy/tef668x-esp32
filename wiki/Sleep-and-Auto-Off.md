@@ -26,7 +26,7 @@ Just reading the radio's state from a browser or a script does not count, so a w
 
 ![Going to Sleep, Press the knob to wake](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/sleeping.png)
 
-Use the radio at any point before it sleeps, even while **Going to Sleep** shows, and it stays awake: the sound comes back and the count starts again.
+Press a key or turn a knob at any point before it sleeps, even while **Going to Sleep** shows, and it stays awake: the sound comes back and the count starts again. A change from the web page or the API starts the count again too, but once **Going to Sleep** shows, only a key or a knob keeps it awake.
 
 ### What keeps it awake
 

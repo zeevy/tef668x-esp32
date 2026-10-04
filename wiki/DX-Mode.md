@@ -7,9 +7,9 @@ DX mode is for finding far away FM stations. It has four pages: **DX** shows the
 DX mode works on FM and OIRT. On AM the radio says `Switch to FM first`.
 
 - **Open:** press DX, or **Menu > Go To > DX Mode**. **DX Scanner > Start Scan** opens it and starts a scan.
-- **Leave:** press DX, tap MODE, or hold the tuning knob on the DX or Scanner page. DX mode also closes if the radio leaves FM.
+- **Leave:** press DX, tap MODE, or hold the tuning knob on the DX or Scanner page. DX mode also closes if the radio goes to an AM band.
 
-DX mode always opens on the DX page. On entry the filter is set to **Scan Bandwidth**, 114 kHz at the start: the narrowest width that keeps RDS whole and stops a strong station next door from being decoded on this channel. This width is not saved: your own width comes back when you leave.
+Opened with the DX key or from Go To, DX mode starts on the DX page. Start Scan and Learn Local Stations start on the Scanner page. On entry the filter is set to **Scan Bandwidth**, 114 kHz at the start: the narrowest width that keeps RDS whole and stops a strong station next door from being decoded on this channel. This width is not saved: your own width comes back when you leave.
 
 | Control | On every page |
 |---|---|
@@ -115,7 +115,7 @@ All are in the menu's **DX Scanner** group.
 |---|---|---|---|
 | Start Scan | | | Opens DX mode and starts a scan |
 | Scan Dwell | 0.5 to 30.0 s, in steps of 0.5 s | 2.5 s | How long to wait on each channel for a PI |
-| Stop Condition | New Stations Only, Any PI, Never | New Stations Only | When the scanner stops. With Never, a new station still holds the dwell until its name arrives |
+| Stop Condition | New Stations Only, Any PI, Never | New Stations Only | When the scanner stops. With Never and Auto-Log Stations On, a new station still holds the dwell until its name arrives |
 | Scan Range | Band + Presets, Whole Band, Presets Only | Band + Presets | What to scan. **Band + Presets** walks the band and skips the channels stored as presets, since you know those. **Presets Only** walks the presets from Preset Start to Preset End |
 | Preset Range | Preset Start and Preset End, 1 to 99 | 1 to 99 | The presets that Presets Only scans and Watch Presets watches |
 | Scan Bandwidth | 56 to 311 kHz, in the tuner's 16 widths | 114 kHz | The filter width in DX mode |
@@ -126,7 +126,7 @@ All are in the menu's **DX Scanner** group.
 | Watch Presets | On, Off | On | Check the presets in the background |
 | Learn Local Stations | | | Mark the stations you can hear now as caught |
 
-Scan Dwell, Loop Band and Stop Condition reach a scan that is running. Scan Range and Preset Range apply at the next scan. Scan Bandwidth applies the next time DX mode opens.
+Scan Dwell, Loop Band and Stop Condition reach a scan that is running. Scan Range and Preset Range apply to the next scan; Watch Presets uses a new Preset Range at once. Scan Bandwidth applies the next time DX mode opens.
 
 ## For FMLIST
 
