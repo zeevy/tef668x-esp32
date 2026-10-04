@@ -1,0 +1,177 @@
+# Makes a GitHub release when the owner pushes a version tag, such as v0.2.0.
+#
+# Only the owner can push a tag (the tags ruleset), so only the owner can start
+# this. The tag must be v + FIRMWARE_VERSION in src/core/version.h, and the
+# tagged commit must be on master.
+#
+# A plain tag such as v0.2.0 makes a draft. A draft is not public and is never
+# Latest, so nobody can download it yet. CI cannot test the display, the tuner
+# or the audio, so the owner flashes the draft's firmware to a radio, works
+# through the manual checks, and only then publishes the draft:
+#
+#   gh release edit v0.2.0 --draft=false --latest
+#
+# A tag with a suffix such as v0.2.0-rc.1 makes a prerelease. It is public at
+# once, so a test build can download it by its own link, and it is never
+# marked Latest.
+#
+# Two jobs. The first runs the gates and the build with a read only token,
+# because it runs PlatformIO, pip and their packages. The second holds the
+# write token and runs no code from outside: it only uploads the files.
+#
+# Actions are pinned by SHA, as in ci.yml. There is no cache on purpose: a
+# cache saved by another run must never end up inside a release.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+# One release at a time, and never a half finished one cancelled.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: check and build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prerelease: ${{ steps.tag.outputs.prerelease }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The whole history, so the check below can see master.
+          fetch-depth: 0
+
+      # The manifest's version is always x.y.z, so a prerelease suffix stays in
+      # the tag and out of the manifest.
+      - name: Check the tag
+        id: tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^#define FIRMWARE_VERSION "\(.*\)"$/\1/p' src/core/version.h)
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "FIRMWARE_VERSION is not x.y.z: '$version'"
+            exit 1
+          fi
+          if [ "$TAG" = "v$version" ]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" =~ ^v"$version"-[0-9A-Za-z.]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag $TAG does not match FIRMWARE_VERSION $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          # Only code that came into master through a pull request is released.
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "Tag $TAG is not on master"
+            exit 1
+          fi
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # The same pinned versions as ci.yml.
+      - name: Install the tools
+        run: pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
+
+      # Every gate, as on a pull request. The build gate makes the image.
+      - name: Run every gate
+        run: tools/check.sh
+
+      # The radio shows the commit as Build, with a + when the sources had
+      # changes not committed. A release must not carry the +.
+      - name: Check the build is from the tagged commit alone
+        run: test -z "$(git status --porcelain -- src platformio.ini partitions.csv)"
+
+      # firmware-ats125.bin is the app alone, for an update: the browser upload
+      # writes it into the free slot.
+      #
+      # firmware-ats125-full.bin is for a first install over USB, written at
+      # 0x0. The platform already merges it: bootloader at 0x1000, partition
+      # table at 0x8000, boot_app0 at 0xE000 and the app at 0x10000. A failed
+      # merge only prints a message, so the app part is compared here.
+      - name: Make the release files
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          mkdir dist
+          cp .pio/build/ats125/firmware.bin dist/firmware-ats125.bin
+          cp .pio/build/ats125/firmware.factory.bin dist/firmware-ats125-full.bin
+          tail -c +65537 dist/firmware-ats125-full.bin | cmp - dist/firmware-ats125.bin
+          python3 - <<'EOF'
+          import hashlib, json, os
+          data = open("dist/firmware-ats125.bin", "rb").read()
+          repo, tag = os.environ["GITHUB_REPOSITORY"], os.environ["TAG"]
+          manifest = {
+              "version": os.environ["VERSION"],
+              "board": "ats125",
+              "url": f"https://github.com/{repo}/releases/download/{tag}/firmware-ats125.bin",
+              "size": len(data),
+              "sha256": hashlib.sha256(data).hexdigest(),
+          }
+          with open("dist/manifest-ats125.json", "w") as f:
+              json.dump(manifest, f, indent=2)
+              f.write("\n")
+          EOF
+          cat dist/manifest-ats125.json
+          sha256sum dist/*
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-files
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: make the release
+    needs: build
+    runs-on: ubuntu-latest
+    # The write token is only in this job. It checks out nothing and runs no
+    # build tool, only GitHub's own actions and the gh CLI on the runner.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-files
+          path: dist
+
+      # A signed record that these files were built by this workflow from this
+      # commit. Check a file with:
+      #   gh attestation verify firmware-ats125.bin -R zeevy/tef668x-esp32
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+
+      # --verify-tag stops here if the owner's tag is missing, because no
+      # workflow may make a tag. The notes list the pull requests merged since
+      # the last release.
+      - name: Make the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          kind=--draft
+          if [ "$PRERELEASE" = "true" ]; then
+            kind=--prerelease
+          fi
+          gh release create "$TAG" dist/* -R "$GITHUB_REPOSITORY" \
+            --verify-tag --generate-notes "$kind"

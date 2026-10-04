@@ -2,7 +2,7 @@
 
 After the first install, every update goes over Wi-Fi. No cable and no buttons are needed. The radio keeps the old firmware, and goes back to it by itself if the new one does not work.
 
-You need a new firmware file, `firmware.bin`. Today you build it yourself: `pio run -e ats125` writes it to `.pio/build/ats125/firmware.bin`. A release download will come later.
+You need the new firmware file. Download `firmware-ats125.bin` from the latest release on the [Releases page](https://github.com/zeevy/tef668x-esp32/releases), or build your own: `pio run -e ats125` writes it to `.pio/build/ats125/firmware.bin`. Do not use `firmware-ats125-full.bin` here: that file is for a first install over USB.
 
 Your settings, presets and station log stay as they are.
 
@@ -21,10 +21,10 @@ Sign in once, which stores a session cookie in the file `jar`, then send the fil
 ```bash
 R=http://tef668x.local:8080
 curl -s -c jar -d pin=000000 $R/auth
-curl -s -b jar -F firmware=@.pio/build/ats125/firmware.bin $R/update
+curl -s -b jar -F firmware=@firmware-ats125.bin $R/update
 ```
 
-Use your own PIN in place of `000000`. The radio answers with a short page:
+Use your own PIN in place of `000000`, and the path to your own build in place of `firmware-ats125.bin` if you built it. The radio answers with a short page:
 
 | Answer | What it means |
 |---|---|

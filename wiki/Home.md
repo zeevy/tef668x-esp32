@@ -13,7 +13,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 1. [Supported Hardware](Supported-Hardware.md): the radio this runs on, and what works on it.
 2. [Before You Start](Before-You-Start.md): what you need, and the risks, before you install.
 3. [Back Up the Stock Firmware](Back-Up-the-Stock-Firmware.md): save a copy of the radio's flash, so you can go back.
-4. [First Install over USB](First-Install-over-USB.md): build the firmware and put it on the radio.
+4. [First Install over USB](First-Install-over-USB.md): install a release, or build the firmware yourself, and put it on the radio.
 5. [First Start and Wi-Fi](First-Start-and-Wi-Fi.md): the boot screen, the setup hotspot, the access PIN and the clock.
 6. [Updating](Updating.md): new firmware over Wi-Fi, and how the radio goes back by itself when one does not work.
 
