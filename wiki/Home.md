@@ -11,6 +11,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 ## Where to start
 
 - [Supported Hardware](Supported-Hardware.md): the radio this runs on, and what works on it.
+- [Before You Start](Before-You-Start.md): what you need, and the risks, before you install.
 
 The wiki is still being written. Until its other pages are here, the [README](https://github.com/zeevy/tef668x-esp32#readme) has the short version of each topic:
 
