@@ -31,9 +31,26 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md): the sleep timer, and putting the radio to sleep.
 - [Menu Guide](Menu-Guide.md): every row of the menu, with its values and what it does.
 
-The wiki is still being written. Until its other pages are here, the README's [Control API](https://github.com/zeevy/tef668x-esp32#control-api) section has the short version of the HTTP API.
+## Network
+
+- [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md): how the radio picks its network, and the Wi-Fi, Hotspot and Web Server switches.
+- [Web Page](Web-Page.md): each page of the radio's own web page, with pictures.
+- [HTTP API](HTTP-API.md): every route, with curl examples and real answers from the radio.
 
 ## Help
+
+- [Recovery Screen](Recovery-Screen.md): the way back when the normal screen cannot be used.
+- [Troubleshooting](Troubleshooting.md): common problems and what to do.
+- [FAQ](FAQ.md): short answers to common questions.
+- [Glossary](Glossary.md): the words and short forms the radio uses.
+
+## Project
+
+- [Building from Source](Building-from-Source.md): the build, the tests, the checks and the pictures.
+- [Contributing](Contributing.md): questions, bug reports, feature requests, changes and the wiki.
+- [Credits and Licence](Credits-and-Licence.md): where the firmware comes from, and the parts made by others.
+
+## Questions and bugs
 
 - Questions: [Discussions](https://github.com/zeevy/tef668x-esp32/discussions/categories/q-a)
 - Bugs and ideas: [Issues](https://github.com/zeevy/tef668x-esp32/issues/new/choose)

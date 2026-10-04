@@ -44,7 +44,7 @@ flowchart TD
 4. Press **Save and join**. The page says `Saved. The radio is trying that network now.`, and the hotspot stops.
 5. Join your own Wi-Fi again on the phone or computer, and open `http://tef668x.local:8080`.
 
-The radio needs a 2.4 GHz network. If it cannot join in 20 s, for example because the passphrase was wrong, it starts the hotspot again and you can try again. While it has details stored but cannot join, it tries that network again every 5 minutes, but not while a phone or computer is on the hotspot. The radio works as a radio the whole time.
+The radio needs a 2.4 GHz network. [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md) has the details of how it picks a network. If it cannot join in 20 s, for example because the passphrase was wrong, it starts the hotspot again and you can try again. While it has details stored but cannot join, it tries that network again every 5 minutes, but not while a phone or computer is on the hotspot. The radio works as a radio the whole time.
 
 ### If tef668x.local does not open
 

@@ -92,4 +92,4 @@ curl -s -b jar -d bnd=MW $R/api/band         # change band
 curl -s -b jar -d dir=up $R/api/seek         # seek up
 ```
 
-These need the access PIN first. The README's [Control API](https://github.com/zeevy/tef668x-esp32#control-api) section shows how to sign in.
+These need the access PIN first. See [HTTP API](HTTP-API.md#signing-in).

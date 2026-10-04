@@ -79,4 +79,4 @@ While the new firmware is on trial, **Menu > System > Restart Radio** does not r
 
 ## Go back to the firmware before
 
-To go back to the older firmware by hand, use the recovery screen: hold the tuning knob down while you switch the radio on, choose **Restore Previous Firmware**, and press again to confirm. The row shows `None` when there is no older firmware to go back to, as after an install over USB.
+To go back to the older firmware by hand, use the [recovery screen](Recovery-Screen.md): hold the tuning knob down while you switch the radio on, choose **Restore Previous Firmware**, and press again to confirm. The row shows `None` when there is no older firmware to go back to, as after an install over USB.
