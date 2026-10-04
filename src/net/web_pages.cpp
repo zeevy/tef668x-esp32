@@ -1267,10 +1267,10 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   out += cardClose();
 
   /*
-   * The theme, and the one custom slot. Only Custom's own nine colours are
-   * ever set here; the other named themes are fixed palettes in
-   * core/palette.c, not something a person can lose by mistake while trying
-   * out their own. A native `<details>` holds the nine colours,
+   * The theme, and the one custom slot. Only Custom's own colours are ever
+   * set here; the other named themes are fixed palettes in core/palette.c,
+   * not something a person can lose by mistake while trying out their own.
+   * A native `<details>` holds the eight colours a screen draws with,
    * `open` when Custom is the active theme, since a person can still
    * expand it to set Custom up before ever switching to it. One theme for
    * the day and one for the night, by the panel's own clock.
@@ -1298,7 +1298,7 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   if (customActive) {
     out += F(" open");
   }
-  out += F("><summary>Custom's nine colours</summary>");
+  out += F("><summary>Custom's colours</summary>");
   out += formOpen("/api/settings");
   out +=
       F("<p><small>Changing one here only ever changes what Custom looks "
@@ -1311,6 +1311,12 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
         "Background",  "Header", "Tile and row", "Radio", "Broadcast",
         "Measurement", "Good",   "Fault",        "Dead"};
     for (int i = 0; i < THEME_CUSTOM_COLOUR_COUNT; i++) {
+      /* No screen draws with the header colour, so there is nothing to see
+       * when it changes. It stays stored, so a saved Custom theme keeps its
+       * layout. */
+      if (i == PALETTE_HEADER) {
+        continue;
+      }
       char hex[8];
       themeColourFormat(st->customTheme[i][0], st->customTheme[i][1],
                         st->customTheme[i][2], hex, sizeof(hex));
