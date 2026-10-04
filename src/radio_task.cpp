@@ -2393,6 +2393,17 @@ void radioSetSquelchThreshold(int16_t tenths) {
   }
 }
 
+void radioSeekConfig(SeekConfig *out) {
+  if (out == NULL) {
+    return;
+  }
+  bool locked = lockFromCaller();
+  *out = sLive.seek;
+  if (locked) {
+    xSemaphoreGive(sLock);
+  }
+}
+
 SquelchMode radioSquelchMode(int16_t *thresholdTenths) {
   bool locked = lockFromCaller();
   SquelchMode mode = sLive.squelchMode;

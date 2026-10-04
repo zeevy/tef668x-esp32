@@ -4,9 +4,8 @@
  *
  * A seek stops on the first station it finds. This does not stop: it
  * visits every channel of the band's walk, `bandScanWalkFor`, and judges
- * each one with the seek's stop decision from `core/seek.c` at the default
- * seek sensitivity, `seekDefaults`. The Seek Sensitivity setting does not
- * apply to the scan. A channel that passes is kept as a memory channel,
+ * each one with the seek's stop decision from `core/seek.c`, at the Seek
+ * Sensitivity the seek uses. A channel that passes is kept as a memory channel,
  * the same 99 slots `core/memory.h` already owns. It is skipped rather
  * than stored again when a memory channel already sits within the walk's
  * tolerance of it on the same band, `memoryFindNear`. A slot that already

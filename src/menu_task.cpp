@@ -323,8 +323,8 @@ static const MenuRow kStationRows[] = {
     /*
      * The station scans, one a band. Each walks its band, from another band
      * too, adding a memory channel for whatever passes the seek's stop
-     * decision at the default seek sensitivity, not the Seek Sensitivity
-     * setting, and is not already stored nearby, through the same call
+     * decision at the Seek Sensitivity setting, and is not already stored
+     * nearby, through the same call
      * `POST /api/scan` makes. Its own value shows progress while it runs,
      * `textOf`'s scan case, since a scan takes from ten seconds to four
      * minutes and a row that just sat there would read as a radio that had

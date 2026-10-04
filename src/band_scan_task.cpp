@@ -225,8 +225,10 @@ void bandScanTaskPoll(void) {
     sScan.dialKHz = sScan.atKHz;
   }
 
+  /* The same sensitivity the seek uses, so one setting decides what counts
+   * as a station for both. */
   SeekConfig cfg;
-  seekDefaults(&cfg);
+  radioSeekConfig(&cfg);
   SeekReading readings[BAND_SCAN_MAX_READS];
   for (uint8_t i = 0; i < sScan.walk.reads; i++) {
     readings[i] = radioSeekReading(&q[i], probed == RADIO_PROBE_OK);

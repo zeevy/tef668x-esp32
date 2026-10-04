@@ -53,9 +53,11 @@ static int findNearIn(void *ctx, uint8_t band, uint32_t freqKHz,
  * channel in the sweep, the verdict from `bandScanJudge`, and on an add a
  * write to the lowest free slot of `m`, as the store's save does.
  */
-static void scanSweep(MemoryStore *m, int *found, int *added) {
+static void scanSweepAt(uint8_t sensitivity, MemoryStore *m, int *found,
+                        int *added) {
   SeekConfig cfg;
   seekDefaults(&cfg);
+  cfg.fmSensitivity = sensitivity;
   const BandScanWalk walk = fmWalk();
   *found = 0;
   *added = 0;
@@ -83,6 +85,10 @@ static void scanSweep(MemoryStore *m, int *found, int *added) {
   }
 }
 
+static void scanSweep(MemoryStore *m, int *found, int *added) {
+  scanSweepAt(SEEK_SENSITIVITY_DEFAULT, m, found, added);
+}
+
 static bool wasOnAir(uint32_t khz) {
   for (size_t i = 0; i < FM_SWEEP_STATION_COUNT; i++) {
     if (kFmSweepStations[i] == khz) {
@@ -105,6 +111,23 @@ static void a_scan_of_an_empty_store_adds_every_station(void) {
     TEST_ASSERT_NOT_EQUAL(MEMORY_NO_SLOT,
                           memoryFind(&m, BAND_FM, kFmSweepStations[i]));
   }
+}
+
+/* The scan judges at the Seek Sensitivity setting, as the seek does. At 1
+ * the noise limit drops 104.0 MHz, and at 6 it also keeps channels that are
+ * not stations, so the same sweep finds a different count at each end. */
+static void the_seek_sensitivity_changes_what_the_scan_finds(void) {
+  MemoryStore fussy;
+  MemoryStore loose;
+  memoryInit(&fussy);
+  memoryInit(&loose);
+  int found1 = 0;
+  int found6 = 0;
+  int added = 0;
+  scanSweepAt(SEEK_SENSITIVITY_MIN, &fussy, &found1, &added);
+  scanSweepAt(SEEK_SENSITIVITY_MAX, &loose, &found6, &added);
+  TEST_ASSERT_EQUAL_INT(FM_SWEEP_STATION_COUNT - 1, found1);
+  TEST_ASSERT_TRUE(found6 > FM_SWEEP_STATION_COUNT);
 }
 
 static void a_station_already_stored_is_skipped_not_duplicated(void) {
@@ -520,6 +543,7 @@ int main(int, char **) {
   UNITY_BEGIN();
 
   RUN_TEST(a_scan_of_an_empty_store_adds_every_station);
+  RUN_TEST(the_seek_sensitivity_changes_what_the_scan_finds);
   RUN_TEST(a_station_already_stored_is_skipped_not_duplicated);
   RUN_TEST(a_dedupe_tolerance_of_zero_only_catches_the_exact_channel);
   RUN_TEST(a_full_store_stops_adding_but_keeps_scanning);
