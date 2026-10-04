@@ -61,70 +61,29 @@ jobs:
       - name: Install the tools
         run: |
           python -m pip install --upgrade pip
-          pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
+          pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1 esp-idf-size==2.3.2
 
       - name: Run every gate
         run: tools/check.sh
 
-  measure:
-    name: measure the image
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      # This is the pull request merged onto master. Depth 2 brings its first
-      # parent too, which is the master it was merged onto.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          path: pr
-          fetch-depth: 2
-          persist-credentials: false
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-
-      - name: Cache the PlatformIO toolchain
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.platformio/.cache
-            ~/.platformio/packages
-            ~/.platformio/platforms
-          key: pio-${{ runner.os }}-${{ hashFiles('pr/platformio.ini') }}
-          restore-keys: pio-${{ runner.os }}-
-
-      - name: Install the tools
-        run: pip install platformio==6.2.0 esp-idf-size==2.3.2
-
-      # The first parent is checked out beside it and built the same way, so
-      # the comment can say what this change costs and not only what it
-      # weighs. The pull request's own base commit is not used: it stays where
-      # it was when the pull request was opened, and would count every merge
-      # to master since then.
-      #
-      # Building runs the extra_scripts from platformio.ini, which is code from
-      # the branch being tested. This job holds no write permission for exactly
-      # that reason. The numbers go out as files, and size-comment.yml posts
-      # them from a run of its own.
+      # The size of the image the build gate just made, for the comment that
+      # size-comment.yml posts on the pull request from a run of its own. It
+      # runs when another gate failed too, since the size is still worth
+      # seeing then.
       #
       # esp-idf-size reads the link map. Its DRAM figure is the static part,
       # .data and .bss, out of the 124,580 bytes the linker has for it. That is
       # the limit that matters, and the PlatformIO summary does not show it.
-      - name: Build and measure
+      - name: Measure the image
+        id: measure
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
         run: |
-          git -C pr worktree add "$PWD/base" HEAD^1
-          for side in pr base; do
-            pio run -d "$side" -e ats125
-            python -m esp_idf_size --format json2 \
-              "$side/.pio/build/ats125/firmware.map" > "$side.json"
-          done
-          python -m esp_idf_size pr/.pio/build/ats125/firmware.map
+          python -m esp_idf_size --format json2 .pio/build/ats125/firmware.map > size.json
+          python -m esp_idf_size .pio/build/ats125/firmware.map
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: ${{ !cancelled() && steps.measure.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: size-report
-          path: |
-            pr.json
-            base.json
+          path: size.json
           retention-days: 1
