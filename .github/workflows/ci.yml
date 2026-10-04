@@ -8,10 +8,10 @@
 # What this cannot do: the display, the tuner over I2C, touch and audio need a
 # radio. Those are checked by hand on a radio.
 #
-# Actions are on their latest major version tag. A major tag moves as the
-# action is patched, which is what keeps fixes coming without editing this file.
-# The job that holds a write token never checks out the branch it reports on,
-# which is what limits what a moved tag could reach.
+# Every action is pinned to the full commit SHA of its release, with the
+# version in a comment beside it. A tag can be moved to other code, a SHA
+# cannot. Dependabot opens a pull request when a new release comes out, and
+# updates the SHA and the comment together.
 
 name: checks
 
@@ -21,10 +21,15 @@ on:
   pull_request:
     branches: [master]
 
-# Read only by default. The one job that has to write says so itself, and that
-# job never checks out the code it is reporting on.
+# Read only. Nothing here writes: size-comment.yml posts the size comment.
 permissions:
   contents: read
+
+# A new push to a pull request cancels the run still going for the old one.
+# Runs on master are never cancelled, so every merge gets a full result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gates:
@@ -32,14 +37,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
       - name: Cache the PlatformIO toolchain
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.platformio/.cache
@@ -65,100 +72,59 @@ jobs:
     if: github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v7
+      # This is the pull request merged onto master. Depth 2 brings its first
+      # parent too, which is the master it was merged onto.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: pr
+          fetch-depth: 2
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
       - name: Cache the PlatformIO toolchain
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          key: pio-${{ runner.os }}-${{ hashFiles('pr/platformio.ini') }}
           restore-keys: pio-${{ runner.os }}-
 
-      - name: Install PlatformIO
-        run: pip install platformio==6.2.0
+      - name: Install the tools
+        run: pip install platformio==6.2.0 esp-idf-size==2.3.2
 
+      # The first parent is checked out beside it and built the same way, so
+      # the comment can say what this change costs and not only what it
+      # weighs. The pull request's own base commit is not used: it stays where
+      # it was when the pull request was opened, and would count every merge
+      # to master since then.
+      #
       # Building runs the extra_scripts from platformio.ini, which is code from
       # the branch being tested. This job holds no write permission for exactly
-      # that reason. The numbers go out as a file and a separate job posts them.
+      # that reason. The numbers go out as files, and size-comment.yml posts
+      # them from a run of its own.
+      #
+      # esp-idf-size reads the link map. Its DRAM figure is the static part,
+      # .data and .bss, out of the 124,580 bytes the linker has for it. That is
+      # the limit that matters, and the PlatformIO summary does not show it.
       - name: Build and measure
         run: |
-          pio run -e ats125 2>&1 | grep -E 'RAM:|Flash:' > size.txt
-          cat size.txt
-          echo "${{ github.event.number }}" > pr.txt
+          git -C pr worktree add "$PWD/base" HEAD^1
+          for side in pr base; do
+            pio run -d "$side" -e ats125
+            python -m esp_idf_size --format json2 \
+              "$side/.pio/build/ats125/firmware.map" > "$side.json"
+          done
+          python -m esp_idf_size pr/.pio/build/ats125/firmware.map
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: size-report
           path: |
-            size.txt
-            pr.txt
+            pr.json
+            base.json
           retention-days: 1
-
-  report:
-    name: size report
-    runs-on: ubuntu-latest
-    needs: measure
-    if: github.event_name == 'pull_request'
-    # A job level permissions block replaces the workflow level one rather than
-    # merging with it, so every scope this job needs is listed here. Leave one
-    # out and it becomes none, not read.
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: write
-
-    steps:
-      # No checkout. This job must never run code from the branch it reports on.
-      - uses: actions/download-artifact@v8
-        with:
-          name: size-report
-
-      - name: Say what it costs
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const fs = require('fs');
-            // The numbers are read from a file, never interpolated into this
-            // script as a workflow expression. Anything reaching the build log
-            // would otherwise run as code in a job that can write to the pull
-            // request. Note that an expression is evaluated even inside a
-            // comment, which is why one cannot be written here as an example.
-            const report = fs.readFileSync('size.txt', 'utf8').trim();
-            const body = [
-              '### Size on `ats125`',
-              '',
-              '```',
-              report,
-              '```',
-              '',
-              'One application slot is 3MB. The other 3MB holds the image this one replaces.',
-            ].join('\n');
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const mine = comments.find(c =>
-              c.user.type === 'Bot' && c.body.startsWith('### Size on'));
-            if (mine) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: mine.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
