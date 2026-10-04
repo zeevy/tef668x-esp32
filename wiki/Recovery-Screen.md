@@ -28,6 +28,6 @@ If a row could not save its change, it shows `Failed` and the radio stays on the
 
 ## After Start Hotspot
 
-With the hotspot set to On, the radio does not try your Wi-Fi at all. If Wi-Fi or Web Server was turned off, turn it on in the menu at **Connectivity** first. Join its network, `tef668x-setup-XXXX`, and open `http://192.168.4.1:8080`. Here the Wi-Fi form needs the access PIN: sign in first, then enter your network's details. Saving a network sets the hotspot back to Auto, and the radio joins that network.
+With the hotspot set to On, the radio does not try your Wi-Fi at all. If Wi-Fi or Web Server was turned off, turn it on in the menu at **Connectivity** first. Join its network, `tef668x-setup-XXXX`, and open `http://192.168.4.1:8080`. Here the Wi-Fi form needs the access PIN: sign in, open the **Network** page, and enter your network's details there. Saving a network sets the hotspot back to Auto, and the radio joins that network.
 
 The hotspot has no password. While it is set to On, anyone in range can reach the radio's web page, so keep your own access PIN set.

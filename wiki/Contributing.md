@@ -38,7 +38,7 @@ How the code is kept:
 
 ## Change the wiki
 
-This wiki is published from the `wiki/` folder of the repository each time `master` changes. To change a page, edit it there, in a pull request. An edit made on the wiki itself is replaced by the next publish.
+This wiki is published from the `wiki/` folder of the repository each time a change to that folder reaches `master`. To change a page, edit it there, in a pull request. An edit made on the wiki itself is replaced by the next publish.
 
 - When a change alters what a person sees or does, change the wiki page in the same pull request.
 - Links between pages are written `[Controls](Controls.md)`.

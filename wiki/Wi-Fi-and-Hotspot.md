@@ -31,7 +31,7 @@ flowchart TD
     AO -- Auto --> AP2(["Serve the hotspot"])
     AO -- Off --> N2([No network])
     S -- yes --> J["Try to join, up to 20 s"]
-    J -- joined --> ON(["On your network<br/>tef668x.local:8080"])
+    J -- joined --> ON(["On your network"])
     J -- failed --> F{Hotspot}
     F -- Auto --> AP3(["Serve the hotspot,<br/>try again every 5 minutes"])
     F -- Off --> J

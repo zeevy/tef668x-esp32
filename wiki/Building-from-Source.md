@@ -57,7 +57,7 @@ rm -rf .pio/build/ats125 && pio run -e ats125
 
 ## Draw the screen pictures
 
-The pictures in `assets/`, and on these wiki pages, come from the firmware's own drawing code, run on your computer. So they show exactly what the radio draws.
+The screen pictures in `assets/`, also used on these wiki pages, come from the firmware's own drawing code, run on your computer. So they show exactly what the radio draws. The web page pictures in the wiki are taken from the real web page in a browser.
 
 ```bash
 pio run -e ats125                                 # once, so LVGL is downloaded

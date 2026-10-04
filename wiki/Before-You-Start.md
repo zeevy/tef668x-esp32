@@ -19,9 +19,19 @@ There is no ready made firmware file to download yet, so the first install build
 
 ## The USB serial chip
 
-The radio talks to the computer through an FT232R USB serial chip. When the radio is plugged in, the computer shows a new serial port: a `COM` port on Windows, `/dev/cu.usbserial-...` on macOS, `/dev/ttyUSB0` or similar on Linux. If no port shows up, try another cable first. If it still does not show, install the FTDI VCP driver from [ftdichip.com](https://ftdichip.com/drivers/vcp-drivers/).
+The radio talks to the computer through a USB serial chip. The test radio has an FT232R. The seller lists a CH340 for this model, so your radio may have either.
 
-This chip has no auto reset. So for the [first install](First-Install-over-USB.md) you put the radio into download mode by hand, with its BOOT and RESET buttons. After that, every update goes [over Wi-Fi](Updating.md).
+When the radio is plugged in, the computer shows a new serial port:
+
+| System | FT232R | CH340 |
+|---|---|---|
+| Windows | A `COM` port | A `COM` port |
+| macOS | `/dev/cu.usbserial-...` | `/dev/cu.wchusbserial...` |
+| Linux | `/dev/ttyUSB0` or similar | `/dev/ttyUSB0` or similar |
+
+If no port shows up, try another cable first. If it still does not show, install the driver for your chip: the FTDI VCP driver from [ftdichip.com](https://ftdichip.com/drivers/vcp-drivers/) for an FT232R, or the CH340 driver from WCH for a CH340.
+
+The FT232R on the test radio has no auto reset. So for the [first install](First-Install-over-USB.md) you put the radio into download mode by hand, with its BOOT and RESET buttons. A radio with a CH340 may do this by itself; if the upload works without the buttons, you do not need them. After the first install, every update goes [over Wi-Fi](Updating.md).
 
 ## Know the risks
 

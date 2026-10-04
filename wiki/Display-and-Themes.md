@@ -17,7 +17,7 @@ The radio uses two of them: a **Day Theme** from 06:00 to 17:59 and a **Night Th
 | Daylight | Direct sun |
 | Paper | Hard sun, black on white |
 | LCD | Shade and bright rooms |
-| Red Night | A dark sky. Red only, to keep your eyes used to the dark |
+| Red Night | A dark sky. Only red and orange, to keep your eyes used to the dark |
 | Ember | The bedside |
 | Clear | Colours that people with colour blindness can tell apart |
 | Clear Day | Clear, for outdoors. The day theme at the start |
@@ -61,13 +61,13 @@ The screen dims over 750 ms. It does not dim when Dim Level is at or above Brigh
 | Percent | A battery shape, filled to the level, with no number |
 | Volts | A small battery and the voltage, such as `3.9` |
 
-The mark turns red at 20 % or less. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
+The mark turns to the theme's fault colour, red in most themes, at 20 % or less. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
 
 The battery is read once, at start up, because the ESP32's Wi-Fi uses the same part of the chip that reads it. While Wi-Fi is off it is read every second. **Menu > Diagnostics > Battery Voltage** shows the reading, with `at start` after it when it is the reading from start up.
 
 ## Level Offset
 
-**Display > Level Offset** has two rows, **FM Level Offset** and **AM Level Offset**: -25 to +15 dB in steps of 1, 0 dB at the start. The offset is added to every signal level the radio shows on its screen, the web page, and the station log and DX exports, so the readings can match another receiver's. The HTTP API sends the level as read, with the offset in a separate field, `lvo`. The FM value is for FM and OIRT, the AM value for LW, MW and SW. Seek, squelch and the other limits do not use it.
+**Display > Level Offset** has two rows, **FM Level Offset** and **AM Level Offset**: -25 to +15 dB in steps of 1, 0 dB at the start. The offset is added to every signal level the radio shows on its screen, the web page, and the station log and DX exports, so the readings can match another receiver's. In the HTTP API, `/api/state` and `/api/dx` send the level as read, with the offset in a separate field, `lvo`. The station log exports include the offset. The FM value is for FM and OIRT, the AM value for LW, MW and SW. Seek, squelch and the other limits do not use it.
 
 ## Startup Fade
 

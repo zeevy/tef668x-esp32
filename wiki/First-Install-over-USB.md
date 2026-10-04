@@ -47,6 +47,6 @@ If the upload stops with `Failed to connect to ESP32: No serial data received`, 
 
 ## 5. Start the radio
 
-When the upload is done, tap **RESET**. The USB chip cannot restart the radio by itself. If the screen stays dark, switch the radio off and on again.
+When the upload is done, tap **RESET**. The FT232R USB chip cannot restart the radio by itself. A radio with a CH340 may restart by itself. If the screen stays dark, switch the radio off and on again.
 
 The radio shows its boot screen and starts. With no Wi-Fi stored yet, it starts its own setup hotspot. Go on with [First Start and Wi-Fi](First-Start-and-Wi-Fi.md).
