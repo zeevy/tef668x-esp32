@@ -55,7 +55,7 @@ The menu has three levels: the groups, the rows of a group, and some rows that o
 | BAND, BW | Nothing | Nothing |
 | Keypad | Nothing, except the digits of the Web PIN | |
 
-Most values change as you turn, so you hear or see the result at once. A few act only when you press to keep them: the themes, Display Rotation, and the Connectivity rows. If you go back without keeping a value, the row shows `Not Saved` and the old value comes back. With no input for one minute, the menu closes and the radio screen comes back.
+Most values change as you turn, so you hear or see the result at once. A few act only when you press to keep them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without keeping a value, the row shows `Not Saved` and the old value comes back. With no input for one minute, the menu closes and the radio screen comes back.
 
 The menu opens again on the row you left, until the radio restarts.
 
