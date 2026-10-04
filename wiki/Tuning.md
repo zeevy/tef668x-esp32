@@ -23,7 +23,7 @@ The FM range is set by **FM Reception > Band Plan**:
 | 87-108 MHz | 87 to 108 MHz |
 | Wide | 76 to 108 MHz |
 | Japan | 76 to 95 MHz |
-| Full | 65 to 108 MHz. 65 to 74 MHz is still tuned as OIRT |
+| Full | 65 to 108 MHz. A frequency from 65 to 74 MHz that you type, or send from the API, goes to the OIRT band |
 
 **AM Reception > MW Step** sets the medium wave spacing: 9 kHz for Europe, Africa and Asia, 10 kHz for the Americas. It moves the band edges too. Band Plan and MW Step take effect after a restart.
 
@@ -59,7 +59,7 @@ A channel counts as a station when all of these hold:
 - the channel is centred, within 20 kHz on FM or 2 kHz on AM
 - the squelch opens on it
 
-**Seek Sensitivity** is a row in FM Reception and another in AM Reception, from 1 to 6, with 4 at the start. A higher number stops on weaker stations. At 4 on FM, a station must have a noise reading under 120, multipath under 32.0 % and a level of at least 10.0 dBµV.
+**Seek Sensitivity** is a row in FM Reception and another in AM Reception, from 1 to 6, with 4 at the start. A higher number stops on weaker stations. At 4 on FM, a station must have a noise reading (USN) under 12.0 %, multipath under 32.0 % and a level of at least 10.0 dBµV.
 
 A seek goes round at the band edge and keeps going. If it goes round the whole band and finds nothing, it stops where it is. Any other key or command also stops it.
 
@@ -78,7 +78,7 @@ So `1064` tunes:
 | SW | 10640 kHz |
 
 - When the number does not fit the band you are on but fits more than one other band, a list opens, for example `Tune 1064 to`, with `Medium Wave 1064 kHz`, `Shortwave 10640 kHz` and `FM 106.40 MHz`. Turn to pick one and press to tune.
-- When it fits no band, the name line says `1064 is in no band` and the digits are cleared.
+- When it fits no band, the name line says the number `is in no band`, and the digits are cleared.
 - Up to 7 digits are taken. The digits are dropped 10 seconds after the last one.
 - A turn of the knob or any other button drops the digits. ENTER held drops them and writes the station to the station log.
 - A typed frequency is tuned as typed. It is not moved to the step size.
