@@ -217,6 +217,16 @@ const char *rollbackRunningPartition(void) {
 bool rollbackPending(void) {
   return false;
 }
+/* The update check: a newer release found, so both of its fields show. */
+const char *updateCheckStateName(void) {
+  return "found";
+}
+const char *updateCheckVersion(void) {
+  return "0.2.0";
+}
+uint32_t updateCheckSize(void) {
+  return 1714848;
+}
 const char *restartReasonText(void) {
   return "power";
 }
@@ -582,6 +592,15 @@ static void the_image_check_and_the_stack_marks_are_reported(void) {
   TEST_ASSERT_EQUAL_STRING("2600", at(stk, "lop").text.c_str());
 }
 
+static void a_found_update_is_reported_with_its_version_and_size(void) {
+  const Json doc = state();
+  const Json &upd = at(doc, "upd");
+  TEST_ASSERT_EQUAL_INT('{', upd.kind);
+  TEST_ASSERT_EQUAL_STRING("found", at(upd, "st").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("0.2.0", at(upd, "ver").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("1714848", at(upd, "sz").text.c_str());
+}
+
 static void a_tuner_that_did_not_start_still_gives_valid_json(void) {
   tunerStarted = false;
   const Json doc = state();
@@ -609,6 +628,7 @@ int main(int argc, char **argv) {
   RUN_TEST(the_last_scan_says_how_many_found_no_room);
   RUN_TEST(station_text_with_quotes_and_control_characters_comes_back_whole);
   RUN_TEST(the_image_check_and_the_stack_marks_are_reported);
+  RUN_TEST(a_found_update_is_reported_with_its_version_and_size);
   RUN_TEST(a_tuner_that_did_not_start_still_gives_valid_json);
   RUN_TEST(rds_off_and_the_access_point_still_give_valid_json);
   return UNITY_END();

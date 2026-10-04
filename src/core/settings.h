@@ -1,9 +1,11 @@
 /*
  * Every setting in one versioned struct, never an address map.
  *
- * Adding a setting is adding a field and bumping SETTINGS_VERSION. Reading a
- * struct written by an older firmware goes through settingsFromBlob, which
- * fills anything the old struct did not have with the default.
+ * Adding a setting is adding a field at the end, and bumping SETTINGS_VERSION
+ * when the struct grows. Reading a struct written by an older firmware goes
+ * through settingsFromBlob, which fills anything the old struct did not have
+ * with the default; one written by a newer firmware is read up to the fields
+ * this one knows.
  *
  * Nothing in here touches hardware or NVS, so it builds and is tested on a PC.
  * The NVS side lives in drivers/settings_nvs.h.
@@ -27,7 +29,14 @@
 extern "C" {
 #endif
 
-/* Bump this whenever a field is added, removed or changes meaning. */
+/*
+ * Bump this when the struct grows. A new version only adds fields after the
+ * old ones and never moves or changes an old one, so a firmware can still
+ * read a newer firmware's settings up to the fields it knows, which is what
+ * an update that rolls back needs. A field that fits in the padding an older
+ * version left keeps the version, since that firmware reads the byte as
+ * padding.
+ */
 #define SETTINGS_VERSION 31
 
 /* Room for a 32 character SSID and its terminator. */
@@ -418,6 +427,13 @@ typedef struct {
    * alone before the radio goes to sleep, one `autoOffMinutesOk` takes; 0
    * for never. */
   uint16_t autoOffMinutes;
+
+  /* In the padding version 31 leaves after `autoOffMinutes`, with the
+   * version left at 31, so a firmware that does not know it still reads
+   * these settings after a rollback. Every struct starts zeroed, so a blob
+   * written before it reads as 0. 1 to look on GitHub for a newer release
+   * once the radio is on the network; 0, the default, never to look. */
+  uint8_t updateCheck;
 } Settings;
 
 void settingsDefaults(Settings *s);

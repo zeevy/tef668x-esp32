@@ -114,11 +114,14 @@ DxWriteResult dxTaskLogCatch(uint8_t index);
 void dxTaskNoteLogged(uint32_t khz, uint16_t pi);
 
 typedef enum {
-  DX_SCAN_PRESS_RUNNING,  /* Started, or gone on after a stop. */
-  DX_SCAN_PRESS_FINISHED, /* Gone on from the top: finished at once. */
-  DX_SCAN_PRESS_NOTHING,  /* No channel to walk: all stored, or none in
+  DX_SCAN_PRESS_RUNNING,      /* Started, or gone on after a stop. */
+  DX_SCAN_PRESS_FINISHED,     /* Gone on from the top: finished at once. */
+  DX_SCAN_PRESS_NOTHING,      /* No channel to walk: all stored, or none in
                            * memory. */
-  DX_SCAN_PRESS_BUSY,     /* Already running, or a band scan is. */
+  DX_SCAN_PRESS_BUSY,         /* Already running, or a band scan is. */
+  DX_SCAN_PRESS_UPDATE_CHECK, /* The update check is out on the network,
+                               * and its transmitting would raise the
+                               * levels read. */
   DX_SCAN_PRESS_RDS_OFF, /* The RDS decoder is off, so nothing could stop it. */
   DX_SCAN_PRESS_NO_RADIO,   /* The radio could not be read. */
   DX_SCAN_PRESS_NO_SEEN,    /* Learning, and the seen set could not be read. */

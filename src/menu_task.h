@@ -49,6 +49,14 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
                         uint8_t count);
 
 /*
+ * Open the offer of the newer release the update check found: a box with the
+ * versions and the size, and the buttons Update and Later. The loop calls it
+ * when the check found one and the radio screen is up on its own. False when
+ * there is nothing to offer or no screen for it.
+ */
+bool menuTaskOpenUpdateOffer(void);
+
+/*
  * Close it from outside, for anything that needs the panel.
  *
  * An edit in flight is cancelled and the old value put back, because it was

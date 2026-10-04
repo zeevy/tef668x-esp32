@@ -11,6 +11,7 @@
 #include "firmware_write.h"
 #include "net/restart_reason.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/web_assets.h"
 #include "radio_task.h"
 #include "reply_times.h"
@@ -257,6 +258,44 @@ static void handleReboot(void) {
   sWeb->rebootAfterReply = true;
 }
 
+/*
+ * Install the newer release the update check found, from GitHub. The same
+ * call the menu's offer makes. The answer goes out first; the download runs
+ * on the loop's next pass and the panel shows its progress.
+ */
+static void handleUpdateInstall(void) {
+  sWeb->requests++;
+  if (!requireAuth(false)) {
+    return;
+  }
+  switch (updateCheckInstall()) {
+    case UPDATE_INSTALL_STARTING:
+      sendResult(202, "Installing",
+                 "The radio is downloading the new firmware from GitHub and "
+                 "writing it. Its screen shows the progress, and it restarts "
+                 "into the new firmware when it is done.",
+                 false);
+      return;
+    case UPDATE_INSTALL_ON_TRIAL:
+      sendResult(409, "Not now",
+                 "The firmware the radio is running is still proving itself, "
+                 "and a restart now would put the old one back. Wait until "
+                 "cnf in /api/state is true.",
+                 true);
+      return;
+    case UPDATE_INSTALL_BUSY:
+      sendResult(409, "Not now",
+                 "A station scan is running. Try again when it stops.", true);
+      return;
+    case UPDATE_INSTALL_NOTHING:
+    default:
+      sendResult(409, "Nothing to install",
+                 "No newer release was found at the check of this start.",
+                 true);
+      return;
+  }
+}
+
 static void handleNotFound(void) {
   sWeb->requests++;
   /* A script on an API path that is not there, or with a method the path
@@ -289,6 +328,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   webAuthRegisterRoutes(sWeb);
   sWeb->server.on("/update", HTTP_POST, handleUploadDone, handleUploadData);
   sWeb->server.on("/reboot", HTTP_POST, handleReboot);
+  sWeb->server.on("/update/install", HTTP_POST, handleUpdateInstall);
   webPagesRegisterRoutes(sWeb);
   webApiRegisterRoutes(sWeb);
   webStateRegisterRoutes(sWeb);

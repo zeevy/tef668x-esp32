@@ -36,6 +36,7 @@ A short note shows when something could not be done: in a list, on the row in pl
 | `Switch to FM first` | DX Mode, Start Scan or Learn Local Stations on AM |
 | `Turn on RDS first` | Learn Local Stations with the RDS Decoder off |
 | `Update on trial - wait` | Restart Radio while a new firmware is on trial, or Sleep while one is written or on trial |
+| `No update found` | Firmware Update pressed while no newer release is known |
 | `Not saved - restored` | The setting could not be saved, so the old value came back |
 | `Radio busy - not restored` | A cancel could not reach the tuner, so the tuner kept the new value |
 
@@ -181,6 +182,8 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Row | Values | New radio | What it does |
 |---|---|---|---|
 | Auto Off | Off, 5 to 600 minutes in steps of 5 | Off | Minutes with no input before the radio sleeps |
+| Check for Updates | Off, On | Off | Looks on GitHub for a newer release once the radio is on the network, at every start, and when the menu closes after it is turned on. See [Updating](Updating.md#from-github-on-the-radio) |
+| Firmware Update | Press | | While a newer release is known, it is called **Update to** and the version, with the size: press it for the offer, a box with the versions and the size and the buttons **Update** and **Later**. Otherwise its value says why there is nothing to install, `Up to date`, `Not checked`, `Checking`, `Check failed`, or `Off` before any check in this start, and a press shows `No update found` |
 | Restart Radio | No, Yes | No | Press, turn to Yes, press again. The radio restarts |
 
 ## Diagnostics

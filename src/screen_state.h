@@ -48,6 +48,7 @@ typedef struct {
   const char *date;        /* The date line, or NULL the same way. */
   const char *fault;       /* What the tuner last refused, or NULL. */
   const char *logConfirm;  /* "Logged 106.40" while it holds, or NULL. */
+  const char *notice;      /* The line under the panel's message, or NULL. */
   /* Whole dB added to the level shown and to the tuning scale's peak, the
    * band's side's offset. */
   int8_t levelOffsetDb;

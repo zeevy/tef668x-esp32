@@ -20,6 +20,10 @@ Yes. Each release on the [Releases page](https://github.com/zeevy/tef668x-esp32/
 
 No. Only the first install goes over USB. After that, updates go over Wi-Fi, and the radio goes back to the old firmware by itself if a new one does not work. See [Updating](Updating.md).
 
+### Does the radio update itself?
+
+Only when you say yes. Turn on **System > Check for Updates**, and the radio looks on GitHub for a newer release once it is on your network, and offers it on the screen. Nothing is installed until you say yes: **Update** on the radio, or **Install** on the web page's System page. See [Updating](Updating.md#from-github-on-the-radio).
+
 ### Does the radio need Wi-Fi or the internet?
 
 No. It works as a radio with Wi-Fi off. Wi-Fi is needed for the web page, the HTTP API, updates and the clock. The internet is needed only for the clock, which is set from a time server.

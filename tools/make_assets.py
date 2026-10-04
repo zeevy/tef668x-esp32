@@ -26,7 +26,7 @@ FRAME = (0x1C, 0x1D, 0x20)
 SCREENS = [
     # The radio screen.
     "cap-fm-106400", "cap-fm-93500", "fm", "fm-memory", "fm-typing",
-    "fm-squelched", "fm-logged", "mw", "sw", "oirt",
+    "fm-squelched", "fm-logged", "fm-checking-updates", "mw", "sw", "oirt",
     # The RDS pages.
     "rds-station", "rds-text", "rds-networks", "rds-decoder",
     # DX mode.
@@ -34,7 +34,7 @@ SCREENS = [
     # The menu.
     "menu-groups", "menu-sub", "menu-value", "menu-theme", "menu-presets",
     "menu-station-log", "menu-network-info", "menu-diagnostics",
-    "menu-about", "menu-typed-choice",
+    "menu-about", "menu-typed-choice", "menu-update-offer",
     # The bandwidth page.
     "bw-fm", "bw-mw",
     # Start up, update, sleep and recovery.

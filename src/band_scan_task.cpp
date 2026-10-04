@@ -8,6 +8,7 @@
 #include "core/radio.h"
 #include "core/seek.h"
 #include "memory_store.h"
+#include "net/update_check.h"
 #include "radio_task.h"
 
 /*
@@ -73,7 +74,7 @@ static bool postAndWait(RadioCommand *cmd, uint32_t waitMs) {
 }
 
 BandScanStartResult bandScanStart(BandId band) {
-  if (sScan.active) {
+  if (sScan.active || updateCheckRunning()) {
     return BAND_SCAN_BUSY;
   }
   BandPlanConfig plan;

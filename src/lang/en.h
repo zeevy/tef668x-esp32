@@ -102,6 +102,23 @@
   X(MENU_NETWORK_INFO, "Network Info", "Sub-group name, Connectivity > Network Info: the read only rows") \
   X(MENU_RESTART, "Restart Radio", "Menu row name, System group") \
   X(MENU_AUTO_OFF, "Auto Off", "Menu row name, System group: minutes alone before the radio sleeps") \
+  X(MENU_UPDATE_CHECK, "Check for Updates", "Menu row name, System group: On to look on GitHub for a newer release once the radio is on the network") \
+  X(MENU_FIRMWARE_UPDATE, "Firmware Update", "Menu row name, System group, while no newer release is known; its value says why") \
+  X(MENU_FMT_UPDATE_TO, "Update to %s", "Menu row name, System group, while a newer release is known. %s is the newer version, such as 0.2.0") \
+  X(MENU_UPDATE_TITLE, "Update available", "Update offer: the title of the box") \
+  X(MENU_UPDATE_THIS_RADIO, "This radio", "Update offer, first fact: the version this radio runs") \
+  X(MENU_UPDATE_NEW_VERSION, "New version", "Update offer, second fact: the version on offer") \
+  X(MENU_UPDATE_DOWNLOAD, "Download", "Update offer, third fact: the image size") \
+  X(MENU_UPDATE_SETTINGS, "Settings", "Update offer, fourth fact: what happens to the settings") \
+  X(MENU_UPDATE_KEPT, "Kept", "Update offer, value of the Settings fact") \
+  X(MENU_UPDATE_NOW, "Update", "Update offer, left button: download and install the newer version") \
+  X(MENU_LATER, "Later", "Update offer, right button: close the offer") \
+  X(MENU_FMT_MEGABYTES, "%s MB", "Value of the Update to row and of the offer's Download fact: the image size, %s such as 1.7") \
+  X(MENU_UPDATE_UP_TO_DATE, "Up to date", "Value of the Firmware Update row: no newer release") \
+  X(MENU_UPDATE_CHECKING, "Checking", "Value of the Firmware Update row: the radio is looking on GitHub now") \
+  X(MENU_UPDATE_NOT_CHECKED, "Not checked", "Value of the Firmware Update row: Check for Updates is on and the radio has not looked yet in this start") \
+  X(MENU_UPDATE_CHECK_FAILED, "Check failed", "Value of the Firmware Update row: GitHub could not be reached, or the release was refused") \
+  X(MENU_NOTE_NO_UPDATE, "No update found", "Menu, note after pressing Firmware Update while no newer release is known") \
   X(MENU_VERSION, "Firmware Version", "Menu row name, About group, read only") \
   X(MENU_RUNNING_FROM, "Boot Source", "Menu row name, Diagnostics group, read only") \
   X(MENU_UPTIME, "Uptime", "Menu row name, Diagnostics group, read only") \
@@ -253,6 +270,7 @@
   X(BOOT_KEYPAD, "Keypad", "Boot screen step name") \
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
+  X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the amber panel, in place of the radio text, while the update check runs") \
   X(RADIO_UPDATE_FAILED, "Update Failed", "Title of the message screen after a failed OTA") \
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \
   X(RADIO_PRESS_KNOB_TO_WAKE, "Press the knob to wake", "Detail line of that message: the only way to wake the radio") \
@@ -270,6 +288,7 @@
   X(DX_SCANNING, "Scanning", "Result of a Scanner press, `dxTaskPressText()`, shown as confirm text") \
   X(DX_SCAN_FINISHED, "Scan Complete", "Scanner press result") \
   X(DX_NOTHING_TO_SCAN, "Nothing to Scan", "Scanner press result") \
+  X(DX_CHECKING_FOR_UPDATES, "Checking For Updates", "Scanner press result while the update check is out on the network") \
   X(DX_A_SCAN_IS_RUNNING, "Scan Already Running", "Scanner press result; Scope press result") \
   X(DX_CAUGHT_LIST_UNREAD, "Catch List Unavailable", "Scanner press result") \
   X(DX_NO_MEMORY, "No Presets", "Scanner press result; Scope press result") \

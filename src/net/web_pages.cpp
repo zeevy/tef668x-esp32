@@ -17,12 +17,14 @@
 #include "core/signal.h"
 #include "core/squelch.h"
 #include "core/theme_colour.h"
+#include "core/update_check.h"
 #include "core/version.h"
 #include "core/web_text.h"
 #include "core/wifi_signal.h"
 #include "drivers/battery_adc.h"
 #include "drivers/tef668x.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
 #include "screen_task.h"
@@ -1331,6 +1333,23 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   out += cardClose();
   out += F("</div>");
 
+  out += F("<div class=section-head><h2>Updates</h2><hr></div>");
+  out += F("<div class=page-grid>");
+  out += cardOpen("From GitHub releases");
+  out += formOpen("/api/settings");
+  out += F("<div class=grid>");
+  out += formSelect("upc", "Check for updates", offOn, zeroOne, 2,
+                    st->updateCheck, kAuto);
+  out +=
+      F("</div><p><small>On, the radio looks for a newer release once "
+        "it is on the network, once each start, and offers it on its "
+        "screen. Nothing is installed until somebody says yes. The "
+        "<a href=/system>System</a> page shows what it found.</small></p>");
+  out += F("<button type=submit class='secondary fallback'>Save</button>");
+  out += formClose();
+  out += cardClose();
+  out += F("</div>");
+
   out +=
       F("<div class=section-head><h2>Advanced, needs a reboot</h2><hr>"
         "</div>");
@@ -1912,6 +1931,69 @@ static void handleNetworkPage(void) {
   out += pageTail();
 }
 
+/*
+ * What the update check found, for the System page, with an Install button
+ * that asks first while a newer release is known. A plain form and a native
+ * dialog, as the Reboot card has: this page loads no script.
+ */
+static String updateCard(void) {
+  String out;
+  switch (updateCheckState()) {
+    case UPDATE_STATE_FOUND: {
+      char mb[12];
+      updateFormatMegabytes(updateCheckSize(), mb, sizeof(mb));
+      out += F("<p>Version <strong>");
+      out += updateCheckVersion();
+      out += F("</strong> is available, ");
+      out += mb;
+      out +=
+          F(" MB.</p><button type=button "
+            "onclick='confirmUpdate.showModal()'>Install</button>"
+            "<dialog id=confirmUpdate><article>"
+            "<header>Install version ");
+      out += updateCheckVersion();
+      out +=
+          F("?</header><p>The radio downloads it from GitHub, writes it "
+            "and restarts into it. It keeps the version it has now, and "
+            "goes back to it by itself if the new one does not come "
+            "up.</p><footer>"
+            "<button type=button class=secondary "
+            "onclick='confirmUpdate.close()'>Cancel</button>"
+            "<form method=post action='/update/install' "
+            "style='display:inline'>"
+            "<button type=submit>Install</button></form>"
+            "</footer></article></dialog>");
+      return out;
+    }
+    case UPDATE_STATE_NONE:
+      out +=
+          F("<p>Up to date: no newer release at the check of this "
+            "start.</p>");
+      return out;
+    case UPDATE_STATE_WAITING:
+      out +=
+          F("<p>Not checked yet. The radio looks once it is on the "
+            "network.</p>");
+      return out;
+    case UPDATE_STATE_CHECKING:
+      out +=
+          F("<p>Looking on GitHub now. Reload the page in a few "
+            "seconds.</p>");
+      return out;
+    case UPDATE_STATE_FAILED:
+      out +=
+          F("<p class=warn>The check could not be made. It is tried "
+            "again at the next start.</p>");
+      return out;
+    case UPDATE_STATE_OFF:
+    default:
+      out +=
+          F("<p>Check for updates is off. Turn it on in "
+            "<a href=/settings>Settings</a>.</p>");
+      return out;
+  }
+}
+
 static void handleSystemPage(void) {
   sWeb->requests++;
   sWeb->server.sendHeader("Cache-Control", "no-store");
@@ -1963,6 +2045,10 @@ static void handleSystemPage(void) {
         "<form method=post action='/update' enctype='multipart/form-data'>"
         "<input type=file name=firmware accept='.bin' required>"
         "<button type=submit>Upload and reboot</button></form>");
+  out += cardClose();
+
+  out += cardOpen("From GitHub releases");
+  out += updateCard();
   out += cardClose();
 
   out += cardOpen("Reboot");

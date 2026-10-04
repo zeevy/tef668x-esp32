@@ -51,15 +51,81 @@ static void settings_survive_a_round_trip_through_bytes(void) {
   TEST_ASSERT_TRUE(settingsHasWifi(&read));
 }
 
-static void a_blob_from_a_newer_firmware_falls_back_to_defaults(void) {
+/* A newer firmware's struct: this one's fields first, then `extra` bytes of
+ * fields this firmware does not know. */
+static size_t makeNewer(uint8_t *blob, const Settings *from, size_t extra) {
+  memcpy(blob, from, sizeof(Settings));
+  memset(blob + sizeof(Settings), 0xA5, extra);
+  uint16_t version = SETTINGS_VERSION + 1;
+  uint16_t size = (uint16_t)(sizeof(Settings) + extra);
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+  return sizeof(Settings) + extra;
+}
+
+/* What an update that rolled back leaves: the settings, Wi-Fi and PIN come
+ * across, read up to the fields this firmware knows. */
+static void a_blob_from_a_newer_firmware_is_read_up_to_the_known_fields(void) {
   Settings written;
   settingsDefaults(&written);
   settingsSetWifi(&written, "MyNetwork", "hunter2hunter2");
-  written.version = SETTINGS_VERSION + 1;
+  written.accessPin = 123456;
+  written.startFreqKHz = 102800;
+  uint8_t blob[sizeof(Settings) + 16];
+  const size_t len = makeNewer(blob, &written, 16);
 
   Settings read;
-  TEST_ASSERT_FALSE(settingsFromBlob(&written, sizeof(written), &read));
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, len, &read));
+  TEST_ASSERT_TRUE(settingsHasWifi(&read));
+  TEST_ASSERT_EQUAL_STRING("MyNetwork", read.wifiSsid);
+  TEST_ASSERT_EQUAL_UINT32(123456, read.accessPin);
+  TEST_ASSERT_EQUAL_UINT32(102800, read.startFreqKHz);
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, read.version);
+  TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), read.size);
+  TEST_ASSERT_TRUE(settingsValid(&read));
+}
+
+/* A newer firmware that only used this one's padding writes the same
+ * length, and reads the same way. */
+static void a_newer_blob_of_the_same_length_is_read_too(void) {
+  Settings written;
+  settingsDefaults(&written);
+  settingsSetWifi(&written, "MyNetwork", "hunter2hunter2");
+  uint8_t blob[sizeof(Settings)];
+  const size_t len = makeNewer(blob, &written, 0);
+  Settings read;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, len, &read));
+  TEST_ASSERT_TRUE(settingsHasWifi(&read));
+}
+
+/* A newer version never shrinks the struct, so a shorter one, or one whose
+ * size is not its length, is corrupt and the defaults are safer. */
+static void a_newer_blob_that_is_short_or_mislabelled_falls_back(void) {
+  Settings written;
+  settingsDefaults(&written);
+  settingsSetWifi(&written, "MyNetwork", "hunter2hunter2");
+  uint8_t blob[sizeof(Settings) + 8];
+  size_t len = makeNewer(blob, &written, 8);
+  Settings read;
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len - 9, &read));
   TEST_ASSERT_FALSE(settingsHasWifi(&read));
+  TEST_ASSERT_TRUE(settingsValid(&read));
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len - 1, &read));
+  TEST_ASSERT_FALSE(settingsHasWifi(&read));
+}
+
+/* A newer firmware's value this one cannot use, such as a hotspot mode it
+ * does not have, still costs the struct: the defaults come up. */
+static void a_newer_blob_holding_a_value_this_firmware_refuses_falls_back(
+    void) {
+  Settings written;
+  settingsDefaults(&written);
+  settingsSetWifi(&written, "MyNetwork", "hunter2hunter2");
+  written.hotspot = 9;
+  uint8_t blob[sizeof(Settings) + 4];
+  const size_t len = makeNewer(blob, &written, 4);
+  Settings read;
+  TEST_ASSERT_FALSE(settingsFromBlob(blob, len, &read));
   TEST_ASSERT_TRUE(settingsValid(&read));
 }
 
@@ -433,8 +499,9 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
  * so both write 272 too. Version 31 writes 276. */
 #define V28_SIZE 272
 
-/* What the struct is today: version 31's two byte auto off at 272, and two
- * bytes of padding. */
+/* What the struct is today: version 31's two byte auto off at 272, the
+ * update check at 274 in what version 31 first wrote as padding, and one
+ * byte of padding. */
 #define V31_SIZE 276
 
 /*
@@ -1892,6 +1959,41 @@ static void a_version_30_blob_keeps_its_auto_off_time(void) {
   TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
 }
 
+/* The update check sits in version 31's padding with the version left at
+ * 31. A blob written before it holds 0 there, since every struct starts
+ * zeroed, and a stray byte reads as off rather than costing the struct. */
+static void the_update_check_in_version_31_padding_reads_as_off(void) {
+  TEST_ASSERT_EQUAL_size_t(274, offsetof(Settings, updateCheck));
+  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  Settings source;
+  settingsDefaults(&source);
+  source.autoOffMinutes = 45;
+  uint8_t blob[V31_SIZE];
+  memcpy(blob, &source, V31_SIZE);
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT16(45, out.autoOffMinutes);
+  TEST_ASSERT_EQUAL_UINT8(0, out.updateCheck);
+  blob[274] = 1;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.updateCheck);
+  blob[274] = 7;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.updateCheck);
+  TEST_ASSERT_EQUAL_UINT16(45, out.autoOffMinutes);
+}
+
+/* Off on a new radio, and only 0 or 1. */
+static void the_update_check_is_off_and_takes_only_0_or_1(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_EQUAL_UINT8(0, s.updateCheck);
+  s.updateCheck = 1;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.updateCheck = 2;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
 /* Up to ten hours, and not a minute more. */
 static void an_auto_off_time_nobody_can_choose_is_refused(void) {
   Settings s;
@@ -2080,7 +2182,10 @@ int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(defaults_are_valid_and_have_no_wifi);
   RUN_TEST(settings_survive_a_round_trip_through_bytes);
-  RUN_TEST(a_blob_from_a_newer_firmware_falls_back_to_defaults);
+  RUN_TEST(a_blob_from_a_newer_firmware_is_read_up_to_the_known_fields);
+  RUN_TEST(a_newer_blob_of_the_same_length_is_read_too);
+  RUN_TEST(a_newer_blob_that_is_short_or_mislabelled_falls_back);
+  RUN_TEST(a_newer_blob_holding_a_value_this_firmware_refuses_falls_back);
   RUN_TEST(a_blob_with_version_zero_falls_back_to_defaults);
   RUN_TEST(a_version_one_blob_has_to_be_exactly_the_version_one_size);
   RUN_TEST(a_truncated_blob_is_rejected_rather_than_half_read);
@@ -2168,6 +2273,8 @@ int main(int, char **) {
   RUN_TEST(a_version_28_blob_gets_wifi_and_the_web_server_on);
   RUN_TEST(a_version_29_blob_gets_auto_off_off);
   RUN_TEST(a_version_30_blob_keeps_its_auto_off_time);
+  RUN_TEST(the_update_check_in_version_31_padding_reads_as_off);
+  RUN_TEST(the_update_check_is_off_and_takes_only_0_or_1);
   RUN_TEST(an_auto_off_time_nobody_can_choose_is_refused);
   RUN_TEST(a_switch_past_one_is_refused);
   RUN_TEST(new_network_details_turn_a_hotspot_on_back_to_auto);

@@ -32,6 +32,7 @@
 #include "drivers/power.h"
 #include "drivers/settings_nvs.h"
 #include "drivers/tef668x.h"
+#include "dx_task.h"
 #include "input_task.h"
 #include "memory_store.h"
 #include "menu_task.h"
@@ -40,6 +41,7 @@
 #include "net/ota_service.h"
 #include "net/restart_reason.h"
 #include "net/rollback.h"
+#include "net/update_check.h"
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
 #include "radio_task.h"
@@ -47,6 +49,15 @@
 #include "screen_task.h"
 #include "settings_task.h"
 #include "sleep_task.h"
+
+/*
+ * The loop's stack. The framework gives 8192 bytes, and the loop never went
+ * deeper than 5504 of them, but the install of an update from GitHub runs a
+ * TLS handshake on this stack, which the 2688 bytes left would not hold.
+ * 12 KB keeps a quarter of the stack unreached with the handshake on top, at
+ * a cost of 4 KB of heap.
+ */
+SET_LOOP_TASK_STACK_SIZE(12 * 1024);
 
 /* The live settings, loaded once at boot and written back when they change. */
 static Settings gSettings;
@@ -526,6 +537,7 @@ void setup() {
   ntpBegin(&gSettings);
 
   webBegin(&gSettings, gAccessPin);
+  updateCheckBegin(&gSettings);
 
   printBanner();
 
@@ -540,11 +552,24 @@ void setup() {
 }
 
 /*
- * The loop runs on the framework's own stack, 8192 bytes. Measured with
- * `lop` in GET /api/state, the part it has never reached: every page and
- * export, the whole menu, the DX pages with a level sweep, the RDS screen
- * and a refused update took it to 5504 bytes, leaving 2688, 33 %, which
- * keeps the rule that at least a quarter of each stack stays unreached.
+ * Something a person is using that the update offer would close, or a scan
+ * or a sweep reading the tuner while the check's traffic goes out: the menu,
+ * DX mode, the RDS pages or the bandwidth page, or a screen that is saying
+ * something. The check, and its offer, wait until the radio screen is up on
+ * its own.
+ */
+static bool updateWouldInterrupt(void) {
+  return bandScanActive() || dxTaskScan()->state == DX_SCAN_RUNNING ||
+         radioSweepBusy() || menuTaskIsOpen() || screenTaskDxIsOpen() ||
+         screenTaskRdsIsOpen() || screenTaskBwIsOpen() ||
+         screenTaskSleepShowing() || screenTaskBootShowing() ||
+         screenTaskUpdateHolding();
+}
+
+/*
+ * The loop runs on the stack set at the top of this file. Measure it with
+ * `lop` in GET /api/state, the part it has never reached, and keep at least a
+ * quarter of it unreached.
  */
 void loop() {
   /* First, so a turn of the knob is acted on before anything slower runs. */
@@ -559,6 +584,16 @@ void loop() {
   wifiLoop();
   otaLoop(gSettings.webEnabled != 0);
   webLoop();
+  {
+    /* A newer release is offered once the radio screen is up on its own,
+     * worked out here in the same pass that opens it, so nothing can open in
+     * between and be closed by the offer. */
+    const bool busy = updateWouldInterrupt();
+    updateCheckLoop(busy);
+    if (!busy && updateCheckTakeOffer()) {
+      (void)menuTaskOpenUpdateOffer();
+    }
+  }
 
   /* An image written over the air is on trial until the radio proves it can
    * still be reached. Being reachable is how a fix gets installed, so it is

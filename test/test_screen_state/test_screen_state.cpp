@@ -428,16 +428,19 @@ static void the_clock_date_fault_and_log_confirm_are_null_until_set(void) {
   TEST_ASSERT_NULL(state.date);
   TEST_ASSERT_NULL(state.fault);
   TEST_ASSERT_NULL(state.logConfirm);
+  TEST_ASSERT_NULL(state.notice);
 
   in.clock = "05:09";
   in.date = "Wednesday, 30th September 2026";
   in.fault = "TUNE REFUSED";
   in.logConfirm = "LOGGED";
+  in.notice = "CHECKING";
   buildNow();
   TEST_ASSERT_EQUAL_PTR(in.clock, state.clock);
   TEST_ASSERT_EQUAL_PTR(in.date, state.date);
   TEST_ASSERT_EQUAL_PTR(in.fault, state.fault);
   TEST_ASSERT_EQUAL_PTR(in.logConfirm, state.logConfirm);
+  TEST_ASSERT_EQUAL_PTR(in.notice, state.notice);
 
   /* And back to NULL when the caller has nothing again. */
   in.clock = NULL;

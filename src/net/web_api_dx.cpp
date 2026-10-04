@@ -85,7 +85,7 @@ static void handleApiDx(void) {
         default:
           apiFail(503,
                   "The radio would not sweep now: it is seeking, off "
-                  "FM, or restarting.");
+                  "FM, restarting, or checking for updates.");
           return;
       }
     }
@@ -140,6 +140,11 @@ static void handleApiDx(void) {
         return;
       case DX_SCAN_PRESS_BUSY:
         apiFail(409, "A scan is running. Stop it first.");
+        return;
+      case DX_SCAN_PRESS_UPDATE_CHECK:
+        apiFail(409,
+                "The radio is checking for updates. Try again in a few "
+                "seconds.");
         return;
       case DX_SCAN_PRESS_RDS_OFF:
         apiFail(409,

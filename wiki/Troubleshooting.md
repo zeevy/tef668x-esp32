@@ -44,6 +44,15 @@ After five wrong PINs, signing in is locked for a minute.
 - **The radio came back on the old firmware a few minutes after an update.** The new firmware did not reach the network its settings ask for, usually your Wi-Fi, and hold it for 10 seconds within 7 minutes, so the radio went back. **Menu > Diagnostics > Reset Reason** says `Rollback`. See [Updating](Updating.md#rollback-when-the-new-firmware-does-not-work).
 - **`403 Enter the access PIN first.`** Sign in again. The session is lost at every restart.
 
+## The update check says Check failed
+
+**System > Firmware Update** shows `Check failed` when the radio could not reach GitHub, or when the release it found was refused. It tries again at the next start.
+
+- The radio must reach the internet through your Wi-Fi.
+- A VPN or a firewall on the network can block `github.com` and `release-assets.githubusercontent.com`.
+
+The row shows `Not checked` while the radio is on its own hotspot, since it only looks from your Wi-Fi. It shows `Up to date` when the latest release has no `manifest-ats125.json`; releases made by the release workflow always have one.
+
 ## The radio hears nothing
 
 - **Check the boot screen.** If the Tuner check shows a cross, the tuner did not start. **Menu > Diagnostics > Tuner** shows `None` then.

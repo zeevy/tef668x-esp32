@@ -304,4 +304,8 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
   /* The logbook confirmation, which takes the name line while it holds: see
    * screenTaskLogConfirm. */
   state.logConfirm = in->logConfirm;
+
+  /* What the radio is doing for a few seconds, on the line under the panel
+   * in place of the radio text. */
+  state.notice = in->notice;
 }

@@ -16,6 +16,7 @@
 #include "drivers/logbook_fs.h"
 #include "memory_store.h"
 #include "net/ntp.h"
+#include "net/update_check.h"
 #include "radio_task.h"
 #include "reply_times.h"
 
@@ -590,7 +591,8 @@ static DxSweepStart sweepStart(void) {
   if (sweepRunning() || bandScanActive()) {
     return DX_SWEEP_BUSY;
   }
-  if (!radioSweepStart(&sSweep->next)) {
+  /* The update check's transmitting would raise every level read. */
+  if (updateCheckRunning() || !radioSweepStart(&sSweep->next)) {
     return DX_SWEEP_REFUSED;
   }
   sSweep->running = true;
@@ -736,6 +738,9 @@ static DxScanPress scanBegin(bool learning) {
   if (sScanStore->scan.state == DX_SCAN_RUNNING || bandScanActive()) {
     return DX_SCAN_PRESS_BUSY;
   }
+  if (updateCheckRunning()) {
+    return DX_SCAN_PRESS_UPDATE_CHECK;
+  }
   /* A PI is the only thing that stops it, and with the decoder off none
    * ever would: it would walk the band muted and read like an empty one. A
    * learning pass hears nothing without it either. */
@@ -795,6 +800,8 @@ const char *dxTaskPressText(DxScanPress r) {
       return txt(STR_DX_NOTHING_TO_SCAN);
     case DX_SCAN_PRESS_BUSY:
       return txt(STR_DX_A_SCAN_IS_RUNNING);
+    case DX_SCAN_PRESS_UPDATE_CHECK:
+      return txt(STR_DX_CHECKING_FOR_UPDATES);
     case DX_SCAN_PRESS_RDS_OFF:
       return txt(STR_DX_RDS_IS_OFF);
     case DX_SCAN_PRESS_NO_SEEN:
