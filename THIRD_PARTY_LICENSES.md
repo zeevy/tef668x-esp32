@@ -5,7 +5,7 @@ This firmware is GPLv3, see [LICENSE](LICENSE). It carries some parts made by ot
 | Part | Where it is in this repository | Licence |
 |---|---|---|
 | Roboto Condensed font | Converted to bitmaps in `src/ui/fonts/` | SIL Open Font License 1.1 |
-| Material Symbols icons | Converted to bitmaps in `src/ui/fonts/font_icons.c` and `src/ui/fonts/font_label.c` | Apache License 2.0 |
+| Material Symbols icons | Converted to bitmaps in `src/ui/fonts/font_icons.c` | Apache License 2.0 |
 | Pico CSS 2.1.1 | Compressed in `src/net/web_assets.h` | MIT |
 | htmx 2.0.10 | Compressed in `src/net/web_assets.h` | Zero-Clause BSD |
 | LVGL 9.5.0 | Not in this repository. PlatformIO downloads it at build time | MIT |

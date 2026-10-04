@@ -12,10 +12,6 @@
  * COMMON for a text shown in more than one area. FMT marks a printf format;
  * its arguments are in the note.
  *
- * The label font also carries four gesture symbols, cut from Material Symbols
- * by tools/make_lvgl_font.py. No text uses them now. As UTF-8 bytes:
- *   \xEE\x90\x9A  turn the knob          \xEE\xA0\xB7  press the knob or ENTER
- *   \xEE\x90\xA5  hold the knob or ENTER  \xEE\x8C\x92  any key
  * \xC2\xB7 is the middle dot.
  */
 #pragma once
