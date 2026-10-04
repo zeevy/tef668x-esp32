@@ -22,3 +22,22 @@
 - [Display and Themes](Display-and-Themes.md)
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md)
 - [Menu Guide](Menu-Guide.md)
+
+**Network**
+
+- [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md)
+- [Web Page](Web-Page.md)
+- [HTTP API](HTTP-API.md)
+
+**Help**
+
+- [Recovery Screen](Recovery-Screen.md)
+- [Troubleshooting](Troubleshooting.md)
+- [FAQ](FAQ.md)
+- [Glossary](Glossary.md)
+
+**Project**
+
+- [Building from Source](Building-from-Source.md)
+- [Contributing](Contributing.md)
+- [Credits and Licence](Credits-and-Licence.md)

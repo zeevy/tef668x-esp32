@@ -49,7 +49,7 @@ The screen dims over 750 ms. It does not dim when Dim Level is at or above Brigh
 
 ## Display Rotation
 
-**Display Rotation** is **Normal** or **Upside Down**, Normal at the start. It turns the screen when you press to keep it, with no restart. It is the same setting as **Rotate Display** on the recovery screen, which you open by holding the tuning knob down at power on.
+**Display Rotation** is **Normal** or **Upside Down**, Normal at the start. It turns the screen when you press to keep it, with no restart. It is the same setting as **Rotate Display** on the [recovery screen](Recovery-Screen.md), which you open by holding the tuning knob down at power on.
 
 ## Battery
 
