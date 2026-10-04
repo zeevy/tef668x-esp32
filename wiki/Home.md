@@ -10,12 +10,15 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 
 ## Where to start
 
-- [Supported Hardware](Supported-Hardware.md): the radio this runs on, and what works on it.
+1. [Supported Hardware](Supported-Hardware.md): the radio this runs on, and what works on it.
+2. [Before You Start](Before-You-Start.md): what you need, and the risks, before you install.
+3. [Back Up the Stock Firmware](Back-Up-the-Stock-Firmware.md): save a copy of the radio's flash, so you can go back.
+4. [First Install over USB](First-Install-over-USB.md): build the firmware and put it on the radio.
+5. [First Start and Wi-Fi](First-Start-and-Wi-Fi.md): the boot screen, the setup hotspot, the access PIN and the clock.
+6. [Updating](Updating.md): new firmware over Wi-Fi, and how the radio goes back by itself when one does not work.
 
 The wiki is still being written. Until its other pages are here, the [README](https://github.com/zeevy/tef668x-esp32#readme) has the short version of each topic:
 
-- [Building and flashing](https://github.com/zeevy/tef668x-esp32#building-and-flashing)
-- [First start](https://github.com/zeevy/tef668x-esp32#first-start)
 - [Controls](https://github.com/zeevy/tef668x-esp32#controls)
 - [Control API](https://github.com/zeevy/tef668x-esp32#control-api)
 

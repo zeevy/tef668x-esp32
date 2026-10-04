@@ -3,3 +3,8 @@
 **Start here**
 
 - [Supported Hardware](Supported-Hardware.md)
+- [Before You Start](Before-You-Start.md)
+- [Back Up the Stock Firmware](Back-Up-the-Stock-Firmware.md)
+- [First Install over USB](First-Install-over-USB.md)
+- [First Start and Wi-Fi](First-Start-and-Wi-Fi.md)
+- [Updating](Updating.md)
