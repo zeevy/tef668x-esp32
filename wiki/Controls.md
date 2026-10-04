@@ -61,7 +61,7 @@ The menu opens again on the row you left, until the radio restarts.
 
 ## On the RDS pages
 
-Hold BAND on FM to open them. They always open on the first page, and they do not time out.
+Hold BAND on FM to open them. They always open on the first page, and they do not time out. See [RDS](RDS.md) for what each page shows.
 
 | Control | Tap or turn | Hold |
 |---|---|---|
@@ -75,7 +75,7 @@ Hold BAND on FM to open them. They always open on the first page, and they do no
 
 ## In DX mode
 
-Press DX on FM to open it. It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio leaves FM.
+Press DX on FM to open it. See [DX Mode](DX-Mode.md). It has four pages, **DX**, **Scope**, **Scanner** and **Catches**, and opens on DX. It does not time out, and it closes if the radio leaves FM.
 
 These work on every page:
 
@@ -100,7 +100,7 @@ While the scanner runs, any key or turn only stops it.
 
 ## On the bandwidth page
 
-Hold BW to open it. It shows a tile for each filter width of the band, and on FM also **iMS** and **EQ**.
+Hold BW to open it. It shows a tile for each filter width of the band, and on FM also **iMS** and **EQ**. See [Sound and Bandwidth](Sound-and-Bandwidth.md).
 
 | Control | Tap or turn | Hold |
 |---|---|---|
