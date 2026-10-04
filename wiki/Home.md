@@ -17,10 +17,15 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 5. [First Start and Wi-Fi](First-Start-and-Wi-Fi.md): the boot screen, the setup hotspot, the access PIN and the clock.
 6. [Updating](Updating.md): new firmware over Wi-Fi, and how the radio goes back by itself when one does not work.
 
-The wiki is still being written. Until its other pages are here, the [README](https://github.com/zeevy/tef668x-esp32#readme) has the short version of each topic:
+## Using the radio
 
-- [Controls](https://github.com/zeevy/tef668x-esp32#controls)
-- [Control API](https://github.com/zeevy/tef668x-esp32#control-api)
+- [Controls](Controls.md): every button, knob and key, on every screen.
+- [Radio Screen](Radio-Screen.md): what each part of the main screen shows.
+- [Tuning](Tuning.md): the bands, the tuning modes, seek and typing a frequency.
+- [Presets and Station Scan](Presets-and-Station-Scan.md): the 99 presets, filling them with a scan, and CSV import and export.
+- [Station Log](Station-Log.md): writing down the stations you hear, and exporting the log.
+
+The wiki is still being written. Until its other pages are here, the README's [Control API](https://github.com/zeevy/tef668x-esp32#control-api) section has the short version of the HTTP API.
 
 ## Help
 
