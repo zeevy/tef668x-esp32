@@ -11,6 +11,7 @@
 - [ ] `tools/check.sh` passes
 - [ ] Flashed to a radio and checked. Radio and build (`bid` from `/api/state`):
 - [ ] Changed screens: pictures attached (`tools/screenshot.sh`)
+- [ ] Something a user sees changed: the page in `wiki/` updated too
 
 ## Notes for review
 

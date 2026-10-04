@@ -13,6 +13,10 @@ Follow [Building and flashing](../README.md#building-and-flashing) in the README
 3. If you have a radio, flash it and check the change on the radio. Say in the pull request what you checked.
 4. Open a pull request into `master`. It is squash merged, so the whole change becomes one commit.
 
+## The wiki
+
+The [wiki](https://github.com/zeevy/tef668x-esp32/wiki) is published from the `wiki/` folder each time `master` changes. Edit the pages there, in the same pull request as the change they describe. An edit made in the wiki itself is replaced by the next publish. Links between pages are written as `[Controls](Controls.md)`, so they work in the repository and in the wiki.
+
 ## How the code is kept
 
 - `src/core/` is plain C. It knows nothing about the hardware or the screen, and it runs on a PC. Logic goes there, with unit tests in `test/`.

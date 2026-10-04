@@ -1,0 +1,48 @@
+# Publishes the wiki/ folder to this repository's wiki on every push to master
+# that changes it. The wiki then holds exactly what the folder holds: a page
+# deleted here goes from the wiki too.
+#
+# Pages are never edited in the wiki itself, because the next publish replaces
+# the edit. A change to a page is a pull request, reviewed like code, so a
+# change to the radio and the page that describes it can land together.
+#
+# The wiki's git repository exists only once a first page has been saved in
+# the browser. Without it the publish fails with "Repository not found".
+#
+# Actions are pinned by SHA, as in ci.yml.
+
+name: wiki
+
+on:
+  push:
+    branches: [master]
+    paths: [wiki/**]
+  workflow_dispatch:
+
+permissions: {}
+
+# One publish at a time, and never a half finished one cancelled.
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish the wiki
+    runs-on: ubuntu-latest
+    # Pushing to the wiki needs write access. This job runs only on master,
+    # never on a pull request.
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # It turns links to Page.md into wiki links, so a page reads the same in
+      # the repository and in the wiki.
+      - uses: Andrew-Chen-Wang/github-wiki-action@1bbb4280446f9630e8e21a18012cbacf3b0f992e # v5.0.6
+        with:
+          path: wiki
+          disable-empty-commits: true
