@@ -5,9 +5,9 @@
 # read only token in the checks, so a comment cannot be posted from there.
 # workflow_run runs this file as it is on master, with its own token, once the
 # checks finish. It never checks out the pull request and runs none of its
-# code. The files it reads were written by the pull request's build, so it
-# takes only whole numbers from them, and a pull request cannot put text of its
-# own into the comment.
+# code. The file it reads was written by the pull request's build, so it takes
+# only whole numbers from it, and a pull request cannot put text of its own
+# into the comment.
 #
 # Actions are pinned by SHA, as in ci.yml.
 
@@ -66,7 +66,7 @@ jobs:
                 return out;
               }
               out.image.used = bytes(doc.total_size);
-              const wanted = ['DRAM', 'IRAM', 'Flash Code', 'Flash Data'];
+              const wanted = ['DRAM', 'IRAM'];
               for (const m of Array.isArray(doc.layout) ? doc.layout : []) {
                 if (m && wanted.includes(m.name)) {
                   out[m.name] = { used: bytes(m.used), total: bytes(m.total) };
@@ -75,27 +75,22 @@ jobs:
               return out;
             }
 
-            const pr = read('pr.json');
-            const base = read('base.json');
-            const num = v => (v === null ? '?' : v.toLocaleString('en-US'));
-            const rows = [
-              ['App image', 'image'],
-              ['DRAM, static', 'DRAM'],
-              ['IRAM', 'IRAM'],
-              ['Flash code', 'Flash Code'],
-              ['Flash data', 'Flash Data'],
+            const size = read('size.json');
+            // The same bar as the PlatformIO summary, ten steps wide.
+            const lines = [
+              ['DRAM:', 'DRAM'],
+              ['IRAM:', 'IRAM'],
+              ['Flash:', 'image'],
             ].map(([label, key]) => {
-              const now = pr[key] || { used: null, total: null };
-              const was = (base[key] || {}).used ?? null;
-              let change = '?';
-              if (now.used !== null && was !== null) {
-                const d = now.used - was;
-                change = d > 0 ? `+${num(d)}` : num(d);
+              const m = size[key] || { used: null, total: null };
+              const name = label.padEnd(7);
+              if (m.used === null || !m.total) {
+                return `${name}?`;
               }
-              const room = now.used !== null && now.total
-                ? `${num(now.total - now.used)} of ${num(now.total)}`
-                : '';
-              return `| ${label} | ${num(now.used)} | ${num(was)} | ${change} | ${room} |`;
+              const pct = (100 * m.used) / m.total;
+              const bar = '='.repeat(Math.min(10, Math.floor(pct / 10))).padEnd(10);
+              return `${name}[${bar}] ${pct.toFixed(1).padStart(5)}% ` +
+                `(used ${m.used} bytes from ${m.total} bytes)`;
             });
 
             const marker = '<!-- size-report -->';
@@ -103,13 +98,13 @@ jobs:
               marker,
               '### Size on `ats125`',
               '',
-              '| Bytes | This PR | master | Change | Room left |',
-              '|---|--:|--:|--:|--:|',
-              ...rows,
+              '```',
+              ...lines,
+              '```',
               '',
-              'Static DRAM is taken before the radio starts. Every byte added ' +
-                'there is a byte less for the heap. One application slot is ' +
-                '3 MB. The other slot holds the image this one replaces.',
+              'DRAM is the static part, taken before the radio starts. Every ' +
+                'byte added there is a byte less for the heap. One application ' +
+                'slot is 3 MB. The other slot holds the image this one replaces.',
             ].join('\n');
 
             // A pull request from this repository is named in the event. One
