@@ -66,6 +66,18 @@ tools/screenshot.sh && python3 tools/make_assets.py
 
 `tools/screenshot.sh` draws every screen into `.pio/shots/`. It exits with 1, and names the picture and the character, when a text holds a character its font does not have, since that draws as nothing and is easy to miss by eye. `tools/make_assets.py` turns the drawings into the PNG files in `assets/`.
 
+## Making a release
+
+Releases are made by the release workflow when the owner pushes a version tag. Only the owner can push a tag.
+
+1. Raise `FIRMWARE_VERSION` in `src/core/version.h`, as `x.y.z`, in a pull request, and merge it.
+2. Push the tag `v` + that version on the merged commit, for example `v0.2.0`.
+3. The workflow checks that the tag matches `FIRMWARE_VERSION` and is on `master`, runs every gate, builds, and makes a **draft** release with the notes from the merged pull requests and three files: `firmware-ats125.bin`, `firmware-ats125-full.bin` and `manifest-ats125.json`.
+4. Flash the draft's `firmware-ats125.bin` to a radio and run the checks that CI cannot do: the display, the tuner and the audio.
+5. Publish the draft: `gh release edit v0.2.0 --draft=false --latest`.
+
+A tag with a suffix, such as `v0.2.0-rc.1`, makes a prerelease instead: public at once, for testing, and never marked Latest. Each file has an attestation of the workflow and commit that built it, which you can check with `gh attestation verify firmware-ats125.bin -R zeevy/tef668x-esp32`.
+
 ## Where things are
 
 | Folder | What it holds |

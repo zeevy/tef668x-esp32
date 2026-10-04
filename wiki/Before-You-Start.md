@@ -6,8 +6,9 @@ What you need, and what to know, before you put this firmware on your radio.
 
 - **An ATS-125 radio.** See [Supported Hardware](Supported-Hardware.md).
 - **A USB cable that carries data.** Some cables only charge, and then the computer does not see the radio at all.
-- **A computer** with Windows, macOS or Linux, and Python 3 and git on it.
-- **PlatformIO 6.2.0**, the tool that builds the firmware and puts it on the radio. Install it with pip:
+- **A computer** with Windows, macOS or Linux, and Python 3 on it.
+- **To install a release:** esptool, the flash tool for the ESP32: `pip install esptool`.
+- **To build the firmware yourself instead:** git and PlatformIO 6.2.0, the tool that builds the firmware and puts it on the radio:
 
   ```bash
   pip install platformio==6.2.0
@@ -15,7 +16,7 @@ What you need, and what to know, before you put this firmware on your radio.
 
 - **A Wi-Fi network on 2.4 GHz.** The ESP32 has no 5 GHz radio. Wi-Fi is needed for updates after the first install, for the web page and for the clock, which is set from the network. The radio itself works without Wi-Fi.
 
-There is no ready made firmware file to download yet, so the first install builds the firmware from the source on your computer. A release download will come later.
+Each release on the [Releases page](https://github.com/zeevy/tef668x-esp32/releases) has ready made firmware files, so you can install without building anything. See [First Install over USB](First-Install-over-USB.md).
 
 ## The USB serial chip
 

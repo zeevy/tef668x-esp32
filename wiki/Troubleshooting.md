@@ -40,7 +40,7 @@ After five wrong PINs, signing in is locked for a minute.
 
 ## An update did not take
 
-- **`Update Failed` on the screen, or `Update failed` in the browser.** The file was not accepted, and the old firmware is still running. Check that you sent `firmware.bin` from `.pio/build/ats125/`, not another file.
+- **`Update Failed` on the screen, or `Update failed` in the browser.** The file was not accepted, and the old firmware is still running. Check that you sent `firmware-ats125.bin` from a release, or `firmware.bin` from `.pio/build/ats125/` if you built it. Never `firmware-ats125-full.bin`, which is for a first install over USB.
 - **The radio came back on the old firmware a few minutes after an update.** The new firmware did not reach the network its settings ask for, usually your Wi-Fi, and hold it for 10 seconds within 7 minutes, so the radio went back. **Menu > Diagnostics > Reset Reason** says `Rollback`. See [Updating](Updating.md#rollback-when-the-new-firmware-does-not-work).
 - **`403 Enter the access PIN first.`** Sign in again. The session is lost at every restart.
 

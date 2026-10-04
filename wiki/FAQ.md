@@ -14,7 +14,7 @@ Yes, if you saved a copy first. See [Back Up the Stock Firmware](Back-Up-the-Sto
 
 ### Is there a ready made firmware file to download?
 
-Not yet. Today you build it from the source. A release download will come later. See [First Install over USB](First-Install-over-USB.md).
+Yes. Each release on the [Releases page](https://github.com/zeevy/tef668x-esp32/releases) has `firmware-ats125-full.bin` for a first install over USB, and `firmware-ats125.bin` for updates over Wi-Fi. See [First Install over USB](First-Install-over-USB.md) and [Updating](Updating.md).
 
 ### Do I need the USB cable for every update?
 

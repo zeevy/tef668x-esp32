@@ -89,7 +89,9 @@ The pin map and the feature flags are in `src/board/board_ats125.h`.
 
 ## Building and flashing
 
-You need [PlatformIO](https://platformio.org/). The checks in `tools/check.sh` also need gcovr and clang-format at these exact versions:
+Each [release](https://github.com/zeevy/tef668x-esp32/releases) has ready made files: `firmware-ats125-full.bin` for a first install over USB, written at address 0 with esptool, and `firmware-ats125.bin` for updates over Wi-Fi.
+
+To build it yourself, you need [PlatformIO](https://platformio.org/). The checks in `tools/check.sh` also need gcovr and clang-format at these exact versions:
 
 ```bash
 pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
