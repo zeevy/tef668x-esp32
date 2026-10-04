@@ -1,0 +1,31 @@
+name: Feature request
+description: An idea for something new, or a change to something that works.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what stops you today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What the radio, the web page or the API should do.
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: Other ways you thought of
+  - type: dropdown
+    id: radio
+    attributes:
+      label: Radio
+      options:
+        - ATS-125
+        - Another TEF668x radio (say which above)
+    validations:
+      required: true

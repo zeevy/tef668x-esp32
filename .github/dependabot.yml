@@ -1,0 +1,11 @@
+# Keeps the GitHub Actions in the workflows up to date. Dependabot cannot read
+# platformio.ini, so the platform, LVGL and the Python tools are updated by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

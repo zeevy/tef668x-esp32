@@ -268,7 +268,7 @@ To redraw the pictures in `assets/`, after one `pio run -e ats125` so LVGL is do
 tools/screenshot.sh && python3 tools/make_assets.py
 ```
 
-Issues and pull requests are welcome. Please run `tools/check.sh` before you open one.
+Issues and pull requests are welcome. Please read [CONTRIBUTING](.github/CONTRIBUTING.md) and run `tools/check.sh` before you open one. Questions go to [Discussions](https://github.com/zeevy/tef668x-esp32/discussions).
 
 ## Licence
 
