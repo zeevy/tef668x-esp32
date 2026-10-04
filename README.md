@@ -286,3 +286,4 @@ Some parts come from others, each with its own licence. [THIRD_PARTY_LICENSES.md
 | TEF668x patch data | `src/drivers/tef668x_patch.cpp` | NXP's firmware for the tuner, which it needs at every power on. It is carried here as the GPLv3 [PE5PVB](https://github.com/PE5PVB/TEF6686_ESP32) firmware carries the same bytes. NXP has not published terms for it that this project knows of |
 
 Thanks to Sjef Verhoeven, PE5PVB, whose firmware showed how this hardware works, and to Oona Räisänen, whose [redsea](https://github.com/windytan/redsea) RDS decoder (MIT) the country tables were checked against.
+
