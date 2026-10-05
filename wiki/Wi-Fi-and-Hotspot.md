@@ -20,6 +20,8 @@ All three are in the menu at **Connectivity**. Each acts when you press to keep 
 | **On** | The radio always serves its hotspot, in place of your network. Your network is not tried at all |
 | **Off** | The radio never serves the hotspot. It tries your network again and again. With no network stored, it is on no network |
 
+Change it in the menu at **Connectivity > Hotspot**, on the web page's **Network** page, or with `hsp` in [POST /api/settings](HTTP-API.md#post-apisettings).
+
 ```mermaid
 flowchart TD
     A([Start, or the setting changed]) --> W{Wi-Fi on?}

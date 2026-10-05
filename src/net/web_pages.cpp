@@ -283,9 +283,9 @@ static void pageHead(ChunkedReply &out, const char *title, const char *active) {
 
 static const char *pageTail(bool scripted = false) {
   if (!scripted) {
-    /* Only the Radio, FM & RDS and Settings pages have controls that need
-     * it, and shipping it on the other pages would cost each of them heap
-     * per request for a script none of their plain forms call. */
+    /* Only the Radio, FM & RDS and Settings pages, and the Network page
+     * when signed in, have controls that need it. The other pages have
+     * plain forms that call none of it, so they are sent without it. */
     return "</main></body></html>";
   }
   /*
@@ -298,15 +298,30 @@ static const char *pageTail(bool scripted = false) {
    * for the one field that changes what the rest of the card offers, and
    * `data-seek` polling `/api/state` until a seek stops, since a seek
    * answers as soon as it starts rather than once it has stopped.
+   *
+   * A refused or lost post is written into the toast by hand too, because
+   * htmx swaps in only a 2xx reply. Its form then goes back to what the
+   * radio last took, so a choice that was not saved does not stay on the
+   * page looking saved: a good post makes the form's values its new
+   * defaults, and a failed one resets the form to them.
    */
   return "<script src=/htmx.min.js defer></script><script>"
          "var g=function(i){return document.getElementById(i)},skg=false,"
          "toast=function(bad){var m=g('toast');if(!m)return;"
-         "m.className=bad?'bad show':'good show'};"
+         "m.className=bad?'bad show':'good show'},"
+         "keep=function(f,ok){if(!f)return;if(!ok){f.reset();return}"
+         "for(var i=0;i<f.elements.length;i++){var x=f.elements[i];"
+         "if(x.type=='checkbox'||x.type=='radio')x.defaultChecked=x.checked;"
+         "else if(x.options)for(var j=0;j<x.options.length;j++)"
+         "x.options[j].defaultSelected=x.options[j].selected;"
+         "else if('defaultValue' in x)x.defaultValue=x.value}};"
          /* Returns the fetch itself, so seekFollow can wait for this
             round's answer before deciding whether to poll again, rather
             than reading skg as it stood before this call went out. */
-         "refresh=function(){return fetch('/api/state').then(function(r){"
+         /* Only a page that shows the tuned station asks for it. */
+         "refresh=function(){if(!g('npf')&&!g('khz'))"
+         "return Promise.resolve();"
+         "return fetch('/api/state').then(function(r){"
          "return r.json()}).then(function(d){var t=d.tun||{};"
          "skg=!!t.skg;"
          "var e=function(i,v){var n=g(i);if(n&&v!==undefined)"
@@ -318,7 +333,10 @@ static const char *pageTail(bool scripted = false) {
          "refresh().then(function(){if(!skg||++n>200)clearInterval(t)})}"
          ",250)};"
          "document.body.addEventListener('htmx:afterRequest',function(e){"
-         "var d=e.detail,elt=d.elt;"
+         "var d=e.detail,elt=d.elt,m=g('toastMsg');"
+         "if(!d.successful&&m)m.textContent="
+         "(d.xhr&&d.xhr.responseText)||'No answer from the radio.';"
+         "keep(elt.form,d.successful);"
          "toast(!d.successful);"
          "if(d.successful&&elt.closest('[data-reload]')){"
          "location.reload();return}"
@@ -1895,9 +1913,16 @@ static void handleNetworkPage(void) {
   out.begin(200, "text/html");
   pageHead(out, "Network", "/network");
   out += defaultPinBanner();
+  /* Signed in, the Hotspot choices save the moment one is chosen, so the
+   * page needs the toast for the radio's answer and the script that
+   * posts. Signed out it has only plain forms, and neither. */
+  const bool pinOk = signedIn();
+  if (pinOk) {
+    out += pageToast();
+  }
   out += F("<div class=page-grid>");
   out += wifiForm(); /* Open on the access point, which is the point of it. */
-  if (!signedIn()) {
+  if (!pinOk) {
     out += signInForm("/network");
   } else {
     /* The hotspot, behind the PIN like every other setting. */
@@ -1928,7 +1953,7 @@ static void handleNetworkPage(void) {
     out += cardClose();
   }
   out += F("</div>");
-  out += pageTail();
+  out += pageTail(pinOk);
 }
 
 /*
