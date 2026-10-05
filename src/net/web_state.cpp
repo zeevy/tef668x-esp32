@@ -694,6 +694,14 @@ static void appendRadioState(String &out) {
  *   `pdb`  The volume that reading was turned into, in dB.
  *   `pcl`  While the knob is being calibrated, the lowest and highest
  *          readings so far, as `min` and `max`. Not there otherwise.
+ *   `tch`  The touch chip, on a board that has one. `pen` true while its
+ *          pen line says a finger is down, `dn` times that line went down
+ *          since boot, `rd` readings taken since boot, and `x`, `y`, `z1`
+ *          and `z2` the last reading, raw 0 to 4095, null before the first.
+ *          Readings are taken only while a finger is down, at the loop's
+ *          own pace, so a tap shorter than one pass of the loop can be
+ *          missed by every one of these. The last reading can be one taken
+ *          as the finger lifted, far from where it was.
  */
 static void appendInputState(String &out) {
   InputStatus in;
@@ -729,6 +737,23 @@ static void appendInputState(String &out) {
     out += String(calMax);
     out += F("}");
   }
+#if FEATURE_TOUCH
+  out += F(",\"tch\":{\"pen\":");
+  out += in.touchPen ? F("true") : F("false");
+  out += F(",\"dn\":");
+  out += String(in.touchDowns);
+  out += F(",\"rd\":");
+  out += String(in.touchReads);
+  if (in.touchReads > 0) {
+    char raw[64];
+    snprintf(raw, sizeof(raw), ",\"x\":%u,\"y\":%u,\"z1\":%u,\"z2\":%u}",
+             (unsigned)in.touch.x, (unsigned)in.touch.y, (unsigned)in.touch.z1,
+             (unsigned)in.touch.z2);
+    out += raw;
+  } else {
+    out += F(",\"x\":null,\"y\":null,\"z1\":null,\"z2\":null}");
+  }
+#endif
   out += F("}");
 }
 

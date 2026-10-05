@@ -83,7 +83,7 @@ curl -s $R/api/state
 <details><summary>A sample answer</summary>
 
 ```json
-{"brd":"ats125","ver":"0.1.0","bid":"3c9a651","slt":"app1","cnf":true,"net":"station","rssi":-65,"bars":1,"rst":"software (update)","ip":"192.168.1.40","dpn":true,"hep":126736,"hmn":106888,"hmp":113556,"hlb":81908,"stk":{"rad":2284,"lop":3232},"up":1266,"slp":null,"pnl":{"lit":0,"dim":true,"sdb":16,"swp":33,"lvu":11480,"lvt":22060,"lvp":53,"lvb":10172,"lvm":13336,"psh":{"n":57,"px":266256,"us":135923,"max":2893,"ref":14799}},"bat":{"fit":true,"mv":null,"boot":4108},"clk":{"syn":true,"age":1242,"now":"21:51"},"asv":{"n":0,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":16,"bad":false,"lost":0},"log":{"fit":true,"n":75},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":1936,"pdb":-18},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-18,"mut":false,"tmd":"Auto","pst":9,"seq":39979,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":17,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":168,"sav":158,"usn":45,"wam":72,"off":66,"bw":236,"mod":57,"st":true,"plt":true,"qst":1000,"lvo":0,"agc":{"on":true,"gn":0,"avg":394,"set":true},"rds":{"syn":true,"pi":"1064","psp":"1064","pim":"match","blk":[0,0,0,0],"pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"rt":"KASHMIRU LOYALO - PASIVADI PRANAM - S.P. BALASUBRAHMANYAM + S. J","min":{"ms":57242,"grp":654,"blk":[[654,0,0],[650,2,2],[652,2,0],[652,1,1]],"typ":{"0A":326,"2A":324}},"grp":5905,"use":5905,"cor":23,"bad":4},"scn":false,"scd":0,"sct":0,"scf":8,"sca":0,"scr":0,"scc":true}}
+{"brd":"ats125","ver":"0.2.0","bid":"0824096+","slt":"app1","cnf":true,"upd":{"st":"none","ver":null,"sz":null},"net":"station","rssi":-65,"bars":1,"rst":"software (update)","ip":"192.168.1.40","dpn":true,"hep":118628,"hmn":49716,"hmp":40848,"hlb":42996,"stk":{"rad":2352,"lop":7344},"up":620,"slp":null,"pnl":{"lit":90,"dim":false,"sdb":24,"swp":30,"lvu":11480,"lvt":22060,"lvp":53,"lvb":10172,"lvm":13272,"psh":{"n":55,"px":250920,"us":129455,"max":2941,"ref":14370}},"bat":{"fit":true,"mv":null,"boot":4100},"clk":{"syn":true,"age":614,"now":"22:08"},"asv":{"n":5,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":16,"bad":false,"lost":0},"log":{"fit":true,"n":75},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":1511,"pdb":-22,"tch":{"pen":false,"dn":5,"rd":661,"x":749,"y":2345,"z1":266,"z2":2915}},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-22,"mut":false,"tmd":"Auto","pst":9,"seq":8953,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":20,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":233,"sav":234,"usn":25,"wam":36,"off":56,"bw":236,"mod":35,"st":true,"plt":true,"qst":1000,"lvo":0,"agc":{"on":true,"gn":-1,"avg":433,"set":true},"rds":{"syn":true,"pi":"1064","psp":"1064","pim":"match","blk":[0,0,0,0],"pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"rt":"O PARVATHI - CHILD - DEVADASU - K. RANI + UDATHA SAROJINI - MAGI","min":{"ms":51664,"grp":532,"blk":[[531,0,1],[526,1,5],[526,3,3],[526,1,5]],"typ":{"0A":263,"2A":263}},"grp":532,"use":531,"cor":5,"bad":14},"scn":false,"scd":0,"sct":0,"scf":0,"sca":0,"scr":0,"scc":null}}
 ```
 
 </details>
@@ -104,8 +104,20 @@ Numbers are whole numbers. A value with a fraction is sent in tenths: `"sig":168
 | `bat` | The battery: `fit`, `boot` the millivolts read at start up, `mv` the millivolts now (null while Wi-Fi is on) |
 | `clk` | The clock: `syn` whether it has the time, `now` the time as `HH:MM` |
 | `pst`, `log` | How many presets and station log entries are stored |
-| `inp` | The controls: `pot` and `pdb` the volume knob, `typ` digits being typed, `lst` the last key in words |
+| `inp` | The controls: `pot` and `pdb` the volume knob, `typ` digits being typed, `lst` the last key in words, and `tch` the touch screen, below |
 | `tun` | The tuner and the station, below |
+
+The `tch` object inside `inp` shows what the touch controller reads. A touch does nothing on the radio yet, so this is there to check the touch screen works:
+
+| Key | What it is |
+|---|---|
+| `pen` | True while a finger or a pen is on the screen |
+| `dn` | How many times the touch controller's pen line has gone low since start. A light touch can break contact and count more than once |
+| `rd` | How many readings have been taken since start. Readings are taken only while something is on the screen, up to 100 a second. A very short tap, made while the radio is busy redrawing, can be missed by `pen`, `dn` and `rd` alike |
+| `x`, `y` | Where the last reading was, in the touch controller's own steps, 0 to 4095. These are not screen pixels: on the ATS-125, with Display Rotation at Normal, `x` grows down the screen and `y` grows from right to left |
+| `z1`, `z2` | The two contact readings of the last reading, 0 to 4095. `z1` is near 0 with nothing on the screen. A finger pressed harder reads higher; a pen reads about the same however hard it is pressed |
+
+`x`, `y`, `z1` and `z2` are null until the first reading. They keep the last reading after the finger lifts, and a reading taken just as a finger lifts can be far from where it was.
 
 The `tun` object:
 

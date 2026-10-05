@@ -35,4 +35,13 @@
 #error "FEATURE_PANEL_BUTTONS 1 needs the BAND, BW and MODE key pins."
 #endif
 
+#ifndef FEATURE_TOUCH
+#error "The board header must define FEATURE_TOUCH, 1 or 0."
+#endif
+
+#if FEATURE_TOUCH && (!defined(PIN_SPI_MISO) || !defined(PIN_TOUCH_CS) || \
+                      !defined(PIN_TOUCH_IRQ))
+#error "FEATURE_TOUCH 1 needs the SPI data in, touch chip select and pen pins."
+#endif
+
 #endif /* BOARD_BOARD_H */

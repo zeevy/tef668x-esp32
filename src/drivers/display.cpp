@@ -99,6 +99,10 @@ static void busGive(void) {
   sSpi.endTransaction();
 }
 
+SPIClass &displaySpi(void) {
+  return sSpi;
+}
+
 static void writeCommand(uint8_t cmd) {
   digitalWrite(PIN_TFT_DC, LOW);
   digitalWrite(PIN_TFT_CS, LOW);
@@ -175,23 +179,29 @@ bool displayBegin(void) {
   digitalWrite(PIN_TFT_DC, HIGH);
 
   /* The touch controller shares this bus and must not answer while the panel
-   * is being set up. Its chip select is driven high here even though touch
-   * is not used yet. */
+   * is being set up, so its chip select is driven high before the bus
+   * starts. */
   pinMode(PIN_TOUCH_CS, OUTPUT);
   digitalWrite(PIN_TOUCH_CS, HIGH);
 
-  /* MISO is deliberately not given a pin. Nothing reads from this panel, and
-   * the pin the bus would use is the standby LED. Touch does have to read, so
-   * it will have to attach MISO and settle that pin first. */
+  /* Nothing reads from this panel. The touch chip on the same bus does, so
+   * with touch built in the bus takes its data in pin as well. That pin is
+   * also listed as the standby LED, and it stays an input: nothing here ever
+   * drives it. */
+#if FEATURE_TOUCH
+  sSpi.begin(PIN_SPI_SCK, PIN_SPI_MISO, PIN_SPI_MOSI, -1);
+#else
   sSpi.begin(PIN_SPI_SCK, -1, PIN_SPI_MOSI, -1);
+#endif
   /* The weakest drive, about 5 mA, as the reference firmware sets. Softer
    * edges put less noise into the tuner next to these lines. Edges too soft
    * for the clock above show as speckled pixels, so the two are judged
    * together, on the glass. Set after begin, which is what routes these
    * pins. */
   const gpio_num_t spiPins[] = {
-      (gpio_num_t)PIN_SPI_SCK, (gpio_num_t)PIN_SPI_MOSI, (gpio_num_t)PIN_TFT_CS,
-      (gpio_num_t)PIN_TFT_DC, (gpio_num_t)PIN_TFT_RST};
+      (gpio_num_t)PIN_SPI_SCK, (gpio_num_t)PIN_SPI_MOSI,
+      (gpio_num_t)PIN_TFT_CS,  (gpio_num_t)PIN_TFT_DC,
+      (gpio_num_t)PIN_TFT_RST, (gpio_num_t)PIN_TOUCH_CS};
   for (gpio_num_t pin : spiPins) {
     gpio_set_drive_capability(pin, GPIO_DRIVE_CAP_0);
   }

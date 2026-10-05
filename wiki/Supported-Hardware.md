@@ -14,7 +14,7 @@ The ATS-125 is a portable FM and AM receiver with a 320 x 240 colour screen.
 | Memory | 8 MB flash, no PSRAM | Yes |
 | Tuner | NXP TEF6686 | Yes |
 | Screen | ILI9341, 320 x 240 pixels, colour | Yes |
-| Touch | XPT2046 touch controller on the main board, for the screen's resistive touch | Not yet |
+| Touch | XPT2046 touch controller on the main board, for the screen's resistive touch | Read, not used yet |
 | Knobs | The tuning knob, which also presses, and the volume knob | Yes |
 | Buttons | BAND, BW and MODE | Yes |
 | Keypad | Digits 0 to 9, ENTER and DX, read through a PCA9555 chip | Yes |
@@ -40,6 +40,6 @@ To see the chip on your radio, open the menu and go to **Diagnostics > Tuner**. 
 
 ## Not supported yet
 
-- **Touch.** The screen has a touch controller, but the firmware does not read it yet. Everything is done with the knobs, the buttons and the keypad, or from the web page.
+- **Touch.** The firmware reads the screen's touch controller and shows its readings in the HTTP API, but a touch does nothing on the radio yet. Everything is done with the knobs, the buttons and the keypad, or from the web page.
 - **Other screen layouts.** There is one layout, for a 320 x 240 screen.
 - **Other radios.** Every detail of a board is kept in one header in the code, so another TEF668x radio can be added as a new board header and a new build environment. If you have one, ask in [Discussions](https://github.com/zeevy/tef668x-esp32/discussions/categories/q-a) or open a [feature request](https://github.com/zeevy/tef668x-esp32/issues/new/choose).

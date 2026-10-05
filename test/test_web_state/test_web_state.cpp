@@ -35,6 +35,8 @@ static Settings settings;
 static bool tunerStarted;
 static bool rdsOn;
 static bool joined;
+/* Touch readings taken so far, for the fake input layer. */
+static uint32_t touchReads;
 
 /* The context the web files are handed, as web_update.cpp hands it. */
 static WebServer server;
@@ -195,6 +197,15 @@ void inputStatusGet(InputStatus *out) {
   out->potDb = -12;
   out->lines = 0xFFFF;
   out->linesOk = 1;
+  if (touchReads > 0) {
+    out->touchPen = true;
+    out->touchDowns = 2;
+    out->touchReads = touchReads;
+    out->touch.x = 2257;
+    out->touch.y = 2194;
+    out->touch.z1 = 682;
+    out->touch.z2 = 4095;
+  }
 }
 bool inputPotCalibrating(uint16_t *, uint16_t *) {
   return false;
@@ -523,6 +534,7 @@ void setUp(void) {
   tunerStarted = true;
   rdsOn = true;
   joined = true;
+  touchReads = 0;
   settingsDefaults(&settings);
   fillSnapshot();
 }
@@ -618,6 +630,31 @@ static void rds_off_and_the_access_point_still_give_valid_json(void) {
   TEST_ASSERT_EQUAL_INT('t', at(at(at(doc, "tun"), "rds"), "off").kind);
 }
 
+/* Before the first reading the raw values are null, never a 0 that looks
+ * like a reading. */
+static void the_touch_values_are_null_before_the_first_reading(void) {
+  const Json doc = state();
+  const Json &tch = at(at(doc, "inp"), "tch");
+  TEST_ASSERT_EQUAL_INT('f', at(tch, "pen").kind);
+  TEST_ASSERT_EQUAL_STRING("0", at(tch, "rd").text.c_str());
+  TEST_ASSERT_EQUAL_INT('n', at(tch, "x").kind);
+  TEST_ASSERT_EQUAL_INT('n', at(tch, "z2").kind);
+}
+
+/* After one, each comes back as a number, the largest at full width. */
+static void a_touch_reading_comes_back_as_numbers(void) {
+  touchReads = 7;
+  const Json doc = state();
+  const Json &tch = at(at(doc, "inp"), "tch");
+  TEST_ASSERT_EQUAL_INT('t', at(tch, "pen").kind);
+  TEST_ASSERT_EQUAL_STRING("2", at(tch, "dn").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("7", at(tch, "rd").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("2257", at(tch, "x").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("2194", at(tch, "y").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("682", at(tch, "z1").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("4095", at(tch, "z2").text.c_str());
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -631,5 +668,7 @@ int main(int argc, char **argv) {
   RUN_TEST(a_found_update_is_reported_with_its_version_and_size);
   RUN_TEST(a_tuner_that_did_not_start_still_gives_valid_json);
   RUN_TEST(rds_off_and_the_access_point_still_give_valid_json);
+  RUN_TEST(the_touch_values_are_null_before_the_first_reading);
+  RUN_TEST(a_touch_reading_comes_back_as_numbers);
   return UNITY_END();
 }

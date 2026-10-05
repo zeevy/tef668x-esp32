@@ -38,7 +38,7 @@ These keep the radio awake while they run. The count starts once they stop.
 
 ## Sleep now
 
-To put the radio to sleep at once, open the menu and go to **Go To > Sleep**. It shows **Going to Sleep** for 5 seconds with the sound fading, then sleeps. Touch anything in those 5 seconds and it stays awake.
+To put the radio to sleep at once, open the menu and go to **Go To > Sleep**. It shows **Going to Sleep** for 5 seconds with the sound fading, then sleeps. Turn a knob or press any key or button in those 5 seconds and it stays awake.
 
 From a script, `POST /api/sleep` does the same. It needs the access PIN, and it is refused with 409 while a new firmware is written or on trial, since sleep would cut the update off or undo it. The menu shows `Update on trial - wait` in that case.
 

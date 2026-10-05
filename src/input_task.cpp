@@ -7,6 +7,7 @@
 #include "screen_task.h"
 #include "screen_task_dx.h"
 
+#include "board/board.h"
 #include "core/logbook.h"
 #include "core/squelch.h"
 #include "core/strings.h"
@@ -14,6 +15,7 @@
 #include "drivers/encoder.h"
 #include "drivers/keypad.h"
 #include "drivers/logbook_fs.h"
+#include "drivers/touch.h"
 #include "net/ntp.h"
 #include "radio_task.h"
 
@@ -167,11 +169,10 @@ static void send(const RadioCommand *command) {
  * out, only this one read to make before deciding whether to act.
  */
 static bool panelIsDimmed(void) {
-  /* While the radio says it is going to sleep, a touch only keeps it awake,
-   * as the first touch on a dimmed panel only lights it; while the boot
-   * screen is up, a touch only skips to the radio screen; and while a
-   * firmware write holds the panel, a touch only closes its failure
-   * message. */
+  /* While the radio says it is going to sleep, a key or a turn only keeps
+   * it awake, as the first one on a dimmed panel only lights it; while the
+   * boot screen is up, one only skips to the radio screen; and while a
+   * firmware write holds the panel, one only closes its failure message. */
   return screenTaskBacklightState(NULL) || screenTaskSleepShowing() ||
          screenTaskBootSkip() || screenTaskUpdateSkip();
 }
@@ -246,6 +247,9 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   }
   analogBegin();
   sStatus.keypadPresent = keypadBegin();
+#if FEATURE_TOUCH
+  touchBegin();
+#endif
 
   /* Read the pot for the status document, and send nothing.
    *
@@ -1524,12 +1528,47 @@ static void pollApi(uint32_t nowMs) {
   sFromApi = false;
 }
 
+#if FEATURE_TOUCH
+/*
+ * The shortest time between two touch readings while a finger is down. The
+ * loop's own pace often makes it longer: a held finger or pen got a median of
+ * 25 to 70 readings a second. The chip is not read at all while nobody
+ * touches the glass, so its 2.5 MHz clock, whose multiples fall inside the FM
+ * band, is off then. While a pen was held, a level sweep of the FM band with
+ * the antenna out read the same with these readings as without them, within
+ * the spread between two sweeps of either kind.
+ */
+#define TOUCH_READ_MS 10
+static uint32_t sTouchReadMs = 0;
+
+/*
+ * Read the touch chip while a finger is down, and keep the reading for the
+ * status document. Nothing on the radio acts on a touch.
+ */
+static void pollTouch(uint32_t nowMs) {
+  const bool pen = touchPenDown();
+  if (pen && !sStatus.touchPen) {
+    sStatus.touchDowns++;
+  }
+  sStatus.touchPen = pen;
+  if (!pen || (uint32_t)(nowMs - sTouchReadMs) < TOUCH_READ_MS) {
+    return;
+  }
+  sTouchReadMs = nowMs;
+  touchRead(&sStatus.touch);
+  sStatus.touchReads++;
+}
+#endif
+
 void inputPoll(void) {
   uint32_t nowMs = millis();
   pollEncoder(nowMs);
   pollButtons(nowMs);
   pollPot(nowMs);
   pollKeypad(nowMs);
+#if FEATURE_TOUCH
+  pollTouch(nowMs);
+#endif
   pollApi(nowMs);
 }
 
