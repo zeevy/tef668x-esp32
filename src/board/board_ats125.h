@@ -31,7 +31,8 @@
 #define FEATURE_ALARM \
   0 /* Alarm clock, not auto off. Reserved: no code reads this flag yet. */
 #define FEATURE_TOUCH \
-  0 /* XPT2046 touch input. Reserved: no code reads this flag yet. */
+  1 /* Reads the XPT2046 touch chip and reports its raw readings. No touch
+     * acts on the radio yet. */
 #define FEATURE_RTC \
   0 /* RX8010 real time clock. Reserved: no code reads this flag yet. */
 #define FEATURE_AIR_BAND \
@@ -53,9 +54,9 @@
 #define PIN_BUTTON_BW 25    /* BW button, changes bandwidth. */
 #define PIN_BUTTON_MODE 26  /* MODE button, cycles the tuning mode. */
 #define PIN_BACKLIGHT_PWM 2 /* Display backlight brightness. */
-#define PIN_STANDBY_LED 19  /* Also SPI MISO. Not used by the code yet. */
+#define PIN_STANDBY_LED 19  /* Also SPI MISO. Never driven by this code. */
 #define PIN_SMETER_PWM 27   /* Analogue S meter, driven by PWM. */
-#define PIN_TOUCH_IRQ 33    /* XPT2046 pen down. Not used by the code yet. */
+#define PIN_TOUCH_IRQ 33    /* XPT2046 pen line, low while a finger is down. */
 #define PIN_KEYPAD_IRQ 14   /* PCA9555 interrupt, a key was pressed. */
 #define PIN_TUNER_XTAL_ADC 15 /* Says which crystal the tuner has. */
 
@@ -71,10 +72,9 @@
 /* Display, from TFT_eSPI/User_Setup.h in the PE5PVB fork. */
 #define PIN_SPI_SCK 18  /* VSPI clock, the ESP32 default. */
 #define PIN_SPI_MOSI 23 /* VSPI data out, the ESP32 default. */
-/* MISO would be pin 19 on VSPI, and pin 19 is the standby LED on this board.
- * Nothing reads from the panel or the touch controller here, so MISO is never
- * wired and the two never conflict. Reading the panel back would have to
- * settle that first. */
+/* VSPI data in, the ESP32 default. The touch chip answers on it. The pin is
+ * also listed as the standby LED, so it is only ever an input here. */
+#define PIN_SPI_MISO 19
 #define PIN_TFT_CS 5    /* ILI9341 chip select. */
 #define PIN_TFT_DC 17   /* ILI9341 data or command select. */
 #define PIN_TFT_RST 16  /* ILI9341 reset. */

@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "core/input.h"
+#include "drivers/touch.h"
 
 /*
  * How many typed digits are kept before the rest are ignored.
@@ -47,8 +48,13 @@ typedef struct {
   char typed[INPUT_DIGITS_MAX + 1]; /* Digits keyed and not yet entered. */
   uint16_t pot;                     /* The volume pot, 0 to 4095. */
   int8_t potDb;                     /* What that was turned into, in dB. */
-  uint16_t lines;   /* The keypad's sixteen lines. A 0 bit is a key held. */
-  uint16_t linesOk; /* Non zero once the lines have been read at all. */
+  uint16_t lines;      /* The keypad's sixteen lines. A 0 bit is a key held. */
+  uint16_t linesOk;    /* Non zero once the lines have been read at all. */
+  bool touchPen;       /* The touch chip's pen line says a finger is down. */
+  uint32_t touchDowns; /* Times the pen line went down since boot. */
+  uint32_t touchReads; /* Touch readings taken since boot. */
+  TouchRaw touch;      /* The last of them. Only good once touchReads is
+                        * above 0. */
 } InputStatus;
 
 /*

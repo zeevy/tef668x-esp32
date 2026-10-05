@@ -5,9 +5,8 @@
  * for one thing, which is to take a rectangle of pixels and push it. That is
  * displayPush.
  *
- * Nothing ever reads from the panel. So pin 19 can be the standby LED even
- * though it is also SPI MISO: MISO is never wired, so there is no conflict
- * to resolve.
+ * Nothing ever reads from the panel. The touch chip shares its SPI bus and
+ * does read, through displaySpi.
  */
 #ifndef DRIVERS_DISPLAY_H
 #define DRIVERS_DISPLAY_H
@@ -55,5 +54,15 @@ void displayFill(int16_t x, int16_t y, uint16_t w, uint16_t h, Colour colour);
  */
 void displayPush(int16_t x, int16_t y, uint16_t w, uint16_t h,
                  const uint8_t *bytes);
+
+/*
+ * The panel's SPI bus, for the touch chip that shares it.
+ *
+ * Every user takes it for one operation with its own clock and gives it
+ * back, so the two never hold it at once. Both run on the loop task, so a
+ * touch read never lands in the middle of a push.
+ */
+class SPIClass;
+SPIClass &displaySpi(void);
 
 #endif /* DRIVERS_DISPLAY_H */
