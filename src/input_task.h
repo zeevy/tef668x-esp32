@@ -50,6 +50,7 @@ typedef struct {
   int8_t potDb;                     /* What that was turned into, in dB. */
   uint16_t lines;      /* The keypad's sixteen lines. A 0 bit is a key held. */
   uint16_t linesOk;    /* Non zero once the lines have been read at all. */
+  bool touchOn;        /* The Touch setting lets the chip be read. */
   bool touchPen;       /* The touch chip's pen line says a finger is down. */
   uint32_t touchDowns; /* Times the pen line went down since boot. */
   uint32_t touchReads; /* Touch readings taken since boot. */
@@ -117,6 +118,14 @@ void inputSetPotConfig(const PotConfig *cfg);
  * that one is radioSetEdgeBeep.
  */
 void inputSetBeeps(BeepMode mode);
+
+/*
+ * Whether the touch screen is read at all, the Touch setting. Off, the chip
+ * is not read and the touch counts stand still, for a panel that sends
+ * touches nobody made. Its pen line is still armed once at start up, before
+ * the setting is known.
+ */
+void inputSetTouch(bool on);
 
 /*
  * Start learning how far the knob actually turns.

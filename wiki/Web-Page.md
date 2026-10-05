@@ -75,7 +75,7 @@ The frequency and band update when the page opens, after each change you make on
 |---|---|
 | Seek | Seek sensitivity for FM and for AM, from 1 (strong only) to 6 (finds weak ones), and the squelch floor |
 | Sound | The volume AGC target and boost. The mute and squelch ramp, which presses beep, the band edge beep, and the chime at start up |
-| Display | Brightness, the dimmed level, how many seconds before it dims, and the fade at start. The day and night themes, and **Custom's colours**, eight of the custom theme's colours (a ninth, for a header, is stored but drawn nowhere) |
+| Display | Brightness, the dimmed level, how many seconds before it dims, and the fade at start. Touch, on or off. The day and night themes, and **Custom's colours**, eight of the custom theme's colours (a ninth, for a header, is stored but drawn nowhere) |
 | Updates | **Check for updates**: Off or On. See [Updating](Updating.md#from-github-on-the-radio) |
 | Advanced, needs a reboot | The FM band plan, the medium wave steps, the encoder type and the knob direction. These take effect after a reboot |
 | The volume knob | **Measure**, **Done** and **Cancel** teach the radio the two ends of the volume knob's travel |

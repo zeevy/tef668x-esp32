@@ -1983,6 +1983,63 @@ static void the_update_check_in_version_31_padding_reads_as_off(void) {
   TEST_ASSERT_EQUAL_UINT16(45, out.autoOffMinutes);
 }
 
+/* The touch switch sits in version 31's padding with the version left at
+ * 31, kept as off so a blob written before it, 0 there, reads as touch on;
+ * 1 is off, and a stray byte reads as on rather than costing the struct. */
+static void the_touch_switch_in_version_31_padding_reads_as_on(void) {
+  TEST_ASSERT_EQUAL_size_t(275, offsetof(Settings, touchOff));
+  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_UINT16(31, SETTINGS_VERSION);
+  Settings source;
+  settingsDefaults(&source);
+  source.updateCheck = 1;
+  uint8_t blob[V31_SIZE];
+  memcpy(blob, &source, V31_SIZE);
+  blob[275] = 0;
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.touchOff);
+  blob[275] = 1;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.touchOff);
+  blob[275] = 9;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.touchOff);
+  TEST_ASSERT_EQUAL_UINT8(1, out.updateCheck);
+}
+
+/* A newer firmware's blob keeps touch off, and a stray byte there reads as
+ * on rather than refusing every setting. */
+static void touch_off_survives_a_newer_blob(void) {
+  Settings source;
+  settingsDefaults(&source);
+  source.touchOff = 1;
+  uint8_t blob[V31_SIZE + 8];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V31_SIZE);
+  uint16_t version = SETTINGS_VERSION + 1;
+  uint16_t size = (uint16_t)sizeof(blob);
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, sizeof(blob), &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.touchOff);
+  blob[275] = 9;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, sizeof(blob), &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.touchOff);
+}
+
+/* On on a new radio, and only 0 or 1 stored. */
+static void touch_is_on_and_takes_only_0_or_1(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_EQUAL_UINT8(0, s.touchOff);
+  s.touchOff = 1;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.touchOff = 2;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
 /* Off on a new radio, and only 0 or 1. */
 static void the_update_check_is_off_and_takes_only_0_or_1(void) {
   Settings s;
@@ -2275,6 +2332,9 @@ int main(int, char **) {
   RUN_TEST(a_version_30_blob_keeps_its_auto_off_time);
   RUN_TEST(the_update_check_in_version_31_padding_reads_as_off);
   RUN_TEST(the_update_check_is_off_and_takes_only_0_or_1);
+  RUN_TEST(the_touch_switch_in_version_31_padding_reads_as_on);
+  RUN_TEST(touch_off_survives_a_newer_blob);
+  RUN_TEST(touch_is_on_and_takes_only_0_or_1);
   RUN_TEST(an_auto_off_time_nobody_can_choose_is_refused);
   RUN_TEST(a_switch_past_one_is_refused);
   RUN_TEST(new_network_details_turn_a_hotspot_on_back_to_auto);

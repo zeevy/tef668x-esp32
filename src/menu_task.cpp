@@ -102,6 +102,7 @@ typedef enum {
   ROW_CHIME,
   ROW_KEY_BEEPS,
   ROW_EDGE_BEEP,
+  ROW_TOUCH,
   ROW_NETWORK_TIME,
   ROW_WEB_PIN,
   ROW_HOTSPOT,
@@ -658,6 +659,11 @@ static const MenuRow kControlRows[] = {
      false, false, false},
     {STR_MENU_START_CHIME, ROW_CHIME, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
      true, false},
+    /* Off leaves the touch screen unread at once, for a panel that touches
+     * itself. Recovery has the same row, for when this menu cannot be
+     * reached. */
+    {STR_MENU_TOUCH, ROW_TOUCH, SRC_STORED, 0, 1, 1, NOLIST, false, false,
+     false},
 };
 
 static const MenuRow kSystemRows[] = {
@@ -1098,6 +1104,10 @@ static int32_t storedValue(RowId id, const Settings *s) {
       return palettePlaceOf(s->nightTheme);
     case ROW_DISPLAY_ROTATION:
       return s->displayRotation == 180 ? 1 : 0;
+    case ROW_TOUCH:
+      /* Stored as off, so the row reads Off then On and a right turn means
+       * on, as on every other switch. */
+      return s->touchOff != 0 ? 0 : 1;
     case ROW_DX_MEM_FIRST:
       return s->dxMemFirst;
     case ROW_DX_MEM_LAST:
@@ -1137,6 +1147,9 @@ static void storedSet(RowId id, Settings *s, int32_t v) {
       break;
     case ROW_DISPLAY_ROTATION:
       s->displayRotation = v != 0 ? 180 : 0;
+      break;
+    case ROW_TOUCH:
+      s->touchOff = v != 0 ? 0 : 1;
       break;
     /* The other end moves with it rather than the edit being refused: the
      * first channel is never after the last. */

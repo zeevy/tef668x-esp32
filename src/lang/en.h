@@ -84,6 +84,7 @@
   X(MENU_KEY_BEEPS, "Key Beeps", "Menu row name, Controls group") \
   X(MENU_BAND_EDGE_BEEP, "Band Edge Beep", "Menu row name, Controls group") \
   X(MENU_START_CHIME, "Startup Chime", "Menu row name, Controls group") \
+  X(MENU_TOUCH, "Touch", "Menu row name, Controls group: Off stops the radio reading the touch screen") \
   X(MENU_CLOCK_FROM_NETWORK, "Network Time", "Menu row name, Connectivity group: Off, or the offset from UTC") \
   X(MENU_WEB_PIN, "Web PIN", "Menu row name, Connectivity group, and the title of its editor") \
   X(MENU_NEW_PIN, "New PIN", "Menu, label on the panel of the Web PIN editor") \
@@ -338,6 +339,7 @@
   X(BW_EQ, "EQ", "Bandwidth page, switch tile name") \
   X(BW_FMT_AUTO_AT, "Auto: %u kHz", "Bandwidth page, note under the tiles, the width the chip picked") \
   X(RECOVERY_ROTATE_DISPLAY, "Rotate Display", "Recovery screen row name") \
+  X(RECOVERY_TOUCH, "Touch", "Recovery screen row name: turns reading the touch screen on or off and restarts") \
   X(RECOVERY_START_HOTSPOT, "Start Hotspot", "Recovery screen row name: sets the Hotspot setting to On and restarts") \
   X(RECOVERY_ROLL_BACK_FIRMWARE, "Restore Previous Firmware", "Recovery screen row name") \
   X(RECOVERY_ERASE_SETTINGS, "Erase Settings", "Recovery screen row name") \
@@ -345,6 +347,8 @@
   X(RECOVERY_FAILED, "Failed", "Recovery screen, value of the Restore Previous Firmware row after a failed roll back, and of a row whose settings could not be written") \
   X(RECOVERY_PRESS_AGAIN, "Press again", "Recovery screen, value of a row waiting for its second press") \
   X(RECOVERY_ASK_ROTATE, "Press again to turn the display over", "Recovery screen foot line while Rotate Display waits for its second press") \
+  X(RECOVERY_ASK_TOUCH_OFF, "Press again to turn touch off and restart", "Recovery screen foot line while Touch, now On, waits for its second press") \
+  X(RECOVERY_ASK_TOUCH_ON, "Press again to turn touch on and restart", "Recovery screen foot line while Touch, now Off, waits for its second press") \
   X(RECOVERY_ASK_HOTSPOT, "Press again to start the hotspot and restart", "Recovery screen foot line while Start Hotspot waits for its second press") \
   X(RECOVERY_ASK_ROLLBACK, "Press again to go back to the firmware before this one", "Recovery screen foot line while Restore Previous Firmware waits for its second press") \
   X(RECOVERY_ASK_ERASE, "Press again to erase every setting, Wi-Fi too", "Recovery screen foot line while Erase Settings waits for its second press") \

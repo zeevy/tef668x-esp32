@@ -508,8 +508,8 @@ void setup() {
    */
   logbookFsBegin();
 
-  /* The radio's half of the settings, once its task exists, and the beeps
-   * and the auto off time, once the input has begun. */
+  /* The radio's half of the settings, once its task exists, and the beeps,
+   * the Touch switch and the auto off time, once the input has begun. */
   settingsApplyRadio(&gSettings);
   settingsApplyInput(&gSettings);
 

@@ -434,6 +434,12 @@ typedef struct {
    * written before it reads as 0. 1 to look on GitHub for a newer release
    * once the radio is on the network; 0, the default, never to look. */
   uint8_t updateCheck;
+
+  /* In the last byte of padding version 31 leaves, with the version left at
+   * 31 for the same reason as `updateCheck`. Kept as off rather than on, so
+   * the 0 a blob written before it holds reads as touch on, the default. 1
+   * for the touch screen not to be read, for a panel that touches itself. */
+  uint8_t touchOff;
 } Settings;
 
 void settingsDefaults(Settings *s);

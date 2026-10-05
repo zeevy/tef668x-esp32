@@ -166,7 +166,7 @@ static uint16_t settingsSizeOfVersion(uint16_t version) {
       return 272;
     case 31:
       /* 276: two bytes for auto off past version 30's end, and two of
-       * padding, the first of them since used by the update check. */
+       * padding, since used by the update check and the touch switch. */
       return (uint16_t)sizeof(Settings);
     default:
       return 0;
@@ -484,6 +484,8 @@ void settingsDefaults(Settings *s) {
   s->autoOffMinutes = 0;
   /* Off: a radio looks on GitHub only when its owner asks. */
   s->updateCheck = 0;
+  /* Touch on, since every ATS-125 has the touch screen fitted. */
+  s->touchOff = 0;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a
@@ -630,7 +632,8 @@ bool settingsValid(const Settings *s) {
       s->levelOffsetFmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
       s->levelOffsetAmDb < SIGNAL_LEVEL_OFFSET_MIN_DB ||
       s->levelOffsetAmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
-      !autoOffMinutesOk(s->autoOffMinutes) || s->updateCheck > 1) {
+      !autoOffMinutesOk(s->autoOffMinutes) || s->updateCheck > 1 ||
+      s->touchOff > 1) {
     return false;
   }
   /* The loud end alone says whether this knob has been measured. Zero there
@@ -757,6 +760,9 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     if (out->updateCheck > 1) {
       out->updateCheck = 0;
     }
+    if (out->touchOff > 1) {
+      out->touchOff = 0;
+    }
     if (!settingsValid(out)) {
       settingsDefaults(out);
       return false;
@@ -824,10 +830,14 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     out->nightTheme = out->theme;
   }
 
-  /* The update check lives in version 31's padding. Anything but 1 there is
-   * off, so a stray byte costs the setting and not the whole struct. */
+  /* The update check and the touch switch live in version 31's padding.
+   * Anything but 1 there is the default, so a stray byte costs the setting
+   * and not the whole struct. */
   if (out->updateCheck > 1) {
     out->updateCheck = 0;
+  }
+  if (out->touchOff > 1) {
+    out->touchOff = 0;
   }
 
   if (!settingsValid(out)) {

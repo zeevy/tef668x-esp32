@@ -130,8 +130,8 @@ void settingsApplyScreen(const Settings *s);
  * lock. */
 void settingsApplyRadio(const Settings *s);
 
-/* The key beeps and the auto off time, which counts from the call. Once the
- * input has begun. */
+/* The key beeps, the Touch switch and the auto off time, which counts from
+ * the call. Once the input has begun. */
 void settingsApplyInput(const Settings *s);
 
 /*
