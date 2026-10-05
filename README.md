@@ -1,4 +1,4 @@
-# tef668x-esp32
+# TEF6686X - ESP32
 
 Open source firmware for radio receivers built around the NXP TEF668x tuner and an ESP32.
 
