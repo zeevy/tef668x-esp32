@@ -1286,6 +1286,20 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   out += formClose();
   out += cardClose();
 
+  /* The same switch as Controls > Touch and recovery's Touch row. */
+  out += cardOpen("Touch screen");
+  out += formOpen("/api/settings");
+  out += F("<div class=grid>");
+  /* Stored as off, so On is 0; listed Off first, as every other switch. */
+  static const long touchValues[] = {1, 0};
+  out += formSelect("tof", "Touch", offOn, touchValues, 2, st->touchOff, kAuto);
+  out +=
+      F("</div><p><small>Off, the radio stops reading the touch screen. "
+        "A touch does nothing on the radio yet.</small></p>");
+  out += F("<button type=submit class='secondary fallback'>Save</button>");
+  out += formClose();
+  out += cardClose();
+
   /*
    * The theme, and the one custom slot. Only Custom's own colours are ever
    * set here; the other named themes are fixed palettes in core/palette.c,

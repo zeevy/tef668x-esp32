@@ -186,6 +186,7 @@ static void handleApiSettingsGet(void) {
  * | `wif` | 0 or 1 | at once | Wi-Fi at all: 0 leaves the radio on no network and serves no hotspot, and only the panel's menu turns it on again |
  * | `slp` | 0 to 600 | at once | Auto off: minutes alone before the radio sleeps, 0 for never. A new time starts the count again |
  * | `upc` | 0 or 1 | at once | Look on GitHub for a newer release once the radio is on the network, once each start. Turned on, it looks in this start too |
+ * | `tof` | 0 or 1 | at once | Touch off: 1 stops the radio reading the touch screen, 0, the default, reads it. Kept the other way round from the other switches so the 0 an older blob holds reads as on |
  * | `rot` | 0 or 180 | at once | The display rotation, in degrees from the way the board is fitted |
  * | `dst` | 0 to 2 | at once | What stops the DX scanner: 0 a NEW PI, 1 any PI, 2 nothing |
  * | `dsc` | 0 to 2 | next scan | What it walks: 0 the band less the stored channels, 1 the whole band, 2 the memory channels |

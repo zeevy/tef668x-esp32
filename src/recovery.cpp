@@ -15,10 +15,13 @@
 #include <esp_ota_ops.h>
 #include <string.h>
 
-/* The five rows. The last, "Exit and start radio", is the way out every other
+/* The six rows. The last, "Exit and start radio", is the way out every other
  * list in this UI ends with. */
 typedef enum {
   RECOVERY_ROW_ROTATE = 0,
+  /* Shown on every board: the one board there is, the ATS-125, has touch
+   * fitted. */
+  RECOVERY_ROW_TOUCH,
   RECOVERY_ROW_HOTSPOT,
   RECOVERY_ROW_ROLLBACK,
   RECOVERY_ROW_ERASE,
@@ -33,9 +36,9 @@ static bool sRollbackFailed = false;
 static bool sSaveFailed[SCREEN_RECOVERY_ROWS];
 
 static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
-    STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_START_HOTSPOT,
-    STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
-    STR_RECOVERY_EXIT_AND_START_RADIO,
+    STR_RECOVERY_ROTATE_DISPLAY, STR_RECOVERY_TOUCH,
+    STR_RECOVERY_START_HOTSPOT,  STR_RECOVERY_ROLL_BACK_FIRMWARE,
+    STR_RECOVERY_ERASE_SETTINGS, STR_RECOVERY_EXIT_AND_START_RADIO,
 };
 
 /*
@@ -46,11 +49,22 @@ static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
  */
 static const StrId kRecoveryAsk[SCREEN_RECOVERY_ROWS] = {
     STR_RECOVERY_ASK_ROTATE,
+    /* With touch on; askLine gives the other way round. */
+    STR_RECOVERY_ASK_TOUCH_OFF,
     STR_RECOVERY_ASK_HOTSPOT,
     STR_RECOVERY_ASK_ROLLBACK,
     STR_RECOVERY_ASK_ERASE,
     STR_COUNT,
 };
+
+/* The foot line while `row` waits for its second press. Touch's says which
+ * way it is about to go. */
+static StrId askLine(RecoveryRowId row, const Settings *settings) {
+  if (row == RECOVERY_ROW_TOUCH && settings->touchOff != 0) {
+    return STR_RECOVERY_ASK_TOUCH_ON;
+  }
+  return kRecoveryAsk[row];
+}
 
 /*
  * Whether the knob is held right now, read twice twenty milliseconds apart.
@@ -101,9 +115,10 @@ static void saveAndRestart(RecoveryRowId row, const Settings *settings) {
  * What pressing the row under the cursor does.
  *
  * Every row ends in a restart, or stays on this screen when its change could
- * not be made. Rotate and Hotspot only matter to the next start, since this
- * screen never draws by the value it just changed. Rollback and Erase
- * Settings are a restart by their own nature, and Exit is a plain restart.
+ * not be made. Rotate, Touch and Hotspot only matter to the next start,
+ * since this screen never draws by the value it just changed. Rollback and
+ * Erase Settings are a restart by their own nature, and Exit is a plain
+ * restart.
  * Every row but Exit asks for a second press first, `kRecoveryAsk`.
  */
 static void act(RecoveryRowId row, Settings *settings) {
@@ -115,6 +130,16 @@ static void act(RecoveryRowId row, Settings *settings) {
       settings->displayRotation = was == 180 ? 0 : 180;
       saveAndRestart(row, settings);
       settings->displayRotation = was;
+      return;
+    }
+    case RECOVERY_ROW_TOUCH: {
+      /* The way to stop a panel that touches itself when the menu cannot be
+       * used for it. Only the knob works this screen, so the panel cannot
+       * fight the change. */
+      const uint8_t was = settings->touchOff;
+      settings->touchOff = was != 0 ? 0 : 1;
+      saveAndRestart(row, settings);
+      settings->touchOff = was;
       return;
     }
     case RECOVERY_ROW_HOTSPOT: {
@@ -158,7 +183,7 @@ void recoveryCheckAndRun(Settings *settings) {
    * `bootWatchdogArm` is the first thing `setup` does, forty five seconds
    * to reach the disarm near its own end or the radio restarts on the
    * assumption it hung. Recovery is a closed loop inside `setup` that can
-   * legitimately sit here for as long as a person is reading five rows and
+   * legitimately sit here for as long as a person is reading six rows and
    * deciding, and a panel responding to the knob is already the proof
    * this radio has not hung, the exact thing the watchdog exists to
    * catch. Disarmed here rather than left to fire mid-read.
@@ -211,6 +236,8 @@ void recoveryCheckAndRun(Settings *settings) {
     const char *rotation =
         txt(settings->displayRotation == 180 ? STR_COMMON_ROTATION_UPSIDE_DOWN
                                              : STR_COMMON_ROTATION_NORMAL);
+    const char *touch =
+        txt(settings->touchOff != 0 ? STR_COMMON_OFF : STR_COMMON_ON);
 
     ScreenRecovery view;
     memset(&view, 0, sizeof(view));
@@ -219,6 +246,7 @@ void recoveryCheckAndRun(Settings *settings) {
       view.rows[i].name = txt(kRecoveryNames[i]);
       view.rows[i].value = sSaveFailed[i] ? txt(STR_RECOVERY_FAILED)
                            : (i == RECOVERY_ROW_ROTATE) ? rotation
+                           : (i == RECOVERY_ROW_TOUCH)  ? touch
                                                         : NULL;
     }
     /* Only an image that came over the air has an older one to go back to.
@@ -242,7 +270,7 @@ void recoveryCheckAndRun(Settings *settings) {
     }
     if (asked >= 0) {
       view.rows[asked].value = txt(STR_RECOVERY_PRESS_AGAIN);
-      view.hint = txt(kRecoveryAsk[asked]);
+      view.hint = txt(askLine((RecoveryRowId)asked, settings));
     }
     screenRecoveryShow(&view);
     lvglPortPoll();

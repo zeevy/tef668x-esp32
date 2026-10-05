@@ -30,7 +30,7 @@ No. It works as a radio with Wi-Fi off. Wi-Fi is needed for the web page, the HT
 
 ### Does touch work?
 
-Not yet. The firmware reads the screen's touch controller, but a touch does nothing on the radio yet. To check that your screen's touch works, watch `tch` in [GET /api/state](HTTP-API.md#get-apistate) while you press the screen.
+Not yet. The firmware reads the screen's touch controller, but a touch does nothing on the radio yet. To check that your screen's touch works, watch `tch` in [GET /api/state](HTTP-API.md#get-apistate) while you press the screen. If the screen ever acts on its own once touch does something, turn it off at **Controls > Touch**, or on the [recovery screen](Recovery-Screen.md) when the menu cannot be used.
 
 ### Why is the clock wrong, or not shown?
 

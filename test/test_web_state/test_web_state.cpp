@@ -37,6 +37,8 @@ static bool rdsOn;
 static bool joined;
 /* Touch readings taken so far, for the fake input layer. */
 static uint32_t touchReads;
+/* The Touch setting, for the fake input layer. */
+static bool touchOn;
 
 /* The context the web files are handed, as web_update.cpp hands it. */
 static WebServer server;
@@ -197,6 +199,7 @@ void inputStatusGet(InputStatus *out) {
   out->potDb = -12;
   out->lines = 0xFFFF;
   out->linesOk = 1;
+  out->touchOn = touchOn;
   if (touchReads > 0) {
     out->touchPen = true;
     out->touchDowns = 2;
@@ -535,6 +538,7 @@ void setUp(void) {
   rdsOn = true;
   joined = true;
   touchReads = 0;
+  touchOn = true;
   settingsDefaults(&settings);
   fillSnapshot();
 }
@@ -635,6 +639,7 @@ static void rds_off_and_the_access_point_still_give_valid_json(void) {
 static void the_touch_values_are_null_before_the_first_reading(void) {
   const Json doc = state();
   const Json &tch = at(at(doc, "inp"), "tch");
+  TEST_ASSERT_EQUAL_INT('t', at(tch, "on").kind);
   TEST_ASSERT_EQUAL_INT('f', at(tch, "pen").kind);
   TEST_ASSERT_EQUAL_STRING("0", at(tch, "rd").text.c_str());
   TEST_ASSERT_EQUAL_INT('n', at(tch, "x").kind);
@@ -655,6 +660,14 @@ static void a_touch_reading_comes_back_as_numbers(void) {
   TEST_ASSERT_EQUAL_STRING("4095", at(tch, "z2").text.c_str());
 }
 
+/* With the Touch setting off the document says so, so counts that stand
+ * still are not read as nobody touching. */
+static void touch_turned_off_is_reported(void) {
+  touchOn = false;
+  const Json doc = state();
+  TEST_ASSERT_EQUAL_INT('f', at(at(at(doc, "inp"), "tch"), "on").kind);
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -670,5 +683,6 @@ int main(int argc, char **argv) {
   RUN_TEST(rds_off_and_the_access_point_still_give_valid_json);
   RUN_TEST(the_touch_values_are_null_before_the_first_reading);
   RUN_TEST(a_touch_reading_comes_back_as_numbers);
+  RUN_TEST(touch_turned_off_is_reported);
   return UNITY_END();
 }

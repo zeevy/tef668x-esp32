@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/menu.h"
 #include "../core/strings.h"
 #include "draw.h"
 #include "fonts.h"
@@ -72,15 +73,12 @@ void screenRecoveryShow(const ScreenRecovery *recovery) {
               NULL);
 
   /* Five rows at a time, the window moving only when the cursor would leave
-   * it. With five rows it never moves; it is here so a sixth row can be added
-   * without changing the drawing. */
-  uint8_t top = 0;
-  if (recovery->cursor >= SCREEN_RECOVERY_VISIBLE) {
-    top = (uint8_t)(recovery->cursor - SCREEN_RECOVERY_VISIBLE + 1);
-  }
-  if (top > SCREEN_RECOVERY_ROWS - SCREEN_RECOVERY_VISIBLE) {
-    top = SCREEN_RECOVERY_ROWS - SCREEN_RECOVERY_VISIBLE;
-  }
+   * it, as the menu's lists do: the sixth row comes into view as the cursor
+   * reaches it, and stays as the cursor goes back up through the five. */
+  static uint8_t sTop = 0;
+  sTop = menuWindowTop(recovery->cursor, SCREEN_RECOVERY_ROWS,
+                       SCREEN_RECOVERY_VISIBLE, sTop);
+  const uint8_t top = sTop;
   for (uint8_t i = 0; i < SCREEN_RECOVERY_VISIBLE; i++) {
     const uint8_t at = (uint8_t)(top + i);
     const ScreenRecoveryRow *row = &recovery->rows[at];

@@ -176,6 +176,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Key Beeps | Off, Keypad Only, Short & Long Press, Every Press | Off | When the radio beeps for a key |
 | Band Edge Beep | Off, On | Off | Beeps when the knob steps over a band edge |
 | Startup Chime | Off, On | On | A tone at start, once the tuner is ready. **After restart** |
+| Touch | Off, On | On | Whether the radio reads the touch screen. Off leaves it alone, for a screen that touches itself. A touch does nothing on the radio yet. The [recovery screen](Recovery-Screen.md) has the same switch |
 
 ## System
 

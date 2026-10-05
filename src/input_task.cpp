@@ -74,6 +74,10 @@ static uint32_t sTypedMs = 0;
 #define POT_POLL_MS 50
 
 static InputStatus sStatus;
+#if FEATURE_TOUCH
+/* The Touch setting. */
+static bool sTouchOn = true;
+#endif
 
 /* The last pot reading acted on, and whether there is one yet. */
 static uint16_t sPot = 0;
@@ -249,6 +253,8 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   sStatus.keypadPresent = keypadBegin();
 #if FEATURE_TOUCH
   touchBegin();
+  /* So a finger already down at the first poll is counted as a press. */
+  sStatus.touchOn = sTouchOn;
 #endif
 
   /* Read the pot for the status document, and send nothing.
@@ -1546,8 +1552,15 @@ static uint32_t sTouchReadMs = 0;
  * status document. Nothing on the radio acts on a touch.
  */
 static void pollTouch(uint32_t nowMs) {
+  const bool wasOn = sStatus.touchOn;
+  sStatus.touchOn = sTouchOn;
+  if (!sTouchOn) {
+    sStatus.touchPen = false;
+    return;
+  }
   const bool pen = touchPenDown();
-  if (pen && !sStatus.touchPen) {
+  /* A finger already down when touch comes on did not go down now. */
+  if (pen && !sStatus.touchPen && wasOn) {
     sStatus.touchDowns++;
   }
   sStatus.touchPen = pen;
@@ -1570,6 +1583,14 @@ void inputPoll(void) {
   pollTouch(nowMs);
 #endif
   pollApi(nowMs);
+}
+
+void inputSetTouch(bool on) {
+#if FEATURE_TOUCH
+  sTouchOn = on;
+#else
+  (void)on;
+#endif
 }
 
 bool inputPressFromApi(InputKey key, ButtonEvent event) {

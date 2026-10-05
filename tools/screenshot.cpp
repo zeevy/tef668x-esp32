@@ -2214,21 +2214,22 @@ int main(int argc, char **argv) {
     screenEnd();
   }
 
-  /* Recovery: no theme, fault red, the cursor on the first row and the saved
-   * rotation shown on the second rather than scrubbed on a bar. */
+  /* Recovery: no theme, fault red, the cursor on the first row, the saved
+   * rotation and the Touch switch shown as values. */
   if (screenRecoveryBegin()) {
     ScreenRecovery recovery;
     memset(&recovery, 0, sizeof(recovery));
     recovery.cursor = 0;
     static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
-        STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_START_HOTSPOT,
-        STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
-        STR_RECOVERY_EXIT_AND_START_RADIO,
+        STR_RECOVERY_ROTATE_DISPLAY, STR_RECOVERY_TOUCH,
+        STR_RECOVERY_START_HOTSPOT,  STR_RECOVERY_ROLL_BACK_FIRMWARE,
+        STR_RECOVERY_ERASE_SETTINGS, STR_RECOVERY_EXIT_AND_START_RADIO,
     };
     for (int i = 0; i < SCREEN_RECOVERY_ROWS; i++) {
       recovery.rows[i].name = txt(kRecoveryNames[i]);
-      recovery.rows[i].value = i == 0 ? txt(STR_COMMON_ROTATION_NORMAL) : NULL;
     }
+    recovery.rows[0].value = txt(STR_COMMON_ROTATION_NORMAL);
+    recovery.rows[1].value = txt(STR_COMMON_ON);
     screenRecoveryShow(&recovery);
     lv_refr_now(NULL);
     snprintf(path, sizeof(path), "%s/recovery.bmp", dir);
@@ -2237,8 +2238,8 @@ int main(int argc, char **argv) {
 
     /* Erase Settings after a write that failed, which says so and stays
      * rather than restarting on the old settings. */
-    recovery.cursor = 3;
-    recovery.rows[3].value = txt(STR_RECOVERY_FAILED);
+    recovery.cursor = 4;
+    recovery.rows[4].value = txt(STR_RECOVERY_FAILED);
     screenRecoveryShow(&recovery);
     lv_refr_now(NULL);
     snprintf(path, sizeof(path), "%s/recovery-failed.bmp", dir);
@@ -2247,11 +2248,33 @@ int main(int argc, char **argv) {
 
     /* Erase Settings pressed once: it waits for a second press, and the foot
      * line says what that will do. */
-    recovery.rows[3].value = txt(STR_RECOVERY_PRESS_AGAIN);
+    recovery.rows[4].value = txt(STR_RECOVERY_PRESS_AGAIN);
     recovery.hint = txt(STR_RECOVERY_ASK_ERASE);
     screenRecoveryShow(&recovery);
     lv_refr_now(NULL);
     snprintf(path, sizeof(path), "%s/recovery-ask.bmp", dir);
+    writeBmp(path);
+    printf("  %s\n", path);
+
+    /* Touch pressed once, on a radio with touch on, the second press to turn
+     * it off. */
+    recovery.rows[4].value = NULL;
+    recovery.cursor = 1;
+    recovery.rows[1].value = txt(STR_RECOVERY_PRESS_AGAIN);
+    recovery.hint = txt(STR_RECOVERY_ASK_TOUCH_OFF);
+    screenRecoveryShow(&recovery);
+    lv_refr_now(NULL);
+    snprintf(path, sizeof(path), "%s/recovery-touch-ask.bmp", dir);
+    writeBmp(path);
+    printf("  %s\n", path);
+
+    /* The cursor on the last row, which scrolls the list by one. */
+    recovery.rows[1].value = txt(STR_COMMON_ON);
+    recovery.hint = NULL;
+    recovery.cursor = SCREEN_RECOVERY_ROWS - 1;
+    screenRecoveryShow(&recovery);
+    lv_refr_now(NULL);
+    snprintf(path, sizeof(path), "%s/recovery-exit.bmp", dir);
     writeBmp(path);
     printf("  %s\n", path);
     screenRecoveryEnd();

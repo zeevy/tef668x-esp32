@@ -81,6 +81,7 @@ static const SettingRow kRows[] = {
     ROW("wif", wifiEnabled, 0, 1, NOW),
     ROW("slp", autoOffMinutes, 0, AUTO_OFF_MAX_MINUTES, NOW),
     ROW("upc", updateCheck, 0, 1, NOW),
+    ROW("tof", touchOff, 0, 1, NOW),
 };
 
 size_t settingsTableCount(void) {
