@@ -1,6 +1,7 @@
 /*
- * Touch points: from the touch controller's raw readings to a pixel, and
- * from a pixel to the zone of the screen under it.
+ * Touch points: from the touch controller's raw readings to a pixel, from a
+ * pixel to the zone of the screen under it, and from a run of pixels to a
+ * gesture: a tap, a hold, a drag or a swipe.
  *
  * The XPT2046 under the glass gives two 12 bit readings, 0 to 4095, that
  * grow across the glass. Which reading runs along the screen's width, and
@@ -21,6 +22,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "input.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -141,6 +144,91 @@ bool touchZonesValid(const TouchZone *zones, int n);
 
 /* The id of the zone holding `p`, or TOUCH_NO_ZONE. */
 int touchZoneAt(const TouchZone *zones, int n, TouchPoint p);
+
+/*
+ * What a finger did, worked out from the samples of one touch.
+ *
+ * Every gesture belongs to the zone it started in and to the screen it
+ * started on. If the screen changes while the finger is down, the rest of
+ * that touch is ignored until it lifts, so the finger that opened a screen
+ * cannot also act on the new one.
+ */
+typedef enum {
+  TOUCH_NOTHING = 0,
+  /* Down and up again before the hold time, never moved further than the
+   * slop, and never off the zone it started in. Reported on the lift, like
+   * a short press of a key. */
+  TOUCH_TAP,
+  /* Held still to the hold time. Reported once, while still down; nothing
+   * after it, a move or the lift, reports anything. */
+  TOUCH_HOLD,
+  /* Moved past the slop, in a zone that takes drags. Reported on every
+   * sample that moved, so at most once a poll. */
+  TOUCH_DRAG,
+  /* Lifted after a drag. */
+  TOUCH_DRAG_END,
+  /* Moved past the slop in a zone that does not take drags, and lifted
+   * within the swipe time with at least the swipe distance along the axis
+   * it moved most on. The direction is the finger's. */
+  TOUCH_SWIPE_LEFT,
+  TOUCH_SWIPE_RIGHT,
+  TOUCH_SWIPE_UP,
+  TOUCH_SWIPE_DOWN,
+} TouchGestureEvent;
+
+/*
+ * How far and how fast, in pixels and milliseconds. None of these has a
+ * default here: each comes from taps measured on the glass, and the caller
+ * passes it. The hold time is the radio's own long press, the ButtonConfig
+ * the keys use, so a touch hold and a key hold feel the same, and that
+ * config's debounce is how short a break in contact is still one touch.
+ */
+typedef struct {
+  /* A finger moved more than this along either axis from where it went
+   * down is moving, not tapping or holding. */
+  uint16_t slopPx;
+  /* The least travel along its main axis a swipe needs. */
+  uint16_t swipePx;
+  /* The longest a swipe takes, from down to up. */
+  uint16_t swipeMs;
+} TouchGestureConfig;
+
+/* One sample, given every poll whether or not anything changed. */
+typedef struct {
+  bool down;       /* The touch says a finger is on the glass. */
+  TouchPoint at;   /* Where, in pixels. Read only while `down`. */
+  int zone;        /* touchZoneAt for `at`. Read only while `down`. */
+  bool zoneDrags;  /* That zone takes drags. Read only while `down`. */
+  uint32_t screen; /* Changes whenever another screen is shown. */
+} TouchSample;
+
+/*
+ * One touch being followed. Zero it before first use. While a touch is
+ * down, `zone` is the zone it started in, `start` where, and `last` the
+ * latest point, which is what a drag or a swipe's caller reads.
+ */
+typedef struct {
+  Button button;   /* Down and up, and the hold time, as the keys have. */
+  bool done;       /* A hold was reported, or the screen changed: nothing
+                    * more until the lift. */
+  bool moved;      /* Past the slop. */
+  bool offZone;    /* Left its zone at some point. */
+  bool drags;      /* Its zone takes drags. */
+  int zone;        /* The zone it started in. */
+  uint32_t screen; /* The screen it started on. */
+  uint32_t startMs;
+  TouchPoint start;
+  TouchPoint last;
+} TouchGesture;
+
+/*
+ * Feed one sample and get what it completed, or TOUCH_NOTHING. NULL for
+ * any argument gives TOUCH_NOTHING and changes nothing.
+ */
+TouchGestureEvent touchGestureFeed(TouchGesture *g,
+                                   const TouchGestureConfig *cfg,
+                                   const ButtonConfig *hold,
+                                   const TouchSample *s, uint32_t nowMs);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,8 @@
-/* Implementation of the touch calibration, the half turn and hit testing. */
+/* Implementation of the touch calibration, the half turn, hit testing and
+ * gestures. */
 #include "touch.h"
+
+#include <stddef.h>
 
 /* `num / den` rounded to the nearest, halves away from 0. `den` is
  * positive. */
@@ -193,4 +196,96 @@ int touchZoneAt(const TouchZone *zones, int n, TouchPoint p) {
     }
   }
   return TOUCH_NO_ZONE;
+}
+
+/* The larger of the two distances from `a` to `b`, along x or along y. */
+static int32_t travel(TouchPoint a, TouchPoint b) {
+  const int32_t dx = b.x > a.x ? b.x - a.x : a.x - b.x;
+  const int32_t dy = b.y > a.y ? b.y - a.y : a.y - b.y;
+  return dx > dy ? dx : dy;
+}
+
+/* What the lift of a touch that is not done completes. */
+static TouchGestureEvent lifted(const TouchGesture *g,
+                                const TouchGestureConfig *cfg, uint32_t nowMs) {
+  if (!g->moved) {
+    return g->offZone ? TOUCH_NOTHING : TOUCH_TAP;
+  }
+  if (g->drags) {
+    return TOUCH_DRAG_END;
+  }
+  if ((uint32_t)(nowMs - g->startMs) > cfg->swipeMs) {
+    return TOUCH_NOTHING;
+  }
+  const int32_t dx = (int32_t)g->last.x - g->start.x;
+  const int32_t dy = (int32_t)g->last.y - g->start.y;
+  const int32_t ax = dx < 0 ? -dx : dx;
+  const int32_t ay = dy < 0 ? -dy : dy;
+  if (ax >= ay) {
+    if (ax < cfg->swipePx) {
+      return TOUCH_NOTHING;
+    }
+    return dx < 0 ? TOUCH_SWIPE_LEFT : TOUCH_SWIPE_RIGHT;
+  }
+  if (ay < cfg->swipePx) {
+    return TOUCH_NOTHING;
+  }
+  return dy < 0 ? TOUCH_SWIPE_UP : TOUCH_SWIPE_DOWN;
+}
+
+TouchGestureEvent touchGestureFeed(TouchGesture *g,
+                                   const TouchGestureConfig *cfg,
+                                   const ButtonConfig *hold,
+                                   const TouchSample *s, uint32_t nowMs) {
+  if (g == NULL || cfg == NULL || hold == NULL || s == NULL) {
+    return TOUCH_NOTHING;
+  }
+  const bool wasDown = g->button.level;
+  const ButtonEvent press = buttonFeed(&g->button, hold, s->down, nowMs);
+  const bool isDown = g->button.level;
+
+  if (!wasDown && isDown) {
+    /* The touch starts here, once it has held past the debounce. */
+    g->done = false;
+    g->moved = false;
+    g->offZone = false;
+    g->drags = s->zoneDrags;
+    g->zone = s->zone;
+    g->screen = s->screen;
+    g->startMs = nowMs;
+    g->start = s->at;
+    g->last = s->at;
+    return TOUCH_NOTHING;
+  }
+  if (wasDown && !isDown) {
+    return g->done ? TOUCH_NOTHING : lifted(g, cfg, nowMs);
+  }
+  if (!isDown || g->done) {
+    return TOUCH_NOTHING;
+  }
+  if (s->screen != g->screen) {
+    g->done = true;
+    return TOUCH_NOTHING;
+  }
+  /* A break in contact shorter than the debounce leaves the touch down
+   * with no point to read; the last one stands. */
+  if (s->down) {
+    if (s->zone != g->zone) {
+      g->offZone = true;
+    }
+    const bool newPoint = s->at.x != g->last.x || s->at.y != g->last.y;
+    g->last = s->at;
+    if (!g->moved && travel(g->start, s->at) > cfg->slopPx) {
+      g->moved = true;
+    }
+    if (g->moved && g->drags && newPoint) {
+      return TOUCH_DRAG;
+    }
+  }
+  if (press == BUTTON_LONG && !g->moved && !g->offZone) {
+    /* A hold does its one thing; nothing after it, until the lift, acts. */
+    g->done = true;
+    return TOUCH_HOLD;
+  }
+  return TOUCH_NOTHING;
 }
