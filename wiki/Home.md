@@ -29,6 +29,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - [Sound and Bandwidth](Sound-and-Bandwidth.md): filter width, volume, squelch, the volume AGC and the reception settings.
 - [Display and Themes](Display-and-Themes.md): the themes, brightness and dimming, rotation and the battery mark.
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md): the sleep timer, and putting the radio to sleep.
+- [Touch Screen](Touch-Screen.md): turning touch on or off, and calibrating it.
 - [Menu Guide](Menu-Guide.md): every row of the menu, with its values and what it does.
 
 ## Network

@@ -10,6 +10,7 @@
 #define DRIVERS_SETTINGS_NVS_H
 
 #include "core/settings.h"
+#include "core/touch_cal.h"
 
 /*
  * Read the settings out of NVS.
@@ -33,6 +34,19 @@ bool settingsNvsLoad(Settings *out);
 bool settingsNvsStored(void);
 
 bool settingsNvsSave(const Settings *s);
+
+/*
+ * The touch calibration a person made, kept apart from the settings. Erase
+ * is what Erase Settings does to it too.
+ */
+bool touchCalNvsSave(const TouchCal *cal);
+bool touchCalNvsErase(void);
+
+/* The calibration to use on a screen `width` by `height`: the one kept, or
+ * else the board's own when none is kept or the one kept does not fit this
+ * screen. `stored` says which. False when neither makes one. */
+bool touchCalNvsLoadOrBoard(int16_t width, int16_t height, TouchCal *out,
+                            bool *stored);
 
 /*
  * Whether the stored settings were read back at start up.

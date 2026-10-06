@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/touch.h"
+
 /* One reading of all four inputs, each 0 to 4095. */
 typedef struct {
   uint16_t x;
@@ -39,5 +41,9 @@ bool touchPenDown(void);
  * at 2.5 MHz, then gives it back to the panel.
  */
 void touchRead(TouchRaw *out);
+
+/* Read the chip into `raw`, and put the reading in `r` as the touch filter
+ * takes it. */
+void touchTake(TouchReading *r, TouchRaw *raw);
 
 #endif /* DRIVERS_TOUCH_H */

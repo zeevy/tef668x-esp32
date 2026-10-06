@@ -716,10 +716,44 @@ bool screenBwBegin(void);
 void screenBwShow(const ScreenBw *s);
 void screenBwEnd(void);
 
+/* ---------------------------------------------- touch calibration screen */
+
+#define SCREEN_TOUCH_CAL_MARKS 5
+
+typedef enum {
+  SCREEN_TOUCH_CAL_MARK = 0,  /* A mark to hold. */
+  SCREEN_TOUCH_CAL_CHECK,     /* The check dot to tap. */
+  SCREEN_TOUCH_CAL_KEPT,      /* Kept, and how far the check landed. */
+  SCREEN_TOUCH_CAL_NO_FIT,    /* Not kept: the marks made no calibration. */
+  SCREEN_TOUCH_CAL_MISSED,    /* Not kept: the check landed too far off. */
+  SCREEN_TOUCH_CAL_NOT_SAVED, /* Not kept: it could not be saved. */
+} ScreenTouchCalStep;
+
+/*
+ * The touch calibration screen: the whole glass, no header. While marking,
+ * a ring at the mark being held, with a disc inside that grows as it fills,
+ * a tick at each mark done, and a dot each for the five, the instruction
+ * kept to the half of the screen away from the mark. Then the check dot,
+ * then the result.
+ */
+typedef struct {
+  ScreenTouchCalStep step;
+  uint8_t mark;    /* The mark being held, 0 to SCREEN_TOUCH_CAL_MARKS - 1. */
+  uint8_t fillPct; /* How full its ring is, 0 to 100. */
+  int16_t markX[SCREEN_TOUCH_CAL_MARKS], markY[SCREEN_TOUCH_CAL_MARKS];
+  int16_t dotX, dotY; /* The check dot. */
+  uint16_t offPx;     /* How far the check landed. */
+} ScreenTouchCal;
+
+/* Drawn in the theme in use, or in recovery's own when `recovery`. */
+bool screenTouchCalBegin(bool recovery);
+void screenTouchCalShow(const ScreenTouchCal *s);
+void screenTouchCalEnd(void);
+
 /* How many rows the recovery list holds on screen at once, and how many it
  * actually has. */
 #define SCREEN_RECOVERY_VISIBLE 5
-#define SCREEN_RECOVERY_ROWS 6
+#define SCREEN_RECOVERY_ROWS 7
 
 /*
  * One row of the recovery list.
@@ -741,7 +775,7 @@ typedef struct {
 } ScreenRecoveryRow;
 
 /*
- * Everything the recovery screen shows: the six rows, and which of them
+ * Everything the recovery screen shows: the seven rows, and which of them
  * the cursor is on.
  *
  * Always the first palette, never the saved theme. The setting that put the

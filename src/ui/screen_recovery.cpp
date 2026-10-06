@@ -73,8 +73,8 @@ void screenRecoveryShow(const ScreenRecovery *recovery) {
               NULL);
 
   /* Five rows at a time, the window moving only when the cursor would leave
-   * it, as the menu's lists do: the sixth row comes into view as the cursor
-   * reaches it, and stays as the cursor goes back up through the five. */
+   * it, as the menu's lists do: a row past the fifth comes into view as the
+   * cursor reaches it, and stays as the cursor goes back up. */
   static uint8_t sTop = 0;
   sTop = menuWindowTop(recovery->cursor, SCREEN_RECOVERY_ROWS,
                        SCREEN_RECOVERY_VISIBLE, sTop);

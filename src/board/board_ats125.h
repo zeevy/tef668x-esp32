@@ -80,6 +80,12 @@
 #define PIN_TFT_RST 16  /* ILI9341 reset. */
 #define PIN_TOUCH_CS 32 /* XPT2046 chip select, its own line. */
 
+/* The touch chip's raw x and y at the four corners of the picture, top
+ * left, top right, bottom right and bottom left, read with a pen on one
+ * ATS-125: the map used until a person calibrates their own. Another
+ * radio's glass can sit some pixels off it. */
+#define TOUCH_CAL_CORNERS {{223, 3886}, {243, 481}, {3901, 484}, {3894, 3900}}
+
 /* I2C. Wire.begin() is called with no arguments, so these are the ESP32
  * defaults that the working firmware relies on. */
 #define PIN_I2C_SDA 21 /* I2C data. The ESP32 default. */

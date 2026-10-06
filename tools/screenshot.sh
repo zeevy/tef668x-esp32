@@ -106,7 +106,7 @@ c++ -O1 -w -std=c++17 $CONF $INC \
   src/screen_bw_state.cpp src/screen_rds_state.cpp \
   src/ui/screen.cpp src/ui/screen_boot.cpp \
   src/ui/screen_menu.cpp src/ui/screen_rds.cpp src/ui/screen_recovery.cpp \
-  src/ui/screen_dx.cpp src/ui/screen_dx_catches.cpp src/ui/screen_dx_scan.cpp src/ui/screen_dx_scope.cpp src/ui/screen_bw.cpp \
+  src/ui/screen_dx.cpp src/ui/screen_dx_catches.cpp src/ui/screen_dx_scan.cpp src/ui/screen_dx_scope.cpp src/ui/screen_bw.cpp src/ui/screen_touch_cal.cpp \
   src/ui/draw.cpp \
   src/ui/layout_320x240.cpp src/ui/panels/*.cpp \
   "$UI"/*.o "$LIB" -lm

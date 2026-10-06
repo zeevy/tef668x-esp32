@@ -21,6 +21,7 @@
 - [Sound and Bandwidth](Sound-and-Bandwidth.md)
 - [Display and Themes](Display-and-Themes.md)
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md)
+- [Touch Screen](Touch-Screen.md)
 - [Menu Guide](Menu-Guide.md)
 
 **Network**

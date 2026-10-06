@@ -1,5 +1,6 @@
 /* Implementation of the screen glue. */
 #include "screen_task.h"
+#include "drivers/settings_nvs.h"
 #include "dx_task.h"
 #include "screen_bw_state.h"
 #include "screen_state.h"
@@ -19,6 +20,7 @@
 #include "core/rds_country.h"
 #include "core/signal.h"
 #include "core/strings.h"
+#include "core/touch_cal.h"
 #include "core/update_screen.h"
 #include "core/version.h"
 #include "core/wifi_signal.h"
@@ -202,6 +204,14 @@ typedef struct {
   bool drawn;
 } BwStore;
 static BwStore *sBw = NULL;
+
+/* The touch calibration screen, on the heap while it is up: the calibration
+ * being made, and whether what it shows has changed since it was drawn. */
+typedef struct {
+  TouchCalFlow flow;
+  bool changed;
+} CalStore;
+static CalStore *sCal = NULL;
 
 /* Which of the RDS screen's four pages the knob has moved to. */
 static uint8_t sRdsPage = 0;
@@ -523,6 +533,7 @@ void screenTaskUpdateBegin(void) {
    * screen held over it without building the DX page back for one frame. */
   screenTaskDxClose();
   screenTaskRdsClose();
+  screenTaskTouchCalClose();
   /*
    * The menu goes first, wherever it was, and it goes at once.
    *
@@ -562,6 +573,7 @@ void screenTaskSleepShow(bool on) {
   screenTaskDxClose();
   screenTaskRdsClose();
   screenTaskBwClose();
+  screenTaskTouchCalClose();
   menuTaskClose();
   menuDownNow();
   if (!sReady) {
@@ -723,6 +735,7 @@ bool screenTaskMenuBegin(void) {
   screenTaskDxClose();
   screenTaskBwClose();
   screenTaskRdsClose();
+  screenTaskTouchCalClose();
   if (!sReady) {
     /* No radio layout means the panel never came up, and a menu drawn on a
      * panel nobody can see is settings changed blind. */
@@ -1190,6 +1203,168 @@ bool screenTaskBwIsOpen(void) {
   return sBw != NULL;
 }
 
+void screenTaskTouchCalView(const TouchCalFlow *f, ScreenTouchCal *out) {
+  if (f == NULL || out == NULL) {
+    return;
+  }
+  ScreenTouchCal v;
+  memset(&v, 0, sizeof(v));
+  switch (f->step) {
+    case TOUCH_CAL_MARK:
+      v.step = SCREEN_TOUCH_CAL_MARK;
+      break;
+    case TOUCH_CAL_CHECK:
+      v.step = SCREEN_TOUCH_CAL_CHECK;
+      break;
+    case TOUCH_CAL_KEPT:
+      v.step = SCREEN_TOUCH_CAL_KEPT;
+      break;
+    case TOUCH_CAL_NO_FIT:
+      v.step = SCREEN_TOUCH_CAL_NO_FIT;
+      break;
+    case TOUCH_CAL_NOT_SAVED:
+      v.step = SCREEN_TOUCH_CAL_NOT_SAVED;
+      break;
+    default:
+      v.step = SCREEN_TOUCH_CAL_MISSED;
+      break;
+  }
+  v.mark =
+      f->mark < SCREEN_TOUCH_CAL_MARKS ? f->mark : SCREEN_TOUCH_CAL_MARKS - 1;
+  v.fillPct = (uint8_t)(f->filled * 100 / TOUCH_CAL_FILL);
+  for (uint8_t i = 0; i < SCREEN_TOUCH_CAL_MARKS; i++) {
+    const TouchPoint m = touchCalFlowMark(f, i);
+    v.markX[i] = m.x;
+    v.markY[i] = m.y;
+  }
+  const TouchPoint dot = touchCalFlowCheckDot(f);
+  v.dotX = dot.x;
+  v.dotY = dot.y;
+  v.offPx = f->checkOffPx;
+  *out = v;
+}
+
+/* What the calibration shows, from where it has got to. */
+static void calDraw(void) {
+  if (sCal == NULL) {
+    return;
+  }
+  ScreenTouchCal v;
+  screenTaskTouchCalView(&sCal->flow, &v);
+  screenTouchCalShow(&v);
+}
+
+/* A calibration started, with the map in use as its guide. */
+static bool calStart(CalStore *c) {
+  TouchCal guide;
+  bool upsideDown = false;
+  if (!inputTouchCalGet(&guide, &upsideDown)) {
+    return false;
+  }
+  touchCalFlowBegin(&c->flow, DISPLAY_WIDTH, DISPLAY_HEIGHT, upsideDown,
+                    &guide);
+  c->changed = true;
+  return true;
+}
+
+bool screenTaskTouchCalOpen(void) {
+  if (sCal != NULL) {
+    return true;
+  }
+  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL ||
+      sSwap != BOOT_SWAP_NONE) {
+    return false;
+  }
+  CalStore *c = (CalStore *)calloc(1, sizeof(*c));
+  if (c == NULL) {
+    Serial.println(F("[screen] no memory for the touch calibration"));
+    return false;
+  }
+  if (!calStart(c)) {
+    free(c);
+    return false;
+  }
+  screenEnd();
+  sReady = false;
+  if (!screenTouchCalBegin(false)) {
+    sReady = screenBegin();
+    free(c);
+    return false;
+  }
+  sCal = c;
+  calDraw();
+  lvglPortRefreshNow();
+  return true;
+}
+
+bool screenTaskTouchCalIsOpen(void) {
+  return sCal != NULL;
+}
+
+bool screenTaskTouchCalStep(TouchCalFlow *f, bool contact, bool fresh,
+                            TouchPoint raw, bool unsettled, uint32_t nowMs) {
+  /* The flow changes nothing more once it is kept, so this saves once. */
+  const bool changed =
+      touchCalFlowFeed(f, contact, fresh, raw, unsettled, nowMs);
+  if (changed && f->step == TOUCH_CAL_KEPT && !touchCalNvsSave(&f->result)) {
+    f->step = TOUCH_CAL_NOT_SAVED;
+  }
+  return changed;
+}
+
+void screenTaskTouchCalFeed(bool contact, bool fresh, TouchPoint raw,
+                            bool unsettled, uint32_t nowMs) {
+  if (sCal == NULL) {
+    return;
+  }
+  /* The rotation changed from the web page while marking or checking: the
+   * marks now show turned, and the readings so far were taken against the
+   * old places, so it starts again. */
+  bool upsideDown = false;
+  (void)inputTouchCalGet(NULL, &upsideDown);
+  const TouchCalStep step = sCal->flow.step;
+  if ((step == TOUCH_CAL_MARK || step == TOUCH_CAL_CHECK) &&
+      upsideDown != sCal->flow.upsideDown) {
+    (void)calStart(sCal);
+    return;
+  }
+  if (!screenTaskTouchCalStep(&sCal->flow, contact, fresh, raw, unsettled,
+                              nowMs)) {
+    return;
+  }
+  sCal->changed = true;
+  if (sCal->flow.step == TOUCH_CAL_KEPT) {
+    /* Saved, so in use from now. */
+    inputTouchCalSet(&sCal->flow.result, true);
+  }
+}
+
+void screenTaskTouchCalKnob(bool press) {
+  if (sCal == NULL) {
+    return;
+  }
+  if (press && touchCalFlowFailed(&sCal->flow)) {
+    (void)calStart(sCal);
+    return;
+  }
+  screenTaskTouchCalClose();
+}
+
+void screenTaskTouchCalClose(void) {
+  if (sCal == NULL) {
+    return;
+  }
+  screenTouchCalEnd();
+  free(sCal);
+  sCal = NULL;
+  sReady = screenBegin();
+  if (!sReady) {
+    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    return;
+  }
+  sLastPollMs = millis() - SCREEN_POLL_MS;
+}
+
 void screenTaskBwTurn(int32_t clicks) {
   if (sBw == NULL || clicks == 0) {
     return;
@@ -1318,6 +1493,8 @@ const char *screenTaskShowing(uint8_t *page) {
     name = "boot";
   } else if (menuTaskIsOpen()) {
     name = "menu";
+  } else if (sCal != NULL) {
+    name = "touch-calibration";
   } else if (screenTaskBwIsOpen()) {
     name = "bandwidth";
   } else if (sRdsUp) {
@@ -1388,6 +1565,15 @@ static void presetLearnPoll(uint32_t nowMs) {
  * falls back the way closing it does.
  */
 static void reopenForTheme(void) {
+  if (sCal != NULL) {
+    screenTouchCalEnd();
+    if (screenTouchCalBegin(false)) {
+      sCal->changed = true;
+      return;
+    }
+    screenTaskTouchCalClose();
+    return;
+  }
   if (sBw != NULL) {
     screenBwEnd();
     if (screenBwBegin()) {
@@ -1468,7 +1654,7 @@ void screenTaskPoll(void) {
   /* `sReady` means the radio layout exists, and it does not while another
    * screen owns the panel. So every screen counts as ready here, or the fade
    * back in and the redraw below would never run for it. */
-  if (!sReady && !sMenuUp && !sRdsUp && !sDxUp && sBw == NULL) {
+  if (!sReady && !sMenuUp && !sRdsUp && !sDxUp && sBw == NULL && sCal == NULL) {
     return;
   }
   uint32_t nowMs = millis();
@@ -1548,6 +1734,17 @@ void screenTaskPoll(void) {
   if (themeGeneration() != drawnTheme) {
     drawnTheme = themeGeneration();
     reopenForTheme();
+  }
+
+  if (sCal != NULL) {
+    /* The touch calibration screen: drawn when the input task's feed
+     * changed it. */
+    if (sCal->changed) {
+      sCal->changed = false;
+      calDraw();
+      lvglPortRefreshNow();
+    }
+    return;
   }
 
   if (sBw != NULL) {

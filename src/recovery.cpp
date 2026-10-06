@@ -1,27 +1,32 @@
 /* Implementation of recovery mode. See recovery.h. */
 #include "recovery.h"
 
+#include "board/board.h"
 #include "core/input.h"
 #include "core/strings.h"
+#include "core/touch_cal.h"
 #include "core/wifi_join.h"
 #include "drivers/display.h"
 #include "drivers/encoder.h"
 #include "drivers/settings_nvs.h"
+#include "drivers/touch.h"
 #include "lvgl_port.h"
 #include "net/boot_watchdog.h"
+#include "screen_task.h"
 #include "ui/screen.h"
 
 #include <Arduino.h>
 #include <esp_ota_ops.h>
 #include <string.h>
 
-/* The six rows. The last, "Exit and start radio", is the way out every other
+/* The seven rows. The last, "Exit and start radio", is the way out every other
  * list in this UI ends with. */
 typedef enum {
   RECOVERY_ROW_ROTATE = 0,
   /* Shown on every board: the one board there is, the ATS-125, has touch
    * fitted. */
   RECOVERY_ROW_TOUCH,
+  RECOVERY_ROW_CALIBRATE,
   RECOVERY_ROW_HOTSPOT,
   RECOVERY_ROW_ROLLBACK,
   RECOVERY_ROW_ERASE,
@@ -36,21 +41,24 @@ static bool sRollbackFailed = false;
 static bool sSaveFailed[SCREEN_RECOVERY_ROWS];
 
 static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
-    STR_RECOVERY_ROTATE_DISPLAY, STR_RECOVERY_TOUCH,
-    STR_RECOVERY_START_HOTSPOT,  STR_RECOVERY_ROLL_BACK_FIRMWARE,
-    STR_RECOVERY_ERASE_SETTINGS, STR_RECOVERY_EXIT_AND_START_RADIO,
+    STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_TOUCH,
+    STR_RECOVERY_CALIBRATE_TOUCH,      STR_RECOVERY_START_HOTSPOT,
+    STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
+    STR_RECOVERY_EXIT_AND_START_RADIO,
 };
 
 /*
  * What the foot line says while a row waits for its second press. Every row
  * that changes something asks first, since each restarts the radio and
- * Erase Settings loses the Wi-Fi details with the rest; Exit changes
- * nothing, so it acts on the first press.
+ * Erase Settings loses the Wi-Fi details with the rest; Calibrate Touch and
+ * Exit change nothing at once, so they act on the first press.
  */
 static const StrId kRecoveryAsk[SCREEN_RECOVERY_ROWS] = {
     STR_RECOVERY_ASK_ROTATE,
     /* With touch on; askLine gives the other way round. */
     STR_RECOVERY_ASK_TOUCH_OFF,
+    /* Changes nothing until a calibration passes its check. */
+    STR_COUNT,
     STR_RECOVERY_ASK_HOTSPOT,
     STR_RECOVERY_ASK_ROLLBACK,
     STR_RECOVERY_ASK_ERASE,
@@ -99,6 +107,94 @@ static uint8_t moveCursor(uint8_t cursor, int32_t clicks) {
     next = SCREEN_RECOVERY_ROWS - 1;
   }
   return (uint8_t)next;
+}
+
+/* How long the knob must read up before a press can count again, so a
+ * press that bounces as it lets go is one press. */
+#define KNOB_QUIET_MS 50
+
+/* Wait for the knob to be up and quiet, and drop any turns so far. */
+static void knobQuiet(void) {
+  uint32_t upMs = millis();
+  while ((uint32_t)(millis() - upMs) < KNOB_QUIET_MS) {
+    if (encoderButtonDown(PANEL_BUTTON_ENCODER)) {
+      upMs = millis();
+    }
+    lvglPortPoll();
+    delay(5);
+  }
+  (void)encoderTake();
+}
+
+/*
+ * The touch calibration screen, run in recovery's own loop: the input task
+ * has not started, so the knob and the touch chip are read here. The
+ * screen is drawn as the board is mounted, since recovery ignores the
+ * stored rotation. Turning or pressing the knob leaves, as on the radio,
+ * and a calibration that passes its check is kept for the next start.
+ */
+static void calibrate(void) {
+#if FEATURE_TOUCH
+  screenRecoveryEnd();
+  if (!screenTouchCalBegin(true)) {
+    (void)screenRecoveryBegin();
+    return;
+  }
+  touchBegin();
+  TouchCal guide;
+  bool stored = false;
+  if (!touchCalNvsLoadOrBoard(DISPLAY_WIDTH, DISPLAY_HEIGHT, &guide, &stored)) {
+    screenTouchCalEnd();
+    (void)screenRecoveryBegin();
+    return;
+  }
+  TouchCalFlow flow;
+  touchCalFlowBegin(&flow, DISPLAY_WIDTH, DISPLAY_HEIGHT, false, &guide);
+  TouchFilter filter;
+  memset(&filter, 0, sizeof(filter));
+  bool changed = true;
+  knobQuiet();
+  bool wasDown = false;
+  while (true) {
+    const int32_t clicks = encoderTake();
+    const bool down = encoderButtonDown(PANEL_BUTTON_ENCODER);
+    const bool pressed = wasDown && !down;
+    wasDown = down;
+    if (clicks != 0 || pressed) {
+      if (pressed && touchCalFlowFailed(&flow)) {
+        touchCalFlowBegin(&flow, DISPLAY_WIDTH, DISPLAY_HEIGHT, false, &guide);
+        changed = true;
+      } else {
+        break;
+      }
+    }
+    TouchReading r;
+    memset(&r, 0, sizeof(r));
+    r.pen = touchPenDown();
+    if (r.pen) {
+      TouchRaw raw;
+      touchTake(&r, &raw);
+    }
+    TouchPoint at = {0, 0};
+    bool unsettled = true;
+    const bool contact = touchFilterFeed(&filter, &r, &at, &unsettled);
+    if (screenTaskTouchCalStep(&flow, contact, r.read, at, unsettled,
+                               millis())) {
+      changed = true;
+    }
+    if (changed) {
+      changed = false;
+      ScreenTouchCal view;
+      screenTaskTouchCalView(&flow, &view);
+      screenTouchCalShow(&view);
+    }
+    lvglPortPoll();
+    delay(10);
+  }
+  screenTouchCalEnd();
+  (void)screenRecoveryBegin();
+  knobQuiet();
+#endif
 }
 
 /* Write `settings` and restart on them; if the write fails, mark `row` and
@@ -158,14 +254,24 @@ static void act(RecoveryRowId row, Settings *settings) {
       sRollbackFailed = true;
       return;
     case RECOVERY_ROW_ERASE: {
-      /* The `Settings` struct only, on purpose: the 99 memory channels and the
-       * logbook are not settings and a person recovering a broken radio is not
-       * asking to lose either. */
+      /* The `Settings` struct and the touch calibration only, on purpose:
+       * the 99 memory channels and the logbook are not settings and a person
+       * recovering a broken radio is not asking to lose either. */
+      /* The calibration goes first, so a Failed always means the settings
+       * were not touched; a calibration gone on its own only brings back
+       * the board's map, which this row was going to do anyway. */
       Settings fresh;
       settingsDefaults(&fresh);
+      if (!touchCalNvsErase()) {
+        sSaveFailed[row] = true;
+        return;
+      }
       saveAndRestart(row, &fresh);
       return;
     }
+    case RECOVERY_ROW_CALIBRATE:
+      calibrate();
+      return;
     case RECOVERY_ROW_EXIT:
       ESP.restart();
       return;
@@ -183,7 +289,7 @@ void recoveryCheckAndRun(Settings *settings) {
    * `bootWatchdogArm` is the first thing `setup` does, forty five seconds
    * to reach the disarm near its own end or the radio restarts on the
    * assumption it hung. Recovery is a closed loop inside `setup` that can
-   * legitimately sit here for as long as a person is reading six rows and
+   * legitimately sit here for as long as a person is reading seven rows and
    * deciding, and a panel responding to the knob is already the proof
    * this radio has not hung, the exact thing the watchdog exists to
    * catch. Disarmed here rather than left to fire mid-read.

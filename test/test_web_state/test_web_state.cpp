@@ -208,6 +208,10 @@ void inputStatusGet(InputStatus *out) {
     out->touch.y = 2194;
     out->touch.z1 = 682;
     out->touch.z2 = 4095;
+    out->touchMapped = true;
+    out->touchAt.x = 160;
+    out->touchAt.y = 119;
+    out->touchCalStored = true;
   }
 }
 bool inputPotCalibrating(uint16_t *, uint16_t *) {
@@ -644,6 +648,9 @@ static void the_touch_values_are_null_before_the_first_reading(void) {
   TEST_ASSERT_EQUAL_STRING("0", at(tch, "rd").text.c_str());
   TEST_ASSERT_EQUAL_INT('n', at(tch, "x").kind);
   TEST_ASSERT_EQUAL_INT('n', at(tch, "z2").kind);
+  TEST_ASSERT_EQUAL_STRING("board", at(tch, "cal").text.c_str());
+  TEST_ASSERT_EQUAL_INT('n', at(tch, "px").kind);
+  TEST_ASSERT_EQUAL_INT('n', at(tch, "py").kind);
 }
 
 /* After one, each comes back as a number, the largest at full width. */
@@ -658,6 +665,9 @@ static void a_touch_reading_comes_back_as_numbers(void) {
   TEST_ASSERT_EQUAL_STRING("2194", at(tch, "y").text.c_str());
   TEST_ASSERT_EQUAL_STRING("682", at(tch, "z1").text.c_str());
   TEST_ASSERT_EQUAL_STRING("4095", at(tch, "z2").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("stored", at(tch, "cal").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("160", at(tch, "px").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("119", at(tch, "py").text.c_str());
 }
 
 /* With the Touch setting off the document says so, so counts that stand
