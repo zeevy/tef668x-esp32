@@ -32,7 +32,7 @@ SCREENS = [
     "rds-station", "touch-rds", "rds-text", "rds-networks", "rds-decoder",
     # DX mode.
     "dx-station", "touch-dx", "dx-scope", "touch-scope", "dx-scan-run",
-    "touch-scan", "dx-catches",
+    "touch-scan", "dx-catches", "touch-catches",
     # The menu.
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "touch-value",
     "menu-theme", "touch-picker", "menu-presets",

@@ -2166,6 +2166,12 @@ int main(int argc, char **argv) {
     static DxCatches list;
     buildCatches(&list, 2);
     renderCatches(dir, "catches", &list, 0, NULL);
+    {
+      /* The page's touch zones over it. */
+      TouchZone zones[TOUCH_ZONES_MAX];
+      snprintf(path, sizeof(path), "%s/touch-catches.bmp", dir);
+      saveZones(zones, screenCatchesZones(zones, TOUCH_ZONES_MAX), path);
+    }
     renderCatches(dir, "catches-logged", &list, 0,
                   fmt(STR_RADIO_FMT_LOGGED, "106.40"));
     renderCatches(dir, "catches-oldest", &list,

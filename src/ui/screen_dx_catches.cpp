@@ -66,6 +66,10 @@ typedef struct {
 } CatchRow;
 
 static lv_obj_t *sRoot;
+/* The rows drawn and the cursor's slot, for the touch zones. */
+static uint8_t sRows;
+static uint8_t sCursor;
+static uint16_t sRowsId;
 static UiFrame sFrame;
 static CatchRow sRow[SCREEN_CATCH_ROWS];
 static lv_obj_t *sEmpty;
@@ -190,6 +194,15 @@ static void hideRow(uint8_t i) {
   }
 }
 
+/* FNV-1a over `text` and a separator after it. */
+#define FOLD_START 2166136261u
+static uint32_t fold(uint32_t h, const char *text) {
+  for (const char *p = text; p != NULL && *p != '\0'; p++) {
+    h = (h ^ (uint8_t)*p) * 16777619u;
+  }
+  return (h ^ '|') * 16777619u;
+}
+
 void screenCatchesShow(const ScreenCatches *c) {
   if (sRoot == NULL || c == NULL) {
     return;
@@ -222,6 +235,15 @@ void screenCatchesShow(const ScreenCatches *c) {
       hideRow(i);
     }
   }
+  sRows = c->rows < SCREEN_CATCH_ROWS ? c->rows : SCREEN_CATCH_ROWS;
+  sCursor = c->cursor;
+  /* Which catch each row holds, by its frequency and PI, folded into one
+   * number. */
+  uint32_t h = FOLD_START;
+  for (uint8_t i = 0; i < sRows; i++) {
+    h = fold(fold(h, c->row[i].frequency), c->row[i].pi);
+  }
+  sRowsId = (uint16_t)h;
 }
 
 void screenCatchesEnd(void) {
@@ -229,4 +251,32 @@ void screenCatchesEnd(void) {
     return;
   }
   uiDropRoot(&sRoot);
+  sRows = 0;
+}
+
+int screenCatchesZones(TouchZone *out, int max) {
+  if (sRoot == NULL || max < 4 + sRows || screenDxZones(out, max, false) < 3) {
+    return 0;
+  }
+  /* The rows as the menu's: from halfway across the gap above the first,
+   * each a pitch tall, and the body under the last where there is room. */
+  const int16_t top = out[2].y;
+  int n = 2;
+  for (uint8_t i = 0; i < sRows; i++) {
+    out[n++] = {0, (int16_t)(top + i * UI_MENU_ROW_PITCH), CATCH_W,
+                UI_MENU_ROW_PITCH, (uint8_t)(DX_ZONE_ROW + i)};
+  }
+  const int16_t under = (int16_t)(top + sRows * UI_MENU_ROW_PITCH);
+  if (CATCH_H - under >= UI_MENU_ROW_PITCH) {
+    out[n++] = {0, under, CATCH_W, (int16_t)(CATCH_H - under), DX_ZONE_BODY};
+  }
+  return n;
+}
+
+int screenCatchesCursorSlot(void) {
+  return sRoot != NULL && sCursor < sRows ? sCursor : -1;
+}
+
+uint16_t screenCatchesRowsId(void) {
+  return sRowsId;
 }
