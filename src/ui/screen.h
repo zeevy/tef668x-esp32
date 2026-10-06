@@ -526,6 +526,22 @@ bool screenRdsBegin(void);
 void screenRdsShow(const ScreenRds *rds);
 void screenRdsEnd(void);
 
+/* The parts of the RDS screen a touch can act on: the header's left half,
+ * with the title, which is Back; its right half, with the page position,
+ * the next page; and the body. A swipe in any of them turns the page. */
+typedef enum {
+  RDS_ZONE_BACK = 1,
+  RDS_ZONE_NEXT,
+  RDS_ZONE_BODY,
+} RdsZone;
+
+/* The RDS screen's zones: writes no more than `max` and returns how many, 0
+ * while it is not up. */
+int screenRdsZones(TouchZone *out, int max);
+
+/* A zone's name, for GET /api/screen: "back", "next", "body", or "". */
+const char *screenRdsZoneName(int id);
+
 /*
  * The DX page, the first page of DX mode.
  *

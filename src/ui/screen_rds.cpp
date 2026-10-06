@@ -907,3 +907,21 @@ void screenRdsEnd(void) {
   sBody = NULL;
   sBuilt = -1;
 }
+
+int screenRdsZones(TouchZone *out, int max) {
+  if (sRds == NULL || max < 3) {
+    return 0;
+  }
+  /* The header down to two rows above the first tile, as on every screen. */
+  const int16_t head = UI_ROW_TOP - 2;
+  out[0] = {0, 0, RDS_W / 2, head, RDS_ZONE_BACK};
+  out[1] = {RDS_W / 2, 0, RDS_W - RDS_W / 2, head, RDS_ZONE_NEXT};
+  out[2] = {0, head, RDS_W, (int16_t)(RDS_H - head), RDS_ZONE_BODY};
+  return 3;
+}
+
+const char *screenRdsZoneName(int id) {
+  static const char *const kNames[] = {"", "back", "next", "body"};
+  return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
+                                                                  : "";
+}
