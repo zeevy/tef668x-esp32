@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, and the bandwidth page can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page and the RDS screen can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -53,6 +53,16 @@ On a value with a bar, such as Brightness or Squelch Floor:
 | The top line, with the title | Tap | Closes the page, as a tap of MODE. Over DX mode, back to the DX page |
 
 Over DX mode the page sets DX mode's own width and has no AUTO.
+
+## The RDS screen
+
+![The parts of the RDS screen a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-rds.png)
+
+| Where | Touch | Does |
+|---|---|---|
+| Anywhere | Swipe left or right | The next or the previous page, going round from the last to the first, as turning the tuning knob |
+| The right half of the top line, with the page position | Tap | The next page |
+| The left half of the top line, with the title | Tap | Closes the screen, as a tap of MODE. Over DX mode, back to the DX page |
 
 ## What any touch does
 

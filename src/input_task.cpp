@@ -1079,6 +1079,23 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
 }
 
 /*
+ * The RDS screen by touch: a swipe to the left is the next page and to the
+ * right the one before, as the knob turns them; a tap on the page position
+ * is the next page; and a tap on the title closes it as MODE does, back to
+ * the DX page over DX mode.
+ */
+static void rdsTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
+                     bool dxUnder) {
+  if (event == TOUCH_SWIPE_LEFT || event == TOUCH_SWIPE_RIGHT) {
+    screenTaskRdsPage(event == TOUCH_SWIPE_LEFT ? 1 : -1);
+  } else if (event == TOUCH_TAP && zone == RDS_ZONE_NEXT) {
+    screenTaskRdsPage(1);
+  } else if (event == TOUCH_TAP && zone == RDS_ZONE_BACK) {
+    rdsMode(BUTTON_SHORT, dxUnder);
+  }
+}
+
+/*
  * The bandwidth page by touch: a tile tapped is turned to and picked, as the
  * knob and its press would, and the page stays up so widths can be compared
  * by ear; the header closes it as MODE does.
@@ -1183,7 +1200,12 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #endif
     },
     /* TOP_RDS */
-    {rdsTurn, rdsPress, rdsBand, rdsBandwidth, rdsMode, rdsEnter, rdsKey},
+    {rdsTurn, rdsPress, rdsBand, rdsBandwidth, rdsMode, rdsEnter, rdsKey
+#if FEATURE_TOUCH
+     ,
+     rdsTouch, screenRdsZones, screenRdsZoneName, 0
+#endif
+    },
     /* TOP_DX */
     {dxTurn, dxPress, dxBand, dxBandwidth, dxMode, dxEnter, dxKey},
     /* TOP_TOUCH_CAL */

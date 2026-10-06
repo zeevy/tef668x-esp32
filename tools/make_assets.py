@@ -29,7 +29,7 @@ SCREENS = [
     "fm-squelched", "fm-logged", "fm-checking-updates", "mw", "sw", "oirt",
     "touch-radio",
     # The RDS pages.
-    "rds-station", "rds-text", "rds-networks", "rds-decoder",
+    "rds-station", "touch-rds", "rds-text", "rds-networks", "rds-decoder",
     # DX mode.
     "dx-station", "dx-scope", "dx-scan-run", "dx-catches",
     # The menu.

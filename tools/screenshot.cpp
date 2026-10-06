@@ -1978,6 +1978,10 @@ int main(int argc, char **argv) {
         screenRdsShow(&view);
         saveShot("%s/rds-%s%s.bmp", dir, kPageNames[page], scenes[k].suffix);
         if (k == 0 && page == 0) {
+          /* The screen's touch zones over its first page. */
+          TouchZone zones[TOUCH_ZONES_MAX];
+          snprintf(path, sizeof(path), "%s/touch-rds.bmp", dir);
+          saveZones(zones, screenRdsZones(zones, TOUCH_ZONES_MAX), path);
           /* The same with the sleep mark of the last minutes before auto off. */
           uiSetSleepMark(UI_SLEEP_SOON);
           screenRdsShow(&view);
