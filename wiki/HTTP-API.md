@@ -59,7 +59,7 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 400 | Refused, and the line says why, for example `That is not a band. Use one of LW MW SW OIRT FM.` |
 | 403 | Not signed in: `Enter the access PIN first.` |
 | 404 | Under `/api/`, no such route or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` Also an empty preset or a catch no longer in the list. Any other unknown path is sent to `/` |
-| 409 | Not now. For a key or a touch: `The last key sent has not been handled yet. Send again.` For a touch also when Touch is Off, the screen is dark or held by another screen, or the calibration screen is open |
+| 409 | Not now. For a key or a touch: `The last key sent has not been handled yet. Send again.` For a touch also when Touch is Off, the screen is dark or held by another screen, the calibration screen is open, or a finger could not make that gesture there |
 | 413 | A form or text body over 8192 bytes. A firmware upload is not limited by this |
 | 429 | Too many wrong PINs |
 | 500 | It could not be stored |
@@ -161,10 +161,18 @@ Most keys are the same as for [POST /api/settings](#post-apisettings) below. `si
 
 ### GET /api/screen
 
-What the screen shows now, one JSON object per line. The first line names the screen, the page and the theme. Then each text, with its place, colour and font, and each box.
+What the screen shows now, one JSON object per line. The first line names the screen, the page and the theme. Then, on a screen a touch acts on, each part a touch acts on, as `zone` with its place and size, see [Touch](#touch). Then each text, with its place, colour and font, and each box.
 
 ```
 {"screen":"radio","page":0,"dim":false,"theme":"Nightwatch"}
+{"zone":"band","x":0,"y":0,"w":160,"h":28}
+{"zone":"menu","x":160,"y":0,"w":160,"h":28}
+{"zone":"panel","x":0,"y":32,"w":320,"h":88}
+{"zone":"scale","x":0,"y":144,"w":320,"h":56}
+{"zone":"mode","x":0,"y":204,"w":84,"h":28}
+{"zone":"sql","x":84,"y":204,"w":76,"h":28}
+{"zone":"bw","x":160,"y":204,"w":76,"h":28}
+{"zone":"vol","x":236,"y":204,"w":84,"h":28}
 {"x":0,"y":0,"w":320,"h":240,"fill":"#080C10","fillRole":"ground|header"}
 {"x":12,"y":3,"w":25,"h":23,"c":"#F8B000","role":"radio","font":"title","text":"FM"}
 {"x":272,"y":7,"w":36,"h":17,"c":"#E0E4E0","role":"measurement","font":"small","text":"21:51"}
@@ -253,22 +261,25 @@ Only one key can wait at a time. A key sent before the one before it was handled
 
 ## Touch
 
-`POST /api/touch` makes a gesture on the screen as a finger would. It needs the PIN. No screen acts on a touch yet, so today it does what any touch does, as [Touch Screen](Touch-Screen.md#what-a-touch-does-today) says: it stops a running DX scan, clears a number being typed, and beeps as Key Beeps says.
+`POST /api/touch` makes a gesture on the screen as a finger would. It needs the PIN. It acts on the part of the screen where it begins, as [Touch Screen](Touch-Screen.md#the-radio-screen) describes, and makes the same checks as a finger: it stops a running DX scan or clears a number being typed and does nothing else, and beeps as Key Beeps says. `GET /api/screen` lists the parts of the screen on show that a touch acts on, and lists none while a touch does nothing.
 
 | Field | Values |
 |---|---|
 | `x` | Across, in screen pixels, 0 to 319 |
 | `y` | Down, in screen pixels, 0 to 239 |
-| `g` | `tap`, `hold`, `swipe-left`, `swipe-right`, `swipe-up` or `swipe-down`. A swipe starts at `x`, `y` |
+| `g` | `tap`, `hold`, `swipe-left`, `swipe-right`, `swipe-up`, `swipe-down` or `drag`. A swipe starts at `x`, `y` |
+| `x2`, `y2` | For `drag` only: where it ends. The scale moves by the distance from `x` to `x2` |
 
 ```
 $ curl -s -b jar -d x=160 -d y=120 -d g=tap $R/api/touch
 touched tap at 160,120
+$ curl -s -b jar -d x=160 -d y=170 -d x2=136 -d y2=170 -d g=drag $R/api/touch
+touched drag at 160,170
 $ curl -s -b jar -d x=160 -d y=120 -d g=poke $R/api/touch
-Give g, one of tap hold swipe-left swipe-right swipe-up swipe-down.   [400]
+Give g, one of tap hold swipe-left swipe-right swipe-up swipe-down drag.   [400]
 ```
 
-It waits in the same one place as a key, so it gets 409 while a key or a touch sent before it is still waiting. It also gets 409, with the reason, wherever a finger on the screen would do nothing: with Controls > Touch Off; while the screen is dark, starting up, going to sleep or held by an update; and while the calibration screen is open. `inp.lst` in `/api/state` then says what it did: `api touch tap` and the like, or `api DX scan stopped` or `api typed number cleared` when that is all it did. It is not counted in `ges`, which counts what the screen itself felt.
+It waits in the same one place as a key, so it gets 409 while a key or a touch sent before it is still waiting. It also gets 409, with the reason, wherever a finger on the screen would do nothing: with Controls > Touch Off; while the screen is dark, starting up, going to sleep or held by an update; while the calibration screen is open; and for a gesture a finger could not make there: a drag that starts off the scale or moves 16 pixels or less, which a finger makes a tap, or a swipe that starts on the scale, which a finger makes a drag. `inp.lst` in `/api/state` then says what it did: `api touch tap` and the like, or `api DX scan stopped` or `api typed number cleared` when that is all it did. It is not counted in `ges`, which counts what the screen itself felt.
 
 ## Presets
 

@@ -2911,6 +2911,52 @@ void menuTaskOpen(void) {
   draw();
 }
 
+/*
+ * Set while the menu is open for one edit, menuTaskOpenSquelchMode's: keeping
+ * the value or going back shuts the menu again, and where the menu was last
+ * left stays as it was, so the knob still opens it there.
+ */
+static bool sOneEdit = false;
+
+static void closeOneEdit(void) {
+  sOneEdit = false;
+  menuClose(&sMenu);
+  screenTaskMenuEnd();
+}
+
+bool menuTaskOpenSquelchMode(void) {
+  gestureBegins();
+  if (sLive == NULL || menuIsOpen(&sMenu) || sChoice.active) {
+    return false;
+  }
+  for (uint8_t g = 0; g < GROUP_COUNT; g++) {
+    for (uint8_t r = 0; r < kGroups[g].count; r++) {
+      const MenuGroup *sub = kGroups[g].rows[r].opens;
+      for (uint8_t i = 0; sub != NULL && i < sub->count; i++) {
+        if (sub->rows[i].id != ROW_SQUELCH_MODE) {
+          continue;
+        }
+        if (menuOpen(&sMenu) != MENU_OPENED) {
+          return false;
+        }
+        sMenu.level = MENU_ROWS;
+        sMenu.group = g;
+        sMenu.inSub = true;
+        sMenu.sub = r;
+        sMenu.row = i;
+        if (!screenTaskMenuBegin()) {
+          menuClose(&sMenu);
+          return false;
+        }
+        sOneEdit = true;
+        menuTaskPress();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void menuTaskClose(void) {
   sNote = NULL;
   if (sChoice.active) {
@@ -2921,7 +2967,10 @@ void menuTaskClose(void) {
     return;
   }
   const MenuRow *row = rowAt(sMenu.row);
-  keepWhereLeft();
+  if (!sOneEdit) {
+    keepWhereLeft();
+  }
+  sOneEdit = false;
   if (menuClose(&sMenu) == MENU_EDIT_UNDONE) {
     /* The value was never accepted, so the radio goes back to what it was. */
     undoEdit(row);
@@ -3061,6 +3110,10 @@ void menuTaskPress(void) {
     default:
       break;
   }
+  if (sOneEdit && what == MENU_EDIT_KEPT) {
+    closeOneEdit();
+    return;
+  }
   /* An action can leave the menu, Learn locals for DX mode, and then there
    * is no menu to draw. */
   if (!menuIsOpen(&sMenu)) {
@@ -3085,6 +3138,13 @@ void menuTaskBack(void) {
   /* A value turned to and then left: its row says it was not saved. */
   const bool changed = sMenu.level == MENU_EDIT && barValueChanged(row);
   const MenuResult what = menuBack(&sMenu);
+  if (sOneEdit && what != MENU_NOTHING) {
+    if (what == MENU_EDIT_UNDONE) {
+      undoEdit(row);
+    }
+    closeOneEdit();
+    return;
+  }
   switch (what) {
     case MENU_EDIT_UNDONE:
       undoEdit(row);

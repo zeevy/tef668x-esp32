@@ -559,6 +559,55 @@ static void sceneNothing(ScreenState *s) {
   s->tunerReady = true;
 }
 
+/*
+ * The smallest target a touch is given: every tap measured on this glass
+ * landed inside a target 28 pixels tall, and all but one inside one 38 wide.
+ */
+#define ZONE_MIN_W 38
+#define ZONE_MIN_H 28
+
+/*
+ * A screen's touch zones outlined over what is on the panel now, written to
+ * `path`: the run ends with a failure when two zones share a pixel, when a
+ * zone is smaller than the targets measured to hold a tap, or when one
+ * reaches past the panel.
+ */
+static void saveZones(const TouchZone *zones, int n, const char *path) {
+  /* The outlines are drawn on a copy of the frame and the frame put back,
+   * since the next picture only redraws what changed. */
+  static uint16_t keep[W * H];
+  memcpy(keep, sFrame, sizeof(keep));
+  bool bad = !touchZonesValid(zones, n);
+  for (int i = 0; i < n; i++) {
+    const TouchZone *z = &zones[i];
+    if (z->w < ZONE_MIN_W || z->h < ZONE_MIN_H || z->x < 0 || z->y < 0 ||
+        z->x + z->w > W || z->y + z->h > H) {
+      fprintf(stderr, "%s: zone %d at %d,%d is %d by %d\n", path, z->id, z->x,
+              z->y, z->w, z->h);
+      bad = true;
+    }
+    const uint16_t magenta = 0xF81F;
+    for (int x = z->x; x < z->x + z->w && x < W; x++) {
+      sFrame[z->y * W + x] = magenta;
+      sFrame[(z->y + z->h - 1) * W + x] = magenta;
+    }
+    for (int y = z->y; y < z->y + z->h && y < H; y++) {
+      sFrame[y * W + z->x] = magenta;
+      sFrame[y * W + z->x + z->w - 1] = magenta;
+    }
+  }
+  if (bad) {
+    fprintf(stderr, "%s: the zones overlap or are too small\n", path);
+    exit(1);
+  }
+  if (!writeBmp(path)) {
+    fprintf(stderr, "could not write %s\n", path);
+    exit(1);
+  }
+  printf("  %s\n", path);
+  memcpy(sFrame, keep, sizeof(keep));
+}
+
 static void render(void (*scene)(ScreenState *), const char *path) {
   ScreenState s;
   memset(&s, 0, sizeof(s));
@@ -1249,6 +1298,13 @@ int main(int argc, char **argv) {
   for (size_t i = 0; i < sizeof(scenes) / sizeof(scenes[0]); i++) {
     snprintf(path, sizeof(path), "%s/%s.bmp", dir, scenes[i].name);
     render(scenes[i].scene, path);
+    if (i == 0) {
+      /* The radio screen's touch zones over the FM picture. */
+      TouchZone zones[16];
+      const int n = screenRadioZones(zones, 16);
+      snprintf(path, sizeof(path), "%s/touch-radio.bmp", dir);
+      saveZones(zones, n, path);
+    }
   }
   /* Auto off on: the sleep mark left of the speaker, grey, and in radio for
    * the last five minutes. */

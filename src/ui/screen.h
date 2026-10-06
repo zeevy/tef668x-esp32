@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../core/touch.h"
+
 /* Why there is no sound, which decides what the V: tile shows. */
 typedef enum {
   SCREEN_AUDIO_ON = 0,    /* The volume, in amber. */
@@ -813,6 +815,26 @@ bool screenBegin(void);
  * pushes at the panel's 40 MHz.
  */
 void screenShow(const ScreenState *state);
+
+/* The parts of the radio screen a touch can act on. */
+typedef enum {
+  RADIO_ZONE_BAND = 1, /* The band name, the left half of the header. */
+  RADIO_ZONE_MENU,     /* The right half of the header. */
+  RADIO_ZONE_PANEL,    /* The amber panel. */
+  RADIO_ZONE_SCALE,    /* The tuning scale, which follows a drag. */
+  RADIO_ZONE_MODE,     /* The four tiles, left to right. */
+  RADIO_ZONE_SQL,
+  RADIO_ZONE_BW,
+  RADIO_ZONE_VOL,
+} RadioZone;
+
+/* The radio screen's zones, from each panel of the layout: writes no more
+ * than `max` and returns how many. */
+int screenRadioZones(TouchZone *out, int max);
+
+/* A zone's name, for GET /api/screen: "band", "menu" and so on, or "" for
+ * no zone. */
+const char *screenRadioZoneName(int id);
 
 /*
  * Take the radio layout down.

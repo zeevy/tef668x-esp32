@@ -57,6 +57,14 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
 bool menuTaskOpenUpdateOffer(void);
 
 /*
+ * Open the menu straight on Audio > Squelch > Squelch Mode with its edit
+ * started, for the SQL tile of the radio screen. Keeping the value or going
+ * back shuts the menu again, back on the radio screen. False when it could
+ * not open, the menu or another screen being up.
+ */
+bool menuTaskOpenSquelchMode(void);
+
+/*
  * Close it from outside, for anything that needs the panel.
  *
  * An edit in flight is cancelled and the old value put back, because it was

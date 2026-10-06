@@ -9,6 +9,7 @@
 
 #include "board/board.h"
 #include "core/logbook.h"
+#include "core/scale.h"
 #include "core/squelch.h"
 #include "core/strings.h"
 #include "core/touch_cal.h"
@@ -154,6 +155,8 @@ typedef struct {
   int32_t clicks; /* Not 0 for a turn of the knob, which has no key. */
 #if FEATURE_TOUCH
   TouchGestureEvent touch; /* Not TOUCH_NOTHING for a touch, which has none. */
+  TouchPoint at;           /* Where it began. */
+  TouchPoint to;           /* Where a drag ended. */
 #endif
 } ApiInput;
 static ApiInput sApi;
@@ -356,6 +359,9 @@ static void cycleAndNote(RadioCommandKind kind) {
     snprintf(text, sizeof(text), "%s", bandName(now.settings.band));
   } else if (kind == RADIO_CYCLE_TUNE_MODE) {
     snprintf(text, sizeof(text), "%s", tuneModeName(now.settings.tuneMode));
+  } else if (kind == RADIO_TOGGLE_MUTE) {
+    snprintf(text, sizeof(text), "%s",
+             now.settings.muted ? "muted" : "unmuted");
   } else if (now.settings.bandwidthKHz == 0) {
     snprintf(text, sizeof(text), "BW automatic");
   } else {
@@ -968,6 +974,111 @@ static void calKey(int8_t, uint32_t, bool) {
   screenTaskTouchCalClose();
 }
 
+#if FEATURE_TOUCH
+/* --------------------------------------------------- the radio screen, by touch */
+
+/* A drag on the scale under way: the band and the frequency under the
+ * middle when it began, and the last one sent. */
+static bool sDialDragging = false;
+static BandId sDialBand = BAND_FM;
+static uint32_t sDialFromKHz = 0;
+static uint32_t sDialSentKHz = 0;
+
+/*
+ * The scale follows the finger, `dxPx` from where the drag began, and the
+ * frequency under its middle is tuned as it goes, on the band's own channel
+ * grid, on the band it began on: a band changed under it, by a key, ends
+ * it. By RADIO_TUNE_IN_BAND, not a step: in Auto mode a step seeks and in
+ * Presets mode it walks the presets. At most one command a poll, since a drag
+ * gives at most one sample a poll.
+ */
+static void dialDrag(TouchGestureEvent event, int32_t dxPx) {
+  RadioSnapshot now;
+  BandPlanConfig plan;
+  uint32_t low = 0;
+  uint32_t high = 0;
+  const bool got = radioGetSnapshot(&now);
+  if (got && !sDialDragging) {
+    sDialDragging = true;
+    sDialBand = now.settings.band;
+    sDialFromKHz = now.settings.freqKHz;
+    sDialSentKHz = sDialFromKHz;
+  }
+  if (got && now.settings.band == sDialBand && radioTaskPlan(&plan) &&
+      bandLimits(now.settings.band, &plan, &low, &high)) {
+    const bool fm = bandModulation(now.settings.band) == MODULATION_FM;
+    const uint32_t khz = bandNearestChannel(
+        now.settings.band, &plan,
+        scaleDragKHz(low, high, sDialFromKHz, fm, dxPx), now.settings.stepKHz);
+    if (khz != sDialSentKHz) {
+      RadioCommand cmd = {};
+      cmd.kind = RADIO_TUNE_IN_BAND;
+      cmd.freqKHz = khz;
+      if (radioPost(&cmd)) {
+        sDialSentKHz = khz;
+      }
+    }
+  }
+  if (event == TOUCH_DRAG_END) {
+    sDialDragging = false;
+  }
+}
+
+/*
+ * The radio screen by touch. Each zone does what the key or the knob it
+ * stands for does there, through the same call: the band name is a tap of
+ * BAND, the header's right half the knob's press, the amber panel a hold of
+ * BAND for the RDS screen, which is FM only, and held, the knob's hold that
+ * logs the station; the mode tile a tap of MODE and the bandwidth tile a
+ * hold of BW. The SQL tile opens Squelch Mode rather than stepping it, since
+ * Manual hands the volume knob to the squelch and a tap that did that
+ * unseen could silence the radio. The volume tile mutes, which no key does.
+ */
+static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
+                       TouchPoint last, bool dxUnder) {
+  if (zone == RADIO_ZONE_SCALE) {
+    if (event == TOUCH_DRAG || event == TOUCH_DRAG_END) {
+      dialDrag(event, last.x - start.x);
+    }
+    return;
+  }
+  if (zone == RADIO_ZONE_PANEL && event == TOUCH_HOLD) {
+    radioPress(BUTTON_LONG, dxUnder);
+    return;
+  }
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  switch (zone) {
+    case RADIO_ZONE_BAND:
+      radioBand(BUTTON_SHORT, dxUnder);
+      break;
+    case RADIO_ZONE_MENU:
+      radioPress(BUTTON_SHORT, dxUnder);
+      break;
+    case RADIO_ZONE_PANEL:
+      radioBand(BUTTON_LONG, dxUnder);
+      break;
+    case RADIO_ZONE_MODE:
+      radioMode(BUTTON_SHORT, dxUnder);
+      break;
+    case RADIO_ZONE_SQL:
+      if (menuTaskOpenSquelchMode()) {
+        note("squelch mode");
+      }
+      break;
+    case RADIO_ZONE_BW:
+      radioBandwidth(BUTTON_LONG, dxUnder);
+      break;
+    case RADIO_ZONE_VOL:
+      cycleAndNote(RADIO_TOGGLE_MUTE);
+      break;
+    default:
+      break;
+  }
+}
+#endif
+
 /* ------------------------------------------------------------ the table */
 
 /* What each screen does with each control. A button's slot may be NULL, a
@@ -981,12 +1092,29 @@ typedef struct {
   void (*mode)(ButtonEvent event, bool dxUnder);
   void (*enter)(ButtonEvent event, uint32_t nowMs, bool dxUnder);
   void (*key)(int8_t key, uint32_t nowMs, bool dxUnder);
+#if FEATURE_TOUCH
+  /* A gesture in one of the screen's zones, `start` where it began and
+   * `last` where it is now; NULL for a screen a touch does nothing on. */
+  void (*touch)(TouchGestureEvent event, int zone, TouchPoint start,
+                TouchPoint last, bool dxUnder);
+  /* The screen's zones, the way screenRadioZones gives them, and their
+   * names; NULL for a screen with none. */
+  int (*zones)(TouchZone *out, int max);
+  const char *(*zoneName)(int zone);
+  /* The zone that follows a drag rather than taking a swipe, or 0. */
+  int dragZone;
+#endif
 } ScreenInput;
 
 static const ScreenInput kScreenInput[TOP_COUNT] = {
     /* TOP_RADIO */
     {radioTurn, radioPress, radioBand, radioBandwidth, radioMode, dialEnter,
-     radioKey},
+     radioKey
+#if FEATURE_TOUCH
+     ,
+     radioTouch, screenRadioZones, screenRadioZoneName, RADIO_ZONE_SCALE
+#endif
+    },
     /* TOP_MENU */
     {menuTurn, menuPress, NULL, NULL, menuMode, menuEnter, menuKey},
     /* TOP_BW */
@@ -1555,7 +1683,7 @@ uint32_t inputActivity(void) {
 }
 
 #if FEATURE_TOUCH
-static bool onTouch(TouchGestureEvent event, bool first, uint32_t nowMs);
+static void apiTouch(const ApiInput *in, uint32_t nowMs);
 #endif
 
 static void pollApi(uint32_t nowMs) {
@@ -1567,7 +1695,7 @@ static void pollApi(uint32_t nowMs) {
   sFromApi = true;
 #if FEATURE_TOUCH
   if (in.touch != TOUCH_NOTHING) {
-    (void)onTouch(in.touch, true, nowMs);
+    apiTouch(&in, nowMs);
     sFromApi = false;
     return;
   }
@@ -1638,9 +1766,13 @@ static const char *const kGestureName[] = {
     "",           "tap",         "hold",     "drag",      "drag end",
     "swipe left", "swipe right", "swipe up", "swipe down"};
 
+/* The most zones a screen has. */
+#define TOUCH_ZONES_MAX 16
+
 /*
- * One thing a finger did, from the glass or from POST /api/touch. `first`
- * is whether it is the first event of its gesture.
+ * One thing a finger did, from the glass or from POST /api/touch: `first`
+ * whether it is the first event of its gesture, `zone` the zone of the
+ * screen on top it began in, `start` where and `last` where it is now.
  *
  * The checks a key makes for itself are made once for the whole gesture, on
  * its first event, since a drag is many events: the beep by Key Beeps, a tap
@@ -1648,11 +1780,16 @@ static const char *const kGestureName[] = {
  * touch stops and does nothing else, as any key does; and a number being
  * typed, which a touch clears and does nothing else. True when it did one of
  * those two, which is all the gesture does. A drag is noted once, not on
- * every sample.
+ * every sample. Then the screen on top acts on it, if the zone is one of its
+ * own.
  */
-static bool onTouch(TouchGestureEvent event, bool first, uint32_t nowMs) {
+static bool onTouch(TouchGestureEvent event, bool first, int zone,
+                    TouchPoint start, TouchPoint last, uint32_t nowMs) {
   sActivity++;
+  bool dxUnder = false;
+  const ScreenInput *in = screenInput(&dxUnder);
   if (first) {
+    sDialDragging = false;
     if (!sFromApi) {
       sStatus.touchGestures++;
     }
@@ -1668,18 +1805,71 @@ static bool onTouch(TouchGestureEvent event, bool first, uint32_t nowMs) {
       cancelTyping();
       return true;
     }
-  } else if (event == TOUCH_DRAG) {
-    return false;
   }
-  char seen[INPUT_EVENT_MAX];
-  snprintf(seen, sizeof(seen), "touch %s", kGestureName[event]);
-  note(seen);
+  if (first || event != TOUCH_DRAG) {
+    const char *where =
+        zone != TOUCH_NO_ZONE && in->zoneName != NULL ? in->zoneName(zone) : "";
+    char seen[INPUT_EVENT_MAX];
+    snprintf(seen, sizeof(seen), "touch %s%s%s", kGestureName[event],
+             where[0] != '\0' ? " " : "", where);
+    note(seen);
+  }
+  if (zone != TOUCH_NO_ZONE && in->touch != NULL) {
+    in->touch(event, zone, start, last, dxUnder);
+  }
   return false;
+}
+
+/* The zones of the screen on top, TOUCH_ZONES_MAX at most, and its row of
+ * the table. */
+static int screenZones(TouchZone *zones, const ScreenInput **in) {
+  bool dxUnder = false;
+  *in = screenInput(&dxUnder);
+  return (*in)->zones != NULL ? (*in)->zones(zones, TOUCH_ZONES_MAX) : 0;
+}
+
+/* The zone of the screen on top holding `at`, and whether it follows a
+ * drag. */
+static int zoneAt(TouchPoint at, bool *drags) {
+  const ScreenInput *in = NULL;
+  TouchZone zones[TOUCH_ZONES_MAX];
+  const int n = screenZones(zones, &in);
+  const int zone = touchZoneAt(zones, n, at);
+  *drags = zone != TOUCH_NO_ZONE && zone == in->dragZone;
+  return zone;
+}
+
+/* Whether a finger could make `event` from `at`, to `to` for a drag: a zone
+ * that follows a drag turns any move past the slop into one and never
+ * swipes, and no other zone drags. */
+static bool gestureFits(TouchGestureEvent event, TouchPoint at, TouchPoint to) {
+  bool drags = false;
+  (void)zoneAt(at, &drags);
+  if (event != TOUCH_DRAG) {
+    return !drags || event < TOUCH_SWIPE_LEFT;
+  }
+  return drags && (abs(to.x - at.x) > kGesture.slopPx ||
+                   abs(to.y - at.y) > kGesture.slopPx);
+}
+
+/* A gesture sent over POST /api/touch, made whole at once: a drag is its
+ * start and its end. */
+static void apiTouch(const ApiInput *in, uint32_t nowMs) {
+  bool drags = false;
+  const int zone = zoneAt(in->at, &drags);
+  (void)drags;
+  if (in->touch == TOUCH_DRAG) {
+    if (!onTouch(TOUCH_DRAG, true, zone, in->at, in->to, nowMs)) {
+      (void)onTouch(TOUCH_DRAG_END, false, zone, in->at, in->to, nowMs);
+    }
+    return;
+  }
+  (void)onTouch(in->touch, true, zone, in->at, in->at, nowMs);
 }
 
 /*
  * Feed one steady point, or none, to the gesture under way and act on what
- * it completes. No screen has zones yet, so every touch is in none.
+ * it completes.
  */
 static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
                         uint32_t nowMs) {
@@ -1694,15 +1884,16 @@ static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
   s.down = contact;
   s.at = at;
   s.unsettled = unsettled;
-  s.zone = TOUCH_NO_ZONE;
   s.zoneDrags = false;
+  s.zone = contact ? zoneAt(at, &s.zoneDrags) : TOUCH_NO_ZONE;
   s.screen = (uint32_t)inputTop(&dxUnder) << 8 | (uint32_t)dxUnder << 4 | page;
   const TouchGestureEvent event =
       touchGestureFeed(&sGesture, &kGesture, &s, nowMs);
   if (event != TOUCH_NOTHING && !sGestureSpent) {
     const bool first = !sGestureSeen;
     sGestureSeen = true;
-    sGestureSpent = onTouch(event, first, nowMs);
+    sGestureSpent = onTouch(event, first, sGesture.zone, sGesture.start,
+                            sGesture.last, nowMs);
   }
   if (!sGesture.on) {
     sGestureSeen = false;
@@ -1860,7 +2051,8 @@ bool inputTurnFromApi(int32_t clicks) {
   return true;
 }
 
-InputTouchResult inputTouchFromApi(TouchGestureEvent event) {
+InputTouchResult inputTouchFromApi(TouchGestureEvent event, TouchPoint at,
+                                   TouchPoint to) {
 #if FEATURE_TOUCH
   if (sApi.pending) {
     return INPUT_TOUCH_BUSY;
@@ -1874,12 +2066,19 @@ InputTouchResult inputTouchFromApi(TouchGestureEvent event) {
   if (touchIgnored()) {
     return INPUT_TOUCH_NOT_NOW;
   }
+  if (!gestureFits(event, at, to)) {
+    return INPUT_TOUCH_NOT_HERE;
+  }
   sApi.touch = event;
+  sApi.at = at;
+  sApi.to = to;
   sApi.clicks = 0;
   sApi.pending = true;
   return INPUT_TOUCH_TAKEN;
 #else
   (void)event;
+  (void)at;
+  (void)to;
   return INPUT_TOUCH_OFF;
 #endif
 }
@@ -1889,4 +2088,25 @@ void inputStatusGet(InputStatus *out) {
     return;
   }
   *out = sStatus;
+}
+
+int inputScreenZones(InputZone *out, int max) {
+#if FEATURE_TOUCH
+  if (touchIgnored()) {
+    return 0;
+  }
+  const ScreenInput *in = NULL;
+  TouchZone zones[TOUCH_ZONES_MAX];
+  const int n = screenZones(zones, &in);
+  int i = 0;
+  for (; i < n && i < max; i++) {
+    out[i].zone = zones[i];
+    out[i].name = in->zoneName(zones[i].id);
+  }
+  return i;
+#else
+  (void)out;
+  (void)max;
+  return 0;
+#endif
 }

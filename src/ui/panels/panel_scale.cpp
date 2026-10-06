@@ -216,4 +216,12 @@ static void show(const ScreenState *s) {
   }
 }
 
-const Panel panelScale = {begin, show};
+static int zones(const PanelRect *at, TouchZone *out, int max) {
+  if (max < 1) {
+    return 0;
+  }
+  out[0] = {at->x, at->y, at->w, at->h, RADIO_ZONE_SCALE};
+  return 1;
+}
+
+const Panel panelScale = {begin, show, zones};

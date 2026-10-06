@@ -165,6 +165,25 @@ bool screenBegin(void) {
   return true;
 }
 
+int screenRadioZones(TouchZone *out, int max) {
+  const Layout *layout = layoutFor();
+  int n = 0;
+  for (uint8_t i = 0; i < layout->count && n < max; i++) {
+    const PanelPlacement *p = &layout->placements[i];
+    if (p->panel->zones != NULL) {
+      n += p->panel->zones(&p->at, out + n, max - n);
+    }
+  }
+  return n;
+}
+
+const char *screenRadioZoneName(int id) {
+  static const char *const kNames[] = {"",     "band", "menu", "panel", "scale",
+                                       "mode", "sql",  "bw",   "vol"};
+  return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
+                                                                  : "";
+}
+
 void screenEnd(void) {
   if (!sReady) {
     return;

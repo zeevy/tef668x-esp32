@@ -297,7 +297,12 @@ typedef enum {
   /* One band's filter width, `band` and `bandwidthKHz`, from any band, the
    * same way: the width that band comes up with, and the live one too when it
    * is the band tuned. */
-  RADIO_SET_BAND_BANDWIDTH
+  RADIO_SET_BAND_BANDWIDTH,
+  /* Go to `freqKHz` on the band tuned, refused when that band does not hold
+   * it, for a drag of the scale. RADIO_TUNE picks the band by the frequency,
+   * lowest first, so where two bands overlap, the bottom of SW under the top
+   * of MW or OIRT inside the full FM region, it would change band. */
+  RADIO_TUNE_IN_BAND
 } RadioCommandKind;
 
 /* The bit for value `i` of a command's `members`. */
@@ -306,7 +311,7 @@ typedef enum {
 /* One thing to do. Only the field its kind names is read. */
 typedef struct {
   RadioCommandKind kind; /* Which of the fields below matters. */
-  uint32_t freqKHz;      /* RADIO_TUNE. */
+  uint32_t freqKHz;      /* RADIO_TUNE and RADIO_TUNE_IN_BAND. */
   int16_t steps;         /* RADIO_STEP. Negative goes down. */
   BandId band;           /* RADIO_SET_BAND and both RADIO_SET_BAND_*. */
   uint16_t stepKHz;      /* RADIO_SET_STEP, RADIO_SET_BAND_STEP. */
