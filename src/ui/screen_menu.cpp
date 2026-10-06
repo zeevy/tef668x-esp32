@@ -96,7 +96,10 @@ static lv_obj_t *sValueUnit;
 static lv_obj_t *sBar;
 static lv_obj_t *sBarMin;
 static lv_obj_t *sBarMax;
-/* The digits editor. */
+/* The PIN digits' parent, built only while the PIN editor shows and the
+ * dialog only while it shows: the pool holds the list and the editor with
+ * room for the big face's glyphs only when these two are not there too. */
+static lv_obj_t *sDigits;
 static lv_obj_t *sDigitBox;
 static lv_obj_t *sDigit[DIGITS_MAX];
 static lv_obj_t *sDigitDots;
@@ -106,7 +109,7 @@ static uint8_t sDigitAt;
 static int16_t sBarFill;
 static int16_t sBarZero =
     -1; /* -1 for a value with no zero inside its range. */
-/* The dialog, every part a child of one layer so it hides as one. */
+/* The dialog, every part a child of one layer so it goes as one. */
 static lv_obj_t *sDialog;
 static lv_obj_t *sDialogTitle;
 static lv_obj_t *sDialogLabel[SCREEN_DIALOG_FACTS];
@@ -122,12 +125,91 @@ static void hideRows(void) {
 }
 
 static void hideDigits(void) {
-  uiShowIf(sDigitBox, false);
-  for (uint8_t i = 0; i < DIGITS_MAX; i++) {
-    uiShowIf(sDigit[i], false);
+  if (sDigits == NULL) {
+    return;
   }
-  uiShowIf(sDigitDots, false);
-  uiShowIf(sDigitPlace, false);
+  lv_obj_delete(sDigits);
+  sDigits = NULL;
+  sDigitBox = NULL;
+  for (uint8_t i = 0; i < DIGITS_MAX; i++) {
+    sDigit[i] = NULL;
+  }
+  sDigitDots = NULL;
+  sDigitPlace = NULL;
+  sDigitCount = 0;
+  sDigitAt = 0;
+}
+
+static void hideDialog(void) {
+  if (sDialog == NULL) {
+    return;
+  }
+  lv_obj_delete(sDialog);
+  sDialog = NULL;
+  sDialogTitle = NULL;
+  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
+    sDialogLabel[i] = NULL;
+    sDialogValue[i] = NULL;
+  }
+  for (uint8_t i = 0; i < 2; i++) {
+    sButton[i] = NULL;
+    sButtonWord[i] = NULL;
+  }
+}
+
+/* A parent the size of the screen, so its children are placed as they
+ * would be on the screen itself. */
+static lv_obj_t *wholeScreen(void) {
+  lv_obj_t *o = lv_obj_create(sMenu);
+  lv_obj_remove_style_all(o);
+  lv_obj_set_size(o, MENU_W, MENU_H);
+  return o;
+}
+
+static void onDotsDraw(lv_event_t *e);
+
+static void buildDigits(const Theme *t) {
+  if (sDigits != NULL) {
+    return;
+  }
+  sDigits = wholeScreen();
+  /* The box before the digits, so the digit it holds is drawn over it. */
+  sDigitBox = uiRound(sDigits, t->ground, 0, DIGIT_BOX_TOP, DIGIT_BOX_W,
+                      DIGIT_BOX_H, DIGIT_BOX_R);
+  for (uint8_t i = 0; i < DIGITS_MAX; i++) {
+    sDigit[i] = uiLabel(sDigits, &roboto_freq, t->ground);
+    lv_obj_add_flag(sDigit[i], UI_FLAG_SECRET);
+  }
+  sDigitDots = lv_obj_create(sDigits);
+  lv_obj_remove_style_all(sDigitDots);
+  lv_obj_set_pos(sDigitDots, 0, DIGIT_DOT_Y);
+  lv_obj_set_size(sDigitDots, MENU_W, DIGIT_DOT_H);
+  lv_obj_add_event_cb(sDigitDots, onDotsDraw, LV_EVENT_DRAW_MAIN, NULL);
+  sDigitPlace = uiLabel(sDigits, &roboto_small, t->dead);
+}
+
+static void buildDialog(const Theme *t) {
+  if (sDialog != NULL) {
+    return;
+  }
+  sDialog = wholeScreen();
+  (void)uiRound(sDialog, t->rule, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H,
+                UI_RADIUS);
+  lv_obj_t *icon = uiLabel(sDialog, &roboto_icons, t->radio);
+  uiSetTextStatic(icon, ICON_NEW);
+  lv_obj_set_pos(icon, DIALOG_X + UI_PAD, uiIconTop(DIALOG_TITLE_BASE));
+  sDialogTitle = uiLabel(sDialog, &roboto_title, t->radio);
+  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
+    sDialogLabel[i] = uiLabel(sDialog, &roboto_small, t->dead);
+    sDialogValue[i] = uiLabel(sDialog, &roboto_small, t->measurement);
+  }
+  for (uint8_t i = 0; i < 2; i++) {
+    sButton[i] =
+        uiRound(sDialog, t->ground,
+                (int16_t)(DIALOG_X + UI_PAD + i * (DIALOG_BUTTON_W + UI_GAP)),
+                DIALOG_BUTTON_Y, DIALOG_BUTTON_W, DIALOG_BUTTON_H, UI_TILE_R);
+    sButtonWord[i] = uiLabel(sDialog, &roboto_text, t->measurement);
+  }
 }
 
 /* A label's colour set only when it changes, as `uiSetColour` does for a
@@ -270,43 +352,7 @@ bool screenMenuBegin(void) {
   lv_obj_add_event_cb(sBar, onBarDraw, LV_EVENT_DRAW_MAIN, NULL);
   sBarMin = uiLabel(sMenu, &roboto_label, t->dead);
   sBarMax = uiLabel(sMenu, &roboto_label, t->dead);
-  /* The box before the digits, so the digit it holds is drawn over it. */
-  sDigitBox = uiRound(sMenu, t->ground, 0, DIGIT_BOX_TOP, DIGIT_BOX_W,
-                      DIGIT_BOX_H, DIGIT_BOX_R);
-  for (uint8_t i = 0; i < DIGITS_MAX; i++) {
-    sDigit[i] = uiLabel(sMenu, &roboto_freq, t->ground);
-    lv_obj_add_flag(sDigit[i], UI_FLAG_SECRET);
-  }
-  sDigitDots = lv_obj_create(sMenu);
-  lv_obj_remove_style_all(sDigitDots);
-  lv_obj_set_pos(sDigitDots, 0, DIGIT_DOT_Y);
-  lv_obj_set_size(sDigitDots, MENU_W, DIGIT_DOT_H);
-  lv_obj_add_event_cb(sDigitDots, onDotsDraw, LV_EVENT_DRAW_MAIN, NULL);
-  sDigitPlace = uiLabel(sMenu, &roboto_small, t->dead);
   showEditor(false);
-
-  /* The dialog last, so it is drawn over everything above. */
-  sDialog = lv_obj_create(sMenu);
-  lv_obj_remove_style_all(sDialog);
-  lv_obj_set_size(sDialog, MENU_W, MENU_H);
-  (void)uiRound(sDialog, t->rule, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H,
-                UI_RADIUS);
-  lv_obj_t *icon = uiLabel(sDialog, &roboto_icons, t->radio);
-  uiSetTextStatic(icon, ICON_NEW);
-  lv_obj_set_pos(icon, DIALOG_X + UI_PAD, uiIconTop(DIALOG_TITLE_BASE));
-  sDialogTitle = uiLabel(sDialog, &roboto_title, t->radio);
-  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
-    sDialogLabel[i] = uiLabel(sDialog, &roboto_small, t->dead);
-    sDialogValue[i] = uiLabel(sDialog, &roboto_small, t->measurement);
-  }
-  for (uint8_t i = 0; i < 2; i++) {
-    sButton[i] =
-        uiRound(sDialog, t->ground,
-                (int16_t)(DIALOG_X + UI_PAD + i * (DIALOG_BUTTON_W + UI_GAP)),
-                DIALOG_BUTTON_Y, DIALOG_BUTTON_W, DIALOG_BUTTON_H, UI_TILE_R);
-    sButtonWord[i] = uiLabel(sDialog, &roboto_text, t->measurement);
-  }
-  uiShowIf(sDialog, false);
   return true;
 }
 
@@ -317,7 +363,7 @@ void screenMenuShow(const ScreenMenu *menu) {
   const Theme *t = themeCurrent();
   showEditor(false);
   hideRows();
-  uiShowIf(sDialog, false);
+  hideDialog();
   uiFrameShow(&sFrame, menu->title, NULL, NULL, NULL, NULL, NULL);
   /* The header is the title alone, so not the sleep mark either. */
   uiShowIf(sFrame.sleep, false);
@@ -414,6 +460,7 @@ static void showDigits(const ScreenMenuValue *v) {
     hideDigits();
     return;
   }
+  buildDigits(t);
   const uint8_t at = v->digitAt < count ? v->digitAt : (uint8_t)(count - 1);
   const lv_color_t still =
       lv_color_mix(uiColour(t->ground), uiColour(t->radio), DIGIT_STILL_MIX);
@@ -461,7 +508,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
               NULL);
   uiShowIf(sFrame.sleep, false);
   hideRows();
-  uiShowIf(sDialog, false);
+  hideDialog();
   if (v->isPicker) {
     showEditor(false);
     showPicker(v);
@@ -556,7 +603,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
   showScroll(0, 0);
   uiFrameShow(&sFrame, NULL, NULL, NULL, NULL, NULL, NULL);
   uiShowIf(sFrame.sleep, false);
-  uiShowIf(sDialog, true);
+  buildDialog(t);
 
   uiSetText(sDialogTitle, d->title != NULL ? d->title : "");
   uiBaseline(sDialogTitle, &roboto_title,
@@ -594,6 +641,8 @@ void screenMenuEnd(void) {
   if (sMenu == NULL) {
     return;
   }
+  hideDigits();
+  hideDialog();
   uiDropRoot(&sMenu);
   sPanel = NULL;
   sLabel = NULL;
@@ -603,24 +652,6 @@ void screenMenuEnd(void) {
   sBar = NULL;
   sBarMin = NULL;
   sBarMax = NULL;
-  sDigitBox = NULL;
-  for (uint8_t i = 0; i < DIGITS_MAX; i++) {
-    sDigit[i] = NULL;
-  }
-  sDigitDots = NULL;
-  sDigitPlace = NULL;
-  sDialog = NULL;
-  sDialogTitle = NULL;
-  for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
-    sDialogLabel[i] = NULL;
-    sDialogValue[i] = NULL;
-  }
-  for (uint8_t i = 0; i < 2; i++) {
-    sButton[i] = NULL;
-    sButtonWord[i] = NULL;
-  }
-  sDigitCount = 0;
-  sDigitAt = 0;
   sBarFill = 0;
   sBarZero = -1;
 }
