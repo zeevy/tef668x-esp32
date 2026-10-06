@@ -57,9 +57,15 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
 bool menuTaskOpenUpdateOffer(void);
 
 /*
- * A page of the list on show, for a swipe: the window and the cursor move a
- * whole window on, `dir` 1, or back, -1, stopping at the ends. Nothing on
- * the value, a picker or a dialog.
+ * A tap on a row of the list or picker on show, `by` rows from the cursor:
+ * turned to and pressed, the knob's own calls.
+ */
+void menuTaskTapRow(int32_t by);
+
+/*
+ * A page of the list or picker on show, for a swipe: the window and the
+ * cursor move a whole window on, `dir` 1, or back, -1, stopping at the ends.
+ * Nothing on a value with a bar, the PIN, the Restart question or a dialog.
  */
 void menuTaskPage(int dir);
 

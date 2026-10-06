@@ -75,8 +75,8 @@
 
 static lv_obj_t *sMenu;
 static UiFrame sFrame;
-/* The list on show, for its touch zones: how many rows are drawn, 0 while
- * another shape is up, and the slot the cursor is on. */
+/* The list or picker on show, for its touch zones: how many rows are drawn,
+ * 0 while another shape is up, and the slot the cursor is on. */
 static uint8_t sListRows;
 static int8_t sListCursor = -1;
 static UiRow sRows[SCREEN_MENU_ROWS];
@@ -404,12 +404,17 @@ void screenMenuShow(const ScreenMenu *menu) {
  * every row of the list starts with one. */
 static void showPicker(const ScreenMenuValue *v) {
   const Theme *t = themeCurrent();
+  sListCursor = -1;
   showScroll(v->pickerTotal, v->pickerTop);
   for (uint8_t i = 0; i < SCREEN_MENU_PICKER_ROWS && i < SCREEN_MENU_ROWS;
        i++) {
     const ScreenMenuPickerRow *row = &v->picker[i];
     if (row->name == NULL) {
       continue;
+    }
+    sListRows = (uint8_t)(i + 1);
+    if (row->isCursor) {
+      sListCursor = (int8_t)i;
     }
     strncpy(sRowWord[i], row->name, sizeof(sRowWord[i]) - 1);
     sRowWord[i][sizeof(sRowWord[i]) - 1] = '\0';

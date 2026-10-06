@@ -282,15 +282,17 @@ typedef enum {
   MENU_ZONE_ROW,
 } MenuZone;
 
-/* The zones of the list on show, the header and a zone for each row drawn,
- * meeting halfway across the gaps: writes no more than `max` and returns how
- * many, 0 while the value, the picker or a dialog is up. */
+/* The zones of the list or picker on show, the header and a zone for each
+ * row drawn, meeting halfway across the gaps: writes no more than `max` and
+ * returns how many, 0 while a value with a bar, the PIN, the Restart question
+ * or a dialog is up. */
 int screenMenuZones(TouchZone *out, int max);
 
 /* A zone's name, for GET /api/screen: "back", "row1" to "row6", or "". */
 const char *screenMenuZoneName(int id);
 
-/* The slot of the row the cursor is on in the list on show, or -1. */
+/* The slot of the row the cursor is on in the list or picker on show, or
+ * -1. */
 int screenMenuCursorSlot(void);
 
 /* Whether `p` is where the menu's Back is, the menu up or not. */
