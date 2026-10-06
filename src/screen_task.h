@@ -381,6 +381,10 @@ uint8_t screenTaskDxPage(void);
 /* The next DX page, wrapping round: BAND on every DX page. */
 void screenTaskDxNextPage(void);
 
+/* The next DX page, `dir` 1, or the one before, -1, going round, for a
+ * swipe. */
+void screenTaskDxStepPage(int dir);
+
 /* The Scanner page, for a scan started over HTTP, so the panel shows what
  * the radio is doing. Nothing unless DX mode is open. */
 void screenTaskDxShowScanner(void);

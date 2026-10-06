@@ -2048,6 +2048,14 @@ int main(int argc, char **argv) {
   if (screenDxBegin()) {
     renderDx(dir, "station", dxChannel(kDxSweep, DX_SWEEP_COUNT, 106400),
              UINT16_MAX);
+    {
+      /* The DX page's touch zones over it, and the other pages' checked. */
+      TouchZone zones[TOUCH_ZONES_MAX];
+      checkZones(zones, screenDxZones(zones, TOUCH_ZONES_MAX, false),
+                 "dx pages");
+      snprintf(path, sizeof(path), "%s/touch-dx.bmp", dir);
+      saveZones(zones, screenDxZones(zones, TOUCH_ZONES_MAX, true), path);
+    }
     uiSetSleepMark(UI_SLEEP_ON);
     renderDx(dir, "auto-off", dxChannel(kDxSweep, DX_SWEEP_COUNT, 106400),
              UINT16_MAX);

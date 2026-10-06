@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page and the RDS screen can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's DX page can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question, the update offer, and on DX mode's Scope, Scanner and Catches pages anything but turning the page and leaving, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -63,6 +63,27 @@ Over DX mode the page sets DX mode's own width and has no AUTO.
 | Anywhere | Swipe left or right | The next or the previous page, going round from the last to the first, as turning the tuning knob |
 | The right half of the top line, with the page position | Tap | The next page |
 | The left half of the top line, with the title | Tap | Closes the screen, as a tap of MODE. Over DX mode, back to the DX page |
+
+## DX mode
+
+![The parts of the DX page a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-dx.png)
+
+On every DX page:
+
+| Where | Touch | Does |
+|---|---|---|
+| Anywhere | Swipe left or right | The next or the previous page, going round |
+| The right half of the top line, with the page position | Tap | The next page, as a tap of BAND |
+| The left half of the top line, with the title | Tap | Leaves DX mode, as a tap of MODE |
+
+On the DX page also:
+
+| Where | Touch | Does |
+|---|---|---|
+| The amber panel or the PI tile | Tap | Opens the RDS screen over DX mode, as a press of the tuning knob |
+| The readings under them | Tap | Opens the bandwidth page with DX mode's widths, as BW held |
+
+While a DX scan runs, any touch only stops it, as any key does. In its first seconds, while it sweeps the band, the screen is not read, so only a key stops it then.
 
 ## What any touch does
 

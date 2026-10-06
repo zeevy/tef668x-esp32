@@ -1079,6 +1079,45 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
 }
 
 /*
+ * DX mode by touch. On every page a swipe left or right is the next page or
+ * the one before, the page position the next page as BAND, and the title
+ * leaves DX mode as MODE does. On the DX page the amber panel and the PI tile
+ * open the RDS screen over it, as the knob's press, and the readings the
+ * bandwidth page with DX mode's widths, as BW held.
+ */
+static int dxZones(TouchZone *out, int max) {
+  return screenDxZones(out, max, screenTaskDxPage() == SCREEN_DX_PAGE_DX);
+}
+
+static void dxTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
+                    bool dxUnder) {
+  if (event == TOUCH_SWIPE_LEFT || event == TOUCH_SWIPE_RIGHT) {
+    screenTaskDxStepPage(event == TOUCH_SWIPE_LEFT ? 1 : -1);
+    return;
+  }
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  switch (zone) {
+    case DX_ZONE_BACK:
+      dxMode(BUTTON_SHORT, dxUnder);
+      break;
+    case DX_ZONE_NEXT:
+      dxBand(BUTTON_SHORT, dxUnder);
+      break;
+    case DX_ZONE_PANEL:
+    case DX_ZONE_PI:
+      dxPress(BUTTON_SHORT, dxUnder);
+      break;
+    case DX_ZONE_READINGS:
+      openBandwidthPage();
+      break;
+    default:
+      break;
+  }
+}
+
+/*
  * The RDS screen by touch: a swipe to the left is the next page and to the
  * right the one before, as the knob turns them; a tap on the page position
  * is the next page; and a tap on the title closes it as MODE does, back to
@@ -1207,7 +1246,12 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #endif
     },
     /* TOP_DX */
-    {dxTurn, dxPress, dxBand, dxBandwidth, dxMode, dxEnter, dxKey},
+    {dxTurn, dxPress, dxBand, dxBandwidth, dxMode, dxEnter, dxKey
+#if FEATURE_TOUCH
+     ,
+     dxTouch, dxZones, screenDxZoneName, 0
+#endif
+    },
     /* TOP_TOUCH_CAL */
     {calTurn, calPress, calButton, calButton, calButton, calEnter, calKey},
 };
