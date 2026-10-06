@@ -1845,6 +1845,10 @@ int main(int argc, char **argv) {
       screenMenuValueShow(&theme);
       if (page == 0) {
         saveShot("%s/menu-theme.bmp", dir);
+        /* A picker's touch zones over it. */
+        TouchZone zones[16];
+        snprintf(path, sizeof(path), "%s/touch-picker.bmp", dir);
+        saveZones(zones, screenMenuZones(zones, 16), path);
       } else {
         saveShot("%s/menu-theme-%d.bmp", dir, page + 1);
       }

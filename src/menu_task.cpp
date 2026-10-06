@@ -2108,6 +2108,16 @@ static bool isThemeRow(const MenuRow *row) {
   return row->id == ROW_THEME || row->id == ROW_NIGHT_THEME;
 }
 
+/* A row whose edit is a list of named choices: no bar, not an action, not
+ * the PIN. */
+static bool isPicker(const MenuRow *row) {
+  return row->id != ROW_WEB_PIN && !hasRange(row) && row->source != SRC_ACTION;
+}
+
+static uint8_t pickerTotal(const MenuRow *row) {
+  return (uint8_t)(rowMax(row) - rowMin(row) + 1);
+}
+
 /*
  * A named choice from a short list: an enum has no distance, so it gets a list
  * rather than the bar `hasRange` draws.
@@ -2122,7 +2132,7 @@ static bool isThemeRow(const MenuRow *row) {
 static void drawPicker(const MenuRow *row, ScreenMenuValue *view) {
   /* As long as the row's own copy of each name, so no name is cut here. */
   static char text[SCREEN_MENU_PICKER_ROWS][32];
-  const uint8_t total = (uint8_t)(rowMax(row) - rowMin(row) + 1);
+  const uint8_t total = pickerTotal(row);
   sTopPicker = menuWindowTop((uint8_t)sMenu.value, total,
                              SCREEN_MENU_PICKER_ROWS, sTopPicker);
   view->isPicker = true;
@@ -2272,7 +2282,7 @@ static void drawValue(void) {
    */
   if (row->id == ROW_WEB_PIN) {
     drawPinValue(&view);
-  } else if (!hasRange(row) && row->source != SRC_ACTION) {
+  } else if (isPicker(row)) {
     drawPicker(row, &view);
   }
 
@@ -3018,14 +3028,40 @@ void menuTaskTurn(int32_t clicks) {
   draw();
 }
 
+void menuTaskTapRow(int32_t by) {
+  if (sChoice.active) {
+    /* The choice moves one row a turn whatever the clicks. */
+    for (int32_t i = 0; i < (by < 0 ? -by : by); i++) {
+      menuTaskTurn(by < 0 ? -1 : 1);
+    }
+  } else {
+    /* In one turn, so a value that applies as it turns applies the row
+     * tapped and none between, and a turn the radio refuses leaves the
+     * value where it was for the press to keep. */
+    menuTaskTurn(by);
+  }
+  menuTaskPress();
+}
+
 void menuTaskPage(int dir) {
-  if (!menuIsOpen(&sMenu) || sMenu.level == MENU_EDIT || sChoice.active) {
+  if (!menuIsOpen(&sMenu) || sChoice.active || pinEditing()) {
+    return;
+  }
+  const MenuRow *row = rowAt(sMenu.row);
+  const bool picking = sMenu.level == MENU_EDIT;
+  if (picking && (row == NULL || !isPicker(row))) {
     return;
   }
   const bool onGroups = sMenu.level == MENU_GROUPS;
-  uint8_t *top = onGroups ? &sTopGroup : sMenu.inSub ? &sTopSub : &sTopRow;
-  const uint8_t count = onGroups ? GROUP_COUNT : list()->count;
-  const uint8_t to = menuPageTop(*top, count, SCREEN_MENU_ROWS, dir);
+  uint8_t *top = picking       ? &sTopPicker
+                 : onGroups    ? &sTopGroup
+                 : sMenu.inSub ? &sTopSub
+                               : &sTopRow;
+  const uint8_t count = picking    ? pickerTotal(row)
+                        : onGroups ? GROUP_COUNT
+                                   : list()->count;
+  const uint8_t to = menuPageTop(
+      *top, count, picking ? SCREEN_MENU_PICKER_ROWS : SCREEN_MENU_ROWS, dir);
   const int32_t by = (int32_t)to - *top;
   /* The cursor moves with the window, so it keeps its place on the page
    * and the window does not slide back to it. */

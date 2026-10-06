@@ -34,7 +34,7 @@ SCREENS = [
     "dx-station", "dx-scope", "dx-scan-run", "dx-catches",
     # The menu.
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "menu-theme",
-    "menu-presets",
+    "touch-picker", "menu-presets",
     "menu-station-log", "menu-network-info", "menu-diagnostics",
     "menu-about", "menu-typed-choice", "menu-update-offer",
     # The bandwidth page.

@@ -1098,13 +1098,7 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
   }
   const int cursor = screenMenuCursorSlot();
   if (cursor >= 0) {
-    /* A click at a time, since a dialog's list moves one row a turn
-     * whatever the clicks. */
-    const int by = zone - MENU_ZONE_ROW - cursor;
-    for (int i = 0; i < abs(by); i++) {
-      menuTaskTurn(by < 0 ? -1 : 1);
-    }
-    menuTaskPress();
+    menuTaskTapRow(zone - MENU_ZONE_ROW - cursor);
   }
 }
 #endif
