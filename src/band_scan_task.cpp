@@ -66,13 +66,6 @@ bool bandScanLastResult(BandScanResult *out) {
   return sLastRan;
 }
 
-/* Post a command and wait for the radio to carry it out. */
-static bool postAndWait(RadioCommand *cmd, uint32_t waitMs) {
-  RadioError err = RADIO_OK;
-  return radioPostAndSettle(cmd, waitMs, &err) == RADIO_POST_DONE &&
-         err == RADIO_OK;
-}
-
 BandScanStartResult bandScanStart(BandId band) {
   if (sScan.active || updateCheckRunning()) {
     return BAND_SCAN_BUSY;
@@ -105,7 +98,7 @@ BandScanStartResult bandScanStart(BandId band) {
     memset(&go, 0, sizeof(go));
     go.kind = RADIO_SET_BAND;
     go.band = band;
-    if (!postAndWait(&go, BAND_SCAN_SWITCH_WAIT_MS) ||
+    if (!radioPostOk(&go, BAND_SCAN_SWITCH_WAIT_MS) ||
         !radioGetSnapshot(&snap) || snap.settings.band != band) {
       /* A band change still waiting is carried out later all the same, so
        * the way back is queued behind it, and the radio ends on its own
@@ -149,22 +142,22 @@ static void finish(bool restore, bool complete) {
        * Meter band mode, which no band but SW keeps, has to be put back. */
       back.kind = RADIO_TUNE;
       back.freqKHz = from->scannedKHz;
-      (void)postAndWait(&back, RADIO_TUNE_BACK_WAIT_MS);
+      (void)radioPostOk(&back, RADIO_TUNE_BACK_WAIT_MS);
       memset(&back, 0, sizeof(back));
       back.kind = RADIO_SET_BAND;
       back.band = from->band;
-      (void)postAndWait(&back, BAND_SCAN_SWITCH_WAIT_MS);
+      (void)radioPostOk(&back, BAND_SCAN_SWITCH_WAIT_MS);
       RadioSnapshot now;
       if (radioGetSnapshot(&now) && now.settings.tuneMode != from->mode) {
         memset(&back, 0, sizeof(back));
         back.kind = RADIO_SET_TUNE_MODE;
         back.tuneMode = from->mode;
-        (void)postAndWait(&back, RADIO_TUNE_BACK_WAIT_MS);
+        (void)radioPostOk(&back, RADIO_TUNE_BACK_WAIT_MS);
       }
     } else {
       back.kind = RADIO_TUNE;
       back.freqKHz = from->khz;
-      (void)postAndWait(&back, RADIO_TUNE_BACK_WAIT_MS);
+      (void)radioPostOk(&back, RADIO_TUNE_BACK_WAIT_MS);
     }
   }
   /* After the way back, so the audio comes up on the station the scan

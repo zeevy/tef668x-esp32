@@ -3,14 +3,14 @@
  *
  * Three small state machines live here. A quadrature decoder that turns two
  * changing levels into detents. A button that tells a short press from a long
- * one and from a double. And an acceleration rule that says how far one
- * detent should move the dial when the knob is being spun.
+ * one. And an acceleration rule that says how far one detent should move the
+ * dial when the knob is being spun.
  *
  * None of them read a pin or know what a pin is. They are fed levels and a
- * millisecond count, which is what makes them testable on a PC: a double
- * press that arrives one millisecond too late, a press held exactly on the
- * long press boundary, a knob turned back and forth across a detent. Those
- * are miserable to check by hand on a radio and easy to get wrong.
+ * millisecond count, which is what makes them testable on a PC: a press held
+ * exactly on the long press boundary, a contact that bounces, a knob turned
+ * back and forth across a detent. Those are miserable to check by hand on a
+ * radio and easy to get wrong.
  *
  * Every millisecond count is compared by subtraction, so the machines keep
  * working across the 49 day wrap of millis().
@@ -72,18 +72,8 @@ int8_t encoderFeed(Encoder *e, bool a, bool b);
 
 /* ----------------------------------------------------------- acceleration */
 
-/* How fast the knob has to be turning before the dial moves further. */
-typedef struct {
-  uint16_t fastMs;     /* Detents closer together than this are fast. */
-  uint16_t fasterMs;   /* Closer than this is faster. */
-  uint16_t spinMs;     /* Closer than this is a flick of the wrist. */
-  uint8_t fastSteps;   /* Steps per detent when fast. */
-  uint8_t fasterSteps; /* Steps per detent when faster. */
-  uint8_t spinSteps;   /* Steps per detent when spinning. */
-} AccelerationConfig;
-
 /*
- * The acceleration the ATS-125 ships with.
+ * How fast the knob has to be turning before the dial moves further.
  *
  * The thresholds are the ones in the PE5PVB firmware, which has been turned
  * by a lot of hands on this exact knob. They are not a guess, and they are
@@ -91,7 +81,12 @@ typedef struct {
  * 65, 33 and 22 clicks per second, which is the range a person can actually
  * produce on a knob this size.
  */
-void accelerationDefaults(AccelerationConfig *out);
+#define ACCEL_FAST_MS 45     /* Detents closer together than this are fast. */
+#define ACCEL_FASTER_MS 30   /* Closer than this is faster. */
+#define ACCEL_SPIN_MS 15     /* Closer than this is a flick of the wrist. */
+#define ACCEL_FAST_STEPS 2   /* Steps per detent when fast. */
+#define ACCEL_FASTER_STEPS 4 /* Steps per detent when faster. */
+#define ACCEL_SPIN_STEPS 6   /* Steps per detent when spinning. */
 
 /* Works out how far one detent should move the dial. Zero before use. */
 typedef struct {
@@ -99,8 +94,7 @@ typedef struct {
   bool started;    /* A first detent has been seen. */
 } Acceleration;
 
-uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
-                          uint32_t nowMs);
+uint8_t accelerationSteps(Acceleration *a, uint32_t nowMs);
 
 /* The most steps one batch of clicks may carry: the queue holds an int16_t,
  * and the state machine caps a move at a band's width anyway. */
@@ -252,55 +246,28 @@ bool potMoved(uint16_t previous, uint16_t now, const PotConfig *cfg);
 typedef enum {
   BUTTON_NONE = 0, /* Nothing happened this time round. */
   BUTTON_SHORT,    /* Pressed and let go. */
-  BUTTON_LONG,     /* Held past the long press time, reported once. */
-  BUTTON_DOUBLE    /* Two short presses close together. */
+  BUTTON_LONG      /* Held past the long press time, reported once. */
 } ButtonEvent;
 
-/* How long a press has to be, and how close two have to be. */
-typedef struct {
-  uint16_t debounceMs; /* Ignore changes closer together than this. */
-  uint16_t longMs;     /* Held this long is a long press. */
-  uint16_t doubleMs;   /* A second press within this is a double. */
-  /*
-   * Watch for a double press on this button.
-   *
-   * Off by default, and that is not laziness. Telling a single press from a
-   * double means holding the single back until it is certain no second press
-   * is coming, so every press on the button arrives `doubleMs` late. On a
-   * button pressed repeatedly, such as MODE, that also swallows the second of
-   * two quick presses into one double that the caller then ignores.
-   *
-   * So a button only pays that price if something actually uses its double
-   * press. No button in the firmware turns it on yet. The double press is
-   * kept for a future gesture, and only the unit tests use it now.
-   */
-  bool wantDouble;
-} ButtonConfig;
-
 /*
- * The press timings the radio ships with.
+ * How long a press has to be.
  *
  * 25 ms of debounce is longer than any switch bounce on this board and
  * shorter than a person can press twice. 600 ms for a long press is the
  * usual feel: long enough not to fire while someone is tapping, short enough
- * not to feel stuck. 350 ms for a double is inside what a hand can do twice.
- *
- * Double press watching is off. Turn it on only for a button that has
- * something bound to its double press. No button has one bound yet.
+ * not to feel stuck.
  */
-void buttonDefaults(ButtonConfig *out);
+#define BUTTON_DEBOUNCE_MS 25 /* Ignore changes closer together than this. */
+#define BUTTON_LONG_MS 600    /* Held this long is a long press. */
 
 /* One button. Zero it before first use. */
 typedef struct {
-  bool level;          /* The debounced level. True means pressed. */
-  bool raw;            /* The last level seen, before debouncing. */
-  bool handled;        /* This press has already produced its event, so
+  bool level;         /* The debounced level. True means pressed. */
+  bool raw;           /* The last level seen, before debouncing. */
+  bool handled;       /* This press has already produced its event, so
                       *   letting go must not produce another one. */
-  bool waitingDouble;  /* A short press is being held back to see if a
-                       *   second one follows. */
-  uint32_t changedMs;  /* When the raw level last changed. */
-  uint32_t pressedMs;  /* When the current press started. */
-  uint32_t releasedMs; /* When the last press ended. */
+  uint32_t changedMs; /* When the raw level last changed. */
+  uint32_t pressedMs; /* When the current press started. */
 } Button;
 
 /*
@@ -310,12 +277,9 @@ typedef struct {
  * with the level unchanged as well, because a long press is a thing that
  * happens while nothing is happening.
  *
- * With `wantDouble` off, a short press is reported the moment the finger comes
- * off. With it on, the short press is held back `doubleMs` to see whether a
- * second one follows, which is the price of telling the two apart.
+ * A short press is reported the moment the finger comes off.
  */
-ButtonEvent buttonFeed(Button *b, const ButtonConfig *cfg, bool pressed,
-                       uint32_t nowMs);
+ButtonEvent buttonFeed(Button *b, bool pressed, uint32_t nowMs);
 
 /*
  * Start a button as already held, so this press reports nothing, not a
@@ -330,7 +294,7 @@ const char *buttonEventName(ButtonEvent event);
 
 /*
  * "short" or "long", the two a person can make on purpose, for POST
- * /api/key. False for anything else, "double" too, and for a NULL.
+ * /api/key. False for anything else and for a NULL.
  */
 bool buttonEventFromName(const char *name, ButtonEvent *out);
 
@@ -412,8 +376,8 @@ typedef struct {
  * `key`, if not NULL, is set to whichever key the returned event belongs to,
  * or a negative number when nothing was reported.
  */
-ButtonEvent keypadHoldFeed(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
-                           uint32_t nowMs, int8_t *key);
+ButtonEvent keypadHoldFeed(KeypadHold *h, int8_t down, uint32_t nowMs,
+                           int8_t *key);
 
 #ifdef __cplusplus
 }

@@ -408,6 +408,12 @@ static String formSelect(const char *name, const char *label,
  * Only worth it for a handful of options a person wants to compare at a
  * glance, which is what a theme is; a list with dozens of rows still
  * wants a select.
+ *
+ * Each radio submits its number from `values`, or with `values` NULL its
+ * own text, which is what `/api/band` and `/api/squelch` take. `current` is
+ * the checked one's value, or with `values` NULL its index. A radio needs no
+ * Set button the way a select or a range does, since a tap both picks the
+ * value and is the submit.
  */
 static String formRadioGroup(const char *name, const char *label,
                              const char *const *options, const long *values,
@@ -420,52 +426,18 @@ static String formRadioGroup(const char *name, const char *label,
   }
   out += F("<div class=options>");
   for (int i = 0; i < count; i++) {
-    String id = String(name) + String(values[i]);
-    out += F("<label><input type=radio id='");
-    out += id;
-    out += F("' name=");
+    const long value = values != NULL ? values[i] : i;
+    out += F("<label><input type=radio name=");
     out += name;
     out += F(" value=");
-    out += String(values[i]);
-    if (values[i] == current) {
-      out += F(" checked");
+    if (values != NULL) {
+      out += String(value);
+    } else {
+      out += F("'");
+      out += options[i];
+      out += F("'");
     }
-    out += F(" ");
-    out += attrs;
-    out += F("> ");
-    out += options[i];
-    out += F("</label>");
-  }
-  out += F("</div></fieldset>");
-  return out;
-}
-
-/*
- * The same row of radios, but by name rather than by index: the option's
- * own text is what a plain form submits, which is what `/api/band`
- * expects. A radio needs no trailing Set button the way a select or a
- * range does, since a tap both picks the value and is the submit.
- */
-static String formRadioGroupByName(const char *name, const char *label,
-                                   const char *const *options, int count,
-                                   const char *current, const String &attrs) {
-  String out = F("<fieldset class=inline-radios>");
-  if (label[0] != '\0') {
-    out += F("<legend>");
-    out += label;
-    out += F("</legend>");
-  }
-  out += F("<div class=options>");
-  for (int i = 0; i < count; i++) {
-    String id = String(name) + String(i);
-    out += F("<label><input type=radio id='");
-    out += id;
-    out += F("' name=");
-    out += name;
-    out += F(" value='");
-    out += options[i];
-    out += F("'");
-    if (strcmp(options[i], current) == 0) {
+    if (value == current) {
       out += F(" checked");
     }
     out += F(" ");
@@ -968,9 +940,8 @@ static void radioDialForms(ChunkedReply &out, const RadioSnapshot &now,
     for (int b = 0; b < BAND_COUNT; b++) {
       bandNames[b] = bandName((BandId)b);
     }
-    out += formRadioGroupByName("bnd", "Band", bandNames, BAND_COUNT,
-                                bandName(now.settings.band),
-                                autoAttrs("/api/band"));
+    out += formRadioGroup("bnd", "Band", bandNames, NULL, BAND_COUNT,
+                          now.settings.band, autoAttrs("/api/band"));
   }
   out += formClose();
 
@@ -1002,9 +973,9 @@ static void radioDialForms(ChunkedReply &out, const RadioSnapshot &now,
     for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
       squelchNames[m] = squelchModeName((SquelchMode)m);
     }
-    out += formRadioGroupByName(
-        "mod", "Squelch", squelchNames, SQUELCH_MODE_COUNT,
-        squelchModeName(now.squelchMode), autoAttrs("/api/squelch"));
+    out +=
+        formRadioGroup("mod", "Squelch", squelchNames, NULL, SQUELCH_MODE_COUNT,
+                       now.squelchMode, autoAttrs("/api/squelch"));
   }
   out += formClose();
   out += cardClose();
@@ -1526,17 +1497,34 @@ static String wifiForm(void) {
   return out;
 }
 
+/* Starts a page: never cached, then the head and the menu with `path`
+ * marked as the page open. */
+static void pageBegin(ChunkedReply &out, const char *title, const char *path) {
+  sWeb->server.sendHeader("Cache-Control", "no-store");
+  out.begin(200, "text/html");
+  pageHead(out, title, path);
+}
+
+/* pageBegin for a page that needs the PIN. Signed out, the page is the
+ * sign-in form instead, and this returns false. */
+static bool pageOpen(ChunkedReply &out, const char *title, const char *path) {
+  pageBegin(out, title, path);
+  if (signedIn()) {
+    return true;
+  }
+  out += signInForm(path);
+  out += pageTail();
+  return false;
+}
+
 /* Home. What the radio is and where it is, and nothing that changes it. */
 static void handleRoot(void) {
-  sWeb->requests++;
   /* Every one of these pages is built fresh from what the radio is doing
    * right now; a browser serving one from its own cache on a plain
    * reload would show a station, a theme or a layout that changed since,
    * indistinguishable from a page that never updated at all. */
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "TEF668X", "/");
+  pageBegin(out, "TEF668X", "/");
   out += defaultPinBanner();
   out += F("<div class=page-grid>");
 
@@ -1617,14 +1605,8 @@ static void handleRoot(void) {
  * `/fm`, since this page tunes and reports and does not also configure.
  */
 static void handleRadioPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "Radio", "/radio");
-  if (!signedIn()) {
-    out += signInForm("/radio");
-    out += pageTail();
+  if (!pageOpen(out, "Radio", "/radio")) {
     return;
   }
   RadioSnapshot now;
@@ -1641,14 +1623,8 @@ static void handleRadioPage(void) {
 
 /* The FM & RDS page: reception quality and the RDS decoder's own settings. */
 static void handleFmPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "FM &amp; RDS", "/fm");
-  if (!signedIn()) {
-    out += signInForm("/fm");
-    out += pageTail();
+  if (!pageOpen(out, "FM &amp; RDS", "/fm")) {
     return;
   }
   RadioSnapshot now;
@@ -1889,14 +1865,8 @@ follow();
 </script>)JS";
 
 static void handleDxPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "DX", "/dx");
-  if (!signedIn()) {
-    out += signInForm("/dx");
-    out += pageTail();
+  if (!pageOpen(out, "DX", "/dx")) {
     return;
   }
   out += pageToast();
@@ -1907,14 +1877,8 @@ static void handleDxPage(void) {
 
 /* The Settings page: everything about how the radio behaves. */
 static void handleSettingsPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "Settings", "/settings");
-  if (!signedIn()) {
-    out += signInForm("/settings");
-    out += pageTail();
+  if (!pageOpen(out, "Settings", "/settings")) {
     return;
   }
   out += pageToast();
@@ -1923,11 +1887,8 @@ static void handleSettingsPage(void) {
 }
 
 static void handleNetworkPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "Network", "/network");
+  pageBegin(out, "Network", "/network");
   out += defaultPinBanner();
   /* Signed in, the Hotspot choices save the moment one is chosen, so the
    * page needs the toast for the radio's answer and the script that
@@ -2036,14 +1997,8 @@ static String updateCard(void) {
 }
 
 static void handleSystemPage(void) {
-  sWeb->requests++;
-  sWeb->server.sendHeader("Cache-Control", "no-store");
   ChunkedReply out(sWeb->server);
-  out.begin(200, "text/html");
-  pageHead(out, "System", "/system");
-  if (!signedIn()) {
-    out += signInForm("/system");
-    out += pageTail();
+  if (!pageOpen(out, "System", "/system")) {
     return;
   }
 
@@ -2132,7 +2087,6 @@ void sendResult(int code, const char *title, const char *message, bool bad) {
 }
 
 static void handleWifi(void) {
-  sWeb->requests++;
   if (!requireAuth(true)) {
     return;
   }

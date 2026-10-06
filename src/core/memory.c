@@ -317,32 +317,13 @@ int memoryFindNear(const MemoryStore *m, uint8_t band, uint32_t freqKHz,
   return MEMORY_NO_SLOT;
 }
 
-int memoryStep(const MemoryStore *m, int from, bool up) {
-  if (m == NULL) {
-    return MEMORY_NO_SLOT;
-  }
-  /* Anything outside the store starts from beyond the end it is heading away
-   * from, so the first step lands on the first slot in that direction. */
-  int at = memorySlotInRange(from) ? from : (up ? -1 : MEMORY_SLOT_COUNT);
-  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
-    at = up ? at + 1 : at - 1;
-    if (at >= MEMORY_SLOT_COUNT) {
-      at = 0;
-    } else if (at < 0) {
-      at = MEMORY_SLOT_COUNT - 1;
-    }
-    if (m->slot[at].freqKHz != 0) {
-      return at;
-    }
-  }
-  return MEMORY_NO_SLOT;
-}
-
 int memoryStepTunable(const MemoryStore *m, const BandPlanConfig *plan,
                       int from, bool up) {
   if (m == NULL) {
     return MEMORY_NO_SLOT;
   }
+  /* Anything outside the store starts from beyond the end it is heading away
+   * from, so the first step lands on the first slot in that direction. */
   int at = memorySlotInRange(from) ? from : (up ? -1 : MEMORY_SLOT_COUNT);
   for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
     at = up ? at + 1 : at - 1;

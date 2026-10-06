@@ -158,10 +158,7 @@ bool screenBegin(void) {
   if (sRoot == NULL) {
     return false;
   }
-  lv_obj_remove_style_all(sRoot);
-  lv_obj_set_style_bg_color(sRoot, uiColour(themeCurrent()->ground), 0);
-  lv_obj_set_style_bg_opa(sRoot, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(sRoot, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(sRoot, themeCurrent()->ground);
 
   buildLayout(layoutFor());
   sReady = true;

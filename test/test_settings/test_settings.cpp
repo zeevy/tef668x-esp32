@@ -16,6 +16,7 @@
 #include "core/rds_country.h"
 #include "core/seek.h"
 #include "core/settings.h"
+#include "core/settings_table.h"
 #include "core/squelch.h"
 #include "core/wifi_join.h"
 
@@ -253,6 +254,32 @@ static void a_pin_outside_six_digits_is_rejected(void) {
   TEST_ASSERT_TRUE(settingsValid(&s));
   s.accessPin = 1000000;
   TEST_ASSERT_FALSE(settingsValid(&s));
+}
+
+/* Every setting the table holds is refused one step outside the range the
+ * table gives it, the same range the API and the menu offer. */
+static void a_value_outside_its_table_range_is_rejected(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  for (size_t i = 0; i < settingsTableCount(); i++) {
+    const SettingRow *row = settingsTableAt(i);
+    const int32_t least =
+        !row->isSigned ? 0 : (row->size == 2 ? INT16_MIN : INT8_MIN);
+    const int32_t most = row->size == 2
+                             ? (row->isSigned ? INT16_MAX : UINT16_MAX)
+                             : (row->isSigned ? INT8_MAX : UINT8_MAX);
+    if (row->low > least) {
+      settingsDefaults(&s);
+      settingsTableSet(&s, row, row->low - 1);
+      TEST_ASSERT_FALSE_MESSAGE(settingsValid(&s), row->key);
+    }
+    if (row->high < most) {
+      settingsDefaults(&s);
+      settingsTableSet(&s, row, row->high + 1);
+      TEST_ASSERT_FALSE_MESSAGE(settingsValid(&s), row->key);
+    }
+  }
 }
 
 static void the_longest_allowed_ssid_and_passphrase_fit(void) {
@@ -703,7 +730,7 @@ static void a_version_6_blob_gets_the_defaults_for_what_it_never_had(void) {
   /* backlightPercent sits at 143, in the one byte version 6 wrote as padding
    * after beepStart. Copying a version 6 blob by its written length would
    * take that field out of the old padding, which is what
-   * settingsFieldEndOfVersion exists to stop. */
+   * kFieldEndOfVersion in settings.c exists to stop. */
   TEST_ASSERT_EQUAL_size_t(143, offsetof(Settings, backlightPercent));
 
   Settings source;
@@ -2253,6 +2280,7 @@ int main(int, char **) {
   RUN_TEST(setting_wifi_with_no_ssid_is_refused);
   RUN_TEST(an_unterminated_string_is_rejected);
   RUN_TEST(a_pin_outside_six_digits_is_rejected);
+  RUN_TEST(a_value_outside_its_table_range_is_rejected);
   RUN_TEST(the_longest_allowed_ssid_and_passphrase_fit);
   RUN_TEST(one_character_too_many_is_refused_and_changes_nothing);
   RUN_TEST(an_open_network_with_no_passphrase_is_allowed);

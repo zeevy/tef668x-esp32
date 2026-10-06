@@ -115,8 +115,8 @@ typedef struct {
   uint32_t visit;
 } DxHearing;
 
-/* Empties a catches list. Only the unit tests use it, to build a list of
- * their own. The DX session clears its list in dxSessionReset. */
+/* Empties a catches list, for a list built outside a DX session. The DX
+ * session clears its own list in dxSessionReset. */
 void dxCatchesReset(DxCatches *list);
 
 /*

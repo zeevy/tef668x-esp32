@@ -75,18 +75,6 @@ int8_t encoderFeed(Encoder *e, bool a, bool b) {
 
 /* ----------------------------------------------------------- acceleration */
 
-void accelerationDefaults(AccelerationConfig *out) {
-  if (out == NULL) {
-    return;
-  }
-  out->spinMs = 15;
-  out->fasterMs = 30;
-  out->fastMs = 45;
-  out->spinSteps = 6;
-  out->fasterSteps = 4;
-  out->fastSteps = 2;
-}
-
 int32_t inputKnobSteps(int32_t clicks, uint8_t factor, bool list) {
   int32_t steps = list ? clicks : clicks * (int32_t)factor;
   if (steps > INPUT_KNOB_MAX_STEPS) {
@@ -97,13 +85,7 @@ int32_t inputKnobSteps(int32_t clicks, uint8_t factor, bool list) {
   return steps;
 }
 
-uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
-                          uint32_t nowMs) {
-  AccelerationConfig defaults;
-  if (cfg == NULL) {
-    accelerationDefaults(&defaults);
-    cfg = &defaults;
-  }
+uint8_t accelerationSteps(Acceleration *a, uint32_t nowMs) {
   if (a == NULL) {
     return 1;
   }
@@ -119,14 +101,14 @@ uint8_t accelerationSteps(Acceleration *a, const AccelerationConfig *cfg,
   uint32_t gap = nowMs - a->lastMs;
   a->lastMs = nowMs;
 
-  if (gap < cfg->spinMs) {
-    return cfg->spinSteps;
+  if (gap < ACCEL_SPIN_MS) {
+    return ACCEL_SPIN_STEPS;
   }
-  if (gap < cfg->fasterMs) {
-    return cfg->fasterSteps;
+  if (gap < ACCEL_FASTER_MS) {
+    return ACCEL_FASTER_STEPS;
   }
-  if (gap < cfg->fastMs) {
-    return cfg->fastSteps;
+  if (gap < ACCEL_FAST_MS) {
+    return ACCEL_FAST_STEPS;
   }
   return 1;
 }
@@ -269,24 +251,12 @@ bool potMoved(uint16_t previous, uint16_t now, const PotConfig *cfg) {
 
 /* ----------------------------------------------------------------- button */
 
-void buttonDefaults(ButtonConfig *out) {
-  if (out == NULL) {
-    return;
-  }
-  out->debounceMs = 25;
-  out->longMs = 600;
-  out->doubleMs = 350;
-  out->wantDouble = false;
-}
-
 const char *buttonEventName(ButtonEvent event) {
   switch (event) {
     case BUTTON_SHORT:
       return "short";
     case BUTTON_LONG:
       return "long";
-    case BUTTON_DOUBLE:
-      return "double";
     case BUTTON_NONE:
     default:
       return "none";
@@ -353,18 +323,11 @@ void buttonStartHeld(Button *b, uint32_t nowMs) {
   b->level = true;
   b->raw = true;
   b->handled = true;
-  b->waitingDouble = false;
   b->changedMs = nowMs;
   b->pressedMs = nowMs;
 }
 
-ButtonEvent buttonFeed(Button *b, const ButtonConfig *cfg, bool pressed,
-                       uint32_t nowMs) {
-  ButtonConfig defaults;
-  if (cfg == NULL) {
-    buttonDefaults(&defaults);
-    cfg = &defaults;
-  }
+ButtonEvent buttonFeed(Button *b, bool pressed, uint32_t nowMs) {
   if (b == NULL) {
     return BUTTON_NONE;
   }
@@ -375,59 +338,24 @@ ButtonEvent buttonFeed(Button *b, const ButtonConfig *cfg, bool pressed,
     b->raw = pressed;
     b->changedMs = nowMs;
   }
-  bool settled = (uint32_t)(nowMs - b->changedMs) >= cfg->debounceMs;
+  bool settled = (uint32_t)(nowMs - b->changedMs) >= BUTTON_DEBOUNCE_MS;
 
   if (settled && b->raw != b->level) {
     b->level = b->raw;
     if (b->level) {
       b->pressedMs = nowMs;
       b->handled = false;
-      if (b->waitingDouble) {
-        /* Only reached with wantDouble set, which only the unit tests do. */
-        b->waitingDouble = false;
-        /* Only a pair that really is close together. The check for a single
-         * press expiring only runs when this is called, so a caller that was
-         * held up elsewhere can arrive with a press that should already have
-         * been reported as a single, and calling that a double would be
-         * wrong by however long the caller was away. */
-        if ((uint32_t)(nowMs - b->releasedMs) < cfg->doubleMs) {
-          /* The second press of a pair. Reported as soon as the finger goes
-           * down, rather than making the person wait for it to come up. */
-          b->handled = true;
-          return BUTTON_DOUBLE;
-        }
-        /* Too late to be a double. The first press was a single after all,
-         * and this one starts again. */
-        return BUTTON_SHORT;
-      }
-    } else {
-      b->releasedMs = nowMs;
-      if (!b->handled) {
-        if (!cfg->wantDouble) {
-          /* Nothing is bound to a double press here, so there is nothing to
-           * wait for. Report it now rather than a third of a second late. */
-          return BUTTON_SHORT;
-        }
-        /* Hold it back to see whether a second press follows. */
-        b->waitingDouble = true;
-      }
+    } else if (!b->handled) {
+      return BUTTON_SHORT;
     }
   }
 
   /* A long press happens while nothing is happening, so it is checked every
    * time round rather than only when the level changes. */
   if (b->level && !b->handled &&
-      (uint32_t)(nowMs - b->pressedMs) >= cfg->longMs) {
+      (uint32_t)(nowMs - b->pressedMs) >= BUTTON_LONG_MS) {
     b->handled = true;
-    b->waitingDouble = false;
     return BUTTON_LONG;
-  }
-
-  /* No second press came, so the first one was a single after all. */
-  if (b->waitingDouble && !b->level &&
-      (uint32_t)(nowMs - b->releasedMs) >= cfg->doubleMs) {
-    b->waitingDouble = false;
-    return BUTTON_SHORT;
   }
 
   return BUTTON_NONE;
@@ -435,8 +363,8 @@ ButtonEvent buttonFeed(Button *b, const ButtonConfig *cfg, bool pressed,
 
 /* ------------------------------------------------------------ keypad hold */
 
-ButtonEvent keypadHoldFeed(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
-                           uint32_t nowMs, int8_t *key) {
+ButtonEvent keypadHoldFeed(KeypadHold *h, int8_t down, uint32_t nowMs,
+                           int8_t *key) {
   if (h == NULL) {
     if (key != NULL) {
       *key = -1;
@@ -445,7 +373,7 @@ ButtonEvent keypadHoldFeed(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
   }
 
   bool pressed = h->active && down == h->key;
-  ButtonEvent event = buttonFeed(&h->button, cfg, pressed, nowMs);
+  ButtonEvent event = buttonFeed(&h->button, pressed, nowMs);
   if (key != NULL) {
     *key = event != BUTTON_NONE ? h->key : -1;
   }
@@ -457,15 +385,8 @@ ButtonEvent keypadHoldFeed(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
    * guessed at: it gets no watch of its own until the first one lets go and
    * buttonFeed's own debounce says so, the same ambiguity the keypad driver
    * refuses to turn into an answer.
-   *
-   * waitingDouble has to hold this off too, not just level. buttonFeed sets
-   * it the instant a key with wantDouble lets go, which is also the instant
-   * level turns false, so checking level alone would re-arm on the first
-   * tap and hand the second one to a freshly memset Button that has already
-   * forgotten it was waiting, and a double press could never be reported.
    */
-  if (!h->button.level && !h->button.waitingDouble &&
-      (!h->active || down != h->key)) {
+  if (!h->button.level && (!h->active || down != h->key)) {
     h->active = down >= 0;
     if (h->active) {
       h->key = down;

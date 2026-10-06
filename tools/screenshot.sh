@@ -102,13 +102,7 @@ done
 
 c++ -O1 -w -std=c++17 $CONF $INC \
   -o "$BIN" \
-  tools/screenshot.cpp src/screen_state.cpp src/screen_dx_state.cpp \
-  src/screen_bw_state.cpp src/screen_rds_state.cpp \
-  src/ui/screen.cpp src/ui/screen_boot.cpp \
-  src/ui/screen_menu.cpp src/ui/screen_rds.cpp src/ui/screen_recovery.cpp \
-  src/ui/screen_dx.cpp src/ui/screen_dx_catches.cpp src/ui/screen_dx_scan.cpp src/ui/screen_dx_scope.cpp src/ui/screen_bw.cpp src/ui/screen_touch_cal.cpp \
-  src/ui/draw.cpp \
-  src/ui/layout_320x240.cpp src/ui/panels/*.cpp \
+  tools/screenshot.cpp src/screen_*state.cpp src/ui/*.cpp src/ui/panels/*.cpp \
   "$UI"/*.o "$LIB" -lm
 
 # Only this run's screens are left for make_assets.py to convert, so a

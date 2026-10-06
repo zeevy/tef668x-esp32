@@ -8,15 +8,10 @@
 
 static Encoder enc;
 static Button btn;
-static ButtonConfig btnCfg;
 
 void setUp(void) {
   encoderInit(&enc, ENCODER_STANDARD, ENCODER_NORMAL);
   memset(&btn, 0, sizeof(btn));
-  buttonDefaults(&btnCfg);
-  /* Most button tests are about the double press, so they ask for it. The
-   * default is off, and there is a test below for that. */
-  btnCfg.wantDouble = true;
 }
 void tearDown(void) {}
 
@@ -122,10 +117,10 @@ static void a_slow_turn_moves_one_step_at_a_time(void) {
   Acceleration a;
   memset(&a, 0, sizeof(a));
   uint32_t t = 1000;
-  TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(&a, NULL, t));
+  TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(&a, t));
   for (int i = 0; i < 5; i++) {
     t += 500;
-    TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(&a, NULL, t));
+    TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(&a, t));
   }
 }
 
@@ -133,14 +128,12 @@ static void a_spin_moves_further_per_click(void) {
   Acceleration a;
   memset(&a, 0, sizeof(a));
   uint32_t t = 1000;
-  accelerationSteps(&a, NULL, t);
+  accelerationSteps(&a, t);
   t += 5;
-  TEST_ASSERT_EQUAL_UINT8(6, accelerationSteps(&a, NULL, t));
+  TEST_ASSERT_EQUAL_UINT8(6, accelerationSteps(&a, t));
 }
 
 static void every_threshold_is_tested_on_both_sides(void) {
-  AccelerationConfig cfg;
-  accelerationDefaults(&cfg);
   Acceleration a;
   uint32_t t;
 
@@ -151,21 +144,21 @@ static void every_threshold_is_tested_on_both_sides(void) {
     uint16_t gap;
     uint8_t want;
   } cases[] = {
-      {(uint16_t)(cfg.spinMs - 1), cfg.spinSteps},
-      {cfg.spinMs, cfg.fasterSteps},
-      {(uint16_t)(cfg.fasterMs - 1), cfg.fasterSteps},
-      {cfg.fasterMs, cfg.fastSteps},
-      {(uint16_t)(cfg.fastMs - 1), cfg.fastSteps},
-      {cfg.fastMs, 1},
-      {(uint16_t)(cfg.fastMs + 1), 1},
+      {ACCEL_SPIN_MS - 1, ACCEL_SPIN_STEPS},
+      {ACCEL_SPIN_MS, ACCEL_FASTER_STEPS},
+      {ACCEL_FASTER_MS - 1, ACCEL_FASTER_STEPS},
+      {ACCEL_FASTER_MS, ACCEL_FAST_STEPS},
+      {ACCEL_FAST_MS - 1, ACCEL_FAST_STEPS},
+      {ACCEL_FAST_MS, 1},
+      {ACCEL_FAST_MS + 1, 1},
   };
 
   for (size_t i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
     memset(&a, 0, sizeof(a));
     t = 100000;
-    accelerationSteps(&a, &cfg, t);
+    accelerationSteps(&a, t);
     t += cases[i].gap;
-    TEST_ASSERT_EQUAL_UINT8(cases[i].want, accelerationSteps(&a, &cfg, t));
+    TEST_ASSERT_EQUAL_UINT8(cases[i].want, accelerationSteps(&a, t));
   }
 }
 
@@ -173,15 +166,15 @@ static void acceleration_survives_the_millisecond_wrap(void) {
   Acceleration a;
   memset(&a, 0, sizeof(a));
   uint32_t t = 0xFFFFFFF0UL;
-  accelerationSteps(&a, NULL, t);
+  accelerationSteps(&a, t);
   /* Ten milliseconds later, across the wrap. That is a spin, not a pause of
    * forty nine days. */
   t += 10;
-  TEST_ASSERT_EQUAL_UINT8(6, accelerationSteps(&a, NULL, t));
+  TEST_ASSERT_EQUAL_UINT8(6, accelerationSteps(&a, t));
 }
 
 static void a_null_accelerator_still_returns_one_step(void) {
-  TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(NULL, NULL, 0));
+  TEST_ASSERT_EQUAL_UINT8(1, accelerationSteps(NULL, 0));
 }
 
 /* ----------------------------------------------------------------- button */
@@ -189,7 +182,7 @@ static void a_null_accelerator_still_returns_one_step(void) {
 static ButtonEvent hold(bool pressed, uint32_t *t, uint32_t forMs) {
   ButtonEvent seen = BUTTON_NONE;
   for (uint32_t i = 0; i < forMs; i += 5) {
-    ButtonEvent e = buttonFeed(&btn, &btnCfg, pressed, *t);
+    ButtonEvent e = buttonFeed(&btn, pressed, *t);
     if (e != BUTTON_NONE && seen == BUTTON_NONE) {
       seen = e;
     }
@@ -198,19 +191,14 @@ static ButtonEvent hold(bool pressed, uint32_t *t, uint32_t forMs) {
   return seen;
 }
 
-static void without_double_watching_a_press_reports_as_soon_as_it_ends(void) {
-  /* The default. A button nothing binds a double press to must not make
-   * every press wait to find out whether a second one is coming, or quick
-   * presses would be lost. */
-  buttonDefaults(&btnCfg);
+static void a_press_reports_as_soon_as_it_ends(void) {
   uint32_t t = 1000;
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(true, &t, 100));
-  /* Reported within one debounce time of letting go, not one doubleMs. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, hold(false, &t, btnCfg.debounceMs + 10));
+  /* Reported within one debounce time of letting go. */
+  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, hold(false, &t, BUTTON_DEBOUNCE_MS + 10));
 }
 
-static void without_double_watching_two_quick_taps_are_two_presses(void) {
-  buttonDefaults(&btnCfg);
+static void two_quick_taps_are_two_presses(void) {
   uint32_t t = 1000;
   int shorts = 0;
   for (int i = 0; i < 4; i++) {
@@ -222,13 +210,6 @@ static void without_double_watching_two_quick_taps_are_two_presses(void) {
     }
   }
   TEST_ASSERT_EQUAL_INT(4, shorts);
-}
-
-static void without_double_watching_a_long_press_is_still_long(void) {
-  buttonDefaults(&btnCfg);
-  uint32_t t = 1000;
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, hold(true, &t, 800));
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, 400));
 }
 
 static void a_tap_is_a_short_press(void) {
@@ -251,15 +232,6 @@ static void a_long_press_is_reported_once_not_repeatedly(void) {
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, 800));
 }
 
-static void two_taps_are_a_double_press(void) {
-  uint32_t t = 1000;
-  hold(true, &t, 60);
-  hold(false, &t, 100);
-  TEST_ASSERT_EQUAL_INT(BUTTON_DOUBLE, hold(true, &t, 60));
-  /* And the second tap of the pair does not then also report a short. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, 600));
-}
-
 static void two_taps_far_apart_are_two_short_presses(void) {
   uint32_t t = 1000;
   hold(true, &t, 60);
@@ -271,43 +243,41 @@ static void two_taps_far_apart_are_two_short_presses(void) {
 static void a_press_on_the_long_boundary_is_long(void) {
   uint32_t t = 1000;
   /* Pressed, then held to exactly the long press time from when it settled. */
-  buttonFeed(&btn, &btnCfg, true, t);
-  t += btnCfg.debounceMs; /* The press is only seen once it has settled. */
-  buttonFeed(&btn, &btnCfg, true, t);
+  buttonFeed(&btn, true, t);
+  t += BUTTON_DEBOUNCE_MS; /* The press is only seen once it has settled. */
+  buttonFeed(&btn, true, t);
   uint32_t pressedAt = t;
   /* Every millisecond up to but not including the boundary is not yet a long
    * press. */
-  while (t + 1 < pressedAt + btnCfg.longMs) {
+  while (t + 1 < pressedAt + BUTTON_LONG_MS) {
     t++;
-    TEST_ASSERT_EQUAL_INT(BUTTON_NONE, buttonFeed(&btn, &btnCfg, true, t));
+    TEST_ASSERT_EQUAL_INT(BUTTON_NONE, buttonFeed(&btn, true, t));
   }
-  t = pressedAt + btnCfg.longMs;
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, buttonFeed(&btn, &btnCfg, true, t));
+  t = pressedAt + BUTTON_LONG_MS;
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, buttonFeed(&btn, true, t));
 }
 
 /* A press marked handled while held, as a turn of the held knob marks it,
  * reports nothing after: no long press however long it is held, and nothing
  * when it is let go. */
 static void a_handled_press_reports_nothing_after(void) {
-  buttonDefaults(&btnCfg);
   uint32_t t = 1000;
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(true, &t, 200));
   btn.handled = true;
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(true, &t, 2000));
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, btnCfg.debounceMs + 10));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, BUTTON_DEBOUNCE_MS + 10));
 }
 
 /* A press already down at start, as the knob press that woke the radio,
  * reports nothing however long it is held; the next press is a normal one. */
 static void a_press_held_from_the_start_reports_nothing(void) {
-  buttonDefaults(&btnCfg);
   memset(&btn, 0, sizeof(btn));
   uint32_t t = 1000;
   buttonStartHeld(&btn, t);
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(true, &t, 2000));
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, btnCfg.debounceMs + 10));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(false, &t, BUTTON_DEBOUNCE_MS + 10));
   TEST_ASSERT_EQUAL_INT(BUTTON_NONE, hold(true, &t, 100));
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, hold(false, &t, btnCfg.debounceMs + 10));
+  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, hold(false, &t, BUTTON_DEBOUNCE_MS + 10));
   buttonStartHeld(NULL, 0);
 }
 
@@ -317,7 +287,7 @@ static void a_bouncing_contact_is_still_one_press(void) {
   /* Five milliseconds of chatter as the contact closes, which is shorter
    * than the debounce time. */
   for (int i = 0; i < 10; i++) {
-    if (buttonFeed(&btn, &btnCfg, (i % 2) == 0, t) == BUTTON_SHORT) {
+    if (buttonFeed(&btn, (i % 2) == 0, t) == BUTTON_SHORT) {
       shorts++;
     }
     t += 1;
@@ -344,25 +314,22 @@ static void event_names_are_never_null(void) {
   TEST_ASSERT_EQUAL_STRING("none", buttonEventName(BUTTON_NONE));
   TEST_ASSERT_EQUAL_STRING("short", buttonEventName(BUTTON_SHORT));
   TEST_ASSERT_EQUAL_STRING("long", buttonEventName(BUTTON_LONG));
-  TEST_ASSERT_EQUAL_STRING("double", buttonEventName(BUTTON_DOUBLE));
   TEST_ASSERT_NOT_NULL(buttonEventName((ButtonEvent)99));
 }
 
 static void a_null_button_does_not_crash(void) {
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, buttonFeed(NULL, NULL, true, 0));
-  buttonDefaults(NULL);
-  accelerationDefaults(NULL);
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, buttonFeed(NULL, true, 0));
 }
 
 /* ----------------------------------------------------------- keypad hold */
 
-static ButtonEvent keyHold(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
-                           uint32_t *t, uint32_t forMs, int8_t *keyOut) {
+static ButtonEvent keyHold(KeypadHold *h, int8_t down, uint32_t *t,
+                           uint32_t forMs, int8_t *keyOut) {
   ButtonEvent seen = BUTTON_NONE;
   int8_t seenKey = -1;
   for (uint32_t i = 0; i < forMs; i += 5) {
     int8_t k = -1;
-    ButtonEvent e = keypadHoldFeed(h, cfg, down, *t, &k);
+    ButtonEvent e = keypadHoldFeed(h, down, *t, &k);
     if (e != BUTTON_NONE && seen == BUTTON_NONE) {
       seen = e;
       seenKey = k;
@@ -376,44 +343,36 @@ static ButtonEvent keyHold(KeypadHold *h, const ButtonConfig *cfg, int8_t down,
 }
 
 static void a_keypad_tap_is_a_short_press(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
   int8_t key = -1;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 5, &t, 100, &key));
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, &cfg, -1, &t, 500, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, 5, &t, 100, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, -1, &t, 500, &key));
   TEST_ASSERT_EQUAL_INT8(5, key);
 }
 
 static void a_keypad_hold_is_a_long_press(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
   int8_t key = -1;
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, &cfg, 9, &t, 800, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, 9, &t, 800, &key));
   TEST_ASSERT_EQUAL_INT8(9, key);
 }
 
 static void a_keypad_long_press_is_reported_once_not_repeatedly(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, &cfg, 9, &t, 800, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, 9, &t, 800, NULL));
   /* Still held, for another two seconds. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 9, &t, 2000, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, 9, &t, 2000, NULL));
   /* And letting go of a long press is not also a short press. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, -1, &t, 800, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, -1, &t, 800, NULL));
 }
 
 static void a_keypad_press_on_the_long_boundary_is_long(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
@@ -421,19 +380,19 @@ static void a_keypad_press_on_the_long_boundary_is_long(void) {
   /* The first call only takes up the watch on key 7; a Button starts
    * already watching its one physical switch, but this has to learn which
    * key it is watching first. The actual press begins on the call after. */
-  keypadHoldFeed(&h, &cfg, 7, t, &key);
-  keypadHoldFeed(&h, &cfg, 7, t, &key);
-  t += cfg.debounceMs; /* The press is only seen once it has settled. */
-  keypadHoldFeed(&h, &cfg, 7, t, &key);
+  keypadHoldFeed(&h, 7, t, &key);
+  keypadHoldFeed(&h, 7, t, &key);
+  t += BUTTON_DEBOUNCE_MS; /* The press is only seen once it has settled. */
+  keypadHoldFeed(&h, 7, t, &key);
   uint32_t pressedAt = t;
   /* Every millisecond up to but not including the boundary is not yet a
    * long press. */
-  while (t + 1 < pressedAt + cfg.longMs) {
+  while (t + 1 < pressedAt + BUTTON_LONG_MS) {
     t++;
-    TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keypadHoldFeed(&h, &cfg, 7, t, &key));
+    TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keypadHoldFeed(&h, 7, t, &key));
   }
-  t = pressedAt + cfg.longMs;
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keypadHoldFeed(&h, &cfg, 7, t, &key));
+  t = pressedAt + BUTTON_LONG_MS;
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keypadHoldFeed(&h, 7, t, &key));
   TEST_ASSERT_EQUAL_INT8(7, key);
 }
 
@@ -444,79 +403,40 @@ static void a_second_key_ends_the_watch_as_a_release(void) {
    * release, reporting the first key's tap once buttonFeed's own debounce
    * says it has actually let go, and the second key starts its own watch
    * only from there. */
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
   int8_t key = -1;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 5, &t, 100, &key));
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, &cfg, 9, &t, 200, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, 5, &t, 100, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, 9, &t, 200, &key));
   TEST_ASSERT_EQUAL_INT8(5, key);
 
   /* The new key's watch continues from wherever the swap left it. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, &cfg, 9, &t, 800, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, 9, &t, 800, &key));
   TEST_ASSERT_EQUAL_INT8(9, key);
 }
 
-static void two_keypad_taps_are_a_double_press(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
-  cfg.wantDouble = true;
-  KeypadHold h;
-  memset(&h, 0, sizeof(h));
-  uint32_t t = 1000;
-  int8_t key = -1;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 5, &t, 60, &key));
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, -1, &t, 100, &key));
-  TEST_ASSERT_EQUAL_INT(BUTTON_DOUBLE, keyHold(&h, &cfg, 5, &t, 60, &key));
-  TEST_ASSERT_EQUAL_INT8(5, key);
-  /* And the second tap of the pair does not then also report a short. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, -1, &t, 600, &key));
-}
-
-static void a_keypad_tap_with_no_second_one_is_still_a_short_press(void) {
-  /* wantDouble holds a single tap back to see if a second one follows.
-   * With none coming, it still has to resolve to a short press rather than
-   * being lost while the watch is held open for it. */
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
-  cfg.wantDouble = true;
-  KeypadHold h;
-  memset(&h, 0, sizeof(h));
-  uint32_t t = 1000;
-  int8_t key = -1;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 5, &t, 60, &key));
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT,
-                        keyHold(&h, &cfg, -1, &t, cfg.doubleMs + 50, &key));
-  TEST_ASSERT_EQUAL_INT8(5, key);
-}
-
 static void nothing_down_never_reports_anything(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 1000;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, -1, &t, 5000, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, -1, &t, 5000, NULL));
 }
 
 static void a_keypad_hold_survives_the_millisecond_wrap(void) {
-  ButtonConfig cfg;
-  buttonDefaults(&cfg);
   KeypadHold h;
   memset(&h, 0, sizeof(h));
   uint32_t t = 0xFFFFFF00UL;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, &cfg, 3, &t, 100, NULL));
-  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, &cfg, -1, &t, 500, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keyHold(&h, 3, &t, 100, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_SHORT, keyHold(&h, -1, &t, 500, NULL));
   /* t has now wrapped past zero. A long press still works on the far
    * side. */
-  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, &cfg, 3, &t, 800, NULL));
+  TEST_ASSERT_EQUAL_INT(BUTTON_LONG, keyHold(&h, 3, &t, 800, NULL));
 }
 
 static void a_null_keypad_hold_does_not_crash(void) {
   int8_t key = 99;
-  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keypadHoldFeed(NULL, NULL, 5, 0, &key));
+  TEST_ASSERT_EQUAL_INT(BUTTON_NONE, keypadHoldFeed(NULL, 5, 0, &key));
   TEST_ASSERT_EQUAL_INT8(-1, key);
 }
 
@@ -899,13 +819,11 @@ int main(void) {
   RUN_TEST(acceleration_survives_the_millisecond_wrap);
   RUN_TEST(a_null_accelerator_still_returns_one_step);
 
-  RUN_TEST(without_double_watching_a_press_reports_as_soon_as_it_ends);
-  RUN_TEST(without_double_watching_two_quick_taps_are_two_presses);
-  RUN_TEST(without_double_watching_a_long_press_is_still_long);
+  RUN_TEST(a_press_reports_as_soon_as_it_ends);
+  RUN_TEST(two_quick_taps_are_two_presses);
   RUN_TEST(a_tap_is_a_short_press);
   RUN_TEST(a_hold_is_a_long_press);
   RUN_TEST(a_long_press_is_reported_once_not_repeatedly);
-  RUN_TEST(two_taps_are_a_double_press);
   RUN_TEST(two_taps_far_apart_are_two_short_presses);
   RUN_TEST(a_press_on_the_long_boundary_is_long);
   RUN_TEST(a_handled_press_reports_nothing_after);
@@ -920,8 +838,6 @@ int main(void) {
   RUN_TEST(a_keypad_long_press_is_reported_once_not_repeatedly);
   RUN_TEST(a_keypad_press_on_the_long_boundary_is_long);
   RUN_TEST(a_second_key_ends_the_watch_as_a_release);
-  RUN_TEST(two_keypad_taps_are_a_double_press);
-  RUN_TEST(a_keypad_tap_with_no_second_one_is_still_a_short_press);
   RUN_TEST(nothing_down_never_reports_anything);
   RUN_TEST(a_keypad_hold_survives_the_millisecond_wrap);
   RUN_TEST(a_null_keypad_hold_does_not_crash);

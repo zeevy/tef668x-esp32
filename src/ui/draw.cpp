@@ -31,6 +31,20 @@ lv_obj_t *uiBlock(lv_obj_t *parent, ThemeColour c, int16_t x, int16_t y,
   return b;
 }
 
+void uiScreenRoot(lv_obj_t *root, ThemeColour ground) {
+  lv_obj_remove_style_all(root);
+  lv_obj_set_style_bg_color(root, uiColour(ground), 0);
+  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
+  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+}
+
+void uiDropRoot(lv_obj_t **o) {
+  if (lv_obj_is_valid(*o)) {
+    lv_obj_del(*o);
+  }
+  *o = NULL;
+}
+
 lv_obj_t *uiRound(lv_obj_t *parent, ThemeColour c, int16_t x, int16_t y,
                   int16_t w, int16_t h, int16_t radius) {
   lv_obj_t *b = uiBlock(parent, c, x, y, w, h);
@@ -179,11 +193,7 @@ void uiSetText(lv_obj_t *o, const char *text) {
 }
 
 void uiShowIf(lv_obj_t *o, bool on) {
-  if (on) {
-    lv_obj_clear_flag(o, LV_OBJ_FLAG_HIDDEN);
-  } else {
-    lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
-  }
+  lv_obj_set_flag(o, LV_OBJ_FLAG_HIDDEN, !on);
 }
 
 void uiSetColour(lv_obj_t *o, ThemeColour c) {
@@ -443,8 +453,7 @@ void uiRowShow(UiRow *r, const Theme *t, const UiRowView *v) {
 
 /* Back from LVGL's colour to the theme's five, six and five bits. */
 static ThemeColour themeColourOf(lv_color_t c) {
-  return (ThemeColour)(((c.red & 0xF8) << 8) | ((c.green & 0xFC) << 3) |
-                       (c.blue >> 3));
+  return (ThemeColour)lv_color_to_u16(c);
 }
 
 static void roleOf(ThemeColour c, char *out, size_t cap) {

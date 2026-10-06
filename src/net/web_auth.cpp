@@ -35,14 +35,10 @@ bool inSetupMode(void) {
 }
 
 static void newSession(void) {
-  static const char kHex[] = "0123456789abcdef";
-  for (int i = 0; i < 32; i += 8) {
-    uint32_t chunk = esp_random();
-    for (int b = 0; b < 8; b++) {
-      sSessionToken[i + b] = kHex[(chunk >> (b * 4)) & 0x0F];
-    }
-  }
-  sSessionToken[32] = '\0';
+  /* 128 random bits as 32 hex characters. */
+  snprintf(sSessionToken, sizeof(sSessionToken), "%08lx%08lx%08lx%08lx",
+           (unsigned long)esp_random(), (unsigned long)esp_random(),
+           (unsigned long)esp_random(), (unsigned long)esp_random());
   sSessionExpiresMs = millis() + WEB_SESSION_TTL_SECONDS * 1000UL;
 }
 
@@ -119,7 +115,6 @@ bool requireAuth(bool allowInSetupMode) {
 }
 
 static void handleAuth(void) {
-  sWeb->requests++;
   uint32_t now = millis();
 
   if (accessPinGateLocked(&sGate, now)) {
@@ -162,7 +157,6 @@ static void handleAuth(void) {
 }
 
 static void handleSetPin(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

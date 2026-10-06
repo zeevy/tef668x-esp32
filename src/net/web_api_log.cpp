@@ -22,7 +22,6 @@ static WebContext *sWeb = NULL;
  * so nothing here reads a snapshot or touches the store.
  */
 static void handleApiLogPost(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -56,7 +55,6 @@ static void handleApiLogPost(void) {
  * public on `/api/state`, not a secret.
  */
 static void handleApiLogGet(void) {
-  sWeb->requests++;
   uint16_t n = logbookFsCount();
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   sWeb->server.send(200, "application/x-ndjson", "");
@@ -127,7 +125,6 @@ static void handleApiLogGet(void) {
  * entry in the zone they are asking from now.
  */
 static void handleApiLogCsv(void) {
-  sWeb->requests++;
   sWeb->server.sendHeader("Content-Disposition",
                           "attachment; filename=\"logbook.csv\"");
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);

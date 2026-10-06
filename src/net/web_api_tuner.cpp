@@ -42,7 +42,6 @@ static WebContext *sWeb = NULL;
  * be checked against the readings the seek actually sees.
  */
 static void handleApiSeekSettle(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -148,7 +147,6 @@ static void handleApiSeekSettle(void) {
  * being broadcast to the whole city.
  */
 static void handleApiRdsRaw(void) {
-  sWeb->requests++;
   if (!radioRdsEnabled()) {
     /* Said outright. An empty list would read as a station sending nothing,
      * which is a different thing from a decoder nobody has switched on. */
@@ -221,7 +219,6 @@ static void handleApiRdsRaw(void) {
  * knob to change it.
  */
 static void handleApiSquelch(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -237,13 +234,10 @@ static void handleApiSquelch(void) {
     return;
   }
 
-  String want = sWeb->server.arg("mod");
-  want.toLowerCase();
+  const String want = sWeb->server.arg("mod");
   SquelchMode mode = SQUELCH_MODE_COUNT;
   for (int m = 0; m < SQUELCH_MODE_COUNT; m++) {
-    String name = squelchModeName((SquelchMode)m);
-    name.toLowerCase();
-    if (want.equals(name)) {
+    if (want.equalsIgnoreCase(squelchModeName((SquelchMode)m))) {
       mode = (SquelchMode)m;
       break;
     }
@@ -329,7 +323,6 @@ static String apiFmState(void) {
 }
 
 static void handleApiFm(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

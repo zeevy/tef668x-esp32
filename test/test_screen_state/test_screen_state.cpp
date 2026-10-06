@@ -100,7 +100,7 @@ static void a_reset_build_holds_nothing(void) {
   TEST_ASSERT_EQUAL_INT(BAND_FM, build.shownBand);
   TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, build.namedSlot);
   TEST_ASSERT_FALSE(build.modulationBar.valid);
-  TEST_ASSERT_FALSE(build.modulationPeak.valid);
+  TEST_ASSERT_FALSE(build.modulationPeak.bar.valid);
   TEST_ASSERT_EQUAL_STRING("", build.channelName);
 }
 

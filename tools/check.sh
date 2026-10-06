@@ -26,28 +26,16 @@ CLANG_FORMAT_VERSION=23.1.1
 cd "$(dirname "$0")/.." || exit 1
 
 # Find a clang-format that is the pinned version, and only that version. Every
-# entry on PATH is tried, not just the first match, because a different version
+# match on PATH is tried, not just the first, because a different version
 # earlier on PATH must not hide the right one further along.
 find_clang_format() {
-  local dir c
-  while IFS= read -r dir; do
-    for c in "$dir/clang-format" "$dir/clang-format-${CLANG_FORMAT_VERSION%%.*}"; do
-      [ -x "$c" ] || continue
-      if "$c" --version 2>/dev/null | grep -q "$CLANG_FORMAT_VERSION"; then
-        echo "$c"
-        return
-      fi
-    done
-  done < <(printf '%s\n' "${PATH//:/$'\n'}")
-
-  for c in /Library/Developer/CommandLineTools/usr/bin/clang-format \
-           /opt/homebrew/opt/llvm/bin/clang-format; do
-    [ -x "$c" ] || continue
+  local c
+  while IFS= read -r c; do
     if "$c" --version 2>/dev/null | grep -q "$CLANG_FORMAT_VERSION"; then
       echo "$c"
       return
     fi
-  done
+  done < <(type -aP clang-format "clang-format-${CLANG_FORMAT_VERSION%%.*}")
   echo ""
 }
 

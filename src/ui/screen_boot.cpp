@@ -82,10 +82,7 @@ bool screenBootBegin(void) {
    * allocation that fails this early restarts the radio before the image
    * can mark itself good.
    */
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sBoot = uiBlock(root, t->ground, 0, 0, BOOT_W, BOOT_H);
   uiFrameBegin(&sFrame, sBoot, t, t->radio);
@@ -195,8 +192,5 @@ void screenBootEnd(void) {
   /* Checked, because anything that rebuilds a layout cleans the root and
    * takes this with it. A dangling delete is a reboot rather than a mark on
    * the glass, so it is worth the one call. */
-  if (lv_obj_is_valid(sBoot)) {
-    lv_obj_del(sBoot);
-  }
-  sBoot = NULL;
+  uiDropRoot(&sBoot);
 }

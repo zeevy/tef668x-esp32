@@ -9,6 +9,7 @@
 #include "bytes.h"
 #include "core/strings.h"
 #include "csv.h"
+#include "rds.h"
 
 void logbookRingInit(LogbookRing *ring) {
   if (ring == NULL) {
@@ -204,21 +205,10 @@ void logbookEntryLabel(const LogbookEntry *e, char *out, size_t len) {
   if (e == NULL) {
     return;
   }
-  if (e->hasName) {
-    /* RDS sends a name as eight characters, padded with spaces to centre it
-     * or to fill it. */
-    size_t start = 0;
-    size_t end = strnlen(e->name, sizeof(e->name));
-    while (start < end && e->name[start] == ' ') {
-      start++;
-    }
-    while (end > start && e->name[end - 1] == ' ') {
-      end--;
-    }
-    if (end > start) {
-      snprintf(out, len, "%.*s", (int)(end - start), e->name + start);
-      return;
-    }
+  /* RDS sends a name as eight characters, padded with spaces to centre it
+   * or to fill it. */
+  if (e->hasName && rdsNameTrim(e->name, sizeof(e->name), out, len)) {
+    return;
   }
   if (e->hasPi) {
     snprintf(out, len, txt(STR_LOG_FMT_PI), (unsigned)e->pi);

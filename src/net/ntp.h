@@ -23,16 +23,12 @@ extern "C" {
 #endif
 
 /*
- * Start asking, if the setting says to.
+ * Start asking, if the setting says to, at start up and again after the
+ * settings were edited.
  *
  * Safe to call before Wi-Fi has joined. The SNTP client retries on its own
  * and the first answer arrives whenever the network is ready, which is why
  * nothing here blocks waiting for one.
- */
-void ntpBegin(const Settings *settings);
-
-/*
- * Take the settings again, after they were edited.
  *
  * Turning the setting off makes the time unknown again rather than leaving
  * the last answer on screen, because a clock that stopped being updated
@@ -51,7 +47,7 @@ bool ntpSynchronised(void);
 /*
  * The local time, or a ClockTime with `known` false.
  *
- * The offset comes from the settings passed to ntpBegin or ntpApply, so a
+ * The offset comes from the settings passed to ntpApply, so a
  * caller does not have to hold them.
  */
 ClockTime ntpLocalTime(void);

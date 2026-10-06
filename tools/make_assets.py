@@ -182,21 +182,14 @@ def main():
     os.makedirs(os.path.join(OUT_DIR, "themes"), exist_ok=True)
     missing = []
 
-    for name in SCREENS:
+    singles = [(n, os.path.join("screens", n)) for n in SCREENS]
+    singles += [("theme-%s-fm" % t, os.path.join("themes", t)) for t in THEMES]
+    for name, out in singles:
         image = load(name)
         if image is None:
             missing.append(name)
             continue
-        path = os.path.join(OUT_DIR, "screens", name + ".png")
-        write_png(path, framed(scale(image, 2), 20, 28))
-        print("  " + path)
-
-    for theme in THEMES:
-        image = load("theme-%s-fm" % theme)
-        if image is None:
-            missing.append("theme-%s-fm" % theme)
-            continue
-        path = os.path.join(OUT_DIR, "themes", theme + ".png")
+        path = os.path.join(OUT_DIR, out + ".png")
         write_png(path, framed(scale(image, 2), 20, 28))
         print("  " + path)
 

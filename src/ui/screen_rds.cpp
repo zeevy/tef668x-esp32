@@ -830,10 +830,7 @@ bool screenRdsBegin(void) {
   }
   const Theme *t = themeCurrent();
 
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sRds = uiBlock(root, t->ground, 0, 0, RDS_W, RDS_H);
   uiFrameBegin(&sFrame, sRds, t, t->radio);
@@ -906,10 +903,7 @@ void screenRdsEnd(void) {
   if (sRds == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sRds)) {
-    lv_obj_del(sRds);
-  }
-  sRds = NULL;
+  uiDropRoot(&sRds);
   sBody = NULL;
   sBuilt = -1;
 }

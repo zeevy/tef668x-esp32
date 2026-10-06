@@ -18,6 +18,7 @@
 
 #include <Arduino.h>
 #include <string.h>
+#include <algorithm>
 
 /* Each page's text, which has to outlive the build that shows it. */
 static ScreenDxKeep sKeep;
@@ -187,14 +188,8 @@ void screenTaskDxScopeTurn(int32_t clicks) {
   if (!dxTaskSweepState(&sweep) || sweep.live == NULL || clicks == 0) {
     return;
   }
-  int32_t at = (int32_t)sScopeCursor + clicks;
-  if (at < 0) {
-    at = 0;
-  }
-  if (at > sweep.live->count - 1) {
-    at = sweep.live->count - 1;
-  }
-  sScopeCursor = (uint16_t)at;
+  sScopeCursor = (uint16_t)std::clamp<int32_t>(sScopeCursor + clicks, 0,
+                                               sweep.live->count - 1);
   sScopeCursorSet = true;
 }
 

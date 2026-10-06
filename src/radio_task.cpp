@@ -14,6 +14,7 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 #include <string.h>
+#include <algorithm>
 #include <atomic>
 
 /* Core 0, which it shares with the Wi-Fi driver and lwIP: the framework pins
@@ -655,26 +656,29 @@ static bool publish(const RadioRound *r) {
  * side and back puts the chip through its active mode again and what it keeps
  * across that is not documented.
  */
+/* Keeps the first error: `next` counts only when nothing failed before it.
+ * Every write still goes out, whatever happened to the ones before. */
+static void keepFirst(Tef668xError *err, Tef668xError next) {
+  if (*err == TEF668X_OK) {
+    *err = next;
+  }
+}
+
 static Tef668xError pushFeatures(const RadioSettings *s) {
   /* The blankers come first, because they apply on both sides. */
   Tef668xError blanker = tef668xSetAmNoiseBlanker(s->amNoiseBlankerStart);
-  Tef668xError fmBlanker = tef668xSetFmNoiseBlanker(s->fmNoiseBlankerStart);
-  if (blanker == TEF668X_OK) {
-    blanker = fmBlanker;
-  }
+  keepFirst(&blanker, tef668xSetFmNoiseBlanker(s->fmNoiseBlankerStart));
 
   if (bandModulation(s->band) != MODULATION_FM) {
     /* On AM the weak signal values depend on which AM band this is, which
      * is why a retune sends them. All go out whatever happens to the first,
      * for the same reason as the FM writes below. */
     AmWeakSignal weak = radioAmWeakSignal(s);
-    Tef668xError amWeak = tef668xSetAmWeakSignal(
-        weak.highCutStart, weak.softMuteStart, weak.softMuteSlope);
-    Tef668xError channel = tef668xSetAmChannel();
-    if (blanker != TEF668X_OK) {
-      return blanker;
-    }
-    return amWeak != TEF668X_OK ? amWeak : channel;
+    keepFirst(&blanker,
+              tef668xSetAmWeakSignal(weak.highCutStart, weak.softMuteStart,
+                                     weak.softMuteSlope));
+    keepFirst(&blanker, tef668xSetAmChannel());
+    return blanker;
   }
   /* All of them go out whatever happens to the first, and the first error is
    * what gets reported. Stopping at a failure would leave the others holding
@@ -683,24 +687,13 @@ static Tef668xError pushFeatures(const RadioSettings *s) {
    * pushToTuner below, and worth saying rather than leaving it to look
    * accidental. */
   Tef668xError err = tef668xSetMultipathSuppression(s->multipathSuppression);
-  Tef668xError eq = tef668xSetChannelEqualizer(s->equalizer);
-  Tef668xError mono = tef668xSetMono(s->forcedMono);
-  Tef668xError weak = tef668xSetWeakSignal(s->highCutStart, s->stereoBlendStart,
-                                           s->stHiBlendStart);
-  Tef668xError deemp = tef668xSetDeemphasis(s->deemphasisUs);
-  if (err != TEF668X_OK) {
-    return err;
-  }
-  if (eq != TEF668X_OK) {
-    return eq;
-  }
-  if (mono != TEF668X_OK) {
-    return mono;
-  }
-  if (weak != TEF668X_OK) {
-    return weak;
-  }
-  return deemp != TEF668X_OK ? deemp : blanker;
+  keepFirst(&err, tef668xSetChannelEqualizer(s->equalizer));
+  keepFirst(&err, tef668xSetMono(s->forcedMono));
+  keepFirst(&err, tef668xSetWeakSignal(s->highCutStart, s->stereoBlendStart,
+                                       s->stHiBlendStart));
+  keepFirst(&err, tef668xSetDeemphasis(s->deemphasisUs));
+  keepFirst(&err, blanker);
+  return err;
 }
 
 /*
@@ -726,30 +719,19 @@ static Tef668xError pushToTuner(const RadioSettings *from,
 
     Tef668xError tuned =
         fm ? tef668xTuneFm(to->freqKHz) : tef668xTuneAm(to->freqKHz);
-    if (err == TEF668X_OK) {
-      err = tuned;
-    }
+    keepFirst(&err, tuned);
     /* Sent with every FM tune, not once at start up. It restarts the chip's
      * decoder, and without that the first read after the dial moves hands
      * over the group the previous station left in the register. */
     if (tuned == TEF668X_OK && fm) {
-      Tef668xError rdsOn = tef668xSetRds(false);
-      if (err == TEF668X_OK) {
-        err = rdsOn;
-      }
+      keepFirst(&err, tef668xSetRds(false));
     }
     if (tuned == TEF668X_OK && push.bandwidth) {
-      Tef668xError width = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
-                              : tef668xSetAmBandwidth(to->bandwidthKHz);
-      if (err == TEF668X_OK) {
-        err = width;
-      }
+      keepFirst(&err, fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
+                         : tef668xSetAmBandwidth(to->bandwidthKHz));
     }
     if (push.volume) {
-      Tef668xError gain = tef668xSetVolume(to->volumeDb);
-      if (err == TEF668X_OK) {
-        err = gain;
-      }
+      keepFirst(&err, tef668xSetVolume(to->volumeDb));
     }
 
     /* The mute always comes off, even when something above failed.
@@ -759,15 +741,9 @@ static Tef668xError pushToTuner(const RadioSettings *from,
      * reaches the unmute. A radio that is wrong is recoverable. A radio that
      * is silent looks broken. So the unmute happens on every path, and the
      * first real error is what gets reported. */
-    Tef668xError unmute = tef668xSetMute(to->muted);
-    if (err == TEF668X_OK) {
-      err = unmute;
-    }
+    keepFirst(&err, tef668xSetMute(to->muted));
     if (push.features) {
-      Tef668xError feat = pushFeatures(to);
-      if (err == TEF668X_OK) {
-        err = feat;
-      }
+      keepFirst(&err, pushFeatures(to));
     }
     return err;
   }
@@ -801,10 +777,7 @@ static Tef668xError pushToTuner(const RadioSettings *from,
     err = fm ? tef668xSetFmBandwidth(to->bandwidthKHz)
              : tef668xSetAmBandwidth(to->bandwidthKHz);
     if (hush) {
-      Tef668xError back = tef668xSetMute(false);
-      if (err == TEF668X_OK) {
-        err = back;
-      }
+      keepFirst(&err, tef668xSetMute(false));
     }
     if (err != TEF668X_OK) {
       return err;
@@ -959,13 +932,8 @@ static int8_t agcTarget(const RadioRound *r, int8_t wantedDb) {
     sAgcApplied = 0;
     return wantedDb;
   }
-  int16_t withGain = (int16_t)(wantedDb + agcGain(&sAgc));
-  if (withGain > RADIO_VOLUME_MAX) {
-    withGain = RADIO_VOLUME_MAX;
-  }
-  if (withGain < RADIO_VOLUME_MIN) {
-    withGain = RADIO_VOLUME_MIN;
-  }
+  const int16_t withGain = std::clamp<int16_t>(
+      (int16_t)(wantedDb + agcGain(&sAgc)), RADIO_VOLUME_MIN, RADIO_VOLUME_MAX);
   sAgcApplied = (int8_t)(withGain - wantedDb);
   return (int8_t)withGain;
 }
@@ -2190,6 +2158,12 @@ RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
   }
 }
 
+bool radioPostOk(const RadioCommand *command, uint32_t waitMs) {
+  RadioError why = RADIO_OK;
+  return radioPostAndSettle(command, waitMs, &why) == RADIO_POST_DONE &&
+         why == RADIO_OK;
+}
+
 bool radioBeep(uint16_t ms) {
   return radioBeepAt(ms, RADIO_BEEP_HZ, RADIO_BEEP_HZ);
 }
@@ -2268,6 +2242,17 @@ static bool lockFromCaller(void) {
   return true;
 }
 
+/* lockFromCaller for one scope: given back when the scope ends, on every
+ * path out of it. */
+struct CallerLock {
+  const bool held = lockFromCaller();
+  ~CallerLock() {
+    if (held) {
+      xSemaphoreGive(sLock);
+    }
+  }
+};
+
 void radioSetSleepFade(bool on, uint32_t overMs) {
   /* A fade under way keeps its start, so a shorter one asked for part way
    * reaches the bottom sooner, from where it has got to. */
@@ -2282,11 +2267,8 @@ void radioSetSoftMuteMs(uint16_t ms) {
 
 void radioSetSquelchFloor(uint8_t dbuv) {
   int16_t tenths = dbuv == 0 ? SQUELCH_LEVEL_FLOOR_OFF : (int16_t)(dbuv * 10);
-  bool locked = lockFromCaller();
+  CallerLock lock;
   sLive.squelch.fmLevelFloorTenths = tenths;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 void radioSetEdgeBeep(bool on) {
@@ -2358,59 +2340,41 @@ void radioSetSeekConfig(const SeekConfig *cfg) {
   } else {
     seekDefaults(&wanted);
   }
-  bool locked = lockFromCaller();
+  CallerLock lock;
   sLive.seek = wanted;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 void radioSetSquelchMode(SquelchMode mode) {
   if (mode >= SQUELCH_MODE_COUNT) {
     return;
   }
-  bool locked = lockFromCaller();
+  CallerLock lock;
   sLive.squelchMode = mode;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 void radioSetAgc(uint8_t targetPercent, uint8_t boostDb) {
-  bool locked = lockFromCaller();
+  CallerLock lock;
   sLive.agc.targetPercent = targetPercent;
   sLive.agc.boostDb = boostDb;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 void radioSetSquelchThreshold(int16_t tenths) {
-  bool locked = lockFromCaller();
+  CallerLock lock;
   sLive.squelchThresholdTenths = tenths;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 void radioSeekConfig(SeekConfig *out) {
   if (out == NULL) {
     return;
   }
-  bool locked = lockFromCaller();
+  CallerLock lock;
   *out = sLive.seek;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
 }
 
 SquelchMode radioSquelchMode(int16_t *thresholdTenths) {
-  bool locked = lockFromCaller();
+  CallerLock lock;
   SquelchMode mode = sLive.squelchMode;
   int16_t threshold = sLive.squelchThresholdTenths;
-  if (locked) {
-    xSemaphoreGive(sLock);
-  }
   if (thresholdTenths != NULL) {
     *thresholdTenths = threshold;
   }

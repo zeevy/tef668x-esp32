@@ -22,7 +22,6 @@ static bool apiSlot(int *out) {
 }
 
 static void handleApiMemoryCsv(void) {
-  sWeb->requests++;
   sWeb->server.sendHeader("Content-Disposition",
                           "attachment; filename=\"presets.csv\"");
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -48,11 +47,11 @@ static const char kPresetInvalid[] =
 
 /* The answer to a preset written: where, and what it now holds. */
 static void sayPreset(int slot, BandId band, uint32_t khz) {
-  char text[16];
-  bandFormatFrequency(band, khz, text, sizeof(text));
+  char text[24];
+  bandFormatWithUnit(band, khz, text, sizeof(text));
   sWeb->server.send(200, "text/plain",
                     String("Preset ") + (slot + 1) + " is " + bandName(band) +
-                        " " + text + " " + bandFrequencyUnit(band) + "\n");
+                        " " + text + "\n");
 }
 
 /*
@@ -64,7 +63,6 @@ static void sayPreset(int slot, BandId band, uint32_t khz) {
  * | `recall` | Tune to a slot |
  */
 static void handleApiMemoryPost(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -174,7 +172,6 @@ static void handleApiMemoryPost(void) {
  * read, so a bad file never leaves a half loaded list.
  */
 static void handleApiMemoryImport(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

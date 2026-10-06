@@ -187,22 +187,12 @@ MemorySaveResult memorySaveChannel(MemoryStore *m, uint8_t band,
                                    const char *name, int *slot);
 
 /*
- * The next filled slot in a direction, wrapping at the ends.
+ * The next filled slot that can actually be tuned, wrapping at the ends.
  *
  * Empty slots are stepped over. Starting from outside the store starts from
  * the end it is heading away from, so MEMORY_NO_SLOT going up gives the
- * lowest filled slot.
- *
- * The firmware steps with memoryStepTunable below. Only the unit tests call
- * this one directly.
- */
-int memoryStep(const MemoryStore *m, int from, bool up);
-
-/*
- * The next filled slot that can actually be tuned, wrapping at the ends.
- *
- * The same as memoryStep, but a channel the band plan in force cannot reach
- * is stepped over as though the slot were empty. Changing the FM region or
+ * lowest one. A channel the band plan in force cannot reach is stepped over
+ * as though the slot were empty. Changing the FM region or
  * the medium wave spacing can put a stored channel outside its band, and
  * without this the knob would stop on it and the radio would refuse to move.
  */

@@ -22,12 +22,10 @@ static WebContext *sWeb = NULL;
  * The same document as /status.json, from the same builder.
  */
 static void handleApiState(void) {
-  sWeb->requests++;
   sWeb->server.send(200, "application/json", buildState());
 }
 
 static void handleApiTune(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -57,15 +55,12 @@ static void handleApiTune(void) {
   cmd.kind = RADIO_TUNE;
   cmd.freqKHz = (uint32_t)khz;
 
-  char text[16];
-  bandFormatFrequency(band, (uint32_t)khz, text, sizeof(text));
-  apiSubmit(&cmd,
-            String(bandName(band)) + " " + text + " " + bandFrequencyUnit(band),
-            API_SAY_TUNE);
+  char text[24];
+  bandFormatWithUnit(band, (uint32_t)khz, text, sizeof(text));
+  apiSubmit(&cmd, String(bandName(band)) + " " + text, API_SAY_TUNE);
 }
 
 static void handleApiStep(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -83,8 +78,18 @@ static void handleApiStep(void) {
   apiSubmit(&cmd, String("stepped ") + steps, API_SAY_TUNE);
 }
 
+/* The band `bnd` names, in either case, or BAND_COUNT when it names none. */
+static BandId apiBandArg(void) {
+  const String want = sWeb->server.arg("bnd");
+  for (int b = 0; b < BAND_COUNT; b++) {
+    if (want.equalsIgnoreCase(bandName((BandId)b))) {
+      return (BandId)b;
+    }
+  }
+  return BAND_COUNT;
+}
+
 static void handleApiBand(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -92,16 +97,7 @@ static void handleApiBand(void) {
     apiFail(400, "Give bnd, one of LW MW SW OIRT FM.");
     return;
   }
-  String want = sWeb->server.arg("bnd");
-  want.toUpperCase();
-
-  BandId band = BAND_COUNT;
-  for (int b = 0; b < BAND_COUNT; b++) {
-    if (want.equals(bandName((BandId)b))) {
-      band = (BandId)b;
-      break;
-    }
-  }
+  BandId band = apiBandArg();
   if (band == BAND_COUNT) {
     apiFail(400, "That is not a band. Use one of LW MW SW OIRT FM.");
     return;
@@ -114,7 +110,6 @@ static void handleApiBand(void) {
 }
 
 static void handleApiBandwidth(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -128,15 +123,7 @@ static void handleApiBandwidth(void) {
   if (sWeb->server.hasArg("bnd")) {
     /* `bnd` sets that band's own width from any band, as the menu's per band
      * rows do: the width it comes up with, and the live one when tuned. */
-    String want = sWeb->server.arg("bnd");
-    want.toUpperCase();
-    cmd.band = BAND_COUNT;
-    for (int b = 0; b < BAND_COUNT; b++) {
-      if (want.equals(bandName((BandId)b))) {
-        cmd.band = (BandId)b;
-        break;
-      }
-    }
+    cmd.band = apiBandArg();
     if (cmd.band == BAND_COUNT) {
       apiFail(400, "That is not a band. Use one of LW MW SW OIRT FM.");
       return;
@@ -155,7 +142,6 @@ static void handleApiBandwidth(void) {
 }
 
 static void handleApiStepSize(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -172,15 +158,7 @@ static void handleApiStepSize(void) {
   }
   /* `bnd` sets that band's own step from any band, as the menu's per band
    * rows do: the step it comes up with, and the live one when it is tuned. */
-  String want = sWeb->server.arg("bnd");
-  want.toUpperCase();
-  cmd.band = BAND_COUNT;
-  for (int b = 0; b < BAND_COUNT; b++) {
-    if (want.equals(bandName((BandId)b))) {
-      cmd.band = (BandId)b;
-      break;
-    }
-  }
+  cmd.band = apiBandArg();
   if (cmd.band == BAND_COUNT) {
     apiFail(400, "That is not a band. Use one of LW MW SW OIRT FM.");
     return;
@@ -193,7 +171,6 @@ static void handleApiStepSize(void) {
  * written or is on trial, since the wake is a restart and a restart rolls the
  * update back. */
 static void handleApiSleep(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -208,7 +185,6 @@ static void handleApiSleep(void) {
 }
 
 static void handleApiVolume(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -223,7 +199,6 @@ static void handleApiVolume(void) {
 }
 
 static void handleApiMute(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -238,7 +213,6 @@ static void handleApiMute(void) {
 }
 
 static void handleApiMode(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -294,7 +268,6 @@ static void handleApiMode(void) {
  * would leave the radio with almost no usable travel.
  */
 static void handleApiPot(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -368,7 +341,6 @@ static void handleApiPot(void) {
  * everything else.
  */
 static void handleApiBeep(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -406,7 +378,6 @@ static void handleApiBeep(void) {
  * whether it found anything. Any other command stops it.
  */
 static void handleApiSeek(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -447,7 +418,6 @@ static void handleApiSeek(void) {
  * once it stops.
  */
 static void handleApiScan(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -460,15 +430,7 @@ static void handleApiScan(void) {
   }
   BandId band = BAND_FM;
   if (sWeb->server.hasArg("bnd")) {
-    String want = sWeb->server.arg("bnd");
-    want.toUpperCase();
-    band = BAND_COUNT;
-    for (int b = 0; b < BAND_COUNT; b++) {
-      if (want.equals(bandName((BandId)b))) {
-        band = (BandId)b;
-        break;
-      }
-    }
+    band = apiBandArg();
   }
   BandScanStartResult started =
       band < BAND_COUNT ? bandScanStart(band) : BAND_SCAN_NOT_WALKED;
@@ -507,7 +469,6 @@ static void handleApiScan(void) {
  * argue with the knob at every start up.
  */
 static void handleApiSave(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -541,10 +502,9 @@ static void handleApiSave(void) {
   /* From what was written, not from a fresh look at the radio. The reply has
    * to name the station that went into NVS. */
   BandId saved = (BandId)pending.startBand;
-  char text[16];
-  bandFormatFrequency(saved, pending.startFreqKHz, text, sizeof(text));
-  String said = String("Saved. It will come up on ") + text + " " +
-                bandFrequencyUnit(saved) + ", squelch " +
+  char text[24];
+  bandFormatWithUnit(saved, pending.startFreqKHz, text, sizeof(text));
+  String said = String("Saved. It will come up on ") + text + ", squelch " +
                 squelchModeName((SquelchMode)pending.squelchMode) + ".";
   Serial.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
@@ -566,7 +526,6 @@ static void handleApiSave(void) {
  * that would leave a gap for the state to move in.
  */
 static void handleApiCycle(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

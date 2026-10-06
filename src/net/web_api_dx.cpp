@@ -33,7 +33,6 @@ static WebContext *sWeb = NULL;
  * the API was told.
  */
 static void handleApiDx(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -365,8 +364,7 @@ static void sendSweepLevels(const char *name, const DxSweep *s,
  * a level is already public on /api/state.
  */
 static void handleApiDxSweepGet(void) {
-  sWeb->requests++;
-  DxSweepView v;
+  DxSweepState v;
   if (!dxTaskSweepView(&v)) {
     apiFail(503, "There is no memory for the sweeps.");
     return;
@@ -378,7 +376,7 @@ static void handleApiDxSweepGet(void) {
     snprintf(head, sizeof(head),
              "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":null,"
              "\"real\":false,\"count\":0",
-             (unsigned)dxTaskSweepRevision(), v.running ? "true" : "false",
+             (unsigned)v.revision, v.running ? "true" : "false",
              v.abandoned ? "true" : "false");
     sWeb->server.sendContent(head);
   } else {
@@ -395,7 +393,7 @@ static void handleApiDxSweepGet(void) {
              "\"real\":%s,\"took_ms\":%u,\"width\":%u,\"low\":%u,"
              "\"step\":%u,\"count\":%u,\"floor\":%s,\"baseline\":%s,"
              "\"baseline_sweeps\":%u,\"lvo\":%d",
-             (unsigned)dxTaskSweepRevision(), v.running ? "true" : "false",
+             (unsigned)v.revision, v.running ? "true" : "false",
              v.abandoned ? "true" : "false", (unsigned)v.live->at,
              v.live->timeKnown ? "true" : "false", (unsigned)v.live->tookMs,
              (unsigned)v.live->widthKHz, (unsigned)v.live->lowKHz,
@@ -419,7 +417,6 @@ static void handleApiDxSweepGet(void) {
  * what a station broadcast plus a reading already public on /api/state.
  */
 static void handleApiDxGet(void) {
-  sWeb->requests++;
   const DxCatches *list = dxTaskCatches();
   const uint8_t n = list != NULL ? list->count : 0;
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
@@ -507,7 +504,6 @@ static void handleApiDxGet(void) {
  * other. Open to read, as GET /api/dx is.
  */
 static void handleApiDxCsv(void) {
-  sWeb->requests++;
   char disposition[128] = "attachment; filename=\"dx-catches.csv\"";
   uint32_t epoch = 0;
   if (ntpEpochUtc(&epoch)) {
@@ -561,7 +557,6 @@ static RadioAfSeries *sAfSeries = NULL; /* Set once a series has run. */
 static RadioAfCheck *sAfChecks = NULL;  /* On the heap, taken on first use. */
 
 static void handleApiAfCheckPost(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -617,7 +612,6 @@ static void handleApiAfCheckPost(void) {
 }
 
 static void handleApiAfCheckGet(void) {
-  sWeb->requests++;
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   sWeb->server.send(200, "application/x-ndjson", "");
   const bool running = radioAfBusy();
@@ -663,7 +657,6 @@ static void sendTiming(const char *text, size_t len, void *ctx) {
 }
 
 static void handleApiDxTimingCsv(void) {
-  sWeb->requests++;
   if (!logbookFsPresent()) {
     /* An empty file would read as nothing recorded yet. */
     apiFail(503, "The storage did not mount, so there is nothing to read.");

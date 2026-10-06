@@ -19,6 +19,11 @@
 extern "C" {
 #endif
 
+/* One word of a tuner reply, which sends the high byte first. */
+static inline uint16_t word16(const uint8_t *p) {
+  return (uint16_t)((uint16_t)p[0] << 8 | (uint16_t)p[1]);
+}
+
 /* The size of a quality reply: seven words. */
 #define TEF668X_QUALITY_BYTES 14
 /* The size of an RDS reply: the status, four blocks and the error word. */

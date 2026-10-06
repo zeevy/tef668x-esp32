@@ -31,8 +31,6 @@
 
 bool keypadBegin(void);
 
-bool keypadPresent(void);
-
 /*
  * Read which key is down.
  *

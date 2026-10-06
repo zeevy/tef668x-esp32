@@ -247,10 +247,7 @@ bool screenMenuBegin(void) {
 
   /* The root is prepared here as well as in `screenBegin`, because this
    * screen can be built before the radio layout has been. */
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sMenu = uiBlock(root, t->ground, 0, 0, MENU_W, MENU_H);
   uiFrameBegin(&sFrame, sMenu, t, t->radio);
@@ -597,10 +594,7 @@ void screenMenuEnd(void) {
   if (sMenu == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sMenu)) {
-    lv_obj_del(sMenu);
-  }
-  sMenu = NULL;
+  uiDropRoot(&sMenu);
   sPanel = NULL;
   sLabel = NULL;
   sValueBig = NULL;

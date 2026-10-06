@@ -5,6 +5,7 @@
 #include <esp_flash.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 
 #include "band_scan_task.h"
 #include "build_id.h"
@@ -234,6 +235,15 @@ typedef struct {
   /* The sub-group this row opens, or NULL for a row that is a value, an
    * action or a reading. */
   const MenuGroup *opens;
+  /*
+   * The settings key of a row that is one stored setting, so the menu reads,
+   * writes and bounds it through the same row of the settings table the API
+   * uses. NULL for the rest. The rows that combine or translate values, the
+   * themes, the rotation, the touch switch, the DX preset range and width,
+   * Network Time and the Web PIN, are written out in storedValue and
+   * storedSet.
+   */
+  const char *setting;
 } MenuRow;
 
 struct MenuGroup {
@@ -281,24 +291,25 @@ static const uint8_t kAgcTargets[] = {0,  30, 32, 34, 36, 38, 40, 42, 44,
 #define SUB(name, group) \
   {name, ROW_SUB, SRC_INFO, 0, 0, 1, NOLIST, false, false, false, &group}
 
+/* A reading, and a row that does something when pressed. Neither has a value
+ * to edit. */
+#define INFO(name, id) \
+  {name, id, SRC_INFO, 0, 0, 1, NOLIST, false, false, false}
+#define ACTION(name, id) \
+  {name, id, SRC_ACTION, 0, 0, 1, NOLIST, false, false, false}
+
 /*
  * The screens and actions the panel keys reach, so the knob alone reaches
  * them too. Each closes the menu and calls what its key calls: BAND, BW held,
  * BAND held, the DX key and ENTER held. Sleep has no key.
  */
 static const MenuRow kGotoRows[] = {
-    {STR_MENU_GO_TO_BAND, ROW_GOTO_BAND, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_GO_TO_BANDWIDTH, ROW_GOTO_BANDWIDTH, SRC_ACTION, 0, 0, 1, NOLIST,
-     false, false, false},
-    {STR_MENU_GO_TO_RDS, ROW_GOTO_RDS, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_GO_TO_DX, ROW_GOTO_DX, SRC_ACTION, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_GO_TO_LOG, ROW_GOTO_LOG, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_GO_TO_SLEEP, ROW_GOTO_SLEEP, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
+    ACTION(STR_MENU_GO_TO_BAND, ROW_GOTO_BAND),
+    ACTION(STR_MENU_GO_TO_BANDWIDTH, ROW_GOTO_BANDWIDTH),
+    ACTION(STR_MENU_GO_TO_RDS, ROW_GOTO_RDS),
+    ACTION(STR_MENU_GO_TO_DX, ROW_GOTO_DX),
+    ACTION(STR_MENU_GO_TO_LOG, ROW_GOTO_LOG),
+    ACTION(STR_MENU_GO_TO_SLEEP, ROW_GOTO_SLEEP),
 };
 
 /*
@@ -307,8 +318,7 @@ static const MenuRow kGotoRows[] = {
  * count is taken again before every use, the same as the Station Log's.
  */
 static const MenuRow kPresetEntryRow[] = {
-    {STR_COMMON_DASH, ROW_PRESET_ENTRY, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
+    ACTION(STR_COMMON_DASH, ROW_PRESET_ENTRY),
 };
 static MenuGroup sPresetGroup = {STR_MENU_MEMORY, kPresetEntryRow, 0};
 
@@ -319,8 +329,7 @@ static MenuGroup sPresetGroup = {STR_MENU_MEMORY, kPresetEntryRow, 0};
  * logbook's own, taken again before every use.
  */
 static const MenuRow kLogEntryRow[] = {
-    {STR_COMMON_DASH, ROW_LOG_ENTRY, SRC_ACTION, 0, 0, 1, NOLIST, false, false,
-     false},
+    ACTION(STR_COMMON_DASH, ROW_LOG_ENTRY),
 };
 static MenuGroup sLogGroup = {STR_MENU_STATION_LOG, kLogEntryRow, 0};
 
@@ -336,14 +345,10 @@ static const MenuRow kStationRows[] = {
      * minutes and a row that just sat there would read as a radio that had
      * hung.
      */
-    {STR_MENU_SCAN_FM_FOR_STATIONS, ROW_FM_SCAN, SRC_ACTION, 0, 0, 1, NOLIST,
-     false, false, false},
-    {STR_MENU_SCAN_MW, ROW_MW_SCAN, SRC_ACTION, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_SCAN_SW, ROW_SW_SCAN, SRC_ACTION, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_SCAN_LW, ROW_LW_SCAN, SRC_ACTION, 0, 0, 1, NOLIST, false, false,
-     false},
+    ACTION(STR_MENU_SCAN_FM_FOR_STATIONS, ROW_FM_SCAN),
+    ACTION(STR_MENU_SCAN_MW, ROW_MW_SCAN),
+    ACTION(STR_MENU_SCAN_SW, ROW_SW_SCAN),
+    ACTION(STR_MENU_SCAN_LW, ROW_LW_SCAN),
     SUB(STR_MENU_STATION_LOG, sLogGroup),
 };
 
@@ -353,12 +358,11 @@ static const MenuRow kSquelchRows[] = {
     /* Read only: in manual the knob is the squelch level, and a second way to
      * set one value would be a second owner, undone the moment the knob
      * moved. */
-    {STR_MENU_SQUELCH_LEVEL, ROW_SQUELCH_LEVEL, SRC_INFO, 0, 0, 1, NOLIST,
-     false, false, false},
+    INFO(STR_MENU_SQUELCH_LEVEL, ROW_SQUELCH_LEVEL),
     /* 40, which is SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV. Anything above it is
      * refused by `settingsValid` and would stop every save. */
     {STR_MENU_SQUELCH_FLOOR, ROW_SQUELCH_FLOOR, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, true, false, false},
+     NOLIST, true, false, false, NULL, "sqf"},
 };
 static const MenuGroup kSquelchGroup =
     GROUP(STR_MENU_SQUELCH_GROUP, kSquelchRows);
@@ -371,11 +375,11 @@ static const MenuRow kAudioRows[] = {
      * walks a list rather than a range.
      */
     {STR_MENU_VOLUME_AGC, ROW_AGC_TARGET, SRC_STORED, 0, 0, 1,
-     LIST(kAgcTargets), true, false, false},
+     LIST(kAgcTargets), true, false, false, NULL, "agt"},
     {STR_MENU_AGC_BOOST, ROW_AGC_BOOST, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "agb"},
     {STR_MENU_MUTE_RAMP, ROW_MUTE_RAMP, SRC_STORED, TABLE_RANGE, 10, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "smu"},
 };
 
 static const MenuRow kStereoRows[] = {
@@ -390,15 +394,15 @@ static const MenuGroup kStereoGroup = GROUP(STR_MENU_STEREO, kStereoRows);
 
 static const MenuRow kRdsRows[] = {
     {STR_COMMON_RDS_DECODER, ROW_RDS, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     false, false},
+     false, false, NULL, "rds"},
     {STR_MENU_RDS_REGION, ROW_RDS_REGION, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "rrg"},
 };
 static const MenuGroup kRdsGroup = GROUP(STR_MENU_RDS_GROUP, kRdsRows);
 
 static const MenuRow kFmRows[] = {
     {STR_MENU_BAND_PLAN, ROW_FM_REGION, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, true, false},
+     false, true, false, NULL, "rgn"},
     /*
      * The radio's, not the settings'. `bandStepKHz` stores FM's step across a
      * power cycle, but `radioApply` reads and writes the tuned band's step as
@@ -419,7 +423,7 @@ static const MenuRow kFmRows[] = {
     {STR_MENU_TUNING_STEP, ROW_FM_STEP, SRC_RADIO, 0, 1, 1, NOLIST, true, false,
      false},
     {STR_MENU_SEEK_SENSITIVITY, ROW_FM_SEEK, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "fsn"},
     {STR_MENU_DE_EMPHASIS, ROW_DEEMPHASIS, SRC_RADIO, 0, 2, 1, NOLIST, false,
      false, false},
     SUB(STR_MENU_STEREO, kStereoGroup),
@@ -500,10 +504,10 @@ static BandId widthBandOf(RowId id) {
 
 static const MenuRow kAmRows[] = {
     {STR_MENU_MW_SPACING, ROW_MW_SPACING, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, true, false},
+     false, true, false, NULL, "spc"},
     SUB(STR_MENU_TUNING_STEP, kAmStepGroup),
     {STR_MENU_SEEK_SENSITIVITY, ROW_AM_SEEK, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "asn"},
     SUB(STR_MENU_FILTER_WIDTH, kAmWidthGroup),
     {STR_MENU_NOISE_BLANKER, ROW_AM_BLANKER, SRC_RADIO, 0, 0, 1,
      LIST(kBlankers), true, false, false},
@@ -528,29 +532,27 @@ static const MenuGroup kPresetRangeGroup =
  * there is automatic and DX mode is never automatic.
  */
 static const MenuRow kDxRows[] = {
-    {STR_MENU_START_SCAN, ROW_DX_START_SCAN, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
+    ACTION(STR_MENU_START_SCAN, ROW_DX_START_SCAN),
     {STR_MENU_DWELL, ROW_DX_DWELL, SRC_STORED, TABLE_RANGE, 5, NOLIST, true,
-     false, false},
+     false, false, NULL, "ddw"},
     {STR_MENU_STOP_ON, ROW_DX_STOP, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     false, false},
+     false, false, NULL, "dst"},
     {STR_MENU_SCAN, ROW_DX_RANGE, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     false, false},
+     false, false, NULL, "dsc"},
     SUB(STR_MENU_PRESET_RANGE, kPresetRangeGroup),
     {STR_MENU_DX_WIDTH, ROW_DX_WIDTH, SRC_STORED, 1, 16, 1, NOLIST, true, false,
      false},
     {STR_MENU_LOOP_THE_BAND, ROW_DX_LOOP, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "dlp"},
     {STR_MENU_MUTE_WHILE_SCANNING, ROW_DX_MUTE, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, false, false, false},
+     NOLIST, false, false, false, NULL, "dmu"},
     {STR_MENU_AUTO_LOG_NEW, ROW_DX_AUTOLOG, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "dal"},
     {STR_MENU_LOG_RADIO_TEXT, ROW_DX_LOG_RT, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "drt"},
     {STR_MENU_WATCH_PRESETS, ROW_DX_WATCH, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
-    {STR_MENU_LEARN_LOCALS, ROW_DX_LEARN, SRC_ACTION, 0, 0, 1, NOLIST, false,
-     false, false},
+     false, false, false, NULL, "dwt"},
+    ACTION(STR_MENU_LEARN_LOCALS, ROW_DX_LEARN),
 };
 
 /* A place in the list of themes, walked like Band Plan and MW Step rather
@@ -571,9 +573,9 @@ static const MenuGroup kThemeGroup = GROUP(STR_MENU_THEME, kThemeRows);
  * receiver's; no threshold reads it. */
 static const MenuRow kLevelOffsetRows[] = {
     {STR_MENU_LEVEL_OFFSET_FM, ROW_LEVEL_OFFSET_FM, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, true, false, false},
+     NOLIST, true, false, false, NULL, "fof"},
     {STR_MENU_LEVEL_OFFSET_AM, ROW_LEVEL_OFFSET_AM, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, true, false, false},
+     NOLIST, true, false, false, NULL, "aof"},
 };
 static const MenuGroup kLevelOffsetGroup =
     GROUP(STR_MENU_LEVEL_OFFSET, kLevelOffsetRows);
@@ -581,11 +583,11 @@ static const MenuGroup kLevelOffsetGroup =
 static const MenuRow kDisplayRows[] = {
     SUB(STR_MENU_THEME, kThemeGroup),
     {STR_MENU_BRIGHTNESS, ROW_BACKLIGHT, SRC_STORED, TABLE_RANGE, 5, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "blt"},
     {STR_MENU_DIM_LEVEL, ROW_BACKLIGHT_DIM, SRC_STORED, TABLE_RANGE, 5, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "bdm"},
     {STR_MENU_DIM_AFTER, ROW_DIM_AFTER, SRC_STORED, TABLE_RANGE, 5, NOLIST,
-     true, false, false},
+     true, false, false, NULL, "bds"},
     /* 0 for the board's own mount and 1 for 180 from it. Every recovery row
      * is also in normal settings, so it can be found without knowing any trick:
      * this is the same value the recovery screen's own "Rotate display" row
@@ -595,10 +597,10 @@ static const MenuRow kDisplayRows[] = {
     {STR_MENU_ROTATION, ROW_DISPLAY_ROTATION, SRC_STORED, 0, 1, 1, NOLIST,
      false, false, false},
     {STR_COMMON_BATTERY, ROW_BATTERY, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     false, false},
+     false, false, NULL, "bat"},
     SUB(STR_MENU_LEVEL_OFFSET, kLevelOffsetGroup),
     {STR_MENU_FADE_AT_START, ROW_FADE_AT_START, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, false, true, false},
+     NOLIST, false, true, false, NULL, "blf"},
 };
 
 /* Network Time's step below -12:00, which reads Off: the two settings,
@@ -606,17 +608,12 @@ static const MenuRow kDisplayRows[] = {
 #define NETWORK_TIME_OFF (CLOCK_OFFSET_MIN_MINUTES - 15)
 
 static const MenuRow kNetInfoRows[] = {
-    {STR_MENU_STATUS, ROW_NET_STATE, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_WEB_ADDRESS, ROW_NET_ADDRESS, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_IP_ADDRESS, ROW_NET_IP, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_WI_FI_NAME, ROW_NET_NAME, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_WI_FI_SIGNAL, ROW_NET_SIGNAL, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_MAC, ROW_NET_MAC, SRC_INFO, 0, 0, 1, NOLIST, false, false, false},
+    INFO(STR_MENU_STATUS, ROW_NET_STATE),
+    INFO(STR_MENU_WEB_ADDRESS, ROW_NET_ADDRESS),
+    INFO(STR_MENU_IP_ADDRESS, ROW_NET_IP),
+    INFO(STR_MENU_WI_FI_NAME, ROW_NET_NAME),
+    INFO(STR_MENU_WI_FI_SIGNAL, ROW_NET_SIGNAL),
+    INFO(STR_MENU_MAC, ROW_NET_MAC),
 };
 static const MenuGroup kNetInfoGroup =
     GROUP(STR_MENU_NETWORK_INFO, kNetInfoRows);
@@ -627,11 +624,11 @@ static const MenuRow kConnectRows[] = {
      * Wi-Fi and the web server on again: the browser and the API go with
      * them. */
     {STR_MENU_WIFI, ROW_WIFI, SRC_STORED, TABLE_RANGE, 1, NOLIST, false, false,
-     false},
+     false, NULL, "wif"},
     {STR_MENU_HOTSPOT, ROW_HOTSPOT, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     false, false},
+     false, false, NULL, "hsp"},
     {STR_MENU_WEB_SERVER, ROW_WEB_SERVER, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "web"},
     /* Set a digit at a time on its own editor, not scrubbed as a number, and
      * saved only on the sixth digit, through the same call the browser's
      * Network page uses. */
@@ -645,9 +642,9 @@ static const MenuRow kConnectRows[] = {
 
 static const MenuRow kEncoderRows[] = {
     {STR_MENU_ENCODER, ROW_ENCODER, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     true, false},
+     true, false, NULL, "enc"},
     {STR_MENU_DIRECTION, ROW_ENCODER_DIR, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, true, false},
+     false, true, false, NULL, "edr"},
 };
 static const MenuGroup kEncoderGroup =
     GROUP(STR_MENU_ENCODER_GROUP, kEncoderRows);
@@ -655,11 +652,11 @@ static const MenuGroup kEncoderGroup =
 static const MenuRow kControlRows[] = {
     SUB(STR_MENU_ENCODER_GROUP, kEncoderGroup),
     {STR_MENU_KEY_BEEPS, ROW_KEY_BEEPS, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "bpk"},
     {STR_MENU_BAND_EDGE_BEEP, ROW_EDGE_BEEP, SRC_STORED, TABLE_RANGE, 1, NOLIST,
-     false, false, false},
+     false, false, false, NULL, "bpe"},
     {STR_MENU_START_CHIME, ROW_CHIME, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
-     true, false},
+     true, false, NULL, "bps"},
     /* Off leaves the touch screen unread at once, for a panel that touches
      * itself. Recovery has the same row, for when this menu cannot be
      * reached. */
@@ -667,68 +664,48 @@ static const MenuRow kControlRows[] = {
      false},
     /* Opens the calibration screen; the knob leaves it, so a glass that
      * reads badly cannot trap anybody there. */
-    {STR_MENU_CALIBRATE_TOUCH, ROW_CALIBRATE_TOUCH, SRC_ACTION, 0, 0, 1, NOLIST,
-     false, false, false},
+    ACTION(STR_MENU_CALIBRATE_TOUCH, ROW_CALIBRATE_TOUCH),
 };
 
 static const MenuRow kSystemRows[] = {
     /* In five minute steps; the API takes any minute, and a time set there
      * is shown as it is. */
     {STR_MENU_AUTO_OFF, ROW_AUTO_OFF, SRC_STORED, TABLE_RANGE, 5, NOLIST, true,
-     false, false},
+     false, false, NULL, "slp"},
     /* Turned on, the radio looks in this start too, once it is on the
      * network. */
     {STR_MENU_UPDATE_CHECK, ROW_UPDATE_CHECK, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, false, false, false},
+     NOLIST, false, false, false, NULL, "upc"},
     /* Named for the newer version while one is known, and then its press
      * opens the same offer the radio shows at start. Otherwise its value says
      * why there is nothing to install. */
-    {STR_MENU_FIRMWARE_UPDATE, ROW_UPDATE_INSTALL, SRC_ACTION, 0, 0, 1, NOLIST,
-     false, false, false},
+    ACTION(STR_MENU_FIRMWARE_UPDATE, ROW_UPDATE_INSTALL),
     {STR_MENU_RESTART, ROW_RESTART, SRC_ACTION, 0, 1, 1, NOLIST, false, false,
      true},
 };
 
 static const MenuRow kDiagnosticRows[] = {
-    {STR_MENU_RUNNING_FROM, ROW_ABOUT_SLOT, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_UPTIME, ROW_ABOUT_UPTIME, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_BATTERY_VOLTAGE, ROW_SYSTEM_BATTERY, SRC_INFO, 0, 0, 1, NOLIST,
-     false, false, false},
-    {STR_COMMON_TUNER, ROW_ABOUT_TUNER, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_RESET_REASON, ROW_SYSTEM_RESET, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_CPU_CORE_0, ROW_SYSTEM_CPU_0, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_CPU_CORE_1, ROW_SYSTEM_CPU_1, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_FREE_HEAP, ROW_SYSTEM_HEAP, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_LOWEST_HEAP, ROW_SYSTEM_HEAP_LOWEST, SRC_INFO, 0, 0, 1, NOLIST,
-     false, false, false},
-    {STR_MENU_LARGEST_BLOCK, ROW_SYSTEM_HEAP_BLOCK, SRC_INFO, 0, 0, 1, NOLIST,
-     false, false, false},
-    {STR_MENU_LVGL_POOL, ROW_SYSTEM_LVGL, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_CHIP, ROW_SYSTEM_CHIP, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_FLASH_SIZE, ROW_SYSTEM_FLASH, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
+    INFO(STR_MENU_RUNNING_FROM, ROW_ABOUT_SLOT),
+    INFO(STR_MENU_UPTIME, ROW_ABOUT_UPTIME),
+    INFO(STR_MENU_BATTERY_VOLTAGE, ROW_SYSTEM_BATTERY),
+    INFO(STR_COMMON_TUNER, ROW_ABOUT_TUNER),
+    INFO(STR_MENU_RESET_REASON, ROW_SYSTEM_RESET),
+    INFO(STR_MENU_CPU_CORE_0, ROW_SYSTEM_CPU_0),
+    INFO(STR_MENU_CPU_CORE_1, ROW_SYSTEM_CPU_1),
+    INFO(STR_MENU_FREE_HEAP, ROW_SYSTEM_HEAP),
+    INFO(STR_MENU_LOWEST_HEAP, ROW_SYSTEM_HEAP_LOWEST),
+    INFO(STR_MENU_LARGEST_BLOCK, ROW_SYSTEM_HEAP_BLOCK),
+    INFO(STR_MENU_LVGL_POOL, ROW_SYSTEM_LVGL),
+    INFO(STR_MENU_CHIP, ROW_SYSTEM_CHIP),
+    INFO(STR_MENU_FLASH_SIZE, ROW_SYSTEM_FLASH),
 };
 
 static const MenuRow kAboutRows[] = {
-    {STR_MENU_VERSION, ROW_ABOUT_VERSION, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_BUILD, ROW_ABOUT_BUILD, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
-    {STR_MENU_DEVELOPER, ROW_ABOUT_DEVELOPER, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_LICENSE, ROW_ABOUT_LICENSE, SRC_INFO, 0, 0, 1, NOLIST, false,
-     false, false},
-    {STR_MENU_GITHUB, ROW_ABOUT_GITHUB, SRC_INFO, 0, 0, 1, NOLIST, false, false,
-     false},
+    INFO(STR_MENU_VERSION, ROW_ABOUT_VERSION),
+    INFO(STR_MENU_BUILD, ROW_ABOUT_BUILD),
+    INFO(STR_MENU_DEVELOPER, ROW_ABOUT_DEVELOPER),
+    INFO(STR_MENU_LICENSE, ROW_ABOUT_LICENSE),
+    INFO(STR_MENU_GITHUB, ROW_ABOUT_GITHUB),
 };
 
 /*
@@ -1037,72 +1014,19 @@ static BandId stepBandOf(RowId id) {
 
 /* ------------------------------------------------------------ the values */
 
-/*
- * The stored rows whose value is one setting as it is, by the key the
- * settings table and the API know it by, so the menu reads, writes and
- * bounds each through the same row the API does. The rows that combine or
- * translate values, the themes, the rotation, the DX preset range and width,
- * Network Time and the Web PIN, are written out in storedValue and storedSet.
- */
-static const struct {
-  RowId id;
-  const char *key;
-} kRowSettings[] = {
-    {ROW_FM_REGION, "rgn"},
-    {ROW_FM_SEEK, "fsn"},
-    {ROW_MW_SPACING, "spc"},
-    {ROW_AM_SEEK, "asn"},
-    {ROW_SQUELCH_FLOOR, "sqf"},
-    {ROW_MUTE_RAMP, "smu"},
-    {ROW_AGC_TARGET, "agt"},
-    {ROW_AGC_BOOST, "agb"},
-    {ROW_RDS, "rds"},
-    {ROW_RDS_REGION, "rrg"},
-    {ROW_BACKLIGHT, "blt"},
-    {ROW_BACKLIGHT_DIM, "bdm"},
-    {ROW_DIM_AFTER, "bds"},
-    {ROW_AUTO_OFF, "slp"},
-    {ROW_UPDATE_CHECK, "upc"},
-    {ROW_FADE_AT_START, "blf"},
-    {ROW_BATTERY, "bat"},
-    {ROW_DX_DWELL, "ddw"},
-    {ROW_DX_STOP, "dst"},
-    {ROW_DX_RANGE, "dsc"},
-    {ROW_DX_LOOP, "dlp"},
-    {ROW_DX_MUTE, "dmu"},
-    {ROW_DX_AUTOLOG, "dal"},
-    {ROW_DX_LOG_RT, "drt"},
-    {ROW_DX_WATCH, "dwt"},
-    {ROW_LEVEL_OFFSET_FM, "fof"},
-    {ROW_LEVEL_OFFSET_AM, "aof"},
-    {ROW_CHIME, "bps"},
-    {ROW_KEY_BEEPS, "bpk"},
-    {ROW_EDGE_BEEP, "bpe"},
-    {ROW_HOTSPOT, "hsp"},
-    {ROW_WEB_SERVER, "web"},
-    {ROW_WIFI, "wif"},
-    {ROW_ENCODER, "enc"},
-    {ROW_ENCODER_DIR, "edr"},
-};
-
-static const SettingRow *rowSetting(RowId id) {
-  for (size_t i = 0; i < sizeof(kRowSettings) / sizeof(kRowSettings[0]); i++) {
-    if (kRowSettings[i].id == id) {
-      return settingsTableFind(kRowSettings[i].key);
-    }
-  }
-  return NULL;
+static const SettingRow *rowSetting(const MenuRow *row) {
+  return row->setting != NULL ? settingsTableFind(row->setting) : NULL;
 }
 
-static int32_t storedValue(RowId id, const Settings *s) {
+static int32_t storedValue(const MenuRow *row, const Settings *s) {
   if (s == NULL) {
     return 0;
   }
-  const SettingRow *setting = rowSetting(id);
+  const SettingRow *setting = rowSetting(row);
   if (setting != NULL) {
     return settingsTableGet(s, setting);
   }
-  switch (id) {
+  switch (row->id) {
     case ROW_THEME:
       return palettePlaceOf(s->theme);
     case ROW_NIGHT_THEME:
@@ -1134,16 +1058,16 @@ static int32_t storedValue(RowId id, const Settings *s) {
   }
 }
 
-static void storedSet(RowId id, Settings *s, int32_t v) {
+static void storedSet(const MenuRow *row, Settings *s, int32_t v) {
   if (s == NULL) {
     return;
   }
-  const SettingRow *setting = rowSetting(id);
+  const SettingRow *setting = rowSetting(row);
   if (setting != NULL) {
     settingsTableSet(s, setting, v);
     return;
   }
-  switch (id) {
+  switch (row->id) {
     case ROW_THEME:
       s->theme = paletteThemeAt((uint8_t)v);
       break;
@@ -1401,12 +1325,12 @@ static bool rowIsListed(const MenuRow *row) {
  * so the menu offers the range the API takes; for the rest, the row's own. A
  * listed row walks its list, so its own ends stand. */
 static int32_t rowMin(const MenuRow *row) {
-  const SettingRow *setting = rowIsListed(row) ? NULL : rowSetting(row->id);
+  const SettingRow *setting = rowIsListed(row) ? NULL : rowSetting(row);
   return setting != NULL ? setting->low : row->min;
 }
 
 static int32_t rowMax(const MenuRow *row) {
-  const SettingRow *setting = rowIsListed(row) ? NULL : rowSetting(row->id);
+  const SettingRow *setting = rowIsListed(row) ? NULL : rowSetting(row);
   return setting != NULL ? setting->high : row->max;
 }
 
@@ -1445,13 +1369,7 @@ static int32_t valueOfIndex(const MenuRow *row, int32_t index) {
   if (choices == NULL || count == 0) {
     return index;
   }
-  if (index < 0) {
-    index = 0;
-  }
-  if (index >= count) {
-    index = count - 1;
-  }
-  return choices[index];
+  return choices[std::clamp<int32_t>(index, 0, count - 1)];
 }
 
 /* ------------------------------------------------------------- the words */
@@ -1487,9 +1405,24 @@ static void cpuTick(void) {
   sCpuStarted = true;
 }
 
+static void putText(char *out, size_t len, StrId id) {
+  snprintf(out, len, "%s", txt(id));
+}
+
+/* `zero` for 0, which on these rows is off rather than a value, otherwise
+ * the number through `format`. */
+static void zeroWord(char *out, size_t len, int32_t v, StrId zero,
+                     StrId format) {
+  if (v == 0) {
+    putText(out, len, zero);
+  } else {
+    snprintf(out, len, txt(format), (int)v);
+  }
+}
+
 static void cpuText(uint8_t core, char *out, size_t len) {
   if (!sCpuKnown[core]) {
-    snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+    putText(out, len, STR_COMMON_DASH);
     return;
   }
   snprintf(out, len, txt(STR_MENU_FMT_PERCENT), (int)sCpuPercent[core]);
@@ -1550,7 +1483,7 @@ static void infoText(RowId id, char *out, size_t len) {
       (void)radioSquelchMode(&tenths);
       const int dbuv = tenths / 10;
       if (dbuv == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
+        putText(out, len, STR_COMMON_OFF);
       } else {
         snprintf(out, len, txt(STR_MENU_FMT_DBUV), dbuv);
       }
@@ -1558,11 +1491,11 @@ static void infoText(RowId id, char *out, size_t len) {
     }
     case ROW_NET_STATE: {
       WifiState st = wifiState();
-      snprintf(out, len, "%s",
-               txt(st == WIFI_STATE_ONLINE         ? STR_MENU_WIFI_JOINED
-                   : st == WIFI_STATE_JOINING      ? STR_MENU_WIFI_JOINING
-                   : st == WIFI_STATE_ACCESS_POINT ? STR_MENU_WIFI_HOTSPOT
-                                                   : STR_COMMON_OFF));
+      putText(out, len,
+              st == WIFI_STATE_ONLINE         ? STR_MENU_WIFI_JOINED
+              : st == WIFI_STATE_JOINING      ? STR_MENU_WIFI_JOINING
+              : st == WIFI_STATE_ACCESS_POINT ? STR_MENU_WIFI_HOTSPOT
+                                              : STR_COMMON_OFF);
       return;
     }
     case ROW_NET_ADDRESS:
@@ -1573,7 +1506,7 @@ static void infoText(RowId id, char *out, size_t len) {
        * to reach. Off when either switch is off, since there is then no page
        * at any address. */
       if (sLive != NULL && (!sLive->webEnabled || !sLive->wifiEnabled)) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
+        putText(out, len, STR_COMMON_OFF);
       } else if (strcmp(wifiAddress(), "0.0.0.0") == 0) {
         snprintf(out, len, "%s", wifiAddress());
       } else if (wifiAnnouncedName() != NULL) {
@@ -1587,7 +1520,7 @@ static void infoText(RowId id, char *out, size_t len) {
       /* The address itself, for a phone or a browser that cannot look a
        * .local name up. */
       if (sLive != NULL && !sLive->wifiEnabled) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
+        putText(out, len, STR_COMMON_OFF);
       } else {
         snprintf(out, len, "%s", wifiAddress());
       }
@@ -1598,7 +1531,7 @@ static void infoText(RowId id, char *out, size_t len) {
     case ROW_NET_MAC: {
       uint8_t mac[6];
       if (!deviceMacRead(mac)) {
-        snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+        putText(out, len, STR_COMMON_DASH);
         return;
       }
       /* All six bytes, as a router's list of devices shows them, so the
@@ -1612,10 +1545,10 @@ static void infoText(RowId id, char *out, size_t len) {
       snprintf(out, len, "%s", FIRMWARE_VERSION);
       return;
     case ROW_ABOUT_DEVELOPER:
-      snprintf(out, len, "%s", txt(STR_ABOUT_DEVELOPER));
+      putText(out, len, STR_ABOUT_DEVELOPER);
       return;
     case ROW_ABOUT_GITHUB:
-      snprintf(out, len, "%s", txt(STR_ABOUT_GITHUB));
+      putText(out, len, STR_ABOUT_GITHUB);
       return;
     case ROW_ABOUT_BUILD:
       snprintf(out, len, "%s",
@@ -1623,7 +1556,7 @@ static void infoText(RowId id, char *out, size_t len) {
                                          : txt(STR_ABOUT_BUILD_UNKNOWN));
       return;
     case ROW_ABOUT_LICENSE:
-      snprintf(out, len, "%s", txt(STR_ABOUT_LICENSE));
+      putText(out, len, STR_ABOUT_LICENSE);
       return;
     case ROW_ABOUT_SLOT:
       snprintf(out, len, "%s", rollbackRunningPartition());
@@ -1650,7 +1583,7 @@ static void infoText(RowId id, char *out, size_t len) {
         snprintf(out, len, txt(STR_MENU_FMT_VOLTS_AT_START),
                  (unsigned)(mv / 1000), (unsigned)((mv % 1000) / 10));
       } else {
-        snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+        putText(out, len, STR_COMMON_DASH);
       }
       return;
     }
@@ -1659,12 +1592,12 @@ static void infoText(RowId id, char *out, size_t len) {
       if (wifiRssiDbm(&rssi)) {
         snprintf(out, len, txt(STR_MENU_FMT_DBM), (int)rssi);
       } else {
-        snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+        putText(out, len, STR_COMMON_DASH);
       }
       return;
     }
     case ROW_SYSTEM_RESET:
-      snprintf(out, len, "%s", txt(resetReasonId()));
+      putText(out, len, resetReasonId());
       return;
     case ROW_SYSTEM_CPU_0:
       cpuText(0, out, len);
@@ -1688,7 +1621,7 @@ static void infoText(RowId id, char *out, size_t len) {
       uint32_t used = 0;
       uint32_t total = 0;
       if (!lvglPortMemory(&used, &total, NULL, NULL, NULL)) {
-        snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+        putText(out, len, STR_COMMON_DASH);
         return;
       }
       snprintf(out, len, txt(STR_MENU_FMT_KB_OF_KB), (unsigned)(used / 1024),
@@ -1716,7 +1649,7 @@ static void infoText(RowId id, char *out, size_t len) {
         }
       }
       if (bytes == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+        putText(out, len, STR_COMMON_DASH);
         return;
       }
       snprintf(out, len, txt(STR_MENU_FMT_MB),
@@ -1729,12 +1662,12 @@ static void infoText(RowId id, char *out, size_t len) {
         snprintf(out, len, txt(STR_MENU_FMT_TUNER_PATCH), caps->part,
                  (unsigned)caps->patchVersion);
       } else {
-        snprintf(out, len, "%s", txt(STR_COMMON_NONE));
+        putText(out, len, STR_COMMON_NONE);
       }
       return;
     }
     default:
-      snprintf(out, len, "%s", txt(STR_COMMON_DASH));
+      putText(out, len, STR_COMMON_DASH);
       return;
   }
 }
@@ -1778,7 +1711,7 @@ static void updateRowValue(char *out, size_t len) {
     default:
       break;
   }
-  snprintf(out, len, "%s", txt(why));
+  putText(out, len, why);
 }
 
 static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
@@ -1839,14 +1772,14 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
   }
   switch (row->id) {
     case ROW_FM_REGION:
-      snprintf(out, len, "%s",
-               txt(v >= 0 && v < FM_REGION_COUNT ? kRegionNames[v]
-                                                 : STR_MENU_UNKNOWN_VALUE));
+      putText(out, len,
+              v >= 0 && v < FM_REGION_COUNT ? kRegionNames[v]
+                                            : STR_MENU_UNKNOWN_VALUE);
       return;
     case ROW_RDS_REGION:
-      snprintf(out, len, "%s",
-               txt(v >= 0 && v < RDS_REGION_COUNT ? kRdsRegionNames[v]
-                                                  : STR_MENU_UNKNOWN_VALUE));
+      putText(out, len,
+              v >= 0 && v < RDS_REGION_COUNT ? kRdsRegionNames[v]
+                                             : STR_MENU_UNKNOWN_VALUE);
       return;
     case ROW_MW_SPACING:
       snprintf(out, len, txt(STR_MENU_FMT_KHZ), v == 0 ? 9 : 10);
@@ -1856,9 +1789,9 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
       snprintf(out, len, "%s", themeAt(paletteThemeAt((uint8_t)v))->name);
       return;
     case ROW_DISPLAY_ROTATION:
-      snprintf(out, len, "%s",
-               txt(v == 1 ? STR_COMMON_ROTATION_UPSIDE_DOWN
-                          : STR_COMMON_ROTATION_NORMAL));
+      putText(out, len,
+              v == 1 ? STR_COMMON_ROTATION_UPSIDE_DOWN
+                     : STR_COMMON_ROTATION_NORMAL);
       return;
     case ROW_LW_WIDTH:
     case ROW_MW_WIDTH:
@@ -1884,27 +1817,19 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     case ROW_LW_HIGH_CUT:
     case ROW_STEREO_BLEND:
     case ROW_STHI_BLEND:
-      if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
-      } else {
-        snprintf(out, len, txt(STR_MENU_FMT_DBUV), (int)v);
-      }
+      zeroWord(out, len, v, STR_COMMON_OFF, STR_MENU_FMT_DBUV);
       return;
     case ROW_MUTE_RAMP:
       snprintf(out, len, txt(STR_MENU_FMT_MS), (int)v);
       return;
     case ROW_AUTO_OFF:
-      if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
-      } else {
-        snprintf(out, len, txt(STR_MENU_FMT_MINUTES), (unsigned)v);
-      }
+      zeroWord(out, len, v, STR_COMMON_OFF, STR_MENU_FMT_MINUTES);
       return;
     case ROW_AGC_TARGET:
       /* Off is a word, because 0 per cent modulation is a real number and
        * this is not one: it is the AGC not running at all. */
       if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
+        putText(out, len, STR_COMMON_OFF);
         return;
       }
       {
@@ -1920,11 +1845,7 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
       }
       return;
     case ROW_AGC_BOOST:
-      if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_MENU_CUT_ONLY));
-      } else {
-        snprintf(out, len, txt(STR_MENU_FMT_DB), (int)v);
-      }
+      zeroWord(out, len, v, STR_MENU_CUT_ONLY, STR_MENU_FMT_DB);
       return;
     case ROW_BACKLIGHT:
     case ROW_BACKLIGHT_DIM:
@@ -1939,30 +1860,26 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     case ROW_DIM_AFTER:
       /* Zero is not "zero seconds", it is "never", and the two read as
        * opposite things on a panel. */
-      if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_MENU_NEVER));
-      } else {
-        snprintf(out, len, txt(STR_MENU_FMT_SECONDS), (int)v);
-      }
+      zeroWord(out, len, v, STR_MENU_NEVER, STR_MENU_FMT_SECONDS);
       return;
     case ROW_BATTERY:
-      snprintf(out, len, "%s",
-               txt(v == BATTERY_SHOW_OFF       ? STR_COMMON_OFF
-                   : v == BATTERY_SHOW_PERCENT ? STR_MENU_BATTERY_PER_CENT
-                                               : STR_MENU_BATTERY_VOLTS));
+      putText(out, len,
+              v == BATTERY_SHOW_OFF       ? STR_COMMON_OFF
+              : v == BATTERY_SHOW_PERCENT ? STR_MENU_BATTERY_PER_CENT
+                                          : STR_MENU_BATTERY_VOLTS);
       return;
     case ROW_KEY_BEEPS:
-      snprintf(out, len, "%s",
-               txt(v == BEEP_OFF             ? STR_COMMON_OFF
-                   : v == BEEP_KEYS          ? STR_MENU_KEYS
-                   : v == BEEP_KEYS_AND_LONG ? STR_MENU_KEYS_LONG
-                                             : STR_MENU_EVERY_PRESS));
+      putText(out, len,
+              v == BEEP_OFF             ? STR_COMMON_OFF
+              : v == BEEP_KEYS          ? STR_MENU_KEYS
+              : v == BEEP_KEYS_AND_LONG ? STR_MENU_KEYS_LONG
+                                        : STR_MENU_EVERY_PRESS);
       return;
     case ROW_HOTSPOT:
-      snprintf(out, len, "%s",
-               txt(v == WIFI_HOTSPOT_ON    ? STR_COMMON_ON
-                   : v == WIFI_HOTSPOT_OFF ? STR_COMMON_OFF
-                                           : STR_MENU_AUTO));
+      putText(out, len,
+              v == WIFI_HOTSPOT_ON    ? STR_COMMON_ON
+              : v == WIFI_HOTSPOT_OFF ? STR_COMMON_OFF
+                                      : STR_MENU_AUTO);
       return;
     case ROW_WEB_PIN: {
       char pin[ACCESS_PIN_DIGITS + 1];
@@ -1972,41 +1889,35 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     }
     case ROW_NETWORK_TIME: {
       if (v <= NETWORK_TIME_OFF) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
+        putText(out, len, STR_COMMON_OFF);
         return;
       }
       (void)clockFormatOffset((int16_t)v, out, len);
       return;
     }
     case ROW_ENCODER:
-      snprintf(
-          out, len, "%s",
-          txt(v == ENCODER_STANDARD ? STR_MENU_STANDARD : STR_MENU_OPTICAL));
+      putText(out, len,
+              v == ENCODER_STANDARD ? STR_MENU_STANDARD : STR_MENU_OPTICAL);
       return;
     case ROW_ENCODER_DIR:
-      snprintf(out, len, "%s",
-               txt(v == ENCODER_NORMAL ? STR_MENU_NORMAL : STR_MENU_REVERSED));
+      putText(out, len,
+              v == ENCODER_NORMAL ? STR_MENU_NORMAL : STR_MENU_REVERSED);
       return;
     case ROW_DEEMPHASIS:
-      snprintf(out, len, "%s",
-               txt(v == 0 ? STR_COMMON_OFF
-                          : (v == 1 ? STR_MENU_DEEMPHASIS_50
-                                    : STR_MENU_DEEMPHASIS_75)));
+      putText(out, len,
+              v == 0
+                  ? STR_COMMON_OFF
+                  : (v == 1 ? STR_MENU_DEEMPHASIS_50 : STR_MENU_DEEMPHASIS_75));
       return;
     case ROW_FM_BLANKER:
     case ROW_AM_BLANKER:
-      if (v == 0) {
-        snprintf(out, len, "%s", txt(STR_COMMON_OFF));
-      } else {
-        snprintf(out, len, txt(STR_MENU_FMT_PERCENT), (int)v);
-      }
+      zeroWord(out, len, v, STR_COMMON_OFF, STR_MENU_FMT_PERCENT);
       return;
     case ROW_SQUELCH_MODE:
-      snprintf(
-          out, len, "%s",
-          txt(v == SQUELCH_OFF ? STR_COMMON_OFF
-                               : (v == SQUELCH_AUTO ? STR_MENU_AUTO
-                                                    : STR_MENU_SQUELCH_MAN)));
+      putText(out, len,
+              v == SQUELCH_OFF
+                  ? STR_COMMON_OFF
+                  : (v == SQUELCH_AUTO ? STR_MENU_AUTO : STR_MENU_SQUELCH_MAN));
       return;
     case ROW_DX_DWELL:
     case ROW_DX_WIDTH:
@@ -2015,23 +1926,23 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
                txt(STR_MENU_FMT_UNIT_AFTER), unitOf(row));
       return;
     case ROW_DX_STOP:
-      snprintf(out, len, "%s",
-               txt(v == DX_STOP_ANY_PI  ? STR_MENU_ANY_PI
-                   : v == DX_STOP_NEVER ? STR_MENU_STOP_NEVER
-                                        : STR_MENU_NEW_ONLY));
+      putText(out, len,
+              v == DX_STOP_ANY_PI  ? STR_MENU_ANY_PI
+              : v == DX_STOP_NEVER ? STR_MENU_STOP_NEVER
+                                   : STR_MENU_NEW_ONLY);
       return;
     case ROW_DX_RANGE:
-      snprintf(out, len, "%s",
-               txt(v == DX_RANGE_BAND     ? STR_MENU_WHOLE_BAND
-                   : v == DX_RANGE_MEMORY ? STR_MENU_MEMORY_ONLY
-                                          : STR_MENU_BAND_MEMORY));
+      putText(out, len,
+              v == DX_RANGE_BAND     ? STR_MENU_WHOLE_BAND
+              : v == DX_RANGE_MEMORY ? STR_MENU_MEMORY_ONLY
+                                     : STR_MENU_BAND_MEMORY);
       return;
     case ROW_DX_MEM_FIRST:
     case ROW_DX_MEM_LAST:
       snprintf(out, len, "%d", (int)v);
       return;
     default:
-      snprintf(out, len, "%s", txt(v != 0 ? STR_COMMON_ON : STR_COMMON_OFF));
+      putText(out, len, v != 0 ? STR_COMMON_ON : STR_COMMON_OFF);
       return;
   }
 }
@@ -2129,7 +2040,7 @@ static bool valueNowRead(const MenuRow *row, const Settings *s, int32_t *out) {
       return false;
     }
   } else if (row->source == SRC_STORED) {
-    raw = storedValue(row->id, s);
+    raw = storedValue(row, s);
   }
   *out = rowIsListed(row) ? indexOf(row, raw) : raw;
   return true;
@@ -2708,7 +2619,7 @@ static bool applyPending(const MenuRow *row) {
     return radioSet(row->id, real);
   }
   if (row->source == SRC_STORED) {
-    storedSet(row->id, &sPending, real);
+    storedSet(row, &sPending, real);
     settingsApplyLive(&sPending);
     return true;
   }
@@ -2738,7 +2649,7 @@ static void keepEdit(const MenuRow *row) {
   const int32_t real =
       rowIsListed(row) ? valueOfIndex(row, sMenu.value) : sMenu.value;
   sPending = *sLive;
-  storedSet(row->id, &sPending, real);
+  storedSet(row, &sPending, real);
   if (!settingsTaskStore(&sPending)) {
     sNote = txt(STR_MENU_NOTE_NOT_STORED);
     settingsApplyLive(sLive);

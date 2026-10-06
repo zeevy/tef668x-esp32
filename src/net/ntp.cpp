@@ -66,10 +66,6 @@ static bool clockLooksSet(void) {
   return (long)time(NULL) >= NTP_PLAUSIBLE_AFTER;
 }
 
-void ntpBegin(const Settings *settings) {
-  ntpApply(settings);
-}
-
 void ntpApply(const Settings *settings) {
   if (settings == NULL) {
     return;

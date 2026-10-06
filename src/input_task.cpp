@@ -31,7 +31,7 @@ static Button sButtons[PANEL_BUTTON_COUNT];
 /*
  * ENTER's hold, watched the same way a button is: nothing fires on the way
  * down, a tap fires on release, a hold fires once at the long press time.
- * The long press time is buttonDefaults's, the same one the panel buttons
+ * The long press time is BUTTON_LONG_MS, the same one the panel buttons
  * use, so there is one idea of a long press on this radio and not two.
  */
 static KeypadHold sEnterHold;
@@ -164,10 +164,6 @@ static void note(const char *what) {
   Serial.printf("[input] %s\n", what);
 }
 
-static void send(const RadioCommand *command) {
-  radioPost(command);
-}
-
 /*
  * Whether the panel is dark right now, ahead of anything this poll is about
  * to do.
@@ -187,19 +183,6 @@ static bool panelIsDimmed(void) {
    * firmware write holds the panel, one only closes its failure message. */
   return screenTaskBacklightState(NULL) || screenTaskSleepShowing() ||
          screenTaskBootSkip() || screenTaskUpdateSkip();
-}
-
-/*
- * Send one command and wait for the radio to deal with it.
- *
- * For the buttons and the keypad, which are rare and whose log line has to
- * say what actually happened, not what was asked for.
- */
-static bool sendAndSettle(const RadioCommand *command) {
-  RadioError why = RADIO_OK;
-  return radioPostAndSettle(command, BUTTON_SETTLE_MS, &why) ==
-             RADIO_POST_DONE &&
-         why == RADIO_OK;
 }
 
 static void clearTyped(void) {
@@ -445,7 +428,7 @@ static void radioTurn(int32_t clicks, uint32_t nowMs, bool) {
    * turn is still being followed if the mode changes mid spin. If the radio
    * cannot be read this moment the dial behaviour is kept, which is what
    * every other mode does. */
-  const uint8_t factor = accelerationSteps(&sAcceleration, NULL, nowMs);
+  const uint8_t factor = accelerationSteps(&sAcceleration, nowMs);
   RadioSnapshot now;
   const bool list = radioGetSnapshot(&now) &&
                     radioKnobMode(&now.settings) == TUNE_MODE_MEMORY;
@@ -454,7 +437,7 @@ static void radioTurn(int32_t clicks, uint32_t nowMs, bool) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_STEP;
   cmd.steps = (int16_t)steps;
-  send(&cmd);
+  radioPost(&cmd);
 }
 
 /*
@@ -597,7 +580,7 @@ static void dxPress(ButtonEvent event, bool) {
         RadioCommand tune = {};
         tune.kind = RADIO_TUNE;
         tune.freqKHz = khz;
-        send(&tune);
+        radioPost(&tune);
         note("DX tune to the scope cursor");
       }
     }
@@ -631,7 +614,7 @@ static void dxPress(ButtonEvent event, bool) {
     RadioCommand tune = {};
     tune.kind = RADIO_TUNE;
     tune.freqKHz = k.khz;
-    send(&tune);
+    radioPost(&tune);
     note("DX tune to a catch");
   } else if (event == BUTTON_LONG) {
     noteDxLog(screenTaskDxLogCursor());
@@ -1151,7 +1134,7 @@ static void pollButtons(uint32_t nowMs) {
   for (int i = 0; i < PANEL_BUTTON_COUNT; i++) {
     PanelButton which = (PanelButton)i;
     ButtonEvent event =
-        buttonFeed(&sButtons[i], NULL, encoderButtonDown(which), nowMs);
+        buttonFeed(&sButtons[i], encoderButtonDown(which), nowMs);
     if (event == BUTTON_NONE) {
       continue;
     }
@@ -1205,7 +1188,7 @@ static void enterTyped(void) {
   RadioCommand cmd = {};
   cmd.kind = RADIO_TUNE;
   cmd.freqKHz = khz;
-  if (!sendAndSettle(&cmd)) {
+  if (!radioPostOk(&cmd, BUTTON_SETTLE_MS)) {
     snprintf(text, sizeof(text), "%s was not tuned", sTyped);
     note(text);
     clearTyped();
@@ -1383,16 +1366,13 @@ static void pollKeypad(uint32_t nowMs) {
    * below, using the bits keypadRead just took off the expander so this
    * costs the bus nothing extra. Nothing fires on the way down; a tap
    * fires on release and a hold fires once at the long press time, the
-   * same shape a button already has, and buttonDefaults's long press time
-   * is the one used, so there is one idea of a long press on this radio.
+   * same shape a button already has, and BUTTON_LONG_MS is the long press
+   * time used, so there is one idea of a long press on this radio.
    */
-  ButtonConfig longCfg;
-  buttonDefaults(&longCfg);
   int8_t enterDown = keypadKeyFromLines(lines) == KEYPAD_ENTER
                          ? (int8_t)KEYPAD_ENTER
                          : (int8_t)-1;
-  ButtonEvent enterEvent =
-      keypadHoldFeed(&sEnterHold, &longCfg, enterDown, nowMs, NULL);
+  ButtonEvent enterEvent = keypadHoldFeed(&sEnterHold, enterDown, nowMs, NULL);
   if (enterEvent != BUTTON_NONE) {
     sStatus.presses++;
     onEnter(enterEvent, nowMs);
@@ -1500,7 +1480,7 @@ static void pollPot(uint32_t nowMs) {
   cmd.volumeDb = db;
   /* Not settled. The knob can be turned faster than the radio can answer, and
    * waiting for each step would make it feel stiff. The last one sent wins. */
-  send(&cmd);
+  radioPost(&cmd);
 }
 
 void inputSetBeeps(BeepMode mode) {

@@ -62,12 +62,10 @@ static void sendVendored(const char *contentType, const uint8_t *gz,
 }
 
 static void handlePicoCss(void) {
-  sWeb->requests++;
   sendVendored("text/css", kPicoCssGz, kPicoCssGzLen);
 }
 
 static void handleHtmxJs(void) {
-  sWeb->requests++;
   sendVendored("application/javascript", kHtmxJsGz, kHtmxJsGzLen);
 }
 
@@ -195,7 +193,6 @@ static void handleUploadData(void) {
 }
 
 static void handleUploadDone(void) {
-  sWeb->requests++;
   bool rejected = sUploadRejected;
   bool sawImage = sUploadStarted;
   sUploadRejected = false;
@@ -238,7 +235,6 @@ static void handleUploadDone(void) {
 }
 
 static void handleReboot(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -264,7 +260,6 @@ static void handleReboot(void) {
  * on the loop's next pass and the panel shows its progress.
  */
 static void handleUpdateInstall(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -297,7 +292,6 @@ static void handleUpdateInstall(void) {
 }
 
 static void handleNotFound(void) {
-  sWeb->requests++;
   /* A script on an API path that is not there, or with a method the path
    * does not take, is told so. Sent to the home page, it would get a page and
    * a 200 once the redirect is followed, which reads as success. */
@@ -322,6 +316,13 @@ void webBegin(Settings *settings, uint32_t accessPin) {
    * real upload from a raw POST body. */
   const char *keep[] = {"Cookie", "Content-Type"};
   sWeb->server.collectHeaders(keep, 2);
+
+  /* Every request the server has parsed is counted once, before its route
+   * or the not-found handler runs. */
+  sWeb->server.addMiddleware([](WebServer &, Middleware::Callback next) {
+    sWeb->requests++;
+    return next();
+  });
 
   sWeb->server.on("/pico.min.css", HTTP_GET, handlePicoCss);
   sWeb->server.on("/htmx.min.js", HTTP_GET, handleHtmxJs);

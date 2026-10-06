@@ -7,6 +7,7 @@
 
 #include "band_plan.h"
 #include "bytes.h"
+#include "signal.h"
 
 /* How far apart two channels can be and still be one catch: the channel
  * beside a station, and no further. */
@@ -291,12 +292,11 @@ size_t dxCatchCsvLine(const DxCatch *k, char *out, size_t cap) {
   if (!bandFormatFrequency((BandId)k->band, k->khz, freq, sizeof(freq))) {
     return 0;
   }
-  const int level = row->levelDbuVTenths;
-  const unsigned magnitude = (unsigned)(level < 0 ? -level : level);
+  char level[8];
+  signalFormatLevel(row->levelDbuVTenths, level, sizeof(level));
   return (size_t)snprintf(
-      out, cap, "%s,%s,%s MHz,%04X,%s%u.%u dB\xCE\xBCV,%s,%s,%s,%s,%s,%s,\n",
-      date, clock, freq, (unsigned)k->pi, level < 0 ? "-" : "", magnitude / 10,
-      magnitude % 10, csvFlag(row->stereo),
+      out, cap, "%s,%s,%s MHz,%04X,%s dB\xCE\xBCV,%s,%s,%s,%s,%s,%s,\n", date,
+      clock, freq, (unsigned)k->pi, level, csvFlag(row->stereo),
       csvFlag(k->rds.hasFlags && k->rds.ta),
       csvFlag(k->rds.hasFlags && k->rds.tp), pty, ecc, ps);
 }

@@ -12,10 +12,6 @@
 #define RDS_STATUS_PI_ONLY 13        /* Only block A is real. Not a group. */
 #define RDS_STATUS_SYNCHRONISED 9    /* Locked to an RDS bit stream. */
 
-static uint16_t word16(const uint8_t *p) {
-  return (uint16_t)((uint16_t)p[0] << 8 | (uint16_t)p[1]);
-}
-
 void tef668xDecodeQuality(const uint8_t *buf, bool fm, Tef668xQuality *q) {
   q->status = word16(buf);
   q->levelDbuVTenths = (int16_t)word16(buf + 2);

@@ -14,9 +14,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Colours are 16 bit, five red, six green, five blue. */
-typedef uint16_t Colour;
-
 /*
  * Start the panel.
  *
@@ -41,8 +38,6 @@ void displayBacklight(uint8_t percent);
 uint16_t displayWidth(void);
 
 uint16_t displayHeight(void);
-
-void displayFill(int16_t x, int16_t y, uint16_t w, uint16_t h, Colour colour);
 
 /*
  * Push a rectangle of pixels to the panel.

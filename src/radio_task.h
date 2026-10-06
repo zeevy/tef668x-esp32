@@ -272,6 +272,10 @@ typedef enum {
 RadioPostResult radioPostAndSettle(const RadioCommand *command, uint32_t waitMs,
                                    RadioError *result);
 
+/* radioPostAndSettle, for a caller that only needs to know the radio carried
+ * the command out with no error inside `waitMs`. */
+bool radioPostOk(const RadioCommand *command, uint32_t waitMs);
+
 /*
  * How long a scan's end waits for its tune back to be carried out, in ms.
  *

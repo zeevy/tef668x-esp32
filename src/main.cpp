@@ -474,12 +474,11 @@ void setup() {
     tef668xSetMute(false);
   } else {
     RadioSnapshot snap;
-    char text[16];
+    char text[24];
     if (radioGetSnapshot(&snap)) {
-      bandFormatFrequency(snap.settings.band, snap.settings.freqKHz, text,
-                          sizeof(text));
-      Serial.printf("[radio] task started on %s %s\n", text,
-                    bandFrequencyUnit(snap.settings.band));
+      bandFormatWithUnit(snap.settings.band, snap.settings.freqKHz, text,
+                         sizeof(text));
+      Serial.printf("[radio] task started on %s\n", text);
     }
   }
 
@@ -534,7 +533,7 @@ void setup() {
 
   /* After Wi-Fi, because there is nothing to ask until there is a network,
    * and it does not block waiting for one. */
-  ntpBegin(&gSettings);
+  ntpApply(&gSettings);
 
   webBegin(&gSettings, gAccessPin);
   updateCheckBegin(&gSettings);

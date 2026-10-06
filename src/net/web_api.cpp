@@ -38,10 +38,9 @@ void apiFailFmWidth(const char *name) {
 }
 
 String apiDescribe(const RadioSettings *s) {
-  char text[16];
-  bandFormatFrequency(s->band, s->freqKHz, text, sizeof(text));
-  return String(bandName(s->band)) + " " + text + " " +
-         bandFrequencyUnit(s->band);
+  char text[24];
+  bandFormatWithUnit(s->band, s->freqKHz, text, sizeof(text));
+  return String(bandName(s->band)) + " " + text;
 }
 
 /* The status for a command the radio did not carry out. 502 when the tuner

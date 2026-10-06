@@ -96,10 +96,7 @@ bool screenScanBegin(void) {
     return true;
   }
   const Theme *t = themeCurrent();
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sRoot = uiBlock(root, t->ground, 0, 0, SCAN_W, SCAN_H);
   uiFrameBegin(&sFrame, sRoot, t, t->radio);
@@ -309,8 +306,5 @@ void screenScanEnd(void) {
   if (sRoot == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sRoot)) {
-    lv_obj_del(sRoot);
-  }
-  sRoot = NULL;
+  uiDropRoot(&sRoot);
 }

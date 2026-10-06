@@ -38,6 +38,19 @@
  * registered. */
 static WebContext *sWeb = NULL;
 
+void jsonBool(String &out, const char *key, bool on) {
+  out += ",\"";
+  out += key;
+  out += on ? "\":true" : "\":false";
+}
+
+void jsonNum(String &out, const char *key, long long value) {
+  out += ",\"";
+  out += key;
+  out += "\":";
+  out += value;
+}
+
 String jsonEscape(const char *raw) {
   String out;
   char piece[WEB_ESCAPE_MAX];
@@ -175,10 +188,8 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
     out += F("\"");
   }
   if (r->hasFlags) {
-    out += F(",\"tp\":");
-    out += r->tp ? F("true") : F("false");
-    out += F(",\"ta\":");
-    out += r->ta ? F("true") : F("false");
+    jsonBool(out, "tp", r->tp);
+    jsonBool(out, "ta", r->ta);
     out += F(",\"ms\":\"");
     out += r->speech ? F("speech") : F("music");
     out += F("\"");
@@ -255,8 +266,7 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
   if (r->rtPlus || r->rtPlusCount > 0) {
     out += F(",\"rtp\":{\"on\":");
     out += r->rtPlus ? F("true") : F("false");
-    out += F(",\"run\":");
-    out += r->rtPlusRunning ? F("true") : F("false");
+    jsonBool(out, "run", r->rtPlusRunning);
     out += F(",\"tags\":[");
     for (uint8_t i = 0; i < r->rtPlusCount; i++) {
       char words[RDS_RT_LEN + 1];
@@ -298,8 +308,7 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
     out += !e->hasTp ? F("null") : e->tp ? F("true") : F("false");
     out += F(",\"ta\":");
     out += !e->hasTa ? F("null") : e->ta ? F("true") : F("false");
-    out += F(",\"afm\":");
-    out += e->afMore ? F("true") : F("false");
+    jsonBool(out, "afm", e->afMore);
     out += F(",\"af\":[");
     for (uint8_t f = 0; f < e->afCount; f++) {
       snprintf(small, sizeof(small), "%s%u", f ? "," : "",
@@ -456,12 +465,9 @@ static void appendRadioState(String &out) {
     snprintf(xt, sizeof(xt), ",\"xad\":%u,\"xtl\":\"%s\"",
              (unsigned)dg->xtalAdc, dg->xtal ? dg->xtal : "not read");
     out += xt;
-    out += F(",\"fsi\":");
-    out += tuner->hasStereoImprovement ? F("true") : F("false");
-    out += F(",\"frd\":");
-    out += tuner->hasFullSearchRds ? F("true") : F("false");
-    out += F(",\"dr\":");
-    out += tuner->hasDigitalRadio ? F("true") : F("false");
+    jsonBool(out, "fsi", tuner->hasStereoImprovement);
+    jsonBool(out, "frd", tuner->hasFullSearchRds);
+    jsonBool(out, "dr", tuner->hasDigitalRadio);
     /* Which band we are on decides which module the quality comes from and
      * how the frequency reads, so it goes out too. */
     /* Everything live comes from one snapshot, so the frequency and the
@@ -491,61 +497,41 @@ static void appendRadioState(String &out) {
         out += tuned;
       }
       /* The FM features, none of which turns itself on. */
-      out += F(",\"ims\":");
-      out += snap.settings.multipathSuppression ? F("true") : F("false");
-      out += F(",\"eq\":");
-      out += snap.settings.equalizer ? F("true") : F("false");
-      out += F(",\"mno\":");
-      out += snap.settings.forcedMono ? F("true") : F("false");
+      jsonBool(out, "ims", snap.settings.multipathSuppression);
+      jsonBool(out, "eq", snap.settings.equalizer);
+      jsonBool(out, "mno", snap.settings.forcedMono);
       /* The de-emphasis the tuner is set to. It is written on every start, so
        * without it here there is no way to read back what the chip has. */
-      out += F(",\"dem\":");
-      out += String(snap.settings.deemphasisUs);
-      out += F(",\"fnb\":");
-      out += String(snap.settings.fmNoiseBlankerStart);
-      out += F(",\"anb\":");
-      out += String(snap.settings.amNoiseBlankerStart);
-      out += F(",\"ahc\":");
-      out += String(snap.settings.amHighCutStart);
-      out += F(",\"lhc\":");
-      out += String(snap.settings.lwHighCutStart);
-      out += F(",\"asm\":");
-      out += String(snap.settings.amSoftMuteStart);
-      out += F(",\"lsm\":");
-      out += String(snap.settings.lwSoftMuteStart);
-      out += F(",\"snr\":");
-      out += String(snap.quality.snrDb);
+      jsonNum(out, "dem", snap.settings.deemphasisUs);
+      jsonNum(out, "fnb", snap.settings.fmNoiseBlankerStart);
+      jsonNum(out, "anb", snap.settings.amNoiseBlankerStart);
+      jsonNum(out, "ahc", snap.settings.amHighCutStart);
+      jsonNum(out, "lhc", snap.settings.lwHighCutStart);
+      jsonNum(out, "asm", snap.settings.amSoftMuteStart);
+      jsonNum(out, "lsm", snap.settings.lwSoftMuteStart);
+      jsonNum(out, "snr", snap.quality.snrDb);
       if (snap.processingValid) {
         /* What the chip is applying now, not what it was told. */
-        out += F(",\"cut\":");
-        out += String(snap.processing.highCut);
-        out += F(",\"bld\":");
-        out += String(snap.processing.stereo);
-        out += F(",\"hbl\":");
-        out += String(snap.processing.stHiBlend);
+        jsonNum(out, "cut", snap.processing.highCut);
+        jsonNum(out, "bld", snap.processing.stereo);
+        jsonNum(out, "hbl", snap.processing.stHiBlend);
       }
-      out += F(",\"wid\":");
-      out += snap.bandwidthWide ? F("true") : F("false");
+      jsonBool(out, "wid", snap.bandwidthWide);
       /* Whether the dial is moving on its own. A caller that cannot tell
        * seeking from a person turning the knob shows the same thing for
        * both. */
-      out += F(",\"skg\":");
-      out += snap.seeking ? F("true") : F("false");
-      out += F(",\"skf\":");
-      out += snap.seekFound ? F("true") : F("false");
-      out += F(",\"bep\":");
-      out += snap.beeping ? F("true") : F("false");
+      jsonBool(out, "skg", snap.seeking);
+      jsonBool(out, "skf", snap.seekFound);
+      jsonBool(out, "bep", snap.beeping);
 
       /* The squelch, so a radio that has gone quiet says why. */
       out += F(",\"sql\":\"");
       out += squelchModeName(snap.squelchMode);
       out += F("\",\"sqo\":");
       out += snap.squelchOpen ? F("true") : F("false");
-      out += F(",\"hmu\":");
-      out += snap.tunerMuted ? F("true") : F("false");
+      jsonBool(out, "hmu", snap.tunerMuted);
       if (snap.squelchMode == SQUELCH_MANUAL) {
-        out += F(",\"sqa\":");
-        out += String(snap.squelchThresholdTenths);
+        jsonNum(out, "sqa", snap.squelchThresholdTenths);
       }
 
       /* What the tuner last refused. Without this the page can show a station
@@ -714,10 +700,8 @@ static void appendInputState(String &out) {
   inputStatusGet(&in);
   out += F("\"inp\":{\"pad\":");
   out += in.keypadPresent ? F("true") : F("false");
-  out += F(",\"clk\":");
-  out += String(in.clicks);
-  out += F(",\"prs\":");
-  out += String(in.presses);
+  jsonNum(out, "clk", in.clicks);
+  jsonNum(out, "prs", in.presses);
   out += F(",\"lst\":\"");
   out += jsonEscape(in.lastEvent);
   out += F("\",\"lms\":");
@@ -726,10 +710,8 @@ static void appendInputState(String &out) {
   out += jsonEscape(in.typed);
   out += F("\",\"lns\":");
   out += String(in.linesOk ? in.lines : 0xFFFF);
-  out += F(",\"pot\":");
-  out += String(in.pot);
-  out += F(",\"pdb\":");
-  out += String(in.potDb);
+  jsonNum(out, "pot", in.pot);
+  jsonNum(out, "pdb", in.potDb);
   /* The calibration, while one is running, so the page can show the knob
    * reaching further as it is turned. Without it the person has no sign that
    * turning the knob is doing anything, because during a calibration it
@@ -739,27 +721,21 @@ static void appendInputState(String &out) {
   if (inputPotCalibrating(&calMin, &calMax)) {
     out += F(",\"pcl\":{\"min\":");
     out += String(calMin);
-    out += F(",\"max\":");
-    out += String(calMax);
+    jsonNum(out, "max", calMax);
     out += F("}");
   }
 #if FEATURE_TOUCH
   out += F(",\"tch\":{\"on\":");
   out += in.touchOn ? F("true") : F("false");
-  out += F(",\"pen\":");
-  out += in.touchPen ? F("true") : F("false");
-  out += F(",\"dn\":");
-  out += String(in.touchDowns);
-  out += F(",\"rd\":");
-  out += String(in.touchReads);
+  jsonBool(out, "pen", in.touchPen);
+  jsonNum(out, "dn", in.touchDowns);
+  jsonNum(out, "rd", in.touchReads);
   out += F(",\"cal\":\"");
   out += in.touchCalStored ? F("stored") : F("board");
   out += F("\"");
   if (in.touchMapped) {
-    out += F(",\"px\":");
-    out += String((int)in.touchAt.x);
-    out += F(",\"py\":");
-    out += String((int)in.touchAt.y);
+    jsonNum(out, "px", (int)in.touchAt.x);
+    jsonNum(out, "py", (int)in.touchAt.y);
   } else {
     out += F(",\"px\":null,\"py\":null");
   }
@@ -939,8 +915,7 @@ String buildState(void) {
   int8_t rssi = 0;
   if (wifiRssiDbm(&rssi)) {
     out += String((int)rssi);
-    out += F(",\"bars\":");
-    out += String((unsigned)wifiSignalBars(rssi));
+    jsonNum(out, "bars", (unsigned)wifiSignalBars(rssi));
   } else {
     out += F("null,\"bars\":null");
   }
@@ -958,31 +933,26 @@ String buildState(void) {
    * its own builder cannot take the quote with it. */
   out += F("\",\"dpn\":");
   out += webPinIsDefault() ? F("true") : F("false");
-  out += F(",\"hep\":");
-  out += String(systemHeapFree());
+  jsonNum(out, "hep", systemHeapFree());
   /* The heap's worst case, not only where it is now: the lowest it has
    * been since boot, and the largest piece left, which is what a big
    * allocation needs and fragmentation eats. */
-  out += F(",\"hmn\":");
-  out += String(systemHeapLowest());
+  jsonNum(out, "hmn", systemHeapLowest());
   /* The boot before's, for an update: the radio answers nothing while one
    * is written and restarts at once, so its low point shows only here. */
   uint32_t lastLowest = 0;
   out += F(",\"hmp\":");
   out +=
       restartReasonLastHeap(&lastLowest) ? String(lastLowest) : String("null");
-  out += F(",\"hlb\":");
-  out += String(systemHeapLargest());
+  jsonNum(out, "hlb", systemHeapLargest());
   /* The bytes of each task's stack it has never reached since boot. The
    * web server's requests run in the loop task, so the loop's own mark is
    * the one this request is running on. */
   out += F(",\"stk\":{\"rad\":");
   out += String(radioTaskStackFree());
-  out += F(",\"lop\":");
-  out += String((uint32_t)uxTaskGetStackHighWaterMark(NULL));
+  jsonNum(out, "lop", (uint32_t)uxTaskGetStackHighWaterMark(NULL));
   out += F("}");
-  out += F(",\"up\":");
-  out += String(millis() / 1000UL);
+  jsonNum(out, "up", millis() / 1000UL);
   /* Seconds until auto off sends the radio to sleep, and null when it is
    * off, so never is not read as no time left. */
   uint32_t sleepLeftS = 0;
@@ -995,14 +965,12 @@ String buildState(void) {
   bool dimmed = screenTaskBacklightState(&lit);
   out += F(",\"pnl\":{\"lit\":");
   out += String((int)lit);
-  out += F(",\"dim\":");
-  out += dimmed ? F("true") : F("false");
+  jsonBool(out, "dim", dimmed);
   /* What the panel is actually showing for the signal, which is not the
    * smoothed level: the screen holds its number until the level moves a
    * whole dB away. Without this the only way to check that it sits still is
    * to stand at the radio and watch. */
-  out += F(",\"sdb\":");
-  out += String((int)screenTaskSignalShown());
+  jsonNum(out, "sdb", (int)screenTaskSignalShown());
   /*
    * LVGL's own heap, which is not the ESP32 heap above.
    *
@@ -1115,26 +1083,20 @@ String buildState(void) {
   settingsTaskStatus(&save);
   out += F(",\"asv\":{\"n\":");
   out += String(save.saves);
-  out += F(",\"dif\":");
-  out += save.differs ? F("true") : F("false");
-  out += F(",\"due\":");
-  out += String(save.dueInMs);
-  out += F(",\"bad\":");
-  out += save.lastFailed ? F("true") : F("false");
-  out += F(",\"idl\":");
-  out += String(save.idleMs);
+  jsonBool(out, "dif", save.differs);
+  jsonNum(out, "due", save.dueInMs);
+  jsonBool(out, "bad", save.lastFailed);
+  jsonNum(out, "idl", save.idleMs);
   out += F("}");
   /* The channel list. A write that quietly fails leaves a radio that looks
    * normal and forgets every channel at the next power cycle. */
   out += F(",\"pst\":{\"n\":");
   out += String(memoryStoreCount());
-  out += F(",\"bad\":");
-  out += memoryStoreFailed() ? F("true") : F("false");
+  jsonBool(out, "bad", memoryStoreFailed());
   /* Channels start up threw away. A list that came back short says nothing
    * about itself, so without this the count above is the only sign and it
    * reads as a list that was always that length. */
-  out += F(",\"lost\":");
-  out += String(memoryStoreCleared());
+  jsonNum(out, "lost", memoryStoreCleared());
   out += F("}");
   /* The logbook. `fit` false is the one condition GET /api/log cannot say
    * on its own: an empty log and a partition that never mounted both read
@@ -1142,8 +1104,7 @@ String buildState(void) {
    * them apart. */
   out += F(",\"log\":{\"fit\":");
   out += logbookFsPresent() ? F("true") : F("false");
-  out += F(",\"n\":");
-  out += String(logbookFsCount());
+  jsonNum(out, "n", logbookFsCount());
   out += F("}");
   out += F(",");
   appendInputState(out);
@@ -1155,7 +1116,6 @@ String buildState(void) {
 
 /* The radio's state as JSON, for scripts and for checks made by hand. */
 static void handleStatusJson(void) {
-  sWeb->requests++;
   sWeb->server.send(200, "application/json", buildState());
 }
 

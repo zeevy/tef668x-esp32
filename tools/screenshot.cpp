@@ -242,6 +242,23 @@ static int writeBmp(const char *path) {
   return 1;
 }
 
+/* Draws the panel, writes it to the path the format gives, and prints the
+ * path. A picture that could not be written ends the run with a failure,
+ * so an old copy is never taken for a new one. */
+static void saveShot(const char *format, ...) {
+  char path[512];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(path, sizeof(path), format, args);
+  va_end(args);
+  lv_refr_now(NULL);
+  if (!writeBmp(path)) {
+    fprintf(stderr, "could not write %s\n", path);
+    exit(1);
+  }
+  printf("  %s\n", path);
+}
+
 /*
  * A text made from one of the table's printf formats, so a scene shows the
  * radio's own wording for a number. A scene holds several of these at once,
@@ -547,12 +564,7 @@ static void render(void (*scene)(ScreenState *), const char *path) {
   memset(&s, 0, sizeof(s));
   scene(&s);
   screenShow(&s);
-  lv_refr_now(NULL);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s", path);
 }
 
 /* ------------------------------------------------ scenes from real captures */
@@ -661,10 +673,6 @@ static void rdsExampleStation(RdsInfo *r) {
   r->ecc = 0xE1;
   r->hasLanguage = true;
   r->language = 0x09;
-  r->hasPin = true;
-  r->pinDay = 15;
-  r->pinHour = 21;
-  r->pinMinute = 0;
   r->clock.valid = true;
   r->clock.hour = 21;
   r->clock.minute = 4;
@@ -852,14 +860,7 @@ static void renderDx(const char *dir, const char *name, const DxChannel *c,
   in.nowMs = ms;
   screenDxStateBuild(&in, &keep, &view);
   screenDxShow(&view);
-  lv_refr_now(NULL);
-  char path[512];
-  snprintf(path, sizeof(path), "%s/dx-%s.bmp", dir, name);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s/dx-%s.bmp", dir, name);
 }
 
 /*
@@ -924,14 +925,7 @@ static void renderCatches(const char *dir, const char *name,
   in.confirm = confirm;
   screenCatchesStateBuild(&in, &keep, &view);
   screenCatchesShow(&view);
-  lv_refr_now(NULL);
-  char path[512];
-  snprintf(path, sizeof(path), "%s/dx-%s.bmp", dir, name);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s/dx-%s.bmp", dir, name);
 }
 
 static const DxChannel *dxChannel(const DxChannel *list, size_t count,
@@ -959,14 +953,7 @@ static void renderScopeView(const char *dir, const char *name,
   ScreenScope view;
   screenScopeStateBuild(in, &keep, &view);
   screenScopeShow(&view);
-  lv_refr_now(NULL);
-  char path[512];
-  snprintf(path, sizeof(path), "%s/dx-%s.bmp", dir, name);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s/dx-%s.bmp", dir, name);
 }
 
 /*
@@ -1052,14 +1039,7 @@ static void renderScanView(const char *dir, const char *name,
   in.nowMs = nowMs;
   screenScanStateBuild(&in, &keep, &view);
   screenScanShow(&view);
-  lv_refr_now(NULL);
-  char path[512];
-  snprintf(path, sizeof(path), "%s/dx-%s.bmp", dir, name);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s/dx-%s.bmp", dir, name);
 }
 
 /*
@@ -1203,12 +1183,7 @@ static bool renderCapture(const char *path, uint32_t khz, bool withRds) {
   ScreenState s;
   screenStateBuild(&build, &in, &s);
   screenShow(&s);
-  lv_refr_now(NULL);
-  if (!writeBmp(path)) {
-    fprintf(stderr, "could not write %s\n", path);
-    exit(1);
-  }
-  printf("  %s\n", path);
+  saveShot("%s", path);
   return true;
 }
 
@@ -1331,27 +1306,18 @@ int main(int argc, char **argv) {
 
   /* The message, which is its own call rather than a state. */
   screenMessage(txt(STR_COMMON_TUNER), txt(STR_TUNER_NO_TUNER_ON_THE_I2C_BUS));
-  lv_refr_now(NULL);
-  snprintf(path, sizeof(path), "%s/message.bmp", dir);
-  writeBmp(path);
-  printf("  %s\n", path);
+  saveShot("%s/message.bmp", dir);
 
   /* The moment before the radio sleeps, which is the last chance to say how
    * it wakes. */
   screenMessage(txt(STR_RADIO_GOING_TO_SLEEP),
                 txt(STR_RADIO_PRESS_KNOB_TO_WAKE));
-  lv_refr_now(NULL);
-  snprintf(path, sizeof(path), "%s/sleeping.bmp", dir);
-  writeBmp(path);
-  printf("  %s\n", path);
+  saveShot("%s/sleeping.bmp", dir);
 
   /* What is left when a firmware write fails, in screen_task.cpp's words.
    * The write itself is the veil, veil-start.bmp and veil.bmp below. */
   screenMessage(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT));
-  lv_refr_now(NULL);
-  snprintf(path, sizeof(path), "%s/update-failed.bmp", dir);
-  writeBmp(path);
-  printf("  %s\n", path);
+  saveShot("%s/update-failed.bmp", dir);
 
   /*
    * The boot screen, caught part way through, which is the only interesting
@@ -1389,10 +1355,7 @@ int main(int argc, char **argv) {
   boot.total = SCREEN_BOOT_STEPS;
   if (screenBootBegin()) {
     screenBootShow(&boot);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/boot.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/boot.bmp", dir);
     screenBootEnd();
   }
   /* The menu, both levels. The group list says which groups have anything in
@@ -1420,10 +1383,7 @@ int main(int argc, char **argv) {
     }
     menu.total = 12; /* Every group, six shown. */
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-groups.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-groups.bmp", dir);
 
     memset(&menu, 0, sizeof(menu));
     menu.title = txt(STR_MENU_DISPLAY);
@@ -1444,18 +1404,12 @@ int main(int argc, char **argv) {
     }
     menu.total = 8; /* Display's rows, six shown. */
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-screen.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-screen.bmp", dir);
 
     /* Back from a brightness turned to and not saved: its row says so. */
     menu.note = txt(STR_MENU_NOTE_NOT_SAVED);
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-not-saved.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-not-saved.bmp", dir);
     menu.note = NULL;
 
     /* A sub-group, Display's Theme: the group it was opened from, then its
@@ -1469,10 +1423,7 @@ int main(int argc, char **argv) {
     menu.rows[1].value = txt(STR_THEME_RED_NIGHT);
     menu.rows[1].selected = true;
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-sub.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-sub.bmp", dir);
 
     /* A note on the row it answers: DX Mode pressed on AM. */
     memset(&menu, 0, sizeof(menu));
@@ -1486,10 +1437,7 @@ int main(int argc, char **argv) {
     menu.rows[4].name = txt(STR_MENU_GO_TO_LOG);
     menu.rows[5].name = txt(STR_MENU_GO_TO_SLEEP);
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-note.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-note.bmp", dir);
 
     /* The Station Log, newest first, six stations from this radio's own
      * logbook, one entry each as the log keeps them: the band where a station
@@ -1509,10 +1457,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 1;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-station-log.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-station-log.bmp", dir);
 
     /* Stations > Presets: saved presets in slot order, with a name on slot 3
      * as long as a preset name can be, sixteen characters, beside the widest
@@ -1531,10 +1476,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 2;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-presets.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-presets.bmp", dir);
 
     /* The longest list title, Network Info under Connectivity. */
     memset(&menu, 0, sizeof(menu));
@@ -1556,10 +1498,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 1;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-network-info.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-network-info.bmp", dir);
 
     /* The choice of bands for 123 typed on FM, which FM does not hold:
      * medium wave and shortwave, the cursor on the first. */
@@ -1577,10 +1516,7 @@ int main(int argc, char **argv) {
         menu.rows[i].selected = i == 0;
       }
       screenMenuShow(&menu);
-      lv_refr_now(NULL);
-      snprintf(path, sizeof(path), "%s/menu-typed-choice.bmp", dir);
-      writeBmp(path);
-      printf("  %s\n", path);
+      saveShot("%s/menu-typed-choice.bmp", dir);
     }
 
     /* The offer of a newer release found at start, the knob on Update. The
@@ -1602,10 +1538,7 @@ int main(int argc, char **argv) {
       dialog.button[0] = txt(STR_MENU_UPDATE_NOW);
       dialog.button[1] = txt(STR_MENU_LATER);
       screenMenuDialogShow(&dialog);
-      lv_refr_now(NULL);
-      snprintf(path, sizeof(path), "%s/menu-update-offer.bmp", dir);
-      writeBmp(path);
-      printf("  %s\n", path);
+      saveShot("%s/menu-update-offer.bmp", dir);
     }
 
     /* The About group, the last one, with nothing to edit. The build is a
@@ -1625,10 +1558,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 4;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-about.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-about.bmp", dir);
 
     /* The Diagnostics group's readings, with the widest value each row can
      * show: the battery read at start up, a reset reason of 13 letters, and
@@ -1651,10 +1581,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 1;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-diagnostics.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-diagnostics.bmp", dir);
 
     /* The same group at its last row. */
     static const StrId kSystemEnd[] = {
@@ -1673,10 +1600,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 5;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-diagnostics-end.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-diagnostics-end.bmp", dir);
 
     /* The System group, Auto Off at 30 minutes and the restart. */
     memset(&menu, 0, sizeof(menu));
@@ -1686,10 +1610,7 @@ int main(int argc, char **argv) {
     menu.rows[0].selected = true;
     menu.rows[1].name = txt(STR_MENU_RESTART);
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-system.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-system.bmp", dir);
 
     /* The DX Scanner group at its defaults. */
     memset(&menu, 0, sizeof(menu));
@@ -1710,10 +1631,7 @@ int main(int argc, char **argv) {
       menu.rows[i].opens = i == 4;
     }
     screenMenuShow(&menu);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-dx.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-dx.bmp", dir);
 
     ScreenMenuValue dwell;
     memset(&dwell, 0, sizeof(dwell));
@@ -1728,10 +1646,7 @@ int main(int argc, char **argv) {
     dwell.minText = withUnit("0.5", STR_COMMON_UNIT_S);
     dwell.maxText = withUnit("30.0", STR_COMMON_UNIT_S);
     screenMenuValueShow(&dwell);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-dx-dwell.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-dx-dwell.bmp", dir);
 
     /* One setting on its own, which is what a press on a row opens. The bar
      * is the thing the list could never show: where this value sits between
@@ -1751,18 +1666,12 @@ int main(int argc, char **argv) {
     one.maxText =
         fmt(STR_MENU_FMT_NUMBER_UNIT, 100, txt(STR_COMMON_UNIT_PERCENT));
     screenMenuValueShow(&one);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value.bmp", dir);
 
     /* The same once the knob has moved it: not saved until the press. */
     one.note = txt(STR_MENU_NOTE_NOT_SAVED);
     screenMenuValueShow(&one);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value-not-saved.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value-not-saved.bmp", dir);
     one.note = NULL;
 
     /* Auto Off at 30 minutes, on a bar from Off to ten hours in five minute
@@ -1780,10 +1689,7 @@ int main(int argc, char **argv) {
     sleep.minText = txt(STR_COMMON_OFF);
     sleep.maxText = fmt(STR_MENU_FMT_MINUTES, 600u);
     screenMenuValueShow(&sleep);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value-auto-off.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value-auto-off.bmp", dir);
 
     /* The Network Time row: a signed offset, with the white mark at zero,
      * and the one setting value that carries a colon, on a bar whose left
@@ -1801,26 +1707,17 @@ int main(int argc, char **argv) {
     offset.minText = txt(STR_COMMON_OFF);
     offset.maxText = "+14:00";
     screenMenuValueShow(&offset);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value-colon.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value-colon.bmp", dir);
 
     offset.value = "+05:30";
     offset.at = 330;
     screenMenuValueShow(&offset);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value-plus.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value-plus.bmp", dir);
 
     offset.value = txt(STR_COMMON_OFF);
     offset.at = -735;
     screenMenuValueShow(&offset);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-value-off.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-value-off.bmp", dir);
 
     /* The Web PIN, set a digit at a time, in the words menu_task.cpp gives
      * it: at the first digit, at the third, and at the last, where the
@@ -1855,9 +1752,7 @@ int main(int argc, char **argv) {
                   kPin[i].file, count[0], count[1]);
           exit(1);
         }
-        snprintf(path, sizeof(path), "%s/%s.bmp", dir, kPin[i].file);
-        writeBmp(path);
-        printf("  %s\n", path);
+        saveShot("%s/%s.bmp", dir, kPin[i].file);
       }
     }
 
@@ -1888,14 +1783,11 @@ int main(int argc, char **argv) {
       }
       theme.pickerTop = (uint8_t)(page * SCREEN_MENU_PICKER_ROWS);
       screenMenuValueShow(&theme);
-      lv_refr_now(NULL);
       if (page == 0) {
-        snprintf(path, sizeof(path), "%s/menu-theme.bmp", dir);
+        saveShot("%s/menu-theme.bmp", dir);
       } else {
-        snprintf(path, sizeof(path), "%s/menu-theme-%d.bmp", dir, page + 1);
+        saveShot("%s/menu-theme-%d.bmp", dir, page + 1);
       }
-      writeBmp(path);
-      printf("  %s\n", path);
     }
 
     /* The plain enum picker, the same screen with no swatches. Four options
@@ -1915,10 +1807,7 @@ int main(int argc, char **argv) {
       beep.picker[i].isSaved = i == 1;
     }
     screenMenuValueShow(&beep);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-enum.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-enum.bmp", dir);
 
     /* The Rotation row's own picker, the cursor on the choice not yet kept. */
     ScreenMenuValue rotation;
@@ -1933,10 +1822,7 @@ int main(int argc, char **argv) {
       rotation.picker[i].isSaved = i == 0;
     }
     screenMenuValueShow(&rotation);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/menu-rotation.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/menu-rotation.bmp", dir);
     screenMenuEnd();
   }
 
@@ -2014,19 +1900,12 @@ int main(int argc, char **argv) {
         ScreenRds view;
         screenRdsStateBuild(&in, &view);
         screenRdsShow(&view);
-        lv_refr_now(NULL);
-        snprintf(path, sizeof(path), "%s/rds-%s%s.bmp", dir, kPageNames[page],
-                 scenes[k].suffix);
-        writeBmp(path);
-        printf("  %s\n", path);
+        saveShot("%s/rds-%s%s.bmp", dir, kPageNames[page], scenes[k].suffix);
         if (k == 0 && page == 0) {
           /* The same with the sleep mark of the last minutes before auto off. */
           uiSetSleepMark(UI_SLEEP_SOON);
           screenRdsShow(&view);
-          lv_refr_now(NULL);
-          snprintf(path, sizeof(path), "%s/rds-station-sleep.bmp", dir);
-          writeBmp(path);
-          printf("  %s\n", path);
+          saveShot("%s/rds-station-sleep.bmp", dir);
           uiSetSleepMark(UI_SLEEP_NONE);
         }
       }
@@ -2057,10 +1936,7 @@ int main(int argc, char **argv) {
         ScreenRds view;
         screenRdsStateBuild(&in, &view);
         screenRdsShow(&view);
-        lv_refr_now(NULL);
-        snprintf(path, sizeof(path), "%s/%s.bmp", dir, kPreset[i].file);
-        writeBmp(path);
-        printf("  %s\n", path);
+        saveShot("%s/%s.bmp", dir, kPreset[i].file);
       }
       /* Digits typed over page 1: the header says what ENTER will tune to,
        * since the page has no frequency of its own to show them in. */
@@ -2080,10 +1956,7 @@ int main(int argc, char **argv) {
       ScreenRds view;
       screenRdsStateBuild(&in, &view);
       screenRdsShow(&view);
-      lv_refr_now(NULL);
-      snprintf(path, sizeof(path), "%s/rds-station-typed.bmp", dir);
-      writeBmp(path);
-      printf("  %s\n", path);
+      saveShot("%s/rds-station-typed.bmp", dir);
     }
     screenRdsEnd();
   }
@@ -2165,13 +2038,7 @@ int main(int argc, char **argv) {
       ScreenBw view;
       screenBwStateBuild(&in, &keep, &view);
       screenBwShow(&view);
-      lv_refr_now(NULL);
-      snprintf(path, sizeof(path), "%s/%s.bmp", dir, shots[i].name);
-      if (!writeBmp(path)) {
-        fprintf(stderr, "could not write %s\n", path);
-        return 1;
-      }
-      printf("  %s\n", path);
+      saveShot("%s/%s.bmp", dir, shots[i].name);
     }
     screenBwEnd();
   }
@@ -2202,15 +2069,9 @@ int main(int argc, char **argv) {
    * as a write starts, before its size is known, then part way. */
   if (screenBegin()) {
     screenUpdateVeilShow(-1);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/veil-start.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/veil-start.bmp", dir);
     screenUpdateVeilShow(62);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/veil.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/veil.bmp", dir);
     screenEnd();
   }
 
@@ -2232,30 +2093,21 @@ int main(int argc, char **argv) {
     recovery.rows[0].value = txt(STR_COMMON_ROTATION_NORMAL);
     recovery.rows[1].value = txt(STR_COMMON_ON);
     screenRecoveryShow(&recovery);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/recovery.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/recovery.bmp", dir);
 
     /* Erase Settings after a write that failed, which says so and stays
      * rather than restarting on the old settings. */
     recovery.cursor = 5;
     recovery.rows[5].value = txt(STR_RECOVERY_FAILED);
     screenRecoveryShow(&recovery);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/recovery-failed.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/recovery-failed.bmp", dir);
 
     /* Erase Settings pressed once: it waits for a second press, and the foot
      * line says what that will do. */
     recovery.rows[5].value = txt(STR_RECOVERY_PRESS_AGAIN);
     recovery.hint = txt(STR_RECOVERY_ASK_ERASE);
     screenRecoveryShow(&recovery);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/recovery-ask.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/recovery-ask.bmp", dir);
 
     /* Touch pressed once, on a radio with touch on, the second press to turn
      * it off. */
@@ -2264,20 +2116,14 @@ int main(int argc, char **argv) {
     recovery.rows[1].value = txt(STR_RECOVERY_PRESS_AGAIN);
     recovery.hint = txt(STR_RECOVERY_ASK_TOUCH_OFF);
     screenRecoveryShow(&recovery);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/recovery-touch-ask.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/recovery-touch-ask.bmp", dir);
 
     /* The cursor on the last row, which scrolls the list by one. */
     recovery.rows[1].value = txt(STR_COMMON_ON);
     recovery.hint = NULL;
     recovery.cursor = SCREEN_RECOVERY_ROWS - 1;
     screenRecoveryShow(&recovery);
-    lv_refr_now(NULL);
-    snprintf(path, sizeof(path), "%s/recovery-exit.bmp", dir);
-    writeBmp(path);
-    printf("  %s\n", path);
+    saveShot("%s/recovery-exit.bmp", dir);
     screenRecoveryEnd();
   }
 
@@ -2314,10 +2160,7 @@ int main(int argc, char **argv) {
       cal.fillPct = shot.fill;
       cal.offPx = shot.off;
       screenTouchCalShow(&cal);
-      lv_refr_now(NULL);
-      snprintf(path, sizeof(path), "%s/%s.bmp", dir, shot.name);
-      writeBmp(path);
-      printf("  %s\n", path);
+      saveShot("%s/%s.bmp", dir, shot.name);
     }
     screenTouchCalEnd();
   }

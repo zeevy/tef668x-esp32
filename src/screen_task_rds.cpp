@@ -44,7 +44,6 @@ void screenTaskRdsDraw(uint8_t page) {
   }
   static char frequency[24];
   static char sync[16];
-  char number[16];
 
   ScreenRdsInputs in;
   memset(&in, 0, sizeof(in));
@@ -61,10 +60,8 @@ void screenTaskRdsDraw(uint8_t page) {
   if (clockFormat(ntpLocalTime(), clock, sizeof(clock))) {
     in.clock = clock;
   }
-  if (bandFormatFrequency(snap.settings.band, snap.settings.freqKHz, number,
-                          sizeof(number))) {
-    snprintf(frequency, sizeof(frequency), txt(STR_COMMON_FMT_TWO_WORDS),
-             number, bandFrequencyUnit(snap.settings.band));
+  if (bandFormatWithUnit(snap.settings.band, snap.settings.freqKHz, frequency,
+                         sizeof(frequency))) {
     in.frequency = frequency;
   }
 

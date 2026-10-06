@@ -60,43 +60,6 @@ extern "C" {
 uint8_t meterSegmentsLit(uint8_t percent, uint8_t count);
 
 /*
- * The peak mark on the modulation bar.
- *
- * It jumps to a new peak at once, sits still for a while, then falls back at
- * a steady rate. Every peak programme meter ever built works this way: the
- * jump is the measurement, the hold is what makes it readable, and the fall
- * is what stops it reading as a mark that has stuck.
- */
-typedef struct {
-  uint8_t percent; /* Where the mark is now. */
-  bool valid;      /* False until a reading has arrived. */
-  uint32_t heldMs; /* When the mark was last pushed up. */
-  uint32_t fellMs; /* When the fall last took a step. */
-} MeterPeak;
-
-void meterPeakReset(MeterPeak *p);
-
-/*
- * Feed one reading, and say where the mark should be drawn.
- *
- * `holdMs` is how long the mark sits still after a peak. `fallFullMs` is how
- * long it takes to fall the whole bar, so the speed is a time and not a step
- * per call: the caller's poll rate can change without changing how the meter
- * behaves. A `fallFullMs` of 0 makes the mark drop as soon as the hold ends.
- *
- * Both are times rather than dB rates because this bar is linear in
- * modulation per cent. IEC 60268-10 specifies 1.7 s for a 20 dB fall on a
- * Type I meter and 2.8 s on a Type II, and those durations are what this
- * borrows. The law is not the same, and nothing here should claim it is.
- */
-void meterPeakFeed(MeterPeak *p, uint8_t percent, uint32_t nowMs,
-                   uint32_t holdMs, uint32_t fallFullMs);
-
-/* Forget the mark. A reading that stopped arriving must not leave a level on
- * screen that nothing is measuring any more. */
-void meterPeakClear(MeterPeak *p);
-
-/*
  * The bar itself, damped.
  *
  * The reading moves faster than a person can read it. Measured on this radio
@@ -122,6 +85,7 @@ typedef struct {
   uint32_t fellMs;  /* When the fall last took a step. */
 } MeterBar;
 
+/* Forget the bar, for a reading that stopped arriving. */
 void meterBarReset(MeterBar *b);
 
 /*
@@ -137,8 +101,38 @@ void meterBarReset(MeterBar *b);
 uint16_t meterBarFeed(MeterBar *b, uint16_t percent, uint32_t nowMs,
                       uint32_t fallFullMs);
 
-/* Forget the bar, for a reading that stopped arriving. */
-void meterBarClear(MeterBar *b);
+/*
+ * The peak mark on the modulation bar.
+ *
+ * It jumps to a new peak at once, sits still for a while, then falls back at
+ * a steady rate. Every peak programme meter ever built works this way: the
+ * jump is the measurement, the hold is what makes it readable, and the fall
+ * is what stops it reading as a mark that has stuck.
+ */
+typedef struct {
+  MeterBar bar;    /* The mark, which falls as the bar does once held. */
+  uint32_t heldMs; /* When the mark was last pushed up. */
+} MeterPeak;
+
+/* Forget the mark. A reading that stopped arriving must not leave a level on
+ * screen that nothing is measuring any more. */
+void meterPeakReset(MeterPeak *p);
+
+/*
+ * Feed one reading, and say where the mark should be drawn.
+ *
+ * `holdMs` is how long the mark sits still after a peak. `fallFullMs` is how
+ * long it takes to fall the whole bar, so the speed is a time and not a step
+ * per call: the caller's poll rate can change without changing how the meter
+ * behaves. A `fallFullMs` of 0 makes the mark drop as soon as the hold ends.
+ *
+ * Both are times rather than dB rates because this bar is linear in
+ * modulation per cent. IEC 60268-10 specifies 1.7 s for a 20 dB fall on a
+ * Type I meter and 2.8 s on a Type II, and those durations are what this
+ * borrows. The law is not the same, and nothing here should claim it is.
+ */
+void meterPeakFeed(MeterPeak *p, uint8_t percent, uint32_t nowMs,
+                   uint32_t holdMs, uint32_t fallFullMs);
 
 #ifdef __cplusplus
 }

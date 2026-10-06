@@ -51,7 +51,6 @@ static WebContext *sWeb = NULL;
  * /api/state says what it is set to now. POST /api/save makes the two agree.
  */
 static void handleApiSettingsGet(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }
@@ -62,54 +61,33 @@ static void handleApiSettingsGet(void) {
   out += jsonEscape(st->wifiSsid);
   out += F("\",\"pss\":");
   out += st->wifiPass[0] != '\0' ? F("true") : F("false");
-  out += F(",\"dpn\":");
-  out += webPinIsDefault() ? F("true") : F("false");
+  jsonBool(out, "dpn", webPinIsDefault());
   /* Whether these are the stored settings at all. False means the blob could
    * not be read and the radio is running on the defaults, which otherwise
    * only shows as everything having gone back to how it was. */
-  out += F(",\"ldd\":");
-  out += settingsWereLoaded() ? F("true") : F("false");
+  jsonBool(out, "ldd", settingsWereLoaded());
   out += F(",\"sql\":\"");
   out += squelchModeName((SquelchMode)st->squelchMode);
   out += F("\"");
   /* What the radio was last tuned to and how it was set, stored with the
    * rest but changed through their own endpoints, not here. */
-  out += F(",\"sbd\":");
-  out += st->startBand;
-  out += F(",\"sfq\":");
-  out += st->startFreqKHz;
-  out += F(",\"svl\":");
-  /* Through String, not straight in. This one is signed, and String appends a
-   * signed char as the character it stands for rather than as a number. */
-  out += String((int)st->startVolumeDb);
-  out += F(",\"ims\":");
-  out += st->fmMultipathSuppression;
-  out += F(",\"eq\":");
-  out += st->fmEqualizer;
-  out += F(",\"mno\":");
-  out += st->fmForcedMono;
-  out += F(",\"cut\":");
-  out += st->fmHighCutStart;
-  out += F(",\"bld\":");
-  out += st->fmStereoBlendStart;
-  out += F(",\"hbl\":");
-  out += st->fmStHiBlendStart;
-  out += F(",\"fnb\":");
-  out += st->fmNoiseBlankerStart;
-  out += F(",\"anb\":");
-  out += st->amNoiseBlankerStart;
-  out += F(",\"ahc\":");
-  out += st->amHighCutStart;
-  out += F(",\"lhc\":");
-  out += st->lwHighCutStart;
-  out += F(",\"asm\":");
-  out += st->amSoftMuteStart;
-  out += F(",\"lsm\":");
-  out += st->lwSoftMuteStart;
-  out += F(",\"dem\":");
-  out += st->fmDeemphasisUs;
-  out += F(",\"abw\":");
-  out += st->amBandwidthKHz;
+  jsonNum(out, "sbd", st->startBand);
+  jsonNum(out, "sfq", st->startFreqKHz);
+  jsonNum(out, "svl", st->startVolumeDb);
+  jsonNum(out, "ims", st->fmMultipathSuppression);
+  jsonNum(out, "eq", st->fmEqualizer);
+  jsonNum(out, "mno", st->fmForcedMono);
+  jsonNum(out, "cut", st->fmHighCutStart);
+  jsonNum(out, "bld", st->fmStereoBlendStart);
+  jsonNum(out, "hbl", st->fmStHiBlendStart);
+  jsonNum(out, "fnb", st->fmNoiseBlankerStart);
+  jsonNum(out, "anb", st->amNoiseBlankerStart);
+  jsonNum(out, "ahc", st->amHighCutStart);
+  jsonNum(out, "lhc", st->lwHighCutStart);
+  jsonNum(out, "asm", st->amSoftMuteStart);
+  jsonNum(out, "lsm", st->lwSoftMuteStart);
+  jsonNum(out, "dem", st->fmDeemphasisUs);
+  jsonNum(out, "abw", st->amBandwidthKHz);
   {
     char tzText[8];
     out += F(",\"tzo\":\"");
@@ -119,15 +97,10 @@ static void handleApiSettingsGet(void) {
     out += F("\"");
   }
   /* Every setting POST takes by number, from the one table it writes
-   * through, so the two cannot name a setting differently. As numbers
-   * through String, since a signed byte added to a String goes in as a
-   * character. */
+   * through, so the two cannot name a setting differently. */
   for (size_t i = 0; i < settingsTableCount(); i++) {
     const SettingRow *row = settingsTableAt(i);
-    out += F(",\"");
-    out += row->key;
-    out += F("\":");
-    out += String((long)settingsTableGet(st, row));
+    jsonNum(out, row->key, settingsTableGet(st, row));
   }
   /* The custom slot's own nine colours, in the order Theme lists its
    * fields, so the web page's colour wheels can be set from whatever was
@@ -228,7 +201,6 @@ static void handleApiSettingsGet(void) {
  * network moves the radio off whatever it is on, so the reply goes out first.
  */
 static void handleApiSettingsPost(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

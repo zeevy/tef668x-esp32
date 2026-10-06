@@ -279,7 +279,7 @@
   X(RADIO_OLD_IMAGE_KEPT, "Previous firmware kept", "Detail line of that message") \
   X(RDS_STEREO, "Stereo", "RDS page 1 header, the station says stereo") \
   X(RDS_MONO, "Mono", "RDS page 1 header, the station says mono") \
-  X(COMMON_FMT_TWO_WORDS, "%s %s", "Header context on the RDS screens, frequency and unit; ECC and its code on RDS page 1; tile text for the iMS and EQ switches, name and state") \
+  X(COMMON_FMT_TWO_WORDS, "%s %s", "ECC and its code on RDS page 1; tile text for the iMS and EQ switches, name and state") \
   X(RDS_PI_ZERO, "0000", "RDS page 1, PI tile, when the station sends a zero PI") \
   X(RDS_SPEECH, "Speech", "RDS page 1, music or speech tile") \
   X(RDS_MUSIC, "Music", "RDS page 1, music or speech tile") \

@@ -45,6 +45,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <algorithm>
 
 /*
  * How often the screen is looked at, in milliseconds.
@@ -252,22 +253,18 @@ typedef enum {
 static BootSwap sSwap = BOOT_SWAP_NONE;
 static uint32_t sSwapFromMs = 0;
 static uint8_t sSwapLevel = 0;
-static uint32_t sSwapOutMs = 0;
-static uint32_t sSwapInMs = 0;
 
 /* The menu opens and closes with no fade; only start up fades. */
 
 /* Start the fade through black. swapAct makes the change while nothing can
  * be seen. */
-static void swapBegin(uint32_t outMs, uint32_t inMs) {
+static void swapBegin(void) {
   if (sSwap != BOOT_SWAP_NONE) {
     return;
   }
   sSwap = BOOT_SWAP_OUT;
   sSwapFromMs = millis();
   sSwapLevel = backlightLevel(&sBacklight);
-  sSwapOutMs = outMs;
-  sSwapInMs = inMs;
 }
 
 /*
@@ -1014,14 +1011,9 @@ void screenTaskDxTurn(int32_t clicks) {
   /* A row a click, stopping at both ends. */
   const DxCatches *list = dxTaskCatches();
   const uint8_t count = list != NULL ? list->count : 0;
-  int32_t at = (int32_t)sDxCursor + clicks;
-  if (at < 0) {
-    at = 0;
-  }
-  if (count > 0 && at > count - 1) {
-    at = count - 1;
-  }
-  sDxCursor = count == 0 ? 0 : (uint8_t)at;
+  sDxCursor = count == 0 ? 0
+                         : (uint8_t)std::clamp<int32_t>(sDxCursor + clicks, 0,
+                                                        count - 1);
   (void)screenTaskDxDraw(sDxPage, &sDxCursor);
   lvglPortRefreshNow();
 }
@@ -1621,14 +1613,14 @@ void screenTaskPoll(void) {
       lvglPortPoll();
       return;
     }
-    swapBegin(BOOT_SWAP_OUT_MS, BOOT_SWAP_IN_MS);
+    swapBegin();
   }
 
   if (sSwap == BOOT_SWAP_OUT) {
     const uint32_t gone = millis() - sSwapFromMs;
-    if (gone < sSwapOutMs) {
-      writeBacklight(
-          (uint8_t)((uint32_t)sSwapLevel * (sSwapOutMs - gone) / sSwapOutMs));
+    if (gone < BOOT_SWAP_OUT_MS) {
+      writeBacklight((uint8_t)((uint32_t)sSwapLevel *
+                               (BOOT_SWAP_OUT_MS - gone) / BOOT_SWAP_OUT_MS));
       lvglPortPoll();
       return;
     }
@@ -1703,8 +1695,8 @@ void screenTaskPoll(void) {
      * fighting for the same pin.
      */
     const uint32_t back = nowMs - sSwapFromMs;
-    if (back < sSwapInMs) {
-      writeBacklight((uint8_t)((uint32_t)sSwapLevel * back / sSwapInMs));
+    if (back < BOOT_SWAP_IN_MS) {
+      writeBacklight((uint8_t)((uint32_t)sSwapLevel * back / BOOT_SWAP_IN_MS));
     } else {
       sSwap = BOOT_SWAP_NONE;
       writeBacklight(backlightUpdate(&sBacklight, nowMs));
