@@ -1575,9 +1575,113 @@ static void pollApi(uint32_t nowMs) {
 static uint32_t sTouchReadMs = 0;
 
 /*
+ * How a touch is told apart, from taps, holds and swipes measured on this
+ * glass. A finger wandered at most 14.2 px in the first 0.6 s of a press, so
+ * a move past 16 px is a move. Taps wandered at most 14.2 px and whole
+ * swipes travelled at least 164, so 64 px of travel is a swipe, and the
+ * slowest natural swipe took 771 ms, so a swipe is one done within a second.
+ */
+static const TouchGestureConfig kGesture = {16, 64, 1000, TOUCH_HOLD_MS};
+
+static TouchGesture sGesture;
+/* The gesture under way has had its first event, and with it the checks a
+ * gesture makes once. */
+static bool sGestureSeen = false;
+/* Its first event stopped a DX scan or cleared a typed number, which is
+ * all a touch does then, so the rest of it does nothing. */
+static bool sGestureSpent = false;
+
+/* A finger on the glass when touch could not be read, the panel dark, a
+ * sweep running, Touch Off or the calibration screen up, is left alone
+ * until it lifts, the way a key held at start up is: it went down for none
+ * of what is on screen now. */
+static bool sTouchHeldOver = false;
+
+/* Drop the gesture under way, if any, with nothing reported. */
+static void touchRest(void) {
+  memset(&sGesture, 0, sizeof(sGesture));
+  sGestureSeen = false;
+  sGestureSpent = false;
+  sTouchHeldOver = true;
+}
+
+/* What a gesture is called in `inp.lst`, by TouchGestureEvent. */
+static const char *const kGestureName[] = {
+    "",           "tap",         "hold",     "drag",      "drag end",
+    "swipe left", "swipe right", "swipe up", "swipe down"};
+
+/*
+ * One thing a finger did.
+ *
+ * The checks a key makes for itself are made once for the whole gesture, on
+ * its first event, since a drag is many events: the beep by Key Beeps, a tap
+ * as a short press and a hold as a long one; a running DX scan, which any
+ * touch stops and does nothing else, as any key does; and a number being
+ * typed, which a touch clears and does nothing else. A drag is noted once,
+ * not on every sample.
+ */
+static void onTouch(TouchGestureEvent event, uint32_t nowMs) {
+  sActivity++;
+  if (!sGestureSeen) {
+    sGestureSeen = true;
+    sStatus.touchGestures++;
+    const bool hold = event == TOUCH_HOLD;
+    if (sBeepMode >= BEEP_EVERY_PRESS ||
+        (sBeepMode >= BEEP_KEYS_AND_LONG && hold)) {
+      radioBeep(hold ? BEEP_LONG_MS : BEEP_MS);
+    }
+    if (stopScanFirst()) {
+      sGestureSpent = true;
+      return;
+    }
+    if (typingInProgress(nowMs)) {
+      cancelTyping();
+      sGestureSpent = true;
+      return;
+    }
+  } else if (sGestureSpent || event == TOUCH_DRAG) {
+    return;
+  }
+  char seen[INPUT_EVENT_MAX];
+  snprintf(seen, sizeof(seen), "touch %s", kGestureName[event]);
+  note(seen);
+}
+
+/*
+ * Feed one steady point, or none, to the gesture under way and act on what
+ * it completes. No screen has zones yet, so every touch is in none.
+ */
+static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
+                        uint32_t nowMs) {
+  if (sTouchHeldOver) {
+    sTouchHeldOver = contact;
+    return;
+  }
+  bool dxUnder = false;
+  uint8_t page = 0;
+  (void)screenTaskShowing(&page);
+  TouchSample s;
+  s.down = contact;
+  s.at = at;
+  s.unsettled = unsettled;
+  s.zone = TOUCH_NO_ZONE;
+  s.zoneDrags = false;
+  s.screen = (uint32_t)inputTop(&dxUnder) << 8 | (uint32_t)dxUnder << 4 | page;
+  const TouchGestureEvent event =
+      touchGestureFeed(&sGesture, &kGesture, &s, nowMs);
+  if (event != TOUCH_NOTHING) {
+    onTouch(event, nowMs);
+  }
+  if (!sGesture.on) {
+    sGestureSeen = false;
+    sGestureSpent = false;
+  }
+}
+
+/*
  * Read the touch chip while a finger is down, keep the reading for the
- * status document, and feed the calibration screen while it is open.
- * Nothing else on the radio acts on a touch.
+ * status document, and hand the steady point to the calibration screen
+ * while it is open and to the gestures otherwise.
  */
 static void pollTouch(uint32_t nowMs) {
   const bool wasOn = sStatus.touchOn;
@@ -1587,8 +1691,16 @@ static void pollTouch(uint32_t nowMs) {
   sStatus.touchOn = sTouchOn || calOpen;
   if (!sStatus.touchOn) {
     sStatus.touchPen = false;
+    memset(&sTouchFilter, 0, sizeof(sTouchFilter));
+    touchRest();
     return;
   }
+  /* Touch is not read while the panel is dark, and does not wake it: a
+   * pocket or a bag can press the glass, and the knob, a key or the volume
+   * knob wake it. Nor during a level sweep, so its readings cannot take in
+   * the chip's clock. The calibration screen is read whatever: a person is
+   * holding a mark. */
+  const bool resting = !calOpen && (panelIsDimmed() || radioSweepBusy());
   const bool pen = touchPenDown();
   /* A finger already down when touch comes on did not go down now. */
   if (pen && !sStatus.touchPen && wasOn) {
@@ -1598,6 +1710,11 @@ static void pollTouch(uint32_t nowMs) {
   TouchReading r;
   memset(&r, 0, sizeof(r));
   r.pen = pen;
+  if (resting) {
+    memset(&sTouchFilter, 0, sizeof(sTouchFilter));
+    touchRest();
+    return;
+  }
   if (pen && (uint32_t)(nowMs - sTouchReadMs) >= TOUCH_READ_MS) {
     sTouchReadMs = nowMs;
     touchTake(&r, &sStatus.touch);
@@ -1619,7 +1736,10 @@ static void pollTouch(uint32_t nowMs) {
       sActivity++;
     }
     screenTaskTouchCalFeed(contact, r.read, raw, unsettled, nowMs);
+    touchRest();
+    return;
   }
+  gestureFeed(contact, sStatus.touchAt, unsettled, nowMs);
 }
 #endif
 

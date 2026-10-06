@@ -20,7 +20,7 @@ Opened with the DX key or from Go To, DX mode starts on the DX page. Start Scan 
 | BW | On the DX page, the next filter width for DX mode |
 | BW, held | The bandwidth page |
 
-While the scanner runs, any key or turn only stops it. The tuning knob does something different on each page, as below.
+While the scanner runs, any key or turn only stops it, and so does a touch while the screen is lit. The tuning knob does something different on each page, as below.
 
 ## DX page
 
