@@ -275,6 +275,27 @@ bool screenMenuBegin(void);
 void screenMenuShow(const ScreenMenu *menu);
 void screenMenuEnd(void);
 
+/* The parts of the menu's list a touch can act on: the header, which is
+ * Back, and a row slot each, MENU_ZONE_ROW for the top one. */
+typedef enum {
+  MENU_ZONE_BACK = 1,
+  MENU_ZONE_ROW,
+} MenuZone;
+
+/* The zones of the list on show, the header and a zone for each row drawn,
+ * meeting halfway across the gaps: writes no more than `max` and returns how
+ * many, 0 while the value, the picker or a dialog is up. */
+int screenMenuZones(TouchZone *out, int max);
+
+/* A zone's name, for GET /api/screen: "back", "row1" to "row6", or "". */
+const char *screenMenuZoneName(int id);
+
+/* The slot of the row the cursor is on in the list on show, or -1. */
+int screenMenuCursorSlot(void);
+
+/* Whether `p` is where the menu's Back is, the menu up or not. */
+bool screenMenuIsBack(TouchPoint p);
+
 /*
  * One setting, on its own, while it is being changed.
  *

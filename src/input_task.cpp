@@ -1077,6 +1077,36 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
       break;
   }
 }
+
+/*
+ * The menu's list by touch: a row tapped is turned to and pressed, as the
+ * knob would, the header is Back as MODE is, and a swipe up or down pages
+ * the list.
+ */
+static void menuTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
+                      bool) {
+  if (event == TOUCH_SWIPE_UP || event == TOUCH_SWIPE_DOWN) {
+    menuTaskPage(event == TOUCH_SWIPE_UP ? 1 : -1);
+    return;
+  }
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  if (zone == MENU_ZONE_BACK) {
+    menuTaskBack();
+    return;
+  }
+  const int cursor = screenMenuCursorSlot();
+  if (cursor >= 0) {
+    /* A click at a time, since a dialog's list moves one row a turn
+     * whatever the clicks. */
+    const int by = zone - MENU_ZONE_ROW - cursor;
+    for (int i = 0; i < abs(by); i++) {
+      menuTaskTurn(by < 0 ? -1 : 1);
+    }
+    menuTaskPress();
+  }
+}
 #endif
 
 /* ------------------------------------------------------------ the table */
@@ -1116,7 +1146,12 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #endif
     },
     /* TOP_MENU */
-    {menuTurn, menuPress, NULL, NULL, menuMode, menuEnter, menuKey},
+    {menuTurn, menuPress, NULL, NULL, menuMode, menuEnter, menuKey
+#if FEATURE_TOUCH
+     ,
+     menuTouch, screenMenuZones, screenMenuZoneName, 0
+#endif
+    },
     /* TOP_BW */
     {bwTurn, bwPress, NULL, bwBandwidth, bwMode, bwEnter, bwKey},
     /* TOP_RDS */
@@ -1814,9 +1849,16 @@ static bool onTouch(TouchGestureEvent event, bool first, int zone,
              where[0] != '\0' ? " " : "", where);
     note(seen);
   }
+  /* A tap where the menu's Back was, just after the menu shut, is one Back
+   * too many, as MODE is then. */
+  const bool wasMenu = inputTop(&dxUnder) == TOP_MENU;
+  if (event == TOUCH_TAP && screenMenuIsBack(start) && backTooSoon(wasMenu)) {
+    return false;
+  }
   if (zone != TOUCH_NO_ZONE && in->touch != NULL) {
     in->touch(event, zone, start, last, dxUnder);
   }
+  notedMenuShut(wasMenu);
   return false;
 }
 
@@ -1886,7 +1928,10 @@ static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
   s.unsettled = unsettled;
   s.zoneDrags = false;
   s.zone = contact ? zoneAt(at, &s.zoneDrags) : TOUCH_NO_ZONE;
-  s.screen = (uint32_t)inputTop(&dxUnder) << 8 | (uint32_t)dxUnder << 4 | page;
+  /* The menu's place too, so a gesture begun on one level of it does not
+   * act on the next. */
+  s.screen = menuTaskPlace() << 16 | (uint32_t)inputTop(&dxUnder) << 8 |
+             (uint32_t)dxUnder << 4 | page;
   const TouchGestureEvent event =
       touchGestureFeed(&sGesture, &kGesture, &s, nowMs);
   if (event != TOUCH_NOTHING && !sGestureSpent) {

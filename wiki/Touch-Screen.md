@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen can be worked by touch, below. The other screens, the menu, the bandwidth page, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen and the menu's lists can be worked by touch, below. The other screens, a value being changed, a choice being picked, the bandwidth page, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -19,6 +19,20 @@ The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller.
 | The V tile | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
 
 The line of radio text under the amber panel is too thin to be a target, and does nothing.
+
+## The menu
+
+![The parts of the menu a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-menu.png)
+
+On the list of groups and on the rows of a group:
+
+| Where | Touch | Does |
+|---|---|---|
+| A row | Tap | The same as turning the tuning knob to that row and pressing it: a group opens, a value opens to be changed, a Go To row does what it says. A row that only shows something does nothing |
+| The top line, with the title | Tap | Back, as a tap of MODE: from a group to the list of groups, and from the list of groups out of the menu |
+| The list | Swipe up or down | The next or the previous six rows. The list stops at its first and last row |
+
+A touch belongs to the list it started on: if the list changes before the finger lifts, the touch does nothing.
 
 ## What any touch does
 

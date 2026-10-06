@@ -57,6 +57,20 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
 bool menuTaskOpenUpdateOffer(void);
 
 /*
+ * A page of the list on show, for a swipe: the window and the cursor move a
+ * whole window on, `dir` 1, or back, -1, stopping at the ends. Nothing on
+ * the value, a picker or a dialog.
+ */
+void menuTaskPage(int dir);
+
+/*
+ * Where the menu is: its level, group and sub-group, or a dialog, as one
+ * number under 2^13 that changes whenever the screen under a finger does. 0
+ * while it is shut.
+ */
+uint32_t menuTaskPlace(void);
+
+/*
  * Open the menu straight on Audio > Squelch > Squelch Mode with its edit
  * started, for the SQL tile of the radio screen. Keeping the value or going
  * back shuts the menu again, back on the radio screen. False when it could

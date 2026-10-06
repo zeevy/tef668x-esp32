@@ -3018,6 +3018,33 @@ void menuTaskTurn(int32_t clicks) {
   draw();
 }
 
+void menuTaskPage(int dir) {
+  if (!menuIsOpen(&sMenu) || sMenu.level == MENU_EDIT || sChoice.active) {
+    return;
+  }
+  const bool onGroups = sMenu.level == MENU_GROUPS;
+  uint8_t *top = onGroups ? &sTopGroup : sMenu.inSub ? &sTopSub : &sTopRow;
+  const uint8_t count = onGroups ? GROUP_COUNT : list()->count;
+  const uint8_t to = menuPageTop(*top, count, SCREEN_MENU_ROWS, dir);
+  const int32_t by = (int32_t)to - *top;
+  /* The cursor moves with the window, so it keeps its place on the page
+   * and the window does not slide back to it. */
+  *top = to;
+  menuTaskTurn(by);
+}
+
+uint32_t menuTaskPlace(void) {
+  if (sChoice.active) {
+    return 1u << 12;
+  }
+  if (!menuIsOpen(&sMenu)) {
+    return 0;
+  }
+  /* The level in two bits, the group in four, then the sub-group. */
+  return (uint32_t)sMenu.level | (uint32_t)(sMenu.group & 0xF) << 2 |
+         (uint32_t)sMenu.inSub << 6 | (uint32_t)(sMenu.sub & 0x1F) << 7;
+}
+
 void menuTaskPress(void) {
   gestureBegins();
   if (sChoice.active && sChoice.update) {

@@ -1440,6 +1440,10 @@ int main(int argc, char **argv) {
     menu.total = 12; /* Every group, six shown. */
     screenMenuShow(&menu);
     saveShot("%s/menu-groups.bmp", dir);
+    /* The list's touch zones over it. */
+    TouchZone zones[16];
+    snprintf(path, sizeof(path), "%s/touch-menu.bmp", dir);
+    saveZones(zones, screenMenuZones(zones, 16), path);
 
     memset(&menu, 0, sizeof(menu));
     menu.title = txt(STR_MENU_DISPLAY);
