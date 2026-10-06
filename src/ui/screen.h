@@ -626,8 +626,8 @@ void screenDxEnd(void);
  * header's left half, with the title, which leaves DX mode, and its right
  * half, with the page position, the next page; under them the body, which on
  * the DX page is the amber panel, the PI tile, the readings and the graphs,
- * on the Scope page the chart and the foot tile, and on the Scanner page the
- * amber panel and the rest. */
+ * on the Scope page the chart and the foot tile, on the Scanner page the
+ * amber panel and the rest, and on the Catches page a zone a row. */
 typedef enum {
   DX_ZONE_BACK = 1,
   DX_ZONE_NEXT,
@@ -637,6 +637,7 @@ typedef enum {
   DX_ZONE_READINGS,
   DX_ZONE_CHART, /* Scope: the chart and the rise strip, which follow a drag. */
   DX_ZONE_FOOT,  /* Scope: the cursor channel's tile. */
+  DX_ZONE_ROW,   /* Catches: the top row; the rest follow it. */
 } DxZone;
 
 /* The zones of the DX page when `dxPage`, else of any other DX page:
@@ -644,7 +645,7 @@ typedef enum {
 int screenDxZones(TouchZone *out, int max, bool dxPage);
 
 /* A zone's name, for GET /api/screen: "back", "next", "body", "panel", "pi",
- * "readings", "chart", "foot", or "". */
+ * "readings", "chart", "foot", "row1" to "row6", or "". */
 const char *screenDxZoneName(int id);
 
 /*
@@ -678,6 +679,18 @@ typedef struct {
 bool screenCatchesBegin(void);
 void screenCatchesShow(const ScreenCatches *c);
 void screenCatchesEnd(void);
+
+/* The Catches page's zones: the header's two halves as on every DX page, a
+ * zone for each row drawn, meeting halfway across the gaps, and the body
+ * under them. 0 while it is not up. */
+int screenCatchesZones(TouchZone *out, int max);
+
+/* The slot of the row the cursor is on, or -1 with no rows. */
+int screenCatchesCursorSlot(void);
+
+/* A number that changes whenever a different catch is drawn in a row, as
+ * when the list re-sorts under a finger, for a gesture to end on. */
+uint16_t screenCatchesRowsId(void);
 
 /*
  * The DX Scanner page, the third page of DX mode. The amber panel with what the

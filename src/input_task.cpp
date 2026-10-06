@@ -1086,7 +1086,9 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
  * bandwidth page with DX mode's widths, as BW held. On the Scope page the
  * chart moves the cursor and the foot tile tunes to it, as the knob's hold.
  * On the Scanner page the amber panel starts a scan or goes on with one, as
- * the knob's press; while a scan runs any touch only stops it.
+ * the knob's press; while a scan runs any touch only stops it. On the Catches
+ * page a row tapped is tuned and held is logged, and a swipe up or down
+ * moves a screen of rows.
  */
 static int dxZones(TouchZone *out, int max) {
   const uint8_t page = screenTaskDxPage();
@@ -1095,6 +1097,9 @@ static int dxZones(TouchZone *out, int max) {
   }
   if (page == SCREEN_DX_PAGE_SCAN) {
     return screenScanZones(out, max);
+  }
+  if (page == SCREEN_DX_PAGE_CATCHES) {
+    return screenCatchesZones(out, max);
   }
   return screenDxZones(out, max, page == SCREEN_DX_PAGE_DX);
 }
@@ -1116,6 +1121,26 @@ static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
   }
   if (event == TOUCH_SWIPE_LEFT || event == TOUCH_SWIPE_RIGHT) {
     screenTaskDxStepPage(event == TOUCH_SWIPE_LEFT ? 1 : -1);
+    return;
+  }
+  if (event == TOUCH_SWIPE_UP || event == TOUCH_SWIPE_DOWN) {
+    /* The Catches list a screen on or back; its window is a screen of rows
+     * from the cursor's own. Nothing elsewhere: on Scope a turn moves the
+     * cursor. */
+    if (screenTaskDxPage() == SCREEN_DX_PAGE_CATCHES) {
+      screenTaskDxTurn(event == TOUCH_SWIPE_UP ? SCREEN_CATCH_ROWS
+                                               : -SCREEN_CATCH_ROWS);
+    }
+    return;
+  }
+  if (zone >= DX_ZONE_ROW && (event == TOUCH_TAP || event == TOUCH_HOLD)) {
+    /* A catch: turned to, then tuned by a tap or logged by a hold, as the
+     * knob's press and hold. */
+    const int cursor = screenCatchesCursorSlot();
+    if (cursor >= 0) {
+      screenTaskDxTurn(zone - DX_ZONE_ROW - cursor);
+      dxPress(event == TOUCH_TAP ? BUTTON_SHORT : BUTTON_LONG, dxUnder);
+    }
     return;
   }
   if (event != TOUCH_TAP) {
@@ -2048,9 +2073,14 @@ static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
   s.zoneDrags = false;
   s.zone = contact ? zoneAt(at, &s.zoneDrags) : TOUCH_NO_ZONE;
   /* The menu's place too, so a gesture begun on one level of it does not
-   * act on the next. */
-  s.screen = menuTaskPlace() << 16 | (uint32_t)inputTop(&dxUnder) << 8 |
+   * act on the next, and the catches drawn, so one begun on a row does not
+   * act on another catch the list re-sorted into it. */
+  const InputTop top = inputTop(&dxUnder);
+  s.screen = menuTaskPlace() << 16 | (uint32_t)top << 8 |
              (uint32_t)dxUnder << 4 | page;
+  if (top == TOP_DX && page == SCREEN_DX_PAGE_CATCHES) {
+    s.screen ^= (uint32_t)screenCatchesRowsId() << 16;
+  }
   const TouchGestureEvent event =
       touchGestureFeed(&sGesture, &kGesture, &s, nowMs);
   if (event != TOUCH_NOTHING && !sGestureSpent) {
