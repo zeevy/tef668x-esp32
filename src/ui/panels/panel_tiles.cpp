@@ -22,13 +22,13 @@ static PanelRect sAt;
 static lv_obj_t *sLabel[TILE_COUNT];
 static lv_obj_t *sValue[TILE_COUNT];
 
-static int16_t tileW(void) {
-  return (int16_t)((sAt.w - 2 * UI_MARGIN - (TILE_COUNT - 1) * UI_GAP) /
+static int16_t tileW(const PanelRect *at) {
+  return (int16_t)((at->w - 2 * UI_MARGIN - (TILE_COUNT - 1) * UI_GAP) /
                    TILE_COUNT);
 }
 
-static int16_t tileX(int i) {
-  return (int16_t)(sAt.x + UI_MARGIN + i * (tileW() + UI_GAP));
+static int16_t tileX(const PanelRect *at, int i) {
+  return (int16_t)(at->x + UI_MARGIN + i * (tileW(at) + UI_GAP));
 }
 
 static void begin(lv_obj_t *parent, const PanelRect *at) {
@@ -38,7 +38,8 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
   static const StrId kNames[TILE_COUNT] = {STR_COUNT, STR_RADIO_SQL,
                                            STR_RADIO_BW_TILE, STR_RADIO_VOL};
   for (int i = 0; i < TILE_COUNT; i++) {
-    uiRound(parent, t->rule, tileX(i), at->y, tileW(), at->h, UI_TILE_R);
+    uiRound(parent, t->rule, tileX(&sAt, i), at->y, tileW(&sAt), at->h,
+            UI_TILE_R);
     sLabel[i] = uiLabel(parent, &roboto_small, t->dead);
     if (kNames[i] != STR_COUNT) {
       lv_label_set_text_static(sLabel[i], txt(kNames[i]));
@@ -57,7 +58,7 @@ static void placeTile(int i, const char *value, ThemeColour label,
   uiSetColour(sLabel[i], label);
   const int16_t lw = hasLabel ? uiTextWidth(sLabel[i], &roboto_small) : 0;
   const int16_t vw = hasValue ? uiTextWidth(sValue[i], &roboto_small) : 0;
-  int16_t x = (int16_t)(tileX(i) + (tileW() - lw - vw) / 2);
+  int16_t x = (int16_t)(tileX(&sAt, i) + (tileW(&sAt) - lw - vw) / 2);
   const int16_t base = (int16_t)(sAt.y + TILE_BASE);
   if (hasLabel) {
     uiBaseline(sLabel[i], &roboto_small, x, base);
@@ -80,4 +81,22 @@ static void show(const ScreenState *s) {
                    : t->radio);
 }
 
-const Panel panelTiles = {begin, show};
+/* A tile each, meeting halfway across the gaps between them so no tap on
+ * the row falls between two, and the outer ones out to the row's ends. */
+static int zones(const PanelRect *at, TouchZone *out, int max) {
+  if (max < TILE_COUNT) {
+    return 0;
+  }
+  int16_t left = at->x;
+  for (int i = 0; i < TILE_COUNT; i++) {
+    const int16_t right = i + 1 < TILE_COUNT
+                              ? (int16_t)(tileX(at, i + 1) - UI_GAP / 2)
+                              : (int16_t)(at->x + at->w);
+    out[i] = {left, at->y, (int16_t)(right - left), at->h,
+              (uint8_t)(RADIO_ZONE_MODE + i)};
+    left = right;
+  }
+  return TILE_COUNT;
+}
+
+const Panel panelTiles = {begin, show, zones};

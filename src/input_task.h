@@ -99,17 +99,32 @@ typedef enum {
                             * or update screen holds it: a touch does
                             * nothing then. */
   INPUT_TOUCH_CALIBRATING, /* The calibration screen takes only the glass. */
+  INPUT_TOUCH_NOT_HERE,    /* A finger could not make it there: a drag where
+                            * nothing follows one, or under the slop, or a
+                            * swipe where a move is a drag. */
 } InputTouchResult;
 
 /*
- * A whole gesture, as if made on the glass: a tap, a hold or a swipe,
- * waiting for the next inputPoll in the same one slot as a key. It makes
- * the same checks as a touch on the glass, is not counted in InputStatus,
- * and its `lastEvent` starts "api ". Refused, with nothing queued, wherever
- * a touch on the glass would do nothing. No screen has zones yet, so where
- * it is does not change what it does.
+ * A whole gesture, as if made on the glass: a tap, a hold or a swipe at
+ * `at`, or a drag from `at` to `to`, waiting for the next inputPoll in the
+ * same one slot as a key. It makes the same checks as a touch on the glass,
+ * acts on the zone of the screen on top `at` is in, is not counted in
+ * InputStatus, and its `lastEvent` starts "api ". Refused, with nothing
+ * queued, wherever a touch on the glass would do nothing.
  */
-InputTouchResult inputTouchFromApi(TouchGestureEvent event);
+InputTouchResult inputTouchFromApi(TouchGestureEvent event, TouchPoint at,
+                                   TouchPoint to);
+
+/* A zone of the screen on show, and its name, for GET /api/screen. */
+typedef struct {
+  TouchZone zone;
+  const char *name;
+} InputZone;
+
+/* The zones of the screen on show: writes no more than `max` and returns
+ * how many, 0 on a screen a touch does nothing on, and while the panel is
+ * dark or held by a screen a touch does nothing on. */
+int inputScreenZones(InputZone *out, int max);
 
 /*
  * How many times a person has touched the radio.

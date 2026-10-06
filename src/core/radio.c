@@ -470,6 +470,13 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       return RADIO_OK;
     }
 
+    case RADIO_TUNE_IN_BAND:
+      if (!bandContains(settings->band, plan, command->freqKHz)) {
+        return RADIO_ERR_FREQUENCY;
+      }
+      settings->freqKHz = command->freqKHz;
+      return RADIO_OK;
+
     case RADIO_STEP:
       if (command->steps == 0) {
         return RADIO_OK;

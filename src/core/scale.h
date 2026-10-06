@@ -145,6 +145,21 @@ int scaleTicks(uint32_t lowKHz, uint32_t highKHz, uint32_t tunedKHz, bool fm,
 int scaleSeams(uint32_t lowKHz, uint32_t highKHz, uint32_t tunedKHz, bool fm,
                int16_t widthPx, int16_t *out, int max);
 
+/*
+ * The frequency under the middle after a finger dragged the scale `dxPx`
+ * pixels, `fromKHz` being under it when the drag began. The scale moves with
+ * the finger, so a drag to the left brings higher frequencies to the middle:
+ * a tick, 100 kHz on FM and 10 kHz on AM, for every SCALE_TICK_PX, counted
+ * towards zero so a finger has to move a whole tick before the dial does.
+ * Round the loop as the scale draws it, from `highKHz` on to `lowKHz`; a drag
+ * that ends in the gap the scale draws between the two lands on the nearer
+ * end.
+ * `fromKHz` itself for a band with no tick in it. Not on any band's channel
+ * grid: the caller snaps it to that.
+ */
+uint32_t scaleDragKHz(uint32_t lowKHz, uint32_t highKHz, uint32_t fromKHz,
+                      bool fm, int32_t dxPx);
+
 #ifdef __cplusplus
 }
 #endif

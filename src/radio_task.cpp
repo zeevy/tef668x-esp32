@@ -1082,8 +1082,8 @@ static RadioError takeAutoStep(RadioRound *r, const QueueItem *item) {
  * tuned somewhere by hand it is no longer true. */
 static RadioError takeCommand(RadioRound *r, const QueueItem *item) {
   seekWalkEnd(&sSeek, false);
-  if (item->kind == RADIO_TUNE || item->kind == RADIO_SET_BAND ||
-      item->kind == RADIO_CYCLE_BAND) {
+  if (item->kind == RADIO_TUNE || item->kind == RADIO_TUNE_IN_BAND ||
+      item->kind == RADIO_SET_BAND || item->kind == RADIO_CYCLE_BAND) {
     r->jumped = true;
   }
   const uint32_t was = r->wanted.freqKHz;

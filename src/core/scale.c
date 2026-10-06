@@ -152,3 +152,24 @@ int scaleSeams(uint32_t lowKHz, uint32_t highKHz, uint32_t tunedKHz, bool fm,
   }
   return n;
 }
+
+uint32_t scaleDragKHz(uint32_t lowKHz, uint32_t highKHz, uint32_t fromKHz,
+                      bool fm, int32_t dxPx) {
+  const int64_t tick = tickKHz(fm);
+  const int64_t ticks = -(int64_t)dxPx / SCALE_TICK_PX;
+  int64_t first = 0;
+  int64_t count = 0;
+  if (ticks == 0 || !bandTicks(lowKHz, highKHz, tick, &first, &count)) {
+    return fromKHz;
+  }
+  /* Round the band's own edges, with the gap the scale draws between its
+   * last tick and its first, SCALE_SEAM_TICKS + 1 ticks, between the top
+   * and the bottom. */
+  const int64_t top = (int64_t)highKHz - lowKHz;
+  const int64_t gap = (SCALE_SEAM_TICKS + 1) * tick;
+  int64_t at = floorMod((int64_t)fromKHz - lowKHz + ticks * tick, top + gap);
+  if (at > top) {
+    at = (at - top) * 2 < gap ? top : 0;
+  }
+  return (uint32_t)(lowKHz + at);
+}

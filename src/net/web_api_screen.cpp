@@ -93,6 +93,16 @@ static void handleApiScreenGet(void) {
            screenTaskBacklightState(NULL) ? "true" : "false",
            themeCurrent()->name);
   sWeb->server.sendContent(line);
+  /* Then the parts a touch acts on, before what is drawn. */
+  InputZone zones[16];
+  const int n = inputScreenZones(zones, 16);
+  for (int i = 0; i < n; i++) {
+    snprintf(line, sizeof(line),
+             "{\"zone\":\"%s\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d}\n",
+             zones[i].name, zones[i].zone.x, zones[i].zone.y, zones[i].zone.w,
+             zones[i].zone.h);
+    sWeb->server.sendContent(line);
+  }
   uiReadPanel(sendText, sendBox, NULL);
   sWeb->server.sendContent("");
 }
@@ -153,7 +163,8 @@ static void handleApiKey(void) {
 /*
  * POST /api/touch. A gesture on the screen, as if made on the glass: `x`
  * and `y` in screen pixels, and `g` tap, hold, swipe-left, swipe-right,
- * swipe-up or swipe-down, where a swipe starts. Handled at the next input
+ * swipe-up or swipe-down, where a swipe starts, or drag from there to `x2`,
+ * `y2`. Handled at the next input
  * poll like a key; `inp.lst` then says what it did: "api touch tap" and the
  * like, or "api DX scan stopped" or "api typed number cleared" when that is
  * all it did. Refused, with the reason, wherever a finger on the glass would
@@ -168,7 +179,8 @@ static void handleApiTouch(void) {
                    {"swipe-left", TOUCH_SWIPE_LEFT},
                    {"swipe-right", TOUCH_SWIPE_RIGHT},
                    {"swipe-up", TOUCH_SWIPE_UP},
-                   {"swipe-down", TOUCH_SWIPE_DOWN}};
+                   {"swipe-down", TOUCH_SWIPE_DOWN},
+                   {"drag", TOUCH_DRAG}};
   if (!requireAuth(false)) {
     return;
   }
@@ -190,10 +202,18 @@ static void handleApiTouch(void) {
   if (event == TOUCH_NOTHING) {
     apiFail(400,
             "Give g, one of tap hold swipe-left swipe-right swipe-up "
-            "swipe-down.");
+            "swipe-down drag.");
     return;
   }
-  switch (inputTouchFromApi(event)) {
+  long x2 = x;
+  long y2 = y;
+  if (event == TOUCH_DRAG && (!apiNumber("x2", &x2, 0, DISPLAY_WIDTH - 1) ||
+                              !apiNumber("y2", &y2, 0, DISPLAY_HEIGHT - 1))) {
+    return;
+  }
+  const TouchPoint at = {(int16_t)x, (int16_t)y};
+  const TouchPoint to = {(int16_t)x2, (int16_t)y2};
+  switch (inputTouchFromApi(event, at, to)) {
     case INPUT_TOUCH_TAKEN:
       break;
     case INPUT_TOUCH_BUSY:
@@ -209,6 +229,12 @@ static void handleApiTouch(void) {
       return;
     case INPUT_TOUCH_CALIBRATING:
       apiFail(409, "The calibration screen takes only a finger on the glass.");
+      return;
+    case INPUT_TOUCH_NOT_HERE:
+      apiFail(409,
+              "A finger cannot make that there. A drag starts on a part that "
+              "follows one and moves more than 16 px, and such a part takes "
+              "no swipe.");
       return;
   }
   sWeb->server.send(200, "text/plain",

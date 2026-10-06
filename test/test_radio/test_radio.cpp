@@ -61,6 +61,31 @@ static void tuning_across_a_band_edge_brings_the_step_size_with_it(void) {
   TEST_ASSERT_TRUE(bandStepAllowed(r.band, &plan, r.stepKHz));
 }
 
+/* SW's bottom lies under MW's top: a plain tune there goes to MW, a tune
+ * in band stays on SW, and one off the band is refused. */
+static void tuning_in_band_keeps_the_band(void) {
+  RadioCommand c = {};
+  c.kind = RADIO_SET_BAND;
+  c.band = BAND_SW;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  TEST_ASSERT_TRUE(bandLimits(BAND_SW, &plan, &lo, &hi));
+  TEST_ASSERT_TRUE(bandContains(BAND_MW, &plan, lo));
+  c.kind = RADIO_TUNE_IN_BAND;
+  c.freqKHz = lo;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_INT(BAND_SW, r.band);
+  TEST_ASSERT_EQUAL_UINT32(lo, r.freqKHz);
+  c.freqKHz = lo - 1;
+  TEST_ASSERT_EQUAL_INT(RADIO_ERR_FREQUENCY, apply(c));
+  TEST_ASSERT_EQUAL_UINT32(lo, r.freqKHz);
+  c.kind = RADIO_TUNE;
+  c.freqKHz = lo;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+}
+
 static void changing_band_lands_somewhere_inside_it(void) {
   for (int b = 0; b < BAND_COUNT; b++) {
     radioDefaults(&r, &plan);
@@ -2144,6 +2169,7 @@ int main(int, char **) {
   RUN_TEST(tuning_to_a_frequency_works);
   RUN_TEST(tuning_somewhere_that_is_in_no_band_is_refused);
   RUN_TEST(tuning_across_a_band_edge_brings_the_step_size_with_it);
+  RUN_TEST(tuning_in_band_keeps_the_band);
   RUN_TEST(changing_band_lands_somewhere_inside_it);
   RUN_TEST(changing_to_something_that_is_not_a_band_is_refused);
   RUN_TEST(stepping_moves_by_the_step_size);

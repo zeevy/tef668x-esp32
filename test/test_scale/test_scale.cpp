@@ -327,6 +327,59 @@ static void a_band_with_no_tick_has_no_scale(void) {
       0, scaleSeams(101, 109, 105, false, ROW, x, SCALE_MAX_SEAMS));
 }
 
+/* A drag moves the dial a tick for every 8 pixels, to the left to go up,
+ * and does nothing until a whole tick has been crossed. */
+static void a_drag_moves_a_tick_every_8_pixels(void) {
+  TEST_ASSERT_EQUAL_UINT32(98000,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 98000, true, -7));
+  TEST_ASSERT_EQUAL_UINT32(98000,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 98000, true, 7));
+  TEST_ASSERT_EQUAL_UINT32(98100,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 98000, true, -8));
+  TEST_ASSERT_EQUAL_UINT32(97900,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 98000, true, 8));
+  TEST_ASSERT_EQUAL_UINT32(98200,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 98000, true, -23));
+  TEST_ASSERT_EQUAL_UINT32(1009, scaleDragKHz(MW_LOW, MW_HIGH, 999, false, -8));
+}
+
+/* A dial between two ticks keeps its offset from them. */
+static void a_drag_keeps_the_offset_between_ticks(void) {
+  TEST_ASSERT_EQUAL_UINT32(106550,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 106450, true, -8));
+  TEST_ASSERT_EQUAL_UINT32(106350,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 106450, true, 8));
+}
+
+/* Past either end the drag goes round, through the gap the scale draws
+ * between the ends, onto whichever end is nearer. */
+static void a_drag_goes_round_the_band(void) {
+  TEST_ASSERT_EQUAL_UINT32(FM_HIGH,
+                           scaleDragKHz(FM_LOW, FM_HIGH, 107900, true, -16));
+  TEST_ASSERT_EQUAL_UINT32(FM_HIGH,
+                           scaleDragKHz(FM_LOW, FM_HIGH, FM_HIGH, true, -16));
+  TEST_ASSERT_EQUAL_UINT32(FM_LOW,
+                           scaleDragKHz(FM_LOW, FM_HIGH, FM_HIGH, true, -24));
+  TEST_ASSERT_EQUAL_UINT32(FM_LOW,
+                           scaleDragKHz(FM_LOW, FM_HIGH, FM_LOW, true, 8));
+  TEST_ASSERT_EQUAL_UINT32(FM_HIGH,
+                           scaleDragKHz(FM_LOW, FM_HIGH, FM_LOW, true, 24));
+  TEST_ASSERT_EQUAL_UINT32(87600,
+                           scaleDragKHz(FM_LOW, FM_HIGH, FM_HIGH, true, -48));
+  /* The band's bottom is reached even where it is not on a tick: MW starts
+   * at 522 and its first tick is 530. */
+  TEST_ASSERT_EQUAL_UINT32(MW_LOW,
+                           scaleDragKHz(MW_LOW, MW_HIGH, 531, false, 8));
+  TEST_ASSERT_EQUAL_UINT32(532,
+                           scaleDragKHz(MW_LOW, MW_HIGH, MW_LOW, false, -8));
+}
+
+/* A band with no tick in it, or no band, leaves the dial where it is. */
+static void a_drag_on_a_band_with_no_tick_stays(void) {
+  TEST_ASSERT_EQUAL_UINT32(105, scaleDragKHz(101, 109, 105, false, -80));
+  TEST_ASSERT_EQUAL_UINT32(500, scaleDragKHz(600, 500, 500, false, -80));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(a_number_too_big_for_a_tick_is_left_blank);
@@ -347,5 +400,9 @@ int main(int, char **) {
   RUN_TEST(no_band_or_no_row_has_no_scale);
   RUN_TEST(the_peak_reach_holds_every_peak_mark);
   RUN_TEST(a_band_with_no_tick_has_no_scale);
+  RUN_TEST(a_drag_moves_a_tick_every_8_pixels);
+  RUN_TEST(a_drag_keeps_the_offset_between_ticks);
+  RUN_TEST(a_drag_goes_round_the_band);
+  RUN_TEST(a_drag_on_a_band_with_no_tick_stays);
   return UNITY_END();
 }

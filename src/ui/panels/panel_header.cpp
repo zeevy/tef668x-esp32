@@ -212,4 +212,17 @@ static void show(const ScreenState *s) {
   }
 }
 
-const Panel panelHeader = {begin, show};
+/* The band name half, which steps the band as BAND does, and the status
+ * half, which opens the menu as the knob's press does. */
+static int zones(const PanelRect *at, TouchZone *out, int max) {
+  if (max < 2) {
+    return 0;
+  }
+  const int16_t half = (int16_t)(at->w / 2);
+  out[0] = {at->x, at->y, half, at->h, RADIO_ZONE_BAND};
+  out[1] = {(int16_t)(at->x + half), at->y, (int16_t)(at->w - half), at->h,
+            RADIO_ZONE_MENU};
+  return 2;
+}
+
+const Panel panelHeader = {begin, show, zones};

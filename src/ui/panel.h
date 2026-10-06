@@ -33,9 +33,15 @@ typedef void (*PanelBeginFn)(lv_obj_t *parent, const PanelRect *at);
 /* Write the state into the objects. Called on every update. */
 typedef void (*PanelShowFn)(const ScreenState *state);
 
+/* The parts of the panel at `at` a touch can act on, as RadioZone ids:
+ * writes no more than `max` and returns how many. Kept beside the drawing,
+ * so a touch lands where the thing it acts on is drawn. */
+typedef int (*PanelZonesFn)(const PanelRect *at, TouchZone *out, int max);
+
 typedef struct {
   PanelBeginFn begin;
   PanelShowFn show;
+  PanelZonesFn zones; /* NULL for a panel a touch does nothing on. */
 } Panel;
 
 /* One row of a layout table. */
