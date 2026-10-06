@@ -31,7 +31,8 @@ SCREENS = [
     # The RDS pages.
     "rds-station", "touch-rds", "rds-text", "rds-networks", "rds-decoder",
     # DX mode.
-    "dx-station", "touch-dx", "dx-scope", "dx-scan-run", "dx-catches",
+    "dx-station", "touch-dx", "dx-scope", "touch-scope", "dx-scan-run",
+    "dx-catches",
     # The menu.
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "touch-value",
     "menu-theme", "touch-picker", "menu-presets",

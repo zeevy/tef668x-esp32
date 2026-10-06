@@ -22,6 +22,9 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor);
  * channel it is on, false with no sweep. */
 void screenTaskDxScopeReset(void);
 void screenTaskDxScopeTurn(int32_t clicks);
+/* The cursor straight to `channel`, the last one past the end, for a finger
+ * on the chart. */
+void screenTaskDxScopeSet(uint16_t channel);
 bool screenTaskDxScopeCursorKHz(uint32_t *khz);
 
 #endif /* SCREEN_TASK_DX_H */

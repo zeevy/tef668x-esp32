@@ -391,3 +391,29 @@ void screenScopeEnd(void) {
   free(sUi);
   sUi = NULL;
 }
+
+int screenScopeZones(TouchZone *out, int max) {
+  if (sUi == NULL || max < 4 || screenDxZones(out, max, false) < 3) {
+    return 0;
+  }
+  /* The chart with its strip and axis down to two rows above the tile, and
+   * the tile to the foot. */
+  const int16_t top = out[2].y;
+  const int16_t foot = (int16_t)(TILE_Y - 2);
+  out[2] = {0, top, SCOPE_W, (int16_t)(foot - top), DX_ZONE_CHART};
+  out[3] = {0, foot, SCOPE_W, (int16_t)(SCOPE_H - foot), DX_ZONE_FOOT};
+  return 4;
+}
+
+int32_t screenScopeChannelAt(int16_t x) {
+  if (sUi == NULL || sUi->shown.count == 0) {
+    return -1;
+  }
+  /* The other way round from where columnX starts a channel: the last one
+   * starting at or before the pixel under the finger. */
+  const int32_t n = sUi->shown.count;
+  const int32_t inner = BOX_W - 2 * INSET;
+  const int32_t at = (int32_t)x - BOX_X - INSET;
+  const int32_t i = at < 0 ? 0 : ((at + 1) * n - 1) / inner;
+  return i < n ? i : n - 1;
+}
