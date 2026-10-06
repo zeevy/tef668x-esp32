@@ -152,6 +152,9 @@ typedef struct {
   InputKey key;
   ButtonEvent event;
   int32_t clicks; /* Not 0 for a turn of the knob, which has no key. */
+#if FEATURE_TOUCH
+  TouchGestureEvent touch; /* Not TOUCH_NOTHING for a touch, which has none. */
+#endif
 } ApiInput;
 static ApiInput sApi;
 /* While one is handled, so its note says where it came from. */
@@ -184,6 +187,20 @@ static bool panelIsDimmed(void) {
   return screenTaskBacklightState(NULL) || screenTaskSleepShowing() ||
          screenTaskBootSkip() || screenTaskUpdateSkip();
 }
+
+#if FEATURE_TOUCH
+/*
+ * Whether a touch does nothing now: the panel dark, the radio going to
+ * sleep, the boot screen up, or a firmware write or its failure message
+ * holding the panel. Asked on every poll, so it only looks: panelIsDimmed
+ * also ends the boot hold and closes the failure message, which is what a
+ * key there is for, not a finger.
+ */
+static bool touchIgnored(void) {
+  return screenTaskBacklightState(NULL) || screenTaskSleepShowing() ||
+         screenTaskBootShowing() || screenTaskUpdateHolding();
+}
+#endif
 
 static void clearTyped(void) {
   sTypedLen = 0;
@@ -1537,6 +1554,10 @@ uint32_t inputActivity(void) {
   return sActivity;
 }
 
+#if FEATURE_TOUCH
+static bool onTouch(TouchGestureEvent event, bool first, uint32_t nowMs);
+#endif
+
 static void pollApi(uint32_t nowMs) {
   if (!sApi.pending) {
     return;
@@ -1544,6 +1565,13 @@ static void pollApi(uint32_t nowMs) {
   const ApiInput in = sApi;
   sApi.pending = false;
   sFromApi = true;
+#if FEATURE_TOUCH
+  if (in.touch != TOUCH_NOTHING) {
+    (void)onTouch(in.touch, true, nowMs);
+    sFromApi = false;
+    return;
+  }
+#endif
   if (in.clicks != 0) {
     onTurn(in.clicks, nowMs);
   } else if (in.key == INPUT_KEY_ENTER) {
@@ -1611,40 +1639,42 @@ static const char *const kGestureName[] = {
     "swipe left", "swipe right", "swipe up", "swipe down"};
 
 /*
- * One thing a finger did.
+ * One thing a finger did, from the glass or from POST /api/touch. `first`
+ * is whether it is the first event of its gesture.
  *
  * The checks a key makes for itself are made once for the whole gesture, on
  * its first event, since a drag is many events: the beep by Key Beeps, a tap
  * as a short press and a hold as a long one; a running DX scan, which any
  * touch stops and does nothing else, as any key does; and a number being
- * typed, which a touch clears and does nothing else. A drag is noted once,
- * not on every sample.
+ * typed, which a touch clears and does nothing else. True when it did one of
+ * those two, which is all the gesture does. A drag is noted once, not on
+ * every sample.
  */
-static void onTouch(TouchGestureEvent event, uint32_t nowMs) {
+static bool onTouch(TouchGestureEvent event, bool first, uint32_t nowMs) {
   sActivity++;
-  if (!sGestureSeen) {
-    sGestureSeen = true;
-    sStatus.touchGestures++;
+  if (first) {
+    if (!sFromApi) {
+      sStatus.touchGestures++;
+    }
     const bool hold = event == TOUCH_HOLD;
     if (sBeepMode >= BEEP_EVERY_PRESS ||
         (sBeepMode >= BEEP_KEYS_AND_LONG && hold)) {
       radioBeep(hold ? BEEP_LONG_MS : BEEP_MS);
     }
     if (stopScanFirst()) {
-      sGestureSpent = true;
-      return;
+      return true;
     }
     if (typingInProgress(nowMs)) {
       cancelTyping();
-      sGestureSpent = true;
-      return;
+      return true;
     }
-  } else if (sGestureSpent || event == TOUCH_DRAG) {
-    return;
+  } else if (event == TOUCH_DRAG) {
+    return false;
   }
   char seen[INPUT_EVENT_MAX];
   snprintf(seen, sizeof(seen), "touch %s", kGestureName[event]);
   note(seen);
+  return false;
 }
 
 /*
@@ -1669,8 +1699,10 @@ static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
   s.screen = (uint32_t)inputTop(&dxUnder) << 8 | (uint32_t)dxUnder << 4 | page;
   const TouchGestureEvent event =
       touchGestureFeed(&sGesture, &kGesture, &s, nowMs);
-  if (event != TOUCH_NOTHING) {
-    onTouch(event, nowMs);
+  if (event != TOUCH_NOTHING && !sGestureSpent) {
+    const bool first = !sGestureSeen;
+    sGestureSeen = true;
+    sGestureSpent = onTouch(event, first, nowMs);
   }
   if (!sGesture.on) {
     sGestureSeen = false;
@@ -1697,10 +1729,11 @@ static void pollTouch(uint32_t nowMs) {
   }
   /* Touch is not read while the panel is dark, and does not wake it: a
    * pocket or a bag can press the glass, and the knob, a key or the volume
-   * knob wake it. Nor during a level sweep, so its readings cannot take in
+   * knob wake it. The same while the boot screen, the going to sleep screen
+   * or an update holds the panel, which a key ends. Nor during a level sweep, so its readings cannot take in
    * the chip's clock. The calibration screen is read whatever: a person is
    * holding a mark. */
-  const bool resting = !calOpen && (panelIsDimmed() || radioSweepBusy());
+  const bool resting = !calOpen && (touchIgnored() || radioSweepBusy());
   const bool pen = touchPenDown();
   /* A finger already down when touch comes on did not go down now. */
   if (pen && !sStatus.touchPen && wasOn) {
@@ -1808,6 +1841,9 @@ bool inputPressFromApi(InputKey key, ButtonEvent event) {
   sApi.key = key;
   sApi.event = event;
   sApi.clicks = 0;
+#if FEATURE_TOUCH
+  sApi.touch = TOUCH_NOTHING;
+#endif
   sApi.pending = true;
   return true;
 }
@@ -1817,8 +1853,35 @@ bool inputTurnFromApi(int32_t clicks) {
     return false;
   }
   sApi.clicks = clicks;
+#if FEATURE_TOUCH
+  sApi.touch = TOUCH_NOTHING;
+#endif
   sApi.pending = true;
   return true;
+}
+
+InputTouchResult inputTouchFromApi(TouchGestureEvent event) {
+#if FEATURE_TOUCH
+  if (sApi.pending) {
+    return INPUT_TOUCH_BUSY;
+  }
+  if (!sTouchOn) {
+    return INPUT_TOUCH_OFF;
+  }
+  if (screenTaskTouchCalIsOpen()) {
+    return INPUT_TOUCH_CALIBRATING;
+  }
+  if (touchIgnored()) {
+    return INPUT_TOUCH_NOT_NOW;
+  }
+  sApi.touch = event;
+  sApi.clicks = 0;
+  sApi.pending = true;
+  return INPUT_TOUCH_TAKEN;
+#else
+  (void)event;
+  return INPUT_TOUCH_OFF;
+#endif
 }
 
 void inputStatusGet(InputStatus *out) {
