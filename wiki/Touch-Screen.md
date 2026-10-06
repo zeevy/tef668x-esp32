@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists and its lists of choices can be worked by touch, below. The other screens, a value with a bar, the Web PIN, the Restart Radio question, the bandwidth page, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer, the bandwidth page, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -33,6 +33,14 @@ On the list of groups, on the rows of a group, and on a list of choices, such as
 | The list | Swipe up or down | The next or the previous six rows. The list stops at its first and last row |
 
 A touch belongs to the list it started on: if the list changes before the finger lifts, the touch does nothing.
+
+On a value with a bar, such as Brightness or Squelch Floor:
+
+| Where | Touch | Does |
+|---|---|---|
+| The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then turn the knob for the last step |
+| The amber panel | Tap | Keeps the value, as a press of the tuning knob |
+| The top line, with the title | Tap | Back: the old value comes back |
 
 ## What any touch does
 

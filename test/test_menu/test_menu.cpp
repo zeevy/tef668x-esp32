@@ -513,6 +513,31 @@ static void a_page_moves_a_whole_window_and_stops_at_the_ends(void) {
   TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(3, 4, 6, -1));
 }
 
+/* A finger on the bar: the drawn stub at the low end is the low end, the
+ * rest rounds as the fill does, and off either end is that end. */
+static void a_finger_on_the_bar_reads_the_value_drawn_there(void) {
+  TEST_ASSERT_EQUAL_INT32(5, menuBarValue(-4, 296, 12, 5, 100));
+  TEST_ASSERT_EQUAL_INT32(5, menuBarValue(12, 296, 12, 5, 100));
+  TEST_ASSERT_EQUAL_INT32(50, menuBarValue(140, 296, 12, 5, 100));
+  TEST_ASSERT_EQUAL_INT32(100, menuBarValue(296, 296, 12, 5, 100));
+  TEST_ASSERT_EQUAL_INT32(100, menuBarValue(400, 296, 12, 5, 100));
+  /* Signed, as the level offsets are. */
+  TEST_ASSERT_EQUAL_INT32(-5, menuBarValue(148, 296, 12, -25, 15));
+  TEST_ASSERT_EQUAL_INT32(7, menuBarValue(0, 0, 12, 7, 9));
+}
+
+/* Turns to the nearest step, and all the way to an end from off the grid. */
+static void the_bar_turns_in_whole_steps_and_reaches_both_ends(void) {
+  TEST_ASSERT_EQUAL_INT32(13, menuBarClicks(120, 250, 10, 0, 500));
+  TEST_ASSERT_EQUAL_INT32(-1, menuBarClicks(120, 106, 10, 0, 500));
+  TEST_ASSERT_EQUAL_INT32(0, menuBarClicks(120, 124, 10, 0, 500));
+  /* Auto Off at 92 in steps of 5 from 0 to 600: both ends reached. */
+  TEST_ASSERT_EQUAL_INT32(-19, menuBarClicks(92, 0, 5, 0, 600));
+  TEST_ASSERT_EQUAL_INT32(102, menuBarClicks(93, 600, 5, 0, 600));
+  TEST_ASSERT_EQUAL_INT32(-2, menuBarClicks(-5, -25, 10, -25, 15));
+  TEST_ASSERT_EQUAL_INT32(3, menuBarClicks(1, 4, 0, 0, 9));
+}
+
 static void the_window_moves_only_when_the_cursor_would_leave_it(void) {
   /* Nine rows, five visible. Walking down from the top: the window holds
    * still for the first five and then follows one row at a time. */
@@ -647,6 +672,8 @@ int main(int argc, char **argv) {
 
   RUN_TEST(a_short_list_never_scrolls);
   RUN_TEST(a_page_moves_a_whole_window_and_stops_at_the_ends);
+  RUN_TEST(a_finger_on_the_bar_reads_the_value_drawn_there);
+  RUN_TEST(the_bar_turns_in_whole_steps_and_reaches_both_ends);
   RUN_TEST(the_window_moves_only_when_the_cursor_would_leave_it);
   RUN_TEST(the_last_screen_of_a_list_is_full);
   RUN_TEST(a_window_of_nothing_asks_for_nothing);

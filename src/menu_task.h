@@ -63,6 +63,13 @@ bool menuTaskOpenUpdateOffer(void);
 void menuTaskTapRow(int32_t by);
 
 /*
+ * The value being changed moved to `value`, from a finger on its bar: in
+ * the bar's own units, an index on a row that walks a list, and turned there
+ * in whole steps as the knob turns it, applied as it moves.
+ */
+void menuTaskBarTo(int32_t value);
+
+/*
  * A page of the list or picker on show, for a swipe: the window and the
  * cursor move a whole window on, `dir` 1, or back, -1, stopping at the ends.
  * Nothing on a value with a bar, the PIN, the Restart question or a dialog.

@@ -220,6 +220,23 @@ uint8_t menuWindowTop(uint8_t cursor, uint8_t count, uint8_t visible,
  */
 uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir);
 
+/*
+ * The value under a finger `at` pixels along a bar `width` wide that runs
+ * from `low` to `high`, with the same rounding the fill is drawn with. The
+ * fill is drawn at least `stub` wide, so a finger on that stub is on `low`,
+ * the value it shows. Off either end, that end.
+ */
+int32_t menuBarValue(int32_t at, int32_t width, int32_t stub, int32_t low,
+                     int32_t high);
+
+/*
+ * The clicks that turn a value `now` to `want`, `step` a click, to the
+ * nearest step; to `low` or `high` themselves all the way, so a value that
+ * is off the step grid still reaches the end the finger is on.
+ */
+int32_t menuBarClicks(int32_t now, int32_t want, int32_t step, int32_t low,
+                      int32_t high);
+
 /* Whether the menu owns the panel. */
 bool menuIsOpen(const Menu *m);
 

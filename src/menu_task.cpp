@@ -3043,6 +3043,19 @@ void menuTaskTapRow(int32_t by) {
   menuTaskPress();
 }
 
+void menuTaskBarTo(int32_t value) {
+  const MenuRow *row = rowAt(sMenu.row);
+  if (sMenu.level != MENU_EDIT || row == NULL || !hasRange(row) ||
+      pinEditing()) {
+    return;
+  }
+  /* In whole steps from where it is, so it stays on the row's own grid. */
+  const bool listed = rowIsListed(row);
+  menuTaskTurn(menuBarClicks(sMenu.value, value, listed ? 1 : row->step,
+                             listed ? 0 : rowMin(row),
+                             listed ? rowChoiceCount(row) - 1 : rowMax(row)));
+}
+
 void menuTaskPage(int dir) {
   if (!menuIsOpen(&sMenu) || sChoice.active || pinEditing()) {
     return;
