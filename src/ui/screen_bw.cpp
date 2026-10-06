@@ -49,6 +49,10 @@ typedef struct {
   lv_obj_t *tile[SCREEN_BW_TILES];
   lv_obj_t *label[SCREEN_BW_TILES];
   lv_obj_t *note;
+  /* Where each tile shown sits, for the touch zones. */
+  uint8_t count;
+  int16_t x[SCREEN_BW_TILES];
+  int16_t y[SCREEN_BW_TILES];
 } BwUi;
 static BwUi *sUi;
 
@@ -117,6 +121,8 @@ void screenBwShow(const ScreenBw *s) {
     int16_t x = 0;
     int16_t y = 0;
     place(s, i, &x, &y);
+    sUi->x[i] = x;
+    sUi->y[i] = y;
     lv_obj_set_pos(tile, x, y);
     uiSetBgColour(tile, k->filled ? t->radio : t->rule);
     /* The ring is the cursor: amber on a plain tile, white on an amber
@@ -133,6 +139,7 @@ void screenBwShow(const ScreenBw *s) {
     uiBaseline(label, &roboto_text, (int16_t)(x + (TILE_W - tw) / 2),
                (int16_t)(y + TILE_BASE));
   }
+  sUi->count = s->count < SCREEN_BW_TILES ? s->count : SCREEN_BW_TILES;
   uiSetOrHide(sUi->note, s->note);
   if (s->note != NULL) {
     uiBaseline(sUi->note, &roboto_label, UI_MARGIN, NOTE_BASE);
@@ -146,4 +153,30 @@ void screenBwEnd(void) {
   uiDropRoot(&sUi->root);
   free(sUi);
   sUi = NULL;
+}
+
+int screenBwZones(TouchZone *out, int max) {
+  if (sUi == NULL || max < 1 + sUi->count) {
+    return 0;
+  }
+  /* Each tile's zone reaches halfway across the gaps round it, and the
+   * header's down to the first row's. */
+  const int16_t padX = TILE_GAP / 2;
+  const int16_t padY = (ROW_PITCH - TILE_H) / 2;
+  out[0] = {0, 0, BW_W, (int16_t)(GRID_TOP - padY), BW_ZONE_BACK};
+  for (uint8_t i = 0; i < sUi->count; i++) {
+    out[1 + i] = {(int16_t)(sUi->x[i] - padX), (int16_t)(sUi->y[i] - padY),
+                  (int16_t)(TILE_W + 2 * padX), ROW_PITCH,
+                  (uint8_t)(BW_ZONE_TILE + i)};
+  }
+  return 1 + sUi->count;
+}
+
+const char *screenBwZoneName(int id) {
+  static const char *const kNames[] = {
+      "",       "back",   "tile1",  "tile2",  "tile3",  "tile4",  "tile5",
+      "tile6",  "tile7",  "tile8",  "tile9",  "tile10", "tile11", "tile12",
+      "tile13", "tile14", "tile15", "tile16", "tile17", "tile18", "tile19"};
+  return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
+                                                                  : "";
 }

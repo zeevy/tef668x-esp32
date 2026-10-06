@@ -1079,6 +1079,23 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
 }
 
 /*
+ * The bandwidth page by touch: a tile tapped is turned to and picked, as the
+ * knob and its press would, and the page stays up so widths can be compared
+ * by ear; the header closes it as MODE does.
+ */
+static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
+                    bool dxUnder) {
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  if (zone == BW_ZONE_BACK) {
+    bwMode(BUTTON_SHORT, dxUnder);
+  } else {
+    screenTaskBwTap((uint8_t)(zone - BW_ZONE_TILE));
+  }
+}
+
+/*
  * The menu by touch: a row tapped is turned to and pressed, as the knob
  * would, the header is Back as MODE is, and a swipe up or down pages the
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
@@ -1159,7 +1176,12 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #endif
     },
     /* TOP_BW */
-    {bwTurn, bwPress, NULL, bwBandwidth, bwMode, bwEnter, bwKey},
+    {bwTurn, bwPress, NULL, bwBandwidth, bwMode, bwEnter, bwKey
+#if FEATURE_TOUCH
+     ,
+     bwTouch, screenBwZones, screenBwZoneName, 0
+#endif
+    },
     /* TOP_RDS */
     {rdsTurn, rdsPress, rdsBand, rdsBandwidth, rdsMode, rdsEnter, rdsKey},
     /* TOP_DX */
@@ -1806,9 +1828,6 @@ static void touchRest(void) {
 static const char *const kGestureName[] = {
     "",           "tap",         "hold",     "drag",      "drag end",
     "swipe left", "swipe right", "swipe up", "swipe down"};
-
-/* The most zones a screen has. */
-#define TOUCH_ZONES_MAX 16
 
 /*
  * One thing a finger did, from the glass or from POST /api/touch: `first`

@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer, the bandwidth page, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, and the bandwidth page can be worked by touch, below. The other screens, the Web PIN, the Restart Radio question, the update offer, the RDS screen and DX mode, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -41,6 +41,18 @@ On a value with a bar, such as Brightness or Squelch Floor:
 | The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then turn the knob for the last step |
 | The amber panel | Tap | Keeps the value, as a press of the tuning knob |
 | The top line, with the title | Tap | Back: the old value comes back |
+
+## The bandwidth page
+
+![The parts of the bandwidth page a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-bw.png)
+
+| Where | Touch | Does |
+|---|---|---|
+| A width | Tap | Uses that width, as turning the tuning knob to it and pressing. The page stays up, so widths can be compared by ear |
+| iMS or EQ, on FM | Tap | Turns the switch on or off |
+| The top line, with the title | Tap | Closes the page, as a tap of MODE. Over DX mode, back to the DX page |
+
+Over DX mode the page sets DX mode's own width and has no AUTO.
 
 ## What any touch does
 

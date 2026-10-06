@@ -94,8 +94,8 @@ static void handleApiScreenGet(void) {
            themeCurrent()->name);
   sWeb->server.sendContent(line);
   /* Then the parts a touch acts on, before what is drawn. */
-  InputZone zones[16];
-  const int n = inputScreenZones(zones, 16);
+  InputZone zones[TOUCH_ZONES_MAX];
+  const int n = inputScreenZones(zones, TOUCH_ZONES_MAX);
   for (int i = 0; i < n; i++) {
     snprintf(line, sizeof(line),
              "{\"zone\":\"%s\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d}\n",
