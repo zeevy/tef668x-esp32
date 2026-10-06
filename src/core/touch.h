@@ -1,7 +1,8 @@
 /*
- * Touch points: from the touch controller's raw readings to a pixel, from a
- * pixel to the zone of the screen under it, and from a run of pixels to a
- * gesture: a tap, a hold, a drag or a swipe.
+ * Touch points: from the touch controller's raw readings to a steady point,
+ * from a raw point to a pixel, from a pixel to the zone of the screen under
+ * it, and from a run of pixels to a gesture: a tap, a hold, a drag or a
+ * swipe.
  *
  * The XPT2046 under the glass gives two 12 bit readings, 0 to 4095, that
  * grow across the glass. Which reading runs along the screen's width, and
@@ -22,8 +23,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
-#include "input.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -146,21 +145,88 @@ bool touchZonesValid(const TouchZone *zones, int n);
 int touchZoneAt(const TouchZone *zones, int n, TouchPoint p);
 
 /*
- * What a finger did, worked out from the samples of one touch.
+ * The weakest reading that is contact. With nothing on the glass the chip's
+ * first contact reading, Z1, reads 0 to 5, a reading taken as a finger lifts
+ * among them; the weakest real touch measured, a fingertip at a corner that
+ * reads poorly, read 86. A reading under this is no contact, however the pen
+ * line looked.
+ */
+#define TOUCH_Z1_MIN 40
+
+/* One poll of the touch chip. */
+typedef struct {
+  bool pen;       /* The chip's pen line says something is down. */
+  bool read;      /* A reading was taken this poll. Never without `pen`. */
+  TouchPoint raw; /* The reading's raw x and y, when `read`. */
+  uint16_t z1;    /* Its first contact reading, when `read`. */
+} TouchReading;
+
+/*
+ * Raw readings made steady, one contact at a time. Zero it before first
+ * use.
+ *
+ * The first readings of a contact, while the finger lands, and the last,
+ * while it lifts, can sit up to 18 px off where it is; from the third last
+ * inwards they sat within 10. So the point is the median of the latest three
+ * good readings, x and y each on its own, which leaves out any one reading
+ * far from the other two. Before three have come, the point is the middle of
+ * two or the one, and is not yet settled: about one tap in fifty gives fewer
+ * than three readings in all.
+ */
+typedef struct {
+  TouchPoint keep[3]; /* The latest good readings, oldest first. */
+  uint8_t kept;       /* How many of `keep` are filled, up to 3. */
+  bool lastGood;      /* The latest reading was contact. */
+} TouchFilter;
+
+/*
+ * Feed one poll. True while there is contact, with `*at` and `*unsettled`,
+ * if not NULL, set to its steady raw point and whether fewer than three
+ * readings stand behind it. Contact starts with a good reading. A poll with
+ * the pen line down and no reading taken keeps the latest reading's verdict,
+ * so how often the loop polls between readings changes nothing. False for a
+ * NULL filter or reading.
+ */
+bool touchFilterFeed(TouchFilter *f, const TouchReading *r, TouchPoint *at,
+                     bool *unsettled);
+
+/*
+ * How long contact can break and still be the same touch. A finger swiping
+ * lifted for 134 ms mid-swipe in one swipe of ten measured, and the pen
+ * line chatters for under 5 ms inside a tap. So a lift is only a lift once
+ * this long has passed with no contact, and a tap is reported that long
+ * after the finger lifts.
+ */
+#define TOUCH_LIFT_BRIDGE_MS 150
+
+/*
+ * How long a touch is held still before it is a hold. Taps measured on this
+ * glass lasted up to 1.2 s, the slow ones at the corners, and natural holds
+ * 2.3 s or more; the keys' 0.6 s would have made 18 taps of 137 into holds.
+ * Passed to the gestures as their hold time.
+ */
+#define TOUCH_HOLD_MS 1500
+
+/*
+ * What a finger did, worked out from the steady points of one touch.
  *
  * Every gesture belongs to the zone it started in and to the screen it
- * started on. If the screen changes while the finger is down, the rest of
- * that touch is ignored until it lifts, so the finger that opened a screen
- * cannot also act on the new one.
+ * started on. Where it started is its first settled point: the first
+ * readings of a contact can be off, so until then the start and its zone
+ * follow the point, though a move past the swipe distance from the very first
+ * point is a move already. If the screen changes before the touch is over,
+ * the bridge after its lift included, the rest of it is ignored, so the
+ * finger that opened a screen cannot also act on the new one.
  */
 typedef enum {
   TOUCH_NOTHING = 0,
   /* Down and up again before the hold time, never moved further than the
-   * slop, and never off the zone it started in. Reported on the lift, like
-   * a short press of a key. */
+   * slop from its start, and never off its zone. Reported once the lift has
+   * lasted the bridge. */
   TOUCH_TAP,
-  /* Held still to the hold time. Reported once, while still down; nothing
-   * after it, a move or the lift, reports anything. */
+  /* Held still to the hold time, counted from its first contact whatever
+   * breaks it had. Reported once, while still down; nothing after it, a
+   * move, a break or the lift, reports anything. */
   TOUCH_HOLD,
   /* Moved past the slop, in a zone that takes drags. Reported on every
    * sample that moved, so at most once a poll. */
@@ -169,7 +235,8 @@ typedef enum {
   TOUCH_DRAG_END,
   /* Moved past the slop in a zone that does not take drags, and lifted
    * within the swipe time with at least the swipe distance along the axis
-   * it moved most on. The direction is the finger's. */
+   * it moved most on, counted from its very first point. The direction is
+   * the finger's. */
   TOUCH_SWIPE_LEFT,
   TOUCH_SWIPE_RIGHT,
   TOUCH_SWIPE_UP,
@@ -179,55 +246,59 @@ typedef enum {
 /*
  * How far and how fast, in pixels and milliseconds. None of these has a
  * default here: each comes from taps measured on the glass, and the caller
- * passes it. The hold time is the radio's own long press, the ButtonConfig
- * the keys use, so a touch hold and a key hold feel the same, and that
- * config's debounce is how short a break in contact is still one touch.
+ * passes it.
  */
 typedef struct {
-  /* A finger moved more than this along either axis from where it went
-   * down is moving, not tapping or holding. */
+  /* A finger moved more than this along either axis from its start is
+   * moving, not tapping or holding. */
   uint16_t slopPx;
   /* The least travel along its main axis a swipe needs. */
   uint16_t swipePx;
-  /* The longest a swipe takes, from down to up. */
+  /* The longest a swipe takes, from the first contact to the lift. */
   uint16_t swipeMs;
+  /* How long a touch is held still before it is a hold, TOUCH_HOLD_MS. */
+  uint16_t holdMs;
 } TouchGestureConfig;
 
 /* One sample, given every poll whether or not anything changed. */
 typedef struct {
-  bool down;       /* The touch says a finger is on the glass. */
+  bool down;       /* There is contact now, as the filter says. */
   TouchPoint at;   /* Where, in pixels. Read only while `down`. */
+  bool unsettled;  /* Fewer than three readings stand behind `at`. */
   int zone;        /* touchZoneAt for `at`. Read only while `down`. */
   bool zoneDrags;  /* That zone takes drags. Read only while `down`. */
   uint32_t screen; /* Changes whenever another screen is shown. */
 } TouchSample;
 
 /*
- * One touch being followed. Zero it before first use. While a touch is
- * down, `zone` is the zone it started in, `start` where, and `last` the
- * latest point, which is what a drag or a swipe's caller reads.
+ * One touch being followed. Zero it before first use. While a touch is on,
+ * `zone` is the zone it started in, `start` where, and `last` the latest
+ * point, which is what a drag or a swipe's caller reads.
  */
 typedef struct {
-  Button button;   /* Down and up, and the hold time, as the keys have. */
+  bool on;         /* A touch is being followed, down or within the bridge. */
+  bool touching;   /* It had contact at the latest sample. */
   bool done;       /* A hold was reported, or the screen changed: nothing
-                    * more until the lift. */
+                    * more until the lift has lasted the bridge. */
+  bool settled;    /* `start` and `zone` are fixed. */
   bool moved;      /* Past the slop. */
   bool offZone;    /* Left its zone at some point. */
   bool drags;      /* Its zone takes drags. */
   int zone;        /* The zone it started in. */
   uint32_t screen; /* The screen it started on. */
   uint32_t startMs;
+  uint32_t liftMs;
+  TouchPoint origin; /* Its very first point, where a swipe is measured from. */
   TouchPoint start;
   TouchPoint last;
 } TouchGesture;
 
 /*
- * Feed one sample and get what it completed, or TOUCH_NOTHING. NULL for
- * any argument gives TOUCH_NOTHING and changes nothing.
+ * Feed one sample and get what it completed, or TOUCH_NOTHING. NULL for any
+ * argument gives TOUCH_NOTHING and changes nothing.
  */
 TouchGestureEvent touchGestureFeed(TouchGesture *g,
                                    const TouchGestureConfig *cfg,
-                                   const ButtonConfig *hold,
                                    const TouchSample *s, uint32_t nowMs);
 
 #ifdef __cplusplus

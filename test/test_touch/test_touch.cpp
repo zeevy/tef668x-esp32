@@ -7,6 +7,8 @@
 
 #include "core/touch.h"
 
+#include "captures.h"
+
 void setUp(void) {}
 void tearDown(void) {}
 
@@ -466,102 +468,96 @@ static void a_zone_with_no_area_is_refused(void) {
 
 /* ------------------------------------------------------------- gestures */
 
-/* Figures for the tests only. The radio's own come from taps measured on its
- * glass; these just sit far enough apart to test each boundary alone. */
-static const TouchGestureConfig GESTURE = {10, 40, 300};
+/* Figures for the tests only, set far enough apart to test each boundary
+ * alone. The radio's own come from taps measured on its glass. */
+static const TouchGestureConfig GESTURE = {10, 40, 300, TOUCH_HOLD_MS};
 
 static TouchGesture gesture;
-static ButtonConfig holdCfg;
-
-/* Every touch below goes down at 1000, and the 25 ms debounce of the keys'
- * own config makes it start at 1025. */
-#define DOWN_MS 1000u
-#define START_MS 1025u
-
-static TouchGestureEvent feed(bool down, int x, int y, int zone, bool drags,
-                              uint32_t screen, uint32_t ms) {
-  TouchSample s;
-  s.down = down;
-  s.at = pt(x, y);
-  s.zone = zone;
-  s.zoneDrags = drags;
-  s.screen = screen;
-  return touchGestureFeed(&gesture, &GESTURE, &holdCfg, &s, ms);
-}
-
-/* A finger down at (x, y) in `zone` at `ms`, fed until it has started. */
-static void press(int x, int y, int zone, bool drags, uint32_t ms) {
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, x, y, zone, drags, 1, ms));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, x, y, zone, drags, 1, ms + 25));
-}
-
-/* The finger off at `ms`, and what the end of the debounce reports. */
-static TouchGestureEvent lift(uint32_t ms) {
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 1, ms));
-  return feed(false, 0, 0, 0, false, 1, ms + 25);
-}
 
 static void gestureSetUp(void) {
   memset(&gesture, 0, sizeof(gesture));
-  buttonDefaults(&holdCfg);
 }
 
-static void a_tap_is_reported_on_the_lift_only(void) {
+static TouchGestureEvent feedAt(bool down, int x, int y, bool settled, int zone,
+                                bool drags, uint32_t screen, uint32_t ms) {
+  TouchSample s;
+  s.down = down;
+  s.at = pt(x, y);
+  s.unsettled = !settled;
+  s.zone = zone;
+  s.zoneDrags = drags;
+  s.screen = screen;
+  return touchGestureFeed(&gesture, &GESTURE, &s, ms);
+}
+
+/* A settled sample, the usual case. */
+static TouchGestureEvent feed(bool down, int x, int y, int zone, bool drags,
+                              uint32_t screen, uint32_t ms) {
+  return feedAt(down, x, y, true, zone, drags, screen, ms);
+}
+
+/* Every touch below goes down at 1000. */
+#define START_MS 1000u
+
+/* The finger off at `ms`; what the lift reports once it has lasted the
+ * bridge. Nothing before that. */
+static TouchGestureEvent lift(uint32_t ms) {
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 1, ms));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 1,
+                                            ms + TOUCH_LIFT_BRIDGE_MS - 1));
+  return feed(false, 0, 0, 0, false, 1, ms + TOUCH_LIFT_BRIDGE_MS);
+}
+
+static void a_tap_is_reported_once_the_lift_has_lasted_the_bridge(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feed(true, 100, 100, 1, false, 1, START_MS));
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
                         feed(true, 100, 100, 1, false, 1, START_MS + 100));
   TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 200));
   TEST_ASSERT_EQUAL_INT(1, gesture.zone);
 }
 
-/* The hold time is the keys' 600 ms from the start: a lift landing at 599
- * is a tap; still down at 600 is a hold, reported once, and its lift is
- * nothing. */
+/* A lift one under the hold time is a tap; still down at the hold time is a
+ * hold, reported once, and nothing after it. */
 static void the_hold_time_splits_a_tap_from_a_hold(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(false, 100, 100, 1, false, 1, START_MS + 574));
-  TEST_ASSERT_EQUAL_INT(TOUCH_TAP,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 599));
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + TOUCH_HOLD_MS - 1));
 
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 100, 100, 1, false, 1, START_MS + 599));
-  TEST_ASSERT_EQUAL_INT(TOUCH_HOLD,
-                        feed(true, 100, 100, 1, false, 1, START_MS + 600));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 100, 100, 1, false, 1, START_MS + 601));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 100, 100, 1, false, 1, START_MS + 900));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 1000));
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 100, 100, 1, false, 1,
+                                            START_MS + TOUCH_HOLD_MS - 1));
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_HOLD, feed(true, 100, 100, 1, false, 1, START_MS + TOUCH_HOLD_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 100, 100, 1, false, 1,
+                                            START_MS + TOUCH_HOLD_MS + 1));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + TOUCH_HOLD_MS + 500));
 }
 
 /* After a hold, a move does nothing, even in a zone that takes drags. */
 static void nothing_follows_a_hold(void) {
   gestureSetUp();
-  press(100, 100, 1, true, DOWN_MS);
-  TEST_ASSERT_EQUAL_INT(TOUCH_HOLD,
-                        feed(true, 100, 100, 1, true, 1, START_MS + 600));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 160, 100, 1, true, 1, START_MS + 650));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 700));
+  feed(true, 100, 100, 1, true, 1, START_MS);
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_HOLD, feed(true, 100, 100, 1, true, 1, START_MS + TOUCH_HOLD_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 160, 100, 1, true, 1,
+                                            START_MS + TOUCH_HOLD_MS + 50));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + TOUCH_HOLD_MS + 100));
 }
 
 /* A move of exactly the slop along either axis is still a tap; one pixel
  * more is not. */
 static void the_slop_is_the_furthest_a_tap_can_move(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 110, 100, 1, false, 1, START_MS + 50);
   feed(true, 100, 90, 1, false, 1, START_MS + 60);
   TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 100));
 
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 100, 111, 1, false, 1, START_MS + 50);
   feed(true, 100, 100, 1, false, 1, START_MS + 60);
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 100));
@@ -571,17 +567,17 @@ static void the_slop_is_the_furthest_a_tap_can_move(void) {
  * not a hold either. */
 static void a_moved_finger_never_holds(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 120, 100, 1, false, 1, START_MS + 50);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 120, 100, 1, false, 1, START_MS + 600));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 120, 100, 1, false, 1,
+                                            START_MS + TOUCH_HOLD_MS));
 }
 
 /* Sliding off the zone cancels a tap, even when the finger comes back and
  * lifts where it started. */
 static void leaving_the_zone_cancels_the_tap(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 104, 100, 2, false, 1, START_MS + 50);
   feed(true, 100, 100, 1, false, 1, START_MS + 60);
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 100));
@@ -592,60 +588,50 @@ static void leaving_the_zone_cancels_the_tap(void) {
  * lift ends it. */
 static void a_drag_reports_each_new_point_and_its_end(void) {
   gestureSetUp();
-  press(100, 150, 3, true, DOWN_MS);
+  feed(true, 100, 150, 3, true, 1, START_MS);
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
                         feed(true, 110, 150, 3, true, 1, START_MS + 20));
   TEST_ASSERT_EQUAL_INT(TOUCH_DRAG,
                         feed(true, 111, 150, 3, true, 1, START_MS + 40));
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
                         feed(true, 111, 150, 3, true, 1, START_MS + 60));
-  TEST_ASSERT_EQUAL_INT(TOUCH_DRAG,
-                        feed(true, 90, 150, 4, true, 1, START_MS + 700));
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_DRAG, feed(true, 90, 150, 4, true, 1, START_MS + TOUCH_HOLD_MS));
   TEST_ASSERT_EQUAL_INT(90, gesture.last.x);
   TEST_ASSERT_EQUAL_INT(3, gesture.zone);
-  TEST_ASSERT_EQUAL_INT(TOUCH_DRAG_END, lift(START_MS + 800));
+  TEST_ASSERT_EQUAL_INT(TOUCH_DRAG_END, lift(START_MS + TOUCH_HOLD_MS + 100));
 }
 
-/* A swipe needs the swipe distance: one pixel short is nothing. */
+/* A swipe needs the swipe distance from its first point: one pixel short is
+ * nothing, along either axis. */
 static void a_swipe_needs_its_distance(void) {
-  gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  feed(true, 139, 100, 1, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 150));
-
-  gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  feed(true, 140, 100, 1, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_RIGHT, lift(START_MS + 150));
-
-  /* The same down the screen. */
-  gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  feed(true, 100, 139, 1, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 150));
-
-  gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
-  feed(true, 100, 140, 1, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_DOWN, lift(START_MS + 150));
+  static const struct {
+    int x, y;
+    TouchGestureEvent want;
+  } kCases[] = {{139, 100, TOUCH_NOTHING},
+                {140, 100, TOUCH_SWIPE_RIGHT},
+                {100, 139, TOUCH_NOTHING},
+                {100, 140, TOUCH_SWIPE_DOWN}};
+  for (const auto &c : kCases) {
+    gestureSetUp();
+    feed(true, 100, 100, 1, false, 1, START_MS);
+    feed(true, c.x, c.y, 1, false, 1, START_MS + 100);
+    TEST_ASSERT_EQUAL_INT(c.want, lift(START_MS + 150));
+  }
 }
 
-/* And the swipe time, start to lift: 300 ms is a swipe, 301 is not. */
+/* And the swipe time, first contact to lift: 300 ms is a swipe, 301 is
+ * not. The bridge after the lift does not count. */
 static void a_swipe_has_to_be_quick(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 160, 100, 1, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 275));
-  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_RIGHT,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 300));
+  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_RIGHT, lift(START_MS + 300));
 
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(true, 160, 100, 1, false, 1, START_MS + 100);
-  feed(false, 0, 0, 0, false, 1, START_MS + 276);
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 301));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 301));
 }
 
 /* The axis it moved most on gives the direction, the way the finger went. */
@@ -659,7 +645,7 @@ static void a_swipe_goes_the_way_the_finger_went(void) {
                 {90, 150, TOUCH_SWIPE_DOWN}};
   for (const auto &c : kCases) {
     gestureSetUp();
-    press(100, 100, 1, false, DOWN_MS);
+    feed(true, 100, 100, 1, false, 1, START_MS);
     feed(true, c.x, c.y, 1, false, 1, START_MS + 100);
     TEST_ASSERT_EQUAL_INT(c.want, lift(START_MS + 150));
   }
@@ -670,38 +656,83 @@ static void a_swipe_goes_the_way_the_finger_went(void) {
  * read on the new screen. */
 static void a_new_screen_ignores_the_rest_of_the_touch(void) {
   gestureSetUp();
-  press(100, 100, 1, true, DOWN_MS);
+  feed(true, 100, 100, 1, true, 1, START_MS);
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
                         feed(true, 100, 100, 1, true, 2, START_MS + 50));
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
                         feed(true, 160, 100, 1, true, 2, START_MS + 60));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 160, 100, 1, true, 2, START_MS + 700));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, true, 2, 2000));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, true, 2, 2025));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 160, 100, 1, true, 2,
+                                            START_MS + TOUCH_HOLD_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, true, 2, 3000));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, true, 2, 3200));
 
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 50, 50, 5, false, 2, 3000));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 50, 50, 5, false, 2, 3025));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 2, 3100));
-  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, feed(false, 0, 0, 0, false, 2, 3125));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 50, 50, 5, false, 2, 4000));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 2, 4100));
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_TAP, feed(false, 0, 0, 0, false, 2, 4100 + TOUCH_LIFT_BRIDGE_MS));
 }
 
-/* A break in contact shorter than the debounce is the same touch; one as
- * long ends it. */
-static void a_short_break_in_contact_is_one_touch(void) {
+/* A lift one under the bridge is the same touch; at the bridge, it ends. */
+static void a_break_under_the_bridge_is_the_same_touch(void) {
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(false, 0, 0, 0, false, 1, START_MS + 100);
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 124));
-  feed(true, 100, 100, 1, false, 1, START_MS + 124);
-  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 200));
+                        feed(true, 100, 100, 1, false, 1,
+                             START_MS + 100 + TOUCH_LIFT_BRIDGE_MS - 1));
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 400));
 
   gestureSetUp();
-  press(100, 100, 1, false, DOWN_MS);
+  feed(true, 100, 100, 1, false, 1, START_MS);
   feed(false, 0, 0, 0, false, 1, START_MS + 100);
-  TEST_ASSERT_EQUAL_INT(TOUCH_TAP,
-                        feed(false, 0, 0, 0, false, 1, START_MS + 125));
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, feed(false, 0, 0, 0, false, 1,
+                                        START_MS + 100 + TOUCH_LIFT_BRIDGE_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feed(true, 100, 100, 1, false, 1, START_MS + 300));
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 400));
+}
+
+/* A swipe that breaks contact is one swipe, measured from its very first
+ * point, settled or not. */
+static void a_broken_swipe_counts_from_its_first_point(void) {
+  gestureSetUp();
+  feedAt(true, 250, 120, false, 1, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + 10);
+  feedAt(true, 120, 125, false, 1, false, 1, START_MS + 134);
+  feed(true, 115, 125, 1, false, 1, START_MS + 160);
+  feed(true, 80, 126, 1, false, 1, START_MS + 200);
+  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_LEFT, lift(START_MS + 260));
+}
+
+/* A landing point far off, in another zone, does not make the tap move or
+ * change its zone: the start waits for a settled point. */
+static void the_start_waits_for_a_settled_point(void) {
+  gestureSetUp();
+  feedAt(true, 130, 100, false, 2, false, 1, START_MS);
+  feedAt(true, 116, 100, false, 2, false, 1, START_MS + 10);
+  feed(true, 100, 100, 1, false, 1, START_MS + 20);
+  feed(true, 102, 101, 1, false, 1, START_MS + 30);
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 100));
+  TEST_ASSERT_EQUAL_INT(1, gesture.zone);
+}
+
+/* A tap too short to settle taps where its point last was. */
+static void a_tap_that_never_settles_taps_where_it_was(void) {
+  gestureSetUp();
+  feedAt(true, 60, 60, false, 4, false, 1, START_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 20));
+  TEST_ASSERT_EQUAL_INT(4, gesture.zone);
+}
+
+/* After a break, the points not settled again are left out, so a landing
+ * point far off does not make the touch move. */
+static void a_landing_after_a_break_is_left_out(void) {
+  gestureSetUp();
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + 100);
+  feedAt(true, 140, 100, false, 1, false, 1, START_MS + 150);
+  feed(true, 101, 100, 1, false, 1, START_MS + 180);
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 220));
 }
 
 /* Times that wrap past 2^32 ms, about 49.7 days of uptime. */
@@ -709,10 +740,10 @@ static void a_hold_across_the_clock_wrap(void) {
   gestureSetUp();
   const uint32_t t = 0xFFFFFF00u;
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 10, 10, 1, false, 1, t));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 10, 10, 1, false, 1, t + 25));
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        feed(true, 10, 10, 1, false, 1, t + 624));
-  TEST_ASSERT_EQUAL_INT(TOUCH_HOLD, feed(true, 10, 10, 1, false, 1, t + 625));
+                        feed(true, 10, 10, 1, false, 1, t + TOUCH_HOLD_MS - 1));
+  TEST_ASSERT_EQUAL_INT(TOUCH_HOLD,
+                        feed(true, 10, 10, 1, false, 1, t + TOUCH_HOLD_MS));
 }
 
 static void a_missing_argument_reports_nothing(void) {
@@ -720,15 +751,325 @@ static void a_missing_argument_reports_nothing(void) {
   TouchSample s;
   memset(&s, 0, sizeof(s));
   s.down = true;
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, touchGestureFeed(NULL, &GESTURE, &s, 0));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, touchGestureFeed(&gesture, NULL, &s, 0));
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        touchGestureFeed(NULL, &GESTURE, &holdCfg, &s, 0));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        touchGestureFeed(&gesture, NULL, &holdCfg, &s, 0));
-  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
-                        touchGestureFeed(&gesture, &GESTURE, NULL, &s, 0));
+                        touchGestureFeed(&gesture, &GESTURE, NULL, 0));
+  TEST_ASSERT_FALSE(gesture.on);
+}
+
+/* A break in contact during a hold does not start its time again: the
+ * hold is counted from the first contact. */
+static void a_break_does_not_restart_the_hold(void) {
+  gestureSetUp();
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + 1000);
+  feed(true, 100, 100, 1, false, 1, START_MS + 1020);
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(true, 100, 100, 1, false, 1,
+                                            START_MS + TOUCH_HOLD_MS - 1));
   TEST_ASSERT_EQUAL_INT(
-      TOUCH_NOTHING, touchGestureFeed(&gesture, &GESTURE, &holdCfg, NULL, 0));
-  TEST_ASSERT_FALSE(gesture.button.raw);
+      TOUCH_HOLD, feed(true, 100, 100, 1, false, 1, START_MS + TOUCH_HOLD_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 2300));
+}
+
+/* A blip in contact after a hold is still the held touch: no tap, no second
+ * hold. */
+static void a_blip_after_a_hold_is_not_a_new_touch(void) {
+  gestureSetUp();
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_HOLD, feed(true, 100, 100, 1, false, 1, START_MS + TOUCH_HOLD_MS));
+  feed(false, 0, 0, 0, false, 1, START_MS + 1600);
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feed(true, 100, 100, 1, false, 1, START_MS + 1610));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feed(true, 100, 100, 1, false, 1, START_MS + 3200));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 3300));
+}
+
+/* A screen change while the lift waits out the bridge ends the touch with
+ * nothing. */
+static void a_new_screen_during_the_bridge_ends_with_nothing(void) {
+  gestureSetUp();
+  feed(true, 100, 100, 1, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + 200);
+  feed(false, 0, 0, 0, false, 2, START_MS + 250);
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_NOTHING,
+      feed(false, 0, 0, 0, false, 2, START_MS + 200 + TOUCH_LIFT_BRIDGE_MS));
+  TEST_ASSERT_FALSE(gesture.on);
+}
+
+/* Before the point settles, a move past the swipe distance from the first
+ * point is a move, so a swipe broken before it settles is never a tap. */
+static void a_long_move_before_settling_is_a_move(void) {
+  gestureSetUp();
+  feedAt(true, 250, 120, false, 1, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + 10);
+  feedAt(true, 100, 122, false, 2, false, 1, START_MS + 134);
+  feed(true, 98, 122, 2, false, 1, START_MS + 160);
+  feed(true, 88, 122, 2, false, 1, START_MS + 200);
+  TEST_ASSERT_EQUAL_INT(TOUCH_SWIPE_LEFT, lift(START_MS + 260));
+}
+
+/* A sample nobody marked unsettled is a settled one. */
+static void a_plain_sample_counts_as_settled(void) {
+  gestureSetUp();
+  TouchSample s;
+  memset(&s, 0, sizeof(s));
+  s.down = true;
+  s.at = pt(100, 100);
+  s.zone = 1;
+  s.zoneDrags = true;
+  touchGestureFeed(&gesture, &GESTURE, &s, START_MS);
+  s.at = pt(150, 100);
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_DRAG, touchGestureFeed(&gesture, &GESTURE, &s, START_MS + 50));
+}
+
+/* -------------------------------------------------------------- filter */
+
+static TouchFilter filter;
+static TouchPoint filtered;
+static bool filterUnsettled;
+
+static bool feedReading(int x, int y, unsigned z1) {
+  TouchReading r;
+  r.pen = true;
+  r.read = true;
+  r.raw = pt(x, y);
+  r.z1 = (uint16_t)z1;
+  return touchFilterFeed(&filter, &r, &filtered, &filterUnsettled);
+}
+
+static bool feedPen(bool pen) {
+  TouchReading r;
+  memset(&r, 0, sizeof(r));
+  r.pen = pen;
+  return touchFilterFeed(&filter, &r, &filtered, &filterUnsettled);
+}
+
+/* Z1 at the limit is contact, one under is not. */
+static void a_z1_under_the_limit_is_no_contact(void) {
+  memset(&filter, 0, sizeof(filter));
+  TEST_ASSERT_FALSE(feedReading(2000, 2000, TOUCH_Z1_MIN - 1));
+  TEST_ASSERT_TRUE(feedReading(2000, 2000, TOUCH_Z1_MIN));
+  TEST_ASSERT_TRUE(feedReading(2001, 2001, TOUCH_Z1_MIN + 1));
+}
+
+/* A poll with the pen line down and no reading keeps the last reading's
+ * verdict, contact or not. */
+static void a_poll_without_a_reading_keeps_the_last_verdict(void) {
+  memset(&filter, 0, sizeof(filter));
+  TEST_ASSERT_TRUE(feedReading(2000, 2000, 600));
+  TEST_ASSERT_TRUE(feedPen(true));
+  assertPoint(2000, 2000, filtered);
+  TEST_ASSERT_FALSE(feedReading(4095, 1206, 4));
+  TEST_ASSERT_FALSE(feedPen(true));
+  TEST_ASSERT_TRUE(feedReading(2010, 2010, 600));
+}
+
+/* The pen line up ends contact, and the next contact starts afresh. */
+static void a_lift_ends_contact_and_the_next_starts_afresh(void) {
+  memset(&filter, 0, sizeof(filter));
+  feedReading(1000, 1000, 600);
+  feedReading(1000, 1000, 600);
+  feedReading(1000, 1000, 600);
+  TEST_ASSERT_FALSE(filterUnsettled);
+  TEST_ASSERT_FALSE(feedPen(false));
+  TEST_ASSERT_FALSE(feedPen(true));
+  TEST_ASSERT_TRUE(feedReading(3000, 3000, 600));
+  assertPoint(3000, 3000, filtered);
+  TEST_ASSERT_TRUE(filterUnsettled);
+}
+
+/* One reading stands; two give their middle; from three on, the median of
+ * the latest three, settled, so one reading far from the other two is left
+ * out. */
+static void the_point_is_the_median_of_the_latest_three(void) {
+  memset(&filter, 0, sizeof(filter));
+  feedReading(1000, 2000, 600);
+  assertPoint(1000, 2000, filtered);
+  TEST_ASSERT_TRUE(filterUnsettled);
+  feedReading(1010, 2020, 600);
+  assertPoint(1005, 2010, filtered);
+  TEST_ASSERT_TRUE(filterUnsettled);
+  feedReading(3900, 100, 600);
+  assertPoint(1010, 2000, filtered);
+  TEST_ASSERT_FALSE(filterUnsettled);
+  feedReading(1020, 2010, 600);
+  assertPoint(1020, 2010, filtered);
+  feedReading(1030, 2030, 600);
+  assertPoint(1030, 2010, filtered);
+}
+
+static void a_missing_filter_or_reading_is_no_contact(void) {
+  TouchReading r;
+  memset(&r, 0, sizeof(r));
+  r.pen = true;
+  r.read = true;
+  r.z1 = 600;
+  TEST_ASSERT_FALSE(touchFilterFeed(NULL, &r, &filtered, &filterUnsettled));
+  memset(&filter, 0, sizeof(filter));
+  TEST_ASSERT_FALSE(
+      touchFilterFeed(&filter, NULL, &filtered, &filterUnsettled));
+  TEST_ASSERT_TRUE(touchFilterFeed(&filter, &r, NULL, NULL));
+}
+
+/* -------------------------------------------- the taps, played back */
+
+/* The corners of the picture as a pen read them on this radio, a rough map
+ * from raw readings to pixels for the play back. */
+static bool roughCal(TouchCal *cal) {
+  static const TouchPoint raw[4] = {
+      {223, 3886}, {243, 481}, {3901, 484}, {3894, 3900}};
+  static const TouchPoint screen[4] = {{0, 0}, {319, 0}, {319, 239}, {0, 239}};
+  return touchCalFit(raw, screen, 4, W, H, cal);
+}
+
+/* The gestures a capture gives, and the median and the furthest of its taps'
+ * points. Polls every 10 ms, as the driver reads: a reading when one falls
+ * in the poll, else the pen line down if the readings either side are
+ * within 100 ms of each other, else up. */
+typedef struct {
+  int taps, holds, left, right, nothing, other;
+  int spread; /* The furthest a tap's point sat from the taps' median, px. */
+} Played;
+
+static Played playBack(const TouchCapSet &set, const TouchCal *cal) {
+  static const TouchGestureConfig kRadio = {16, 64, 1000, TOUCH_HOLD_MS};
+  static TouchPoint tapAt[64];
+  Played p;
+  memset(&p, 0, sizeof(p));
+  int nTaps = 0;
+  memset(&filter, 0, sizeof(filter));
+  gestureSetUp();
+  size_t i = 0;
+  const uint32_t end = set.readings[set.count - 1].ms + 400;
+  for (uint32_t t = set.readings[0].ms; t <= end; t += 10) {
+    TouchReading r;
+    memset(&r, 0, sizeof(r));
+    const TouchCapReading *got = NULL;
+    while (i < set.count && set.readings[i].ms <= t) {
+      got = &set.readings[i++];
+    }
+    if (got != NULL) {
+      r.pen = true;
+      r.read = true;
+      r.raw = pt(got->x, got->y);
+      r.z1 = got->z1;
+    } else if (i > 0 && i < set.count &&
+               set.readings[i].ms - set.readings[i - 1].ms <= 100) {
+      r.pen = true;
+    }
+    TouchPoint raw = pt(0, 0);
+    bool unsettled = true;
+    TouchSample s;
+    memset(&s, 0, sizeof(s));
+    s.down = touchFilterFeed(&filter, &r, &raw, &unsettled);
+    s.at = touchCalMap(cal, raw, W, H);
+    s.unsettled = unsettled;
+    s.zone = 1;
+    s.screen = 1;
+    const bool wasWaiting = gesture.on && !gesture.touching && !gesture.done;
+    switch (touchGestureFeed(&gesture, &kRadio, &s, t)) {
+      case TOUCH_NOTHING:
+        /* A touch, not a finished hold, that waited out its bridge and
+         * made nothing. */
+        if (wasWaiting && !gesture.on) {
+          p.nothing++;
+        }
+        break;
+      case TOUCH_TAP:
+        p.taps++;
+        if (nTaps < 64) {
+          tapAt[nTaps++] = gesture.last;
+        }
+        break;
+      case TOUCH_HOLD:
+        p.holds++;
+        break;
+      case TOUCH_SWIPE_LEFT:
+        p.left++;
+        break;
+      case TOUCH_SWIPE_RIGHT:
+        p.right++;
+        break;
+      default:
+        p.other++;
+        break;
+    }
+  }
+  /* The spread of the taps around their median, x and y each on its own. */
+  int xs[64], ys[64];
+  for (int k = 0; k < nTaps; k++) {
+    xs[k] = tapAt[k].x;
+    ys[k] = tapAt[k].y;
+  }
+  for (int a = 0; a < nTaps; a++) {
+    for (int b = a + 1; b < nTaps; b++) {
+      if (xs[b] < xs[a]) {
+        const int v = xs[a];
+        xs[a] = xs[b];
+        xs[b] = v;
+      }
+      if (ys[b] < ys[a]) {
+        const int v = ys[a];
+        ys[a] = ys[b];
+        ys[b] = v;
+      }
+    }
+  }
+  if (nTaps > 0) {
+    const int mx = xs[nTaps / 2], my = ys[nTaps / 2];
+    for (int k = 0; k < nTaps; k++) {
+      const int dx = tapAt[k].x > mx ? tapAt[k].x - mx : mx - tapAt[k].x;
+      const int dy = tapAt[k].y > my ? tapAt[k].y - my : my - tapAt[k].y;
+      p.spread = dx > p.spread ? dx : p.spread;
+      p.spread = dy > p.spread ? dy : p.spread;
+    }
+  }
+  return p;
+}
+
+/* Every set of taps, holds and swipes the owner made on this radio, played
+ * back through the filter and the gestures with the radio's own figures:
+ * taps come out as taps, near each other, holds as holds and swipes as
+ * swipes. The weak top right corner loses one tap, whose readings wandered
+ * past the slop. */
+static void the_owners_taps_holds_and_swipes_come_out_as_made(void) {
+  TouchCal cal;
+  TEST_ASSERT_TRUE(roughCal(&cal));
+  static const struct {
+    const char *name;
+    int taps, holds, left, right, nothing;
+  } kWant[] = {
+      {"finger-mark0", 18, 0, 0, 0, 0}, {"finger-mark1", 19, 0, 0, 0, 0},
+      {"finger-mark2", 11, 0, 0, 0, 1}, {"finger-mark3", 19, 0, 0, 0, 0},
+      {"finger-mark4", 19, 0, 0, 0, 0}, {"pen-mark0", 20, 0, 0, 0, 0},
+      {"finger-busy", 10, 0, 0, 0, 0},  {"finger-repaint", 10, 0, 0, 0, 0},
+      {"finger-holds", 0, 3, 0, 0, 0},  {"finger-swipes", 0, 0, 5, 5, 0},
+      {"finger-light", 10, 0, 0, 0, 0},
+  };
+  for (const auto &w : kWant) {
+    const TouchCapSet *set = NULL;
+    for (const TouchCapSet &s : kTouchCaptures) {
+      if (strcmp(s.name, w.name) == 0) {
+        set = &s;
+      }
+    }
+    TEST_ASSERT_NOT_NULL_MESSAGE(set, w.name);
+    const Played p = playBack(*set, &cal);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(w.taps, p.taps, w.name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(w.holds, p.holds, w.name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(w.left, p.left, w.name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(w.right, p.right, w.name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(w.nothing, p.nothing, w.name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, p.other, w.name);
+    /* Light taps landed within 16.4 px of each other's middle at the 95th
+     * percentile, normal ones within 9.4. */
+    TEST_ASSERT_LESS_OR_EQUAL_INT_MESSAGE(18, p.spread, w.name);
+  }
 }
 
 int main(int, char **) {
@@ -759,7 +1100,7 @@ int main(int, char **) {
   RUN_TEST(an_empty_list_holds_no_point);
   RUN_TEST(overlapping_zones_are_refused);
   RUN_TEST(a_zone_with_no_area_is_refused);
-  RUN_TEST(a_tap_is_reported_on_the_lift_only);
+  RUN_TEST(a_tap_is_reported_once_the_lift_has_lasted_the_bridge);
   RUN_TEST(the_hold_time_splits_a_tap_from_a_hold);
   RUN_TEST(nothing_follows_a_hold);
   RUN_TEST(the_slop_is_the_furthest_a_tap_can_move);
@@ -770,8 +1111,23 @@ int main(int, char **) {
   RUN_TEST(a_swipe_has_to_be_quick);
   RUN_TEST(a_swipe_goes_the_way_the_finger_went);
   RUN_TEST(a_new_screen_ignores_the_rest_of_the_touch);
-  RUN_TEST(a_short_break_in_contact_is_one_touch);
+  RUN_TEST(a_break_under_the_bridge_is_the_same_touch);
+  RUN_TEST(a_broken_swipe_counts_from_its_first_point);
+  RUN_TEST(the_start_waits_for_a_settled_point);
+  RUN_TEST(a_tap_that_never_settles_taps_where_it_was);
+  RUN_TEST(a_landing_after_a_break_is_left_out);
   RUN_TEST(a_hold_across_the_clock_wrap);
+  RUN_TEST(a_break_does_not_restart_the_hold);
+  RUN_TEST(a_blip_after_a_hold_is_not_a_new_touch);
+  RUN_TEST(a_new_screen_during_the_bridge_ends_with_nothing);
+  RUN_TEST(a_long_move_before_settling_is_a_move);
+  RUN_TEST(a_plain_sample_counts_as_settled);
   RUN_TEST(a_missing_argument_reports_nothing);
+  RUN_TEST(a_z1_under_the_limit_is_no_contact);
+  RUN_TEST(a_poll_without_a_reading_keeps_the_last_verdict);
+  RUN_TEST(a_lift_ends_contact_and_the_next_starts_afresh);
+  RUN_TEST(the_point_is_the_median_of_the_latest_three);
+  RUN_TEST(a_missing_filter_or_reading_is_no_contact);
+  RUN_TEST(the_owners_taps_holds_and_swipes_come_out_as_made);
   return UNITY_END();
 }

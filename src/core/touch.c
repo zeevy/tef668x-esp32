@@ -205,20 +205,21 @@ static int32_t travel(TouchPoint a, TouchPoint b) {
   return dx > dy ? dx : dy;
 }
 
-/* What the lift of a touch that is not done completes. */
+/* What a touch that is not done completes once its lift has lasted the
+ * bridge. */
 static TouchGestureEvent lifted(const TouchGesture *g,
-                                const TouchGestureConfig *cfg, uint32_t nowMs) {
+                                const TouchGestureConfig *cfg) {
   if (!g->moved) {
     return g->offZone ? TOUCH_NOTHING : TOUCH_TAP;
   }
   if (g->drags) {
     return TOUCH_DRAG_END;
   }
-  if ((uint32_t)(nowMs - g->startMs) > cfg->swipeMs) {
+  if ((uint32_t)(g->liftMs - g->startMs) > cfg->swipeMs) {
     return TOUCH_NOTHING;
   }
-  const int32_t dx = (int32_t)g->last.x - g->start.x;
-  const int32_t dy = (int32_t)g->last.y - g->start.y;
+  const int32_t dx = (int32_t)g->last.x - g->origin.x;
+  const int32_t dy = (int32_t)g->last.y - g->origin.y;
   const int32_t ax = dx < 0 ? -dx : dx;
   const int32_t ay = dy < 0 ? -dy : dy;
   if (ax >= ay) {
@@ -233,48 +234,92 @@ static TouchGestureEvent lifted(const TouchGesture *g,
   return dy < 0 ? TOUCH_SWIPE_UP : TOUCH_SWIPE_DOWN;
 }
 
+/* A new touch, from its first sample. */
+static void begin(TouchGesture *g, const TouchSample *s, uint32_t nowMs) {
+  g->on = true;
+  g->touching = true;
+  g->done = false;
+  g->settled = false;
+  g->moved = false;
+  g->offZone = false;
+  g->drags = s->zoneDrags;
+  g->zone = s->zone;
+  g->screen = s->screen;
+  g->startMs = nowMs;
+  g->origin = s->at;
+  g->start = s->at;
+  g->last = s->at;
+}
+
+/* A sample with no contact: a lift, or the bridge after one running out. */
+static TouchGestureEvent noContact(TouchGesture *g,
+                                   const TouchGestureConfig *cfg,
+                                   const TouchSample *s, uint32_t nowMs) {
+  if (!g->on) {
+    return TOUCH_NOTHING;
+  }
+  if (g->touching) {
+    g->touching = false;
+    g->liftMs = nowMs;
+    return TOUCH_NOTHING;
+  }
+  if (s->screen != g->screen) {
+    g->done = true;
+  }
+  if ((uint32_t)(nowMs - g->liftMs) < TOUCH_LIFT_BRIDGE_MS) {
+    return TOUCH_NOTHING;
+  }
+  g->on = false;
+  return g->done ? TOUCH_NOTHING : lifted(g, cfg);
+}
+
 TouchGestureEvent touchGestureFeed(TouchGesture *g,
                                    const TouchGestureConfig *cfg,
-                                   const ButtonConfig *hold,
                                    const TouchSample *s, uint32_t nowMs) {
-  if (g == NULL || cfg == NULL || hold == NULL || s == NULL) {
+  if (g == NULL || cfg == NULL || s == NULL) {
     return TOUCH_NOTHING;
   }
-  const bool wasDown = g->button.level;
-  const ButtonEvent press = buttonFeed(&g->button, hold, s->down, nowMs);
-  const bool isDown = g->button.level;
-
-  if (!wasDown && isDown) {
-    /* The touch starts here, once it has held past the debounce. */
-    g->done = false;
-    g->moved = false;
-    g->offZone = false;
-    g->drags = s->zoneDrags;
-    g->zone = s->zone;
-    g->screen = s->screen;
-    g->startMs = nowMs;
-    g->start = s->at;
-    g->last = s->at;
-    return TOUCH_NOTHING;
+  if (!s->down) {
+    return noContact(g, cfg, s, nowMs);
   }
-  if (wasDown && !isDown) {
-    return g->done ? TOUCH_NOTHING : lifted(g, cfg, nowMs);
+  if (!g->on) {
+    begin(g, s, nowMs);
   }
-  if (!isDown || g->done) {
+  /* Back within the bridge, the same touch goes on. */
+  g->touching = true;
+  if (g->done) {
     return TOUCH_NOTHING;
   }
   if (s->screen != g->screen) {
     g->done = true;
     return TOUCH_NOTHING;
   }
-  /* A break in contact shorter than the debounce leaves the touch down
-   * with no point to read; the last one stands. */
-  if (s->down) {
-    if (s->zone != g->zone) {
-      g->offZone = true;
+  if (s->unsettled) {
+    /* Until the point first settles, where the touch started, and its
+     * zone, follow it; a point not settled again after a break in contact
+     * is left out. A move past the swipe distance from the very first point
+     * is a move whatever the readings settle on. */
+    if (!g->settled) {
+      g->start = s->at;
+      g->last = s->at;
+      g->zone = s->zone;
+      g->drags = s->zoneDrags;
+      if (travel(g->origin, s->at) > cfg->swipePx) {
+        g->moved = true;
+      }
+    }
+  } else {
+    if (!g->settled) {
+      g->settled = true;
+      g->start = s->at;
+      g->zone = s->zone;
+      g->drags = s->zoneDrags;
     }
     const bool newPoint = s->at.x != g->last.x || s->at.y != g->last.y;
     g->last = s->at;
+    if (s->zone != g->zone) {
+      g->offZone = true;
+    }
     if (!g->moved && travel(g->start, s->at) > cfg->slopPx) {
       g->moved = true;
     }
@@ -282,10 +327,74 @@ TouchGestureEvent touchGestureFeed(TouchGesture *g,
       return TOUCH_DRAG;
     }
   }
-  if (press == BUTTON_LONG && !g->moved && !g->offZone) {
-    /* A hold does its one thing; nothing after it, until the lift, acts. */
+  if (!g->moved && !g->offZone &&
+      (uint32_t)(nowMs - g->startMs) >= cfg->holdMs) {
+    /* A hold does its one thing; nothing after it, until the touch is
+     * over, acts. */
     g->done = true;
     return TOUCH_HOLD;
   }
   return TOUCH_NOTHING;
+}
+
+/* The middle of three. */
+static int16_t median3(int16_t a, int16_t b, int16_t c) {
+  if (a > b) {
+    const int16_t t = a;
+    a = b;
+    b = t;
+  }
+  if (b > c) {
+    b = c;
+  }
+  return a > b ? a : b;
+}
+
+/* The point the kept readings give: the median of three, the middle of two
+ * rounded down, or the one. */
+static TouchPoint steady(const TouchFilter *f) {
+  const TouchPoint *k = f->keep;
+  TouchPoint p = k[0];
+  if (f->kept == 2) {
+    p.x = (int16_t)((k[0].x + k[1].x) / 2);
+    p.y = (int16_t)((k[0].y + k[1].y) / 2);
+  } else if (f->kept >= 3) {
+    p.x = median3(k[0].x, k[1].x, k[2].x);
+    p.y = median3(k[0].y, k[1].y, k[2].y);
+  }
+  return p;
+}
+
+bool touchFilterFeed(TouchFilter *f, const TouchReading *r, TouchPoint *at,
+                     bool *unsettled) {
+  if (f == NULL || r == NULL) {
+    return false;
+  }
+  if (r->read) {
+    f->lastGood = r->pen && r->z1 >= TOUCH_Z1_MIN;
+  }
+  const bool contact = r->pen && f->lastGood;
+  if (!contact) {
+    f->kept = 0;
+    return false;
+  }
+  if (r->read) {
+    if (f->kept == 3) {
+      f->keep[0] = f->keep[1];
+      f->keep[1] = f->keep[2];
+      f->kept = 2;
+    }
+    f->keep[f->kept++] = r->raw;
+  }
+  if (f->kept == 0) {
+    /* The pen line came back down before any reading was taken. */
+    return false;
+  }
+  if (at != NULL) {
+    *at = steady(f);
+  }
+  if (unsettled != NULL) {
+    *unsettled = f->kept < 3;
+  }
+  return true;
 }
