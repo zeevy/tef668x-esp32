@@ -1046,6 +1046,13 @@ static void renderScopes(const char *dir) {
   in.pages = SCREEN_DX_PAGES;
   in.clock = "17:43";
   renderScopeView(dir, "scope", &in);
+  {
+    /* The page's touch zones over it. */
+    char path[512];
+    TouchZone zones[TOUCH_ZONES_MAX];
+    snprintf(path, sizeof(path), "%s/touch-scope.bmp", dir);
+    saveZones(zones, screenScopeZones(zones, TOUCH_ZONES_MAX), path);
+  }
   uiSetSleepMark(UI_SLEEP_SOON);
   renderScopeView(dir, "scope-sleep", &in);
   uiSetSleepMark(UI_SLEEP_NONE);

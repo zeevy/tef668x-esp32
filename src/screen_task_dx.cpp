@@ -193,6 +193,17 @@ void screenTaskDxScopeTurn(int32_t clicks) {
   sScopeCursorSet = true;
 }
 
+void screenTaskDxScopeSet(uint16_t channel) {
+  DxSweepState sweep;
+  if (!dxTaskSweepState(&sweep) || sweep.live == NULL ||
+      sweep.live->count == 0) {
+    return;
+  }
+  sScopeCursor =
+      channel < sweep.live->count ? channel : (uint16_t)(sweep.live->count - 1);
+  sScopeCursorSet = true;
+}
+
 bool screenTaskDxScopeCursorKHz(uint32_t *khz) {
   DxSweepState sweep;
   if (!dxTaskSweepState(&sweep) || sweep.live == NULL || khz == NULL) {

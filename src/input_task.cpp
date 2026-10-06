@@ -1083,14 +1083,32 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
  * the one before, the page position the next page as BAND, and the title
  * leaves DX mode as MODE does. On the DX page the amber panel and the PI tile
  * open the RDS screen over it, as the knob's press, and the readings the
- * bandwidth page with DX mode's widths, as BW held.
+ * bandwidth page with DX mode's widths, as BW held. On the Scope page the
+ * chart moves the cursor and the foot tile tunes to it, as the knob's hold.
  */
 static int dxZones(TouchZone *out, int max) {
-  return screenDxZones(out, max, screenTaskDxPage() == SCREEN_DX_PAGE_DX);
+  const uint8_t page = screenTaskDxPage();
+  if (page == SCREEN_DX_PAGE_SCOPE) {
+    return screenScopeZones(out, max);
+  }
+  return screenDxZones(out, max, page == SCREEN_DX_PAGE_DX);
 }
 
-static void dxTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
-                    bool dxUnder) {
+static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
+                    TouchPoint last, bool dxUnder) {
+  if (zone == DX_ZONE_CHART) {
+    /* The Scope's cursor follows the finger; held, it tunes there, as the
+     * knob's hold tunes to the cursor. */
+    const int32_t channel =
+        screenScopeChannelAt(event == TOUCH_TAP ? start.x : last.x);
+    if (channel >= 0) {
+      screenTaskDxScopeSet((uint16_t)channel);
+    }
+    if (event == TOUCH_HOLD) {
+      dxPress(BUTTON_LONG, dxUnder);
+    }
+    return;
+  }
   if (event == TOUCH_SWIPE_LEFT || event == TOUCH_SWIPE_RIGHT) {
     screenTaskDxStepPage(event == TOUCH_SWIPE_LEFT ? 1 : -1);
     return;
@@ -1111,6 +1129,9 @@ static void dxTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
       break;
     case DX_ZONE_READINGS:
       openBandwidthPage();
+      break;
+    case DX_ZONE_FOOT:
+      dxPress(BUTTON_LONG, dxUnder);
       break;
     default:
       break;
@@ -1249,7 +1270,7 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
     {dxTurn, dxPress, dxBand, dxBandwidth, dxMode, dxEnter, dxKey
 #if FEATURE_TOUCH
      ,
-     dxTouch, dxZones, screenDxZoneName, 0
+     dxTouch, dxZones, screenDxZoneName, DX_ZONE_CHART
 #endif
     },
     /* TOP_TOUCH_CAL */

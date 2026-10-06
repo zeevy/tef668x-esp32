@@ -623,9 +623,10 @@ void screenDxShow(const ScreenDx *dx);
 void screenDxEnd(void);
 
 /* The parts of DX mode's pages a touch can act on: on every page the
- * header's left half, with the title, which leaves DX mode, its right half,
- * with the page position, the next page, and the body; on the DX page the
- * body is the amber panel, the PI tile, the readings and the graphs. */
+ * header's left half, with the title, which leaves DX mode, and its right
+ * half, with the page position, the next page; under them the body, which on
+ * the DX page is the amber panel, the PI tile, the readings and the graphs,
+ * and on the Scope page the chart and the foot tile. */
 typedef enum {
   DX_ZONE_BACK = 1,
   DX_ZONE_NEXT,
@@ -633,6 +634,8 @@ typedef enum {
   DX_ZONE_PANEL,
   DX_ZONE_PI,
   DX_ZONE_READINGS,
+  DX_ZONE_CHART, /* Scope: the chart and the rise strip, which follow a drag. */
+  DX_ZONE_FOOT,  /* Scope: the cursor channel's tile. */
 } DxZone;
 
 /* The zones of the DX page when `dxPage`, else of any other DX page:
@@ -640,7 +643,7 @@ typedef enum {
 int screenDxZones(TouchZone *out, int max, bool dxPage);
 
 /* A zone's name, for GET /api/screen: "back", "next", "body", "panel", "pi",
- * "readings", or "". */
+ * "readings", "chart", "foot", or "". */
 const char *screenDxZoneName(int id);
 
 /*
@@ -755,6 +758,14 @@ typedef struct {
 bool screenScopeBegin(void);
 void screenScopeShow(const ScreenScope *s);
 void screenScopeEnd(void);
+
+/* The Scope page's zones: the header's two halves as on every DX page, the
+ * chart with the rise strip, and the foot tile. 0 while it is not up. */
+int screenScopeZones(TouchZone *out, int max);
+
+/* The channel drawn under `x`, the nearest end off the chart, or -1 with no
+ * sweep shown. */
+int32_t screenScopeChannelAt(int16_t x);
 
 /*
  * The bandwidth page: every width the band takes as a tile, automatic first
