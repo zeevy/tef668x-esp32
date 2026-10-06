@@ -622,6 +622,27 @@ bool screenDxBegin(void);
 void screenDxShow(const ScreenDx *dx);
 void screenDxEnd(void);
 
+/* The parts of DX mode's pages a touch can act on: on every page the
+ * header's left half, with the title, which leaves DX mode, its right half,
+ * with the page position, the next page, and the body; on the DX page the
+ * body is the amber panel, the PI tile, the readings and the graphs. */
+typedef enum {
+  DX_ZONE_BACK = 1,
+  DX_ZONE_NEXT,
+  DX_ZONE_BODY,
+  DX_ZONE_PANEL,
+  DX_ZONE_PI,
+  DX_ZONE_READINGS,
+} DxZone;
+
+/* The zones of the DX page when `dxPage`, else of any other DX page:
+ * writes no more than `max` and returns how many. */
+int screenDxZones(TouchZone *out, int max, bool dxPage);
+
+/* A zone's name, for GET /api/screen: "back", "next", "body", "panel", "pi",
+ * "readings", or "". */
+const char *screenDxZoneName(int id);
+
 /*
  * The DX Catches page, the fourth page of DX mode. Six rows a screen, the one
  * under the cursor amber, or an empty box when nothing has been caught.

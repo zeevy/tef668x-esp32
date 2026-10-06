@@ -524,3 +524,35 @@ void screenDxEnd(void) {
   }
   uiDropRoot(&sDx);
 }
+
+int screenDxZones(TouchZone *out, int max, bool dxPage) {
+  /* The header down to two rows above the panel, as on every screen; on the
+   * DX page the panel and the PI tile meet halfway across the gap between
+   * them, and down to the readings, which reach to the graphs. */
+  const int16_t head = PANEL_Y - 2;
+  const int16_t split = (int16_t)((PANEL_X + PANEL_W + TILE_X) / 2);
+  const int16_t readTop = (int16_t)(PANEL_Y + PANEL_H + 4);
+  const int16_t graphs = (int16_t)(HIST_Y - 2);
+  if (max < (dxPage ? 6 : 3)) {
+    return 0;
+  }
+  out[0] = {0, 0, DX_W / 2, head, DX_ZONE_BACK};
+  out[1] = {DX_W / 2, 0, DX_W - DX_W / 2, head, DX_ZONE_NEXT};
+  if (!dxPage) {
+    out[2] = {0, head, DX_W, (int16_t)(DX_H - head), DX_ZONE_BODY};
+    return 3;
+  }
+  out[2] = {0, head, split, (int16_t)(readTop - head), DX_ZONE_PANEL};
+  out[3] = {split, head, (int16_t)(DX_W - split), (int16_t)(readTop - head),
+            DX_ZONE_PI};
+  out[4] = {0, readTop, DX_W, (int16_t)(graphs - readTop), DX_ZONE_READINGS};
+  out[5] = {0, graphs, DX_W, (int16_t)(DX_H - graphs), DX_ZONE_BODY};
+  return 6;
+}
+
+const char *screenDxZoneName(int id) {
+  static const char *const kNames[] = {"",      "back", "next",    "body",
+                                       "panel", "pi",   "readings"};
+  return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
+                                                                  : "";
+}

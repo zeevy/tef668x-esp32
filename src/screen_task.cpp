@@ -948,8 +948,13 @@ static void dxShowPage(uint8_t page) {
 }
 
 void screenTaskDxNextPage(void) {
+  screenTaskDxStepPage(1);
+}
+
+void screenTaskDxStepPage(int dir) {
   if (sDxUp) {
-    dxShowPage((uint8_t)((sDxPage + 1) % SCREEN_DX_PAGES));
+    dxShowPage((uint8_t)((sDxPage + SCREEN_DX_PAGES + (dir < 0 ? -1 : 1)) %
+                         SCREEN_DX_PAGES));
   }
 }
 
