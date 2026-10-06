@@ -1152,6 +1152,13 @@ static void renderScans(const char *dir) {
       static RadioSnapshot early;
       snapFor(c, 0, &early);
       renderScanView(dir, "scan-run", &scan, &early, &catches, now + 800);
+      {
+        /* The page's touch zones over it. */
+        char path[512];
+        TouchZone zones[TOUCH_ZONES_MAX];
+        snprintf(path, sizeof(path), "%s/touch-scan.bmp", dir);
+        saveZones(zones, screenScanZones(zones, TOUCH_ZONES_MAX), path);
+      }
     }
     /* Caught on an earlier night, all but 98.3. */
     (void)dxScanPoll(&scan, now, c->khz, heard, false, c->khz == stopAt);

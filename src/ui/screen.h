@@ -626,7 +626,8 @@ void screenDxEnd(void);
  * header's left half, with the title, which leaves DX mode, and its right
  * half, with the page position, the next page; under them the body, which on
  * the DX page is the amber panel, the PI tile, the readings and the graphs,
- * and on the Scope page the chart and the foot tile. */
+ * on the Scope page the chart and the foot tile, and on the Scanner page the
+ * amber panel and the rest. */
 typedef enum {
   DX_ZONE_BACK = 1,
   DX_ZONE_NEXT,
@@ -720,6 +721,10 @@ typedef struct {
 bool screenScanBegin(void);
 void screenScanShow(const ScreenScan *s);
 void screenScanEnd(void);
+
+/* The Scanner page's zones: the header's two halves as on every DX page,
+ * the amber panel, and the rest of the body. 0 while it is not up. */
+int screenScanZones(TouchZone *out, int max);
 
 /*
  * The DX Scope page: the latest level sweep over the band as bars, its
