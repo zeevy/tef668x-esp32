@@ -681,12 +681,14 @@ static void appendRadioState(String &out) {
  *   `pcl`  While the knob is being calibrated, the lowest and highest
  *          readings so far, as `min` and `max`. Not there otherwise.
  *   `tch`  The touch chip, on a board that has one. `on` true while the
- *          chip is read: the Touch setting is on, or the calibration screen
- *          is open. False otherwise; then `pen` stays false and nothing
- *          else moves. `pen` true while its pen line says a finger is down,
+ *          chip may be read: the Touch setting is on, or the calibration
+ *          screen is open. False otherwise; then `pen` stays false and
+ *          nothing else moves. While the panel is dark or a sweep runs, only
+ *          `pen` and `dn` move. `pen` true while its pen line says a finger is down,
  *          `dn` times that line went down since boot, `rd` readings taken
- *          since boot, and `x`, `y`, `z1` and `z2` the last reading, raw 0
- *          to 4095, null before the first. `cal` is `stored` when a
+ *          since boot, `ges` the taps, holds, drags and swipes since boot,
+ *          and `x`, `y`, `z1` and `z2` the last reading, raw 0 to 4095,
+ *          null before the first. `cal` is `stored` when a
  *          calibration a person made is in use, `board` for the board's
  *          own; `px` and `py` are the last steady point in screen pixels
  *          by it, null before the first.
@@ -730,6 +732,7 @@ static void appendInputState(String &out) {
   jsonBool(out, "pen", in.touchPen);
   jsonNum(out, "dn", in.touchDowns);
   jsonNum(out, "rd", in.touchReads);
+  jsonNum(out, "ges", in.touchGestures);
   out += F(",\"cal\":\"");
   out += in.touchCalStored ? F("stored") : F("board");
   out += F("\"");

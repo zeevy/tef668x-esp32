@@ -1,6 +1,13 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The firmware reads it, but outside the calibration screen a touch does nothing on the radio yet: everything is still done with the knobs, the buttons and the keypad, or from the web page. What exists so far is the switch, the calibration, and a way to see what the panel reads.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The firmware reads it, but no screen acts on a touch yet: everything is still done with the knobs, the buttons and the keypad, or from the web page. What exists so far is the switch, the calibration, a way to see what the panel reads, and the few things any touch does, below.
+
+## What a touch does today
+
+- A touch stops a running DX scan and does nothing else, as any key does.
+- A touch clears a frequency you were typing on the keypad and does nothing else.
+- A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short.
+- While the screen is dark, the radio does not read the touch panel, and a touch does not wake the screen. Use the knob, a key or the volume knob. This keeps a touch in a pocket or a bag from doing anything. A finger already on the screen when it lights up does nothing until it is lifted.
 
 ## Turn touch on or off
 

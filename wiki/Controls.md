@@ -40,7 +40,7 @@ Type the digits on the keypad, then press ENTER. [Tuning](Tuning.md#typing-a-fre
 - If the number does not fit the band you are on, and fits more than one other band, a list asks which band to tune.
 - If it fits no band, the screen says that the number `is in no band`.
 - Up to 7 digits are taken. The number is dropped 10 seconds after the last digit.
-- A turn of the knob, the knob press, BAND, BW, MODE or DX drops the number and does nothing else.
+- A turn of the knob, the knob press, BAND, BW, MODE, DX or a touch on the screen drops the number and does nothing else.
 
 ## In the menu
 
@@ -96,7 +96,7 @@ The tuning knob does something different on each page:
 | Scanner | Tunes, only while the scanner is stopped | Starts the scan, or goes on with it | Leaves DX mode |
 | Catches | Moves the cursor one row | Tunes to that catch | Writes that catch to the station log. With no catches, leaves DX mode |
 
-While the scanner runs, any key or turn only stops it.
+While the scanner runs, any key or turn only stops it, and so does a touch while the screen is lit.
 
 ## On the bandwidth page
 
@@ -123,7 +123,7 @@ The volume knob works on every screen, and moving it wakes a dimmed screen.
 
 ## A dimmed screen
 
-When the screen has dimmed, the first key press or knob turn only wakes it, and does nothing else. So you can wake the radio without changing the station. The volume knob is the exception: it changes the volume and wakes the screen.
+When the screen has dimmed, the first key press or knob turn only wakes it, and does nothing else. So you can wake the radio without changing the station. The volume knob is the exception: it changes the volume and wakes the screen. A touch on a dark screen does nothing and does not wake it.
 
 The same first input also skips the boot screen, and closes the `Update Failed` screen.
 
