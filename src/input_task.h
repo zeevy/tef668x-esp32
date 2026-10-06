@@ -90,6 +90,27 @@ void inputPoll(void);
 bool inputPressFromApi(InputKey key, ButtonEvent event);
 bool inputTurnFromApi(int32_t clicks);
 
+/* What became of a touch sent over POST /api/touch. */
+typedef enum {
+  INPUT_TOUCH_TAKEN = 0,
+  INPUT_TOUCH_BUSY,        /* An earlier key or touch still waits. */
+  INPUT_TOUCH_OFF,         /* The Touch setting is Off. */
+  INPUT_TOUCH_NOT_NOW,     /* The panel is dark, or the boot, going to sleep
+                            * or update screen holds it: a touch does
+                            * nothing then. */
+  INPUT_TOUCH_CALIBRATING, /* The calibration screen takes only the glass. */
+} InputTouchResult;
+
+/*
+ * A whole gesture, as if made on the glass: a tap, a hold or a swipe,
+ * waiting for the next inputPoll in the same one slot as a key. It makes
+ * the same checks as a touch on the glass, is not counted in InputStatus,
+ * and its `lastEvent` starts "api ". Refused, with nothing queued, wherever
+ * a touch on the glass would do nothing. No screen has zones yet, so where
+ * it is does not change what it does.
+ */
+InputTouchResult inputTouchFromApi(TouchGestureEvent event);
+
 /*
  * How many times a person has touched the radio.
  *

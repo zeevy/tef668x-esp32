@@ -1,10 +1,11 @@
 /*
  * The control API: the panel as a script sees it and presses it: what it
- * shows, and its keys.
+ * shows, its keys and its touch screen.
  */
 #include "web_api_internal.h"
 #include "web_internal.h"
 
+#include "board/board.h"
 #include "input_task.h"
 #include "screen_task.h"
 #include "ui/draw.h"
@@ -148,8 +149,78 @@ static void handleApiKey(void) {
                         buttonEventName(event) + "\n");
 }
 
+#if FEATURE_TOUCH
+/*
+ * POST /api/touch. A gesture on the screen, as if made on the glass: `x`
+ * and `y` in screen pixels, and `g` tap, hold, swipe-left, swipe-right,
+ * swipe-up or swipe-down, where a swipe starts. Handled at the next input
+ * poll like a key; `inp.lst` then says what it did: "api touch tap" and the
+ * like, or "api DX scan stopped" or "api typed number cleared" when that is
+ * all it did. Refused, with the reason, wherever a finger on the glass would
+ * do nothing.
+ */
+static void handleApiTouch(void) {
+  static const struct {
+    const char *name;
+    TouchGestureEvent event;
+  } kGestures[] = {{"tap", TOUCH_TAP},
+                   {"hold", TOUCH_HOLD},
+                   {"swipe-left", TOUCH_SWIPE_LEFT},
+                   {"swipe-right", TOUCH_SWIPE_RIGHT},
+                   {"swipe-up", TOUCH_SWIPE_UP},
+                   {"swipe-down", TOUCH_SWIPE_DOWN}};
+  if (!requireAuth(false)) {
+    return;
+  }
+  long x = 0;
+  long y = 0;
+  if (!apiNumber("x", &x, 0, DISPLAY_WIDTH - 1) ||
+      !apiNumber("y", &y, 0, DISPLAY_HEIGHT - 1)) {
+    return;
+  }
+  const String want = sWeb->server.arg("g");
+  TouchGestureEvent event = TOUCH_NOTHING;
+  const char *name = NULL;
+  for (const auto &g : kGestures) {
+    if (want.equalsIgnoreCase(g.name)) {
+      event = g.event;
+      name = g.name;
+    }
+  }
+  if (event == TOUCH_NOTHING) {
+    apiFail(400,
+            "Give g, one of tap hold swipe-left swipe-right swipe-up "
+            "swipe-down.");
+    return;
+  }
+  switch (inputTouchFromApi(event)) {
+    case INPUT_TOUCH_TAKEN:
+      break;
+    case INPUT_TOUCH_BUSY:
+      apiFail(409, "The last key sent has not been handled yet. Send again.");
+      return;
+    case INPUT_TOUCH_OFF:
+      apiFail(409, "Touch is Off, so the radio does not act on a touch.");
+      return;
+    case INPUT_TOUCH_NOT_NOW:
+      apiFail(409,
+              "The screen is dark, starting up, going to sleep or held by an "
+              "update, and a touch does nothing then. A key ends that.");
+      return;
+    case INPUT_TOUCH_CALIBRATING:
+      apiFail(409, "The calibration screen takes only a finger on the glass.");
+      return;
+  }
+  sWeb->server.send(200, "text/plain",
+                    String("touched ") + name + " at " + x + "," + y + "\n");
+}
+#endif
+
 void webApiScreenRoutes(WebContext *web) {
   sWeb = web;
   sWeb->server.on("/api/screen", HTTP_GET, handleApiScreenGet);
   sWeb->server.on("/api/key", HTTP_POST, handleApiKey);
+#if FEATURE_TOUCH
+  sWeb->server.on("/api/touch", HTTP_POST, handleApiTouch);
+#endif
 }
