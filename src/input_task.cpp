@@ -1085,11 +1085,16 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
  * open the RDS screen over it, as the knob's press, and the readings the
  * bandwidth page with DX mode's widths, as BW held. On the Scope page the
  * chart moves the cursor and the foot tile tunes to it, as the knob's hold.
+ * On the Scanner page the amber panel starts a scan or goes on with one, as
+ * the knob's press; while a scan runs any touch only stops it.
  */
 static int dxZones(TouchZone *out, int max) {
   const uint8_t page = screenTaskDxPage();
   if (page == SCREEN_DX_PAGE_SCOPE) {
     return screenScopeZones(out, max);
+  }
+  if (page == SCREEN_DX_PAGE_SCAN) {
+    return screenScanZones(out, max);
   }
   return screenDxZones(out, max, page == SCREEN_DX_PAGE_DX);
 }
@@ -1125,6 +1130,8 @@ static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
       break;
     case DX_ZONE_PANEL:
     case DX_ZONE_PI:
+      /* The knob's press: RDS over DX on the DX page, and on the Scanner
+       * page a scan started or gone on with. */
       dxPress(BUTTON_SHORT, dxUnder);
       break;
     case DX_ZONE_READINGS:

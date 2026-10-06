@@ -308,3 +308,15 @@ void screenScanEnd(void) {
   }
   uiDropRoot(&sRoot);
 }
+
+int screenScanZones(TouchZone *out, int max) {
+  if (sRoot == NULL || max < 4 || screenDxZones(out, max, false) < 3) {
+    return 0;
+  }
+  /* The panel down to four rows under it, and the rest below. */
+  const int16_t top = out[2].y;
+  const int16_t under = (int16_t)(PANEL_Y + PANEL_H + 4);
+  out[2] = {0, top, SCAN_W, (int16_t)(under - top), DX_ZONE_PANEL};
+  out[3] = {0, under, SCAN_W, (int16_t)(SCAN_H - under), DX_ZONE_BODY};
+  return 4;
+}

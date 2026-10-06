@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's DX and Scope pages can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question, the update offer, and on DX mode's Scanner and Catches pages anything but turning the page and leaving, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's DX, Scope and Scanner pages can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question, the update offer, and on DX mode's Catches page anything but turning the page and leaving, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
 
 ## The radio screen
 
@@ -90,6 +90,8 @@ On the Scope page also:
 | The chart and the strip under it | Tap or drag | Moves the cursor to the channel under the finger. The chart has about 1.4 pixels a channel, so turn the knob for the last channel |
 | The chart and the strip under it | Hold | Moves the cursor there and tunes to it, as the tuning knob held |
 | The tile at the foot | Tap | Tunes to the cursor's channel |
+
+On the Scanner page also: a tap on the amber panel starts a scan, or goes on with one that was stopped, as a press of the tuning knob.
 
 While a DX scan runs, any touch only stops it, as any key does. In its first seconds, while it sweeps the band, the screen is not read, so only a key stops it then.
 
