@@ -75,6 +75,10 @@
 
 static lv_obj_t *sMenu;
 static UiFrame sFrame;
+/* The list on show, for its touch zones: how many rows are drawn, 0 while
+ * another shape is up, and the slot the cursor is on. */
+static uint8_t sListRows;
+static int8_t sListCursor = -1;
 static UiRow sRows[SCREEN_MENU_ROWS];
 /* A picker label with its first letter a capital. */
 static char sRowWord[SCREEN_MENU_ROWS][32];
@@ -364,6 +368,8 @@ void screenMenuShow(const ScreenMenu *menu) {
   showEditor(false);
   hideRows();
   hideDialog();
+  sListRows = 0;
+  sListCursor = -1;
   uiFrameShow(&sFrame, menu->title, NULL, NULL, NULL, NULL, NULL);
   /* The header is the title alone, so not the sleep mark either. */
   uiShowIf(sFrame.sleep, false);
@@ -372,6 +378,10 @@ void screenMenuShow(const ScreenMenu *menu) {
     const ScreenMenuRow *row = &menu->rows[i];
     if (row->name == NULL) {
       continue;
+    }
+    sListRows = (uint8_t)(i + 1);
+    if (row->selected) {
+      sListCursor = (int8_t)i;
     }
     const char *value =
         row->selected && menu->note != NULL ? menu->note : row->value;
@@ -504,6 +514,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   if (sMenu == NULL || v == NULL) {
     return;
   }
+  sListRows = 0;
   uiFrameShow(&sFrame, v->name, NULL, NULL, NULL, v->isPicker ? NULL : v->note,
               NULL);
   uiShowIf(sFrame.sleep, false);
@@ -595,6 +606,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
   if (sMenu == NULL || d == NULL) {
     return;
   }
+  sListRows = 0;
   const Theme *t = themeCurrent();
   /* The box covers the middle of the screen, and the header and the rows
    * would still show round it, so they go. */
@@ -638,6 +650,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
 }
 
 void screenMenuEnd(void) {
+  sListRows = 0;
   if (sMenu == NULL) {
     return;
   }
@@ -654,4 +667,29 @@ void screenMenuEnd(void) {
   sBarMax = NULL;
   sBarFill = 0;
   sBarZero = -1;
+}
+
+int screenMenuZones(TouchZone *out, int max) {
+  if (sMenu == NULL || sListRows == 0 || max < 1 + sListRows) {
+    return 0;
+  }
+  const int16_t gap = UI_MENU_ROW_PITCH - UI_MENU_ROW_H;
+  const int16_t first = (int16_t)(UI_ROW_TOP - gap / 2);
+  out[0] = {0, 0, MENU_W, first, MENU_ZONE_BACK};
+  for (uint8_t i = 0; i < sListRows; i++) {
+    out[1 + i] = {0, (int16_t)(first + i * UI_MENU_ROW_PITCH), MENU_W,
+                  UI_MENU_ROW_PITCH, (uint8_t)(MENU_ZONE_ROW + i)};
+  }
+  return 1 + sListRows;
+}
+
+const char *screenMenuZoneName(int id) {
+  static const char *const kNames[] = {"",     "back", "row1", "row2",
+                                       "row3", "row4", "row5", "row6"};
+  return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
+                                                                  : "";
+}
+
+int screenMenuCursorSlot(void) {
+  return sListRows != 0 ? sListCursor : -1;
 }

@@ -213,6 +213,13 @@ void menuRestore(Menu *m, const Menu *left);
 uint8_t menuWindowTop(uint8_t cursor, uint8_t count, uint8_t visible,
                       uint8_t top);
 
+/*
+ * Where the window starts after a page, for a swipe on a list: `visible`
+ * rows on, `dir` 1, or back, -1, from `top`, and stopping at either end so
+ * the last page is full. 0 for a list that fits.
+ */
+uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir);
+
 /* Whether the menu owns the panel. */
 bool menuIsOpen(const Menu *m);
 

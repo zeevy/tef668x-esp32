@@ -497,6 +497,18 @@ static void a_short_list_never_scrolls(void) {
   TEST_ASSERT_EQUAL_UINT8(0, menuWindowTop(0, 5, 5, 3));
 }
 
+/* A page is a whole window on, or back, and stops with the last page full
+ * or at the top. */
+static void a_page_moves_a_whole_window_and_stops_at_the_ends(void) {
+  TEST_ASSERT_EQUAL_UINT8(6, menuPageTop(0, 14, 6, 1));
+  TEST_ASSERT_EQUAL_UINT8(8, menuPageTop(6, 14, 6, 1));
+  TEST_ASSERT_EQUAL_UINT8(8, menuPageTop(8, 14, 6, 1));
+  TEST_ASSERT_EQUAL_UINT8(2, menuPageTop(8, 14, 6, -1));
+  TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(2, 14, 6, -1));
+  TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(0, 6, 6, 1));
+  TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(3, 4, 6, -1));
+}
+
 static void the_window_moves_only_when_the_cursor_would_leave_it(void) {
   /* Nine rows, five visible. Walking down from the top: the window holds
    * still for the first five and then follows one row at a time. */
@@ -630,6 +642,7 @@ int main(int argc, char **argv) {
   RUN_TEST(closing_from_outside_with_nothing_running_just_closes);
 
   RUN_TEST(a_short_list_never_scrolls);
+  RUN_TEST(a_page_moves_a_whole_window_and_stops_at_the_ends);
   RUN_TEST(the_window_moves_only_when_the_cursor_would_leave_it);
   RUN_TEST(the_last_screen_of_a_list_is_full);
   RUN_TEST(a_window_of_nothing_asks_for_nothing);

@@ -249,6 +249,15 @@ uint8_t menuWindowTop(uint8_t cursor, uint8_t count, uint8_t visible,
   return top;
 }
 
+uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir) {
+  if (count <= visible) {
+    return 0;
+  }
+  const int to = (int)top + (dir < 0 ? -(int)visible : (int)visible);
+  const int last = (int)count - visible;
+  return (uint8_t)(to < 0 ? 0 : to > last ? last : to);
+}
+
 bool menuIsOpen(const Menu *m) {
   return m != NULL && m->level != MENU_CLOSED;
 }
