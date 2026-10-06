@@ -1098,7 +1098,12 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
   }
   const int cursor = screenMenuCursorSlot();
   if (cursor >= 0) {
-    menuTaskTurn(zone - MENU_ZONE_ROW - cursor);
+    /* A click at a time, since a dialog's list moves one row a turn
+     * whatever the clicks. */
+    const int by = zone - MENU_ZONE_ROW - cursor;
+    for (int i = 0; i < abs(by); i++) {
+      menuTaskTurn(by < 0 ? -1 : 1);
+    }
     menuTaskPress();
   }
 }
@@ -1844,9 +1849,16 @@ static bool onTouch(TouchGestureEvent event, bool first, int zone,
              where[0] != '\0' ? " " : "", where);
     note(seen);
   }
+  /* A tap where the menu's Back was, just after the menu shut, is one Back
+   * too many, as MODE is then. */
+  const bool wasMenu = inputTop(&dxUnder) == TOP_MENU;
+  if (event == TOUCH_TAP && screenMenuIsBack(start) && backTooSoon(wasMenu)) {
+    return false;
+  }
   if (zone != TOUCH_NO_ZONE && in->touch != NULL) {
     in->touch(event, zone, start, last, dxUnder);
   }
+  notedMenuShut(wasMenu);
   return false;
 }
 

@@ -215,8 +215,8 @@ uint8_t menuWindowTop(uint8_t cursor, uint8_t count, uint8_t visible,
 
 /*
  * Where the window starts after a page, for a swipe on a list: `visible`
- * rows on, `dir` 1, or back, -1, from `top`, and stopping at either end so
- * the last page is full. 0 for a list that fits.
+ * rows on, `dir` 1, or back, -1, to the page boundary before `top`, and
+ * stopping at either end so the last page is full. 0 for a list that fits.
  */
 uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir);
 

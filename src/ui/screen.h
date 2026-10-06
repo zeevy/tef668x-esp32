@@ -293,6 +293,9 @@ const char *screenMenuZoneName(int id);
 /* The slot of the row the cursor is on in the list on show, or -1. */
 int screenMenuCursorSlot(void);
 
+/* Whether `p` is where the menu's Back is, the menu up or not. */
+bool screenMenuIsBack(TouchPoint p);
+
 /*
  * One setting, on its own, while it is being changed.
  *

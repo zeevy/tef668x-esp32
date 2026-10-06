@@ -497,14 +497,18 @@ static void a_short_list_never_scrolls(void) {
   TEST_ASSERT_EQUAL_UINT8(0, menuWindowTop(0, 5, 5, 3));
 }
 
-/* A page is a whole window on, or back, and stops with the last page full
- * or at the top. */
+/* A page is a whole window on, or back to the page boundary, and stops with
+ * the last page full or at the top. */
 static void a_page_moves_a_whole_window_and_stops_at_the_ends(void) {
   TEST_ASSERT_EQUAL_UINT8(6, menuPageTop(0, 14, 6, 1));
   TEST_ASSERT_EQUAL_UINT8(8, menuPageTop(6, 14, 6, 1));
   TEST_ASSERT_EQUAL_UINT8(8, menuPageTop(8, 14, 6, 1));
-  TEST_ASSERT_EQUAL_UINT8(2, menuPageTop(8, 14, 6, -1));
+  TEST_ASSERT_EQUAL_UINT8(6, menuPageTop(8, 14, 6, -1));
+  TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(6, 14, 6, -1));
   TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(2, 14, 6, -1));
+  /* Thirteen rows: forward 0, 6, 7, and back 7, 6, 0. */
+  TEST_ASSERT_EQUAL_UINT8(7, menuPageTop(6, 13, 6, 1));
+  TEST_ASSERT_EQUAL_UINT8(6, menuPageTop(7, 13, 6, -1));
   TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(0, 6, 6, 1));
   TEST_ASSERT_EQUAL_UINT8(0, menuPageTop(3, 4, 6, -1));
 }

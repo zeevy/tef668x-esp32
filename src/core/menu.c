@@ -253,7 +253,10 @@ uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir) {
   if (count <= visible) {
     return 0;
   }
-  const int to = (int)top + (dir < 0 ? -(int)visible : (int)visible);
+  /* Back to the page boundary at or before the row above the window, so
+   * the pages back are the pages forward: from a last page pulled up to be
+   * full, back lands on the page it was pulled up from. */
+  const int to = dir < 0 ? ((int)top - 1) / visible * visible : top + visible;
   const int last = (int)count - visible;
   return (uint8_t)(to < 0 ? 0 : to > last ? last : to);
 }

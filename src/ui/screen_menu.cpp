@@ -669,13 +669,21 @@ void screenMenuEnd(void) {
   sBarZero = -1;
 }
 
+/* Where the first row's zone starts, halfway across the gap above it. */
+#define ZONE_FIRST (UI_ROW_TOP - (UI_MENU_ROW_PITCH - UI_MENU_ROW_H) / 2)
+
+static const TouchZone kBack = {0, 0, MENU_W, ZONE_FIRST, MENU_ZONE_BACK};
+
+bool screenMenuIsBack(TouchPoint p) {
+  return touchZoneAt(&kBack, 1, p) != TOUCH_NO_ZONE;
+}
+
 int screenMenuZones(TouchZone *out, int max) {
   if (sMenu == NULL || sListRows == 0 || max < 1 + sListRows) {
     return 0;
   }
-  const int16_t gap = UI_MENU_ROW_PITCH - UI_MENU_ROW_H;
-  const int16_t first = (int16_t)(UI_ROW_TOP - gap / 2);
-  out[0] = {0, 0, MENU_W, first, MENU_ZONE_BACK};
+  const int16_t first = ZONE_FIRST;
+  out[0] = kBack;
   for (uint8_t i = 0; i < sListRows; i++) {
     out[1 + i] = {0, (int16_t)(first + i * UI_MENU_ROW_PITCH), MENU_W,
                   UI_MENU_ROW_PITCH, (uint8_t)(MENU_ZONE_ROW + i)};
