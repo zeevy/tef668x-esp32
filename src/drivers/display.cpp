@@ -141,34 +141,31 @@ static void setWindow(uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
   writeCommand(ILI9341_RAMWR);
 }
 
-static bool clip(int16_t *x, int16_t *y, uint16_t *w, uint16_t *h) {
-  if (*w == 0 || *h == 0) {
-    return false;
+/*
+ * How many pixels are sent per burst.
+ *
+ * One byte at a time costs about two microseconds each, so clearing the panel
+ * takes the best part of a second and nothing else on the loop task runs
+ * meanwhile. Sending a block at a time lets the driver fill the hardware
+ * queue instead of stopping between every byte.
+ */
+#define CHUNK_PIXELS 128
+/* All zeros, which is black. Nothing writes it. */
+static uint8_t sBlack[CHUNK_PIXELS * 2];
+
+static void clearPanel(void) {
+  busTake();
+  setWindow(0, 0, sWidth, sHeight);
+  uint32_t left = (uint32_t)sWidth * sHeight;
+  digitalWrite(PIN_TFT_DC, HIGH);
+  digitalWrite(PIN_TFT_CS, LOW);
+  while (left > 0) {
+    uint32_t n = left > CHUNK_PIXELS ? CHUNK_PIXELS : left;
+    sSpi.writeBytes(sBlack, n * 2);
+    left -= n;
   }
-  int32_t x0 = *x;
-  int32_t y0 = *y;
-  int32_t x1 = x0 + *w;
-  int32_t y1 = y0 + *h;
-  if (x0 < 0) {
-    x0 = 0;
-  }
-  if (y0 < 0) {
-    y0 = 0;
-  }
-  if (x1 > sWidth) {
-    x1 = sWidth;
-  }
-  if (y1 > sHeight) {
-    y1 = sHeight;
-  }
-  if (x1 <= x0 || y1 <= y0) {
-    return false;
-  }
-  *x = (int16_t)x0;
-  *y = (int16_t)y0;
-  *w = (uint16_t)(x1 - x0);
-  *h = (uint16_t)(y1 - y0);
-  return true;
+  digitalWrite(PIN_TFT_CS, HIGH);
+  busGive();
 }
 
 bool displayBegin(void) {
@@ -286,7 +283,7 @@ bool displayBegin(void) {
   ledcAttachChannel(PIN_BACKLIGHT_PWM, BACKLIGHT_HZ, BACKLIGHT_BITS,
                     BACKLIGHT_CHANNEL);
 
-  displayFill(0, 0, sWidth, sHeight, 0);
+  clearPanel();
   /* Left dark. The panel is cleared first so there is nothing to see, and
    * whoever started it decides how the light comes up. Turning it on here
    * would put a frame of whatever the controller powered up holding on the
@@ -330,43 +327,6 @@ uint16_t displayWidth(void) {
 
 uint16_t displayHeight(void) {
   return sHeight;
-}
-
-/*
- * How many pixels are sent per burst.
- *
- * One byte at a time costs about two microseconds each, so clearing the panel
- * takes the best part of a second and nothing else on the loop task runs
- * meanwhile. Sending a block at a time lets the driver fill the hardware
- * queue instead of stopping between every byte.
- */
-#define CHUNK_PIXELS 128
-static uint8_t sChunk[CHUNK_PIXELS * 2];
-
-void displayFill(int16_t x, int16_t y, uint16_t w, uint16_t h, Colour colour) {
-  if (!sReady || !clip(&x, &y, &w, &h)) {
-    return;
-  }
-  busTake();
-  setWindow((uint16_t)x, (uint16_t)y, w, h);
-
-  /* The panel wants the high byte first, whichever way round this processor
-   * stores a uint16_t, so the bytes are laid out by hand. */
-  for (uint16_t i = 0; i < CHUNK_PIXELS; i++) {
-    sChunk[i * 2] = (uint8_t)(colour >> 8);
-    sChunk[i * 2 + 1] = (uint8_t)colour;
-  }
-
-  uint32_t left = (uint32_t)w * h;
-  digitalWrite(PIN_TFT_DC, HIGH);
-  digitalWrite(PIN_TFT_CS, LOW);
-  while (left > 0) {
-    uint32_t n = left > CHUNK_PIXELS ? CHUNK_PIXELS : left;
-    sSpi.writeBytes(sChunk, n * 2);
-    left -= n;
-  }
-  digitalWrite(PIN_TFT_CS, HIGH);
-  busGive();
 }
 
 void displayPush(int16_t x, int16_t y, uint16_t w, uint16_t h,

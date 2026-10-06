@@ -472,23 +472,7 @@ bool rdsRtPlusText(const RdsInfo *info, uint8_t index, char *out, size_t cap) {
   if (end > have) {
     end = have;
   }
-  size_t from = t->start;
-  while (from < end && info->rt[from] == ' ') {
-    from++;
-  }
-  while (end > from && info->rt[end - 1] == ' ') {
-    end--;
-  }
-  if (end == from) {
-    return false;
-  }
-  size_t n = end - from;
-  if (n >= cap) {
-    n = cap - 1;
-  }
-  memcpy(out, &info->rt[from], n);
-  out[n] = '\0';
-  return true;
+  return rdsNameTrim(info->rt + t->start, end - t->start, out, cap);
 }
 
 /* ------------------------------------------------------------------ EON */

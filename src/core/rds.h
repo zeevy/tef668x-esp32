@@ -171,7 +171,7 @@ typedef struct {
 typedef struct {
   uint16_t groups;
   uint16_t blocks[4][3]; /* Block A to D, by RDS_LEVEL_. */
-  uint16_t types[16][2]; /* As groupTypeCount. */
+  uint16_t types[16][2]; /* By group type, [0] the A version, [1] B. */
   uint32_t spanMs;
 } RdsMinute;
 
@@ -260,11 +260,9 @@ typedef struct {
   char ptyn[RDS_PS_LEN + 1];
 
   /*
-   * The decoder identification bits, RDS: The Radio Data System (Kopitz
-   * and Marks), Table 4.3. Four independent flags, sent one at a time in
-   * group 0, addressed the same two bits that address the station name's
-   * own pair in the same group, each published once its own address has
-   * agreed twice.
+   * The decoder identification stereo bit, RDS: The Radio Data System
+   * (Kopitz and Marks), Table 4.3, sent in group 0 at address 3 and
+   * published once it has agreed twice.
    *
    * Not the same claim as the tuner's own stereo pilot flag, which is a
    * fact about the radio wave. This is the broadcaster stating what it
@@ -274,12 +272,6 @@ typedef struct {
    */
   bool hasDiStereo;
   bool diStereo; /* True: the broadcaster states this is stereo. */
-  bool hasDiArtificialHead;
-  bool diArtificialHead;
-  bool hasDiCompressed;
-  bool diCompressed;
-  bool hasDiDynamicPty;
-  bool diDynamicPty; /* True: the programme type may change without notice. */
 
   /*
    * The three flags that ride in every group 0.
@@ -375,37 +367,6 @@ typedef struct {
   uint32_t blocksBad;
 
   /*
-   * How many of each group type and version this station has actually
-   * sent, block B read whether or not this decoder does anything with the
-   * type. `[0]` is the A version and `[1]` is B, matching how block B's
-   * own version bit reads. Counted only from a group whose block B
-   * survived, the same block every group type is addressed by.
-   *
-   * What a field reading as a dash actually means is not always the same
-   * thing, and this is how the difference is told apart: a programme type
-   * name that has never arrived on a station sending no group 10A at all
-   * is the broadcaster's own choice, and the same dash on a station
-   * sending 10A nine times in a hundred is a reception problem.
-   */
-  uint32_t groupTypeCount[16][2];
-
-  /*
-   * Programme Item Number, group type 1, block 4: the scheduled start of
-   * the item now playing, day of month, hour and minute of the station's
-   * own clock. RDS: The Radio Data System (Kopitz and Marks), Section 4.6.
-   * Three fields rather than one packed time, because each is checked
-   * against its own range and a PIN can be wrong in only one of them.
-   *
-   * No station measured sends group type 1: they send only 0A, 0B and 2A, so
-   * this is proved against a group written by hand, the same risk the
-   * alternative frequency list and the clock carry.
-   */
-  bool hasPin;
-  uint8_t pinDay;    /* 1 to 31. */
-  uint8_t pinHour;   /* 0 to 23. */
-  uint8_t pinMinute; /* 0 to 59. */
-
-  /*
    * The language of the programme, group 1A variant 3, EN 50067 annex J.
    * Heard twice, as the ECC is. 0 is the standard's "unknown", so it is
    * kept as not given. rdsLanguageName names it.
@@ -469,10 +430,9 @@ typedef struct {
   uint8_t eccCandidate;
   bool eccCandidateSeen;
 
-  /* One candidate per DI address, since all four are independent and a
-   * group only ever carries one of them. */
-  bool diCandidate[4];
-  bool diCandidateSeen[4];
+  /* The DI stereo bit, address 3, as last heard. */
+  bool diCandidate;
+  bool diCandidateSeen;
 
   /*
    * The programme type name being assembled, and the pass before it.
@@ -488,14 +448,6 @@ typedef struct {
   bool ptynFrameHave[RDS_PS_LEN];
   char ptynPrevious[RDS_PS_LEN];
   bool ptynPreviousSeen;
-
-  /* The PIN candidate, confirmed as one unit: a day, an hour and a minute
-   * that agree with the previous group are one candidate agreeing, not
-   * three fields that happen to agree separately. */
-  bool pinCandidateSeen;
-  uint8_t pinCandidateDay;
-  uint8_t pinCandidateHour;
-  uint8_t pinCandidateMinute;
 
   /*
    * The station name being assembled, and the last complete one before it.

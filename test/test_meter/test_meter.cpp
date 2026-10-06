@@ -65,16 +65,16 @@ static void lit_never_runs_past_the_count(void) {
 static void a_fresh_peak_has_nothing_to_show(void) {
   MeterPeak p;
   meterPeakReset(&p);
-  TEST_ASSERT_FALSE(p.valid);
-  TEST_ASSERT_EQUAL_UINT8(0, p.percent);
+  TEST_ASSERT_FALSE(p.bar.valid);
+  TEST_ASSERT_EQUAL_UINT8(0, p.bar.percent);
 }
 
 static void the_first_reading_sets_the_mark(void) {
   MeterPeak p;
   meterPeakReset(&p);
   meterPeakFeed(&p, 40, 1000, HOLD_MS, FALL_MS);
-  TEST_ASSERT_TRUE(p.valid);
-  TEST_ASSERT_EQUAL_UINT8(40, p.percent);
+  TEST_ASSERT_TRUE(p.bar.valid);
+  TEST_ASSERT_EQUAL_UINT8(40, p.bar.percent);
 }
 
 static void a_louder_reading_takes_the_mark_up_at_once(void) {
@@ -82,7 +82,7 @@ static void a_louder_reading_takes_the_mark_up_at_once(void) {
   meterPeakReset(&p);
   meterPeakFeed(&p, 40, 1000, HOLD_MS, FALL_MS);
   meterPeakFeed(&p, 90, 1040, HOLD_MS, FALL_MS);
-  TEST_ASSERT_EQUAL_UINT8(90, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(90, p.bar.percent);
 }
 
 static void the_mark_does_not_move_during_the_hold(void) {
@@ -90,7 +90,7 @@ static void the_mark_does_not_move_during_the_hold(void) {
   meterPeakReset(&p);
   meterPeakFeed(&p, 90, 1000, HOLD_MS, FALL_MS);
   meterPeakFeed(&p, 10, 1400, HOLD_MS, FALL_MS);
-  TEST_ASSERT_EQUAL_UINT8(90, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(90, p.bar.percent);
 }
 
 static void the_mark_starts_falling_once_the_hold_is_over(void) {
@@ -98,7 +98,7 @@ static void the_mark_starts_falling_once_the_hold_is_over(void) {
   meterPeakReset(&p);
   meterPeakFeed(&p, 90, 1000, HOLD_MS, FALL_MS);
   meterPeakFeed(&p, 10, 1000 + HOLD_MS + 100, HOLD_MS, FALL_MS);
-  TEST_ASSERT_TRUE(p.percent < 90);
+  TEST_ASSERT_TRUE(p.bar.percent < 90);
 }
 
 /*
@@ -119,7 +119,7 @@ static void the_fall_follows_the_clock_and_not_the_call_rate(void) {
   for (uint32_t t = 10; t <= 800; t += 10) {
     meterPeakFeed(&fast, 0, t, 0, FALL_MS);
   }
-  TEST_ASSERT_EQUAL_UINT8(slow.percent, fast.percent);
+  TEST_ASSERT_EQUAL_UINT8(slow.bar.percent, fast.bar.percent);
 }
 
 static void a_full_bar_takes_the_whole_fall_time_to_clear(void) {
@@ -130,9 +130,9 @@ static void a_full_bar_takes_the_whole_fall_time_to_clear(void) {
   for (uint32_t t = 10; t < FALL_MS - 20; t += 10) {
     meterPeakFeed(&p, 0, t, 0, FALL_MS);
   }
-  TEST_ASSERT_TRUE(p.percent > 0);
+  TEST_ASSERT_TRUE(p.bar.percent > 0);
   meterPeakFeed(&p, 0, FALL_MS + 10, 0, FALL_MS);
-  TEST_ASSERT_EQUAL_UINT8(0, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(0, p.bar.percent);
 }
 
 static void the_mark_stops_when_it_meets_the_bar(void) {
@@ -142,7 +142,7 @@ static void the_mark_stops_when_it_meets_the_bar(void) {
   for (uint32_t t = 10; t <= 4000; t += 10) {
     meterPeakFeed(&p, 30, t, 0, FALL_MS);
   }
-  TEST_ASSERT_EQUAL_UINT8(30, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(30, p.bar.percent);
 }
 
 static void a_zero_fall_time_drops_the_mark_as_soon_as_the_hold_ends(void) {
@@ -150,7 +150,7 @@ static void a_zero_fall_time_drops_the_mark_as_soon_as_the_hold_ends(void) {
   meterPeakReset(&p);
   meterPeakFeed(&p, 90, 1000, HOLD_MS, 0);
   meterPeakFeed(&p, 20, 1000 + HOLD_MS, HOLD_MS, 0);
-  TEST_ASSERT_EQUAL_UINT8(20, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(20, p.bar.percent);
 }
 
 static void a_fall_time_under_a_hundred_ms_still_falls(void) {
@@ -160,14 +160,14 @@ static void a_fall_time_under_a_hundred_ms_still_falls(void) {
   meterPeakReset(&p);
   meterPeakFeed(&p, 90, 0, 0, 50);
   meterPeakFeed(&p, 20, 10, 0, 50);
-  TEST_ASSERT_EQUAL_UINT8(20, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(20, p.bar.percent);
 }
 
 static void a_reading_past_the_top_is_held_at_the_top(void) {
   MeterPeak p;
   meterPeakReset(&p);
   meterPeakFeed(&p, 130, 0, HOLD_MS, FALL_MS);
-  TEST_ASSERT_EQUAL_UINT8(100, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(100, p.bar.percent);
 }
 
 static void the_clock_wrapping_does_not_strand_the_mark(void) {
@@ -176,16 +176,16 @@ static void the_clock_wrapping_does_not_strand_the_mark(void) {
   meterPeakFeed(&p, 100, 0xFFFFFF00u, 0, FALL_MS);
   /* Past the wrap, by the whole fall time. */
   meterPeakFeed(&p, 0, 0xFFFFFF00u + FALL_MS + 100u, 0, FALL_MS);
-  TEST_ASSERT_EQUAL_UINT8(0, p.percent);
+  TEST_ASSERT_EQUAL_UINT8(0, p.bar.percent);
 }
 
 static void clearing_forgets_the_mark(void) {
   MeterPeak p;
   meterPeakReset(&p);
   meterPeakFeed(&p, 80, 0, HOLD_MS, FALL_MS);
-  meterPeakClear(&p);
-  TEST_ASSERT_FALSE(p.valid);
-  TEST_ASSERT_EQUAL_UINT8(0, p.percent);
+  meterPeakReset(&p);
+  TEST_ASSERT_FALSE(p.bar.valid);
+  TEST_ASSERT_EQUAL_UINT8(0, p.bar.percent);
 }
 
 /* Fed every 40 ms, a mark at 84 with a 750 ms hold and a 3750 ms fall never
@@ -195,21 +195,21 @@ static void the_fall_starts_when_the_hold_ends(void) {
   MeterPeak p;
   meterPeakReset(&p);
   meterPeakFeed(&p, 84, 0, 750, 3750);
-  uint8_t last = p.percent;
+  uint8_t last = p.bar.percent;
   for (uint32_t t = 40; t <= 3000; t += 40) {
     meterPeakFeed(&p, 10, t, 750, 3750);
     if (t < 750) {
-      TEST_ASSERT_EQUAL_UINT8(84, p.percent);
+      TEST_ASSERT_EQUAL_UINT8(84, p.bar.percent);
     }
-    TEST_ASSERT_TRUE_MESSAGE(last - p.percent <= 2, "one frame fell too far");
-    last = p.percent;
+    TEST_ASSERT_TRUE_MESSAGE(last - p.bar.percent <= 2,
+                             "one frame fell too far");
+    last = p.bar.percent;
   }
-  TEST_ASSERT_TRUE(p.percent < 84);
+  TEST_ASSERT_TRUE(p.bar.percent < 84);
 }
 
 static void a_null_peak_is_safe(void) {
   meterPeakReset(NULL);
-  meterPeakClear(NULL);
   meterPeakFeed(NULL, 50, 0, HOLD_MS, FALL_MS);
 }
 
@@ -320,7 +320,7 @@ static void clearing_forgets_the_bar(void) {
   MeterBar b;
   meterBarReset(&b);
   meterBarFeed(&b, 70, 0, BAR_FALL_MS);
-  meterBarClear(&b);
+  meterBarReset(&b);
   TEST_ASSERT_FALSE(b.valid);
   TEST_ASSERT_EQUAL_UINT16(0, b.percent);
 }
@@ -329,7 +329,7 @@ static void a_null_bar_is_safe(void) {
   TEST_ASSERT_EQUAL_UINT16(50, meterBarFeed(NULL, 50, 0, BAR_FALL_MS));
   TEST_ASSERT_EQUAL_UINT16(200, meterBarFeed(NULL, 200, 0, BAR_FALL_MS));
   meterBarReset(NULL);
-  meterBarClear(NULL);
+  meterBarReset(NULL);
 }
 
 /*

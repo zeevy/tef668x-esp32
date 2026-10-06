@@ -305,10 +305,6 @@ bool bandForFrequency(const BandPlanConfig *config, uint32_t freqKHz,
   return false;
 }
 
-size_t swMeterBandCount(void) {
-  return METER_BAND_COUNT;
-}
-
 const SwMeterBand *swMeterBandAt(size_t index) {
   return index < METER_BAND_COUNT ? &kMeterBands[index] : NULL;
 }

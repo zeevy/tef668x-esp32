@@ -362,8 +362,6 @@ static void rt_plus_tags_cut_the_title_and_artist_out_of_the_text(void) {
   TEST_ASSERT_EQUAL_STRING("FLEETWOOD MAC", out);
   TEST_ASSERT_EQUAL_STRING("ARTIST",
                            rdsRtPlusLabel(rds.info.rtPlusTag[1].type));
-  /* The tag group is not read as anything else. */
-  TEST_ASSERT_EQUAL_UINT32(2, rds.info.groupTypeCount[11][0]);
 }
 
 static void a_tag_group_before_the_announcement_is_nothing(void) {

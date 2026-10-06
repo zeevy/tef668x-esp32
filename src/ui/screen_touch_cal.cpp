@@ -80,10 +80,7 @@ bool screenTouchCalBegin(bool recovery) {
   }
   sUi->recovery = recovery;
   const Theme *t = theme();
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sUi->root = uiBlock(root, t->ground, 0, 0, CAL_W, CAL_H);
   sUi->ring = uiRound(sUi->root, t->radio, 0, 0, RING, RING, RING / 2 + 1);
@@ -234,9 +231,7 @@ void screenTouchCalEnd(void) {
   if (sUi == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sUi->root)) {
-    lv_obj_del(sUi->root);
-  }
+  uiDropRoot(&sUi->root);
   free(sUi);
   sUi = NULL;
 }

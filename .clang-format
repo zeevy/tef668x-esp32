@@ -1,7 +1,8 @@
 # Formatting for tef668x-esp32.
 #
-# Two space indent and K&R braces, the house style. Google style is the
-# closest base to that, so only the differences are listed below.
+# Two space indent, never a tab, K&R braces and eighty columns, the house
+# style, which is Google's own. So only the differences from Google are
+# listed below.
 #
 # The version is pinned, because versions format this tree differently:
 #   python3 -m pip install --break-system-packages clang-format==23.1.1
@@ -13,18 +14,7 @@
 BasedOnStyle: Google
 Language: Cpp
 
-# Two spaces, never a tab.
-IndentWidth: 2
 TabWidth: 2
-UseTab: Never
-ContinuationIndentWidth: 4
-
-# K&R: the opening brace stays on the same line, and else follows the closing
-# brace on the same line.
-BreakBeforeBraces: Attach
-
-# Eighty columns, which is what the doc comments are already written to.
-ColumnLimit: 80
 
 # A single statement body still gets braces, so adding a second line later
 # cannot silently fall outside the if.
@@ -32,25 +22,16 @@ InsertBraces: true
 
 # Pointers and references bind to the name, which is what the existing code
 # does: char *name, not char* name.
-DerivePointerAlignment: false
 PointerAlignment: Right
 
 # Keep the include order stable rather than clever. Grouping is by category
 # and each group is sorted, which makes a missing include obvious.
-SortIncludes: CaseSensitive
 IncludeBlocks: Preserve
 
 # Do not reflow comment text. The prose is wrapped deliberately.
 ReflowComments: false
 
-# One empty line is enough anywhere.
-MaxEmptyLinesToKeep: 1
-
-# Case labels are indented inside the switch.
-IndentCaseLabels: true
-
 # Short things stay on one line only when they were written that way.
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
-AllowShortCaseLabelsOnASingleLine: false

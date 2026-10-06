@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "core/strings.h"
 
@@ -73,27 +74,15 @@ bool clockFormatDate(uint32_t epochUtc, int16_t offsetMinutes, char *out,
     }
     return false;
   }
-  /* Local days since 1 January 1970. The offset can take the first hours of
-   * 1970 below zero, so the division rounds towards minus infinity. */
-  const int64_t local = (int64_t)epochUtc + (int64_t)offsetMinutes * 60;
-  int64_t days = local / 86400;
-  if (local % 86400 < 0) {
-    days--;
+  /* Local time is UTC moved by the offset, so gmtime_r on the moved count
+   * gives the local date. */
+  const time_t local = (time_t)epochUtc + (time_t)offsetMinutes * 60;
+  struct tm tm;
+  if (gmtime_r(&local, &tm) == NULL) {
+    out[0] = '\0';
+    return false;
   }
-  /* 1 January 1970 was a Thursday, day 4 counting Sunday as 0. */
-  const int weekday = (int)(((days % 7) + 11) % 7);
-
-  /* Days to year, month and day, counting from 1 March so the leap day
-   * falls at the end of the year. Howard Hinnant's civil_from_days. */
-  const int64_t z = days + 719468;
-  const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-  const int64_t doe = z - era * 146097;
-  const int64_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-  const int64_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-  const int64_t mp = (5 * doy + 2) / 153;
-  const int day = (int)(doy - (153 * mp + 2) / 5 + 1);
-  const int month = (int)(mp < 10 ? mp + 3 : mp - 9);
-  const int64_t year = yoe + era * 400 + (month <= 2 ? 1 : 0);
+  const int day = tm.tm_mday;
 
   /* 11th, 12th and 13th, not 11st, 12nd and 13rd. */
   StrId suffix = STR_DATE_SUFFIX_TH;
@@ -103,8 +92,8 @@ bool clockFormatDate(uint32_t epochUtc, int16_t offsetMinutes, char *out,
              : day % 10 == 3 ? STR_DATE_SUFFIX_RD
                              : STR_DATE_SUFFIX_TH;
   }
-  snprintf(out, outLen, txt(STR_DATE_FMT_LINE), txt(kDays[weekday]), day,
-           txt(suffix), txt(kMonths[month - 1]), (int)year);
+  snprintf(out, outLen, txt(STR_DATE_FMT_LINE), txt(kDays[tm.tm_wday]), day,
+           txt(suffix), txt(kMonths[tm.tm_mon]), tm.tm_year + 1900);
   return true;
 }
 

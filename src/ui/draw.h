@@ -41,6 +41,14 @@ lv_obj_t *uiLabel(lv_obj_t *parent, const lv_font_t *font, ThemeColour c);
 lv_obj_t *uiBlock(lv_obj_t *parent, ThemeColour c, int16_t x, int16_t y,
                   int16_t w, int16_t h);
 
+/* Makes the active screen a plain, opaque ground that does not scroll, for
+ * a full screen to be built on. */
+void uiScreenRoot(lv_obj_t *root, ThemeColour ground);
+
+/* Deletes a screen's own top object, if LVGL still has it, and sets the
+ * pointer to NULL. */
+void uiDropRoot(lv_obj_t **o);
+
 /* A filled rectangle with round corners: a tile, a menu row, the panel. */
 lv_obj_t *uiRound(lv_obj_t *parent, ThemeColour c, int16_t x, int16_t y,
                   int16_t w, int16_t h, int16_t radius);

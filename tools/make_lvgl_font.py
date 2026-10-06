@@ -32,6 +32,7 @@ Rerun it when the scale changes, run clang-format over the result, and commit
 the headers. The format gate covers generated files like any other.
 """
 import argparse
+import functools
 import os
 import subprocess
 import sys
@@ -253,15 +254,12 @@ def main():
         faces = {"roboto": "Roboto Condensed",
                  "icons": "Material Symbols Outlined",
                  "icons-filled": "Material Symbols Outlined"}
-        cut = {}
+        @functools.cache
         def cut_font(source, weight):
-            key = (source, weight)
-            if key not in cut:
-                cut[key] = instantiate(
-                    sources[source], weight,
-                    os.path.join(tmp, "%s-%d.ttf" % (source, weight)),
-                    filled=source == "icons-filled")
-            return cut[key]
+            return instantiate(
+                sources[source], weight,
+                os.path.join(tmp, "%s-%d.ttf" % (source, weight)),
+                filled=source == "icons-filled")
 
         for row in FONTS:
             name, pixels, weight, glyphs, source, purpose = row[:6]

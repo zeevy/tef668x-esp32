@@ -113,8 +113,8 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
     /* The old station's modulation says nothing about the new one, and the
      * reading the snapshot still carries is the old station's until the
      * radio's next read. */
-    meterBarClear(&b->modulationBar);
-    meterPeakClear(&b->modulationPeak);
+    meterBarReset(&b->modulationBar);
+    meterPeakReset(&b->modulationPeak);
     b->modulationReads = snap.qualityReads;
   }
   /* The offset goes on after the hold, so the number still moves a whole dB at
@@ -227,11 +227,11 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
     }
     state.modulationValid = b->modulationBar.valid;
     state.modulationPercent = (uint8_t)b->modulationBar.percent;
-    state.modulationPeakValid = b->modulationPeak.valid;
-    state.modulationPeakPercent = b->modulationPeak.percent;
+    state.modulationPeakValid = b->modulationPeak.bar.valid;
+    state.modulationPeakPercent = (uint8_t)b->modulationPeak.bar.percent;
   } else {
-    meterBarClear(&b->modulationBar);
-    meterPeakClear(&b->modulationPeak);
+    meterBarReset(&b->modulationBar);
+    meterPeakReset(&b->modulationPeak);
   }
 
   /* What the RDS decoder has made of the station. FM only, and every field

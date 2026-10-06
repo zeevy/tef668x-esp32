@@ -210,10 +210,7 @@ bool screenDxBegin(void) {
   }
   const Theme *t = themeCurrent();
 
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sDx = uiBlock(root, t->ground, 0, 0, DX_W, DX_H);
 
@@ -525,8 +522,5 @@ void screenDxEnd(void) {
   if (sDx == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sDx)) {
-    lv_obj_del(sDx);
-  }
-  sDx = NULL;
+  uiDropRoot(&sDx);
 }

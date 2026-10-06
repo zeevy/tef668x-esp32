@@ -13,11 +13,10 @@
  * registered. */
 static WebContext *sWeb = NULL;
 
-/* A theme colour's five, six and five bits as #RRGGBB, into `out`, which
- * holds 8. */
+/* A theme colour as #RRGGBB, into `out`, which holds 8. */
 static void hexColour(ThemeColour c, char *out) {
-  snprintf(out, 8, "#%02X%02X%02X", (unsigned)((c >> 8) & 0xF8),
-           (unsigned)((c >> 3) & 0xFC), (unsigned)((c << 3) & 0xF8));
+  snprintf(out, 8, "#%06lX",
+           (unsigned long)(lv_color_to_u32(uiColour(c)) & 0xFFFFFFUL));
 }
 
 static void sendText(void *ctx, const UiText *t) {
@@ -82,7 +81,6 @@ static void sendBox(void *ctx, const UiBox *b) {
  * editor, comes here as stars.
  */
 static void handleApiScreenGet(void) {
-  sWeb->requests++;
   sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   sWeb->server.send(200, "application/x-ndjson", "");
   uint8_t page = 0;
@@ -107,7 +105,6 @@ static void handleApiScreenGet(void) {
  * `inp.lst`, which starts "api ", say what it did.
  */
 static void handleApiKey(void) {
-  sWeb->requests++;
   if (!requireAuth(false)) {
     return;
   }

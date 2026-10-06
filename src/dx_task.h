@@ -78,18 +78,21 @@ typedef struct {
 /* The walk of the last scan started, or NULL before DX mode first opened. */
 const DxScanWalk *dxTaskWalk(void);
 
-/* The level sweeps as the Scope page reads them: the latest, the baseline
- * and the peak, each NULL when there is none, and whether one is running. */
+/* The level sweeps: the latest, the baseline and the peak, each NULL when
+ * there is none, and whether one is running. Pointers into the glue's own
+ * store, good until the next call. */
 typedef struct {
   const DxSweep *live;
   const DxSweep *base;
-  uint8_t baseN; /* How many sweeps the baseline comes from. */
-  bool baseFixed;
+  uint8_t baseN;  /* How many sweeps the baseline comes from. */
+  bool baseFixed; /* A sweep fixed by hand rather than the median. */
   const DxSweep *peak;
   bool running;
+  bool abandoned;    /* The last sweep was ended before the top. */
   uint16_t revision; /* Moves whenever live, base or peak change. */
 } DxSweepState;
-/* False, and `out` cleared, before there is room for the sweeps. */
+/* As the Scope page reads them, with no side effects. False, and `out`
+ * cleared, before there is room for the sweeps. */
 bool dxTaskSweepState(DxSweepState *out);
 /* Take a finished sweep from the radio task, for the Scope page. */
 void dxTaskSweepPoll(void);
@@ -203,20 +206,10 @@ typedef enum {
  */
 DxSweepStart dxTaskSweep(void);
 
-/* The latest sweep and what it is held against, for GET /api/dx/sweep.
- * Pointers into the glue's own store, good until the next call. */
-typedef struct {
-  bool running;
-  bool abandoned;      /* The last sweep was ended before the top. */
-  const DxSweep *live; /* NULL before any sweep. */
-  const DxSweep *base; /* NULL when there is no baseline for it. */
-  uint8_t baseN;       /* How many sweeps the baseline comes from. */
-  bool baseFixed;      /* A sweep fixed by hand rather than the median. */
-  const DxSweep *peak; /* NULL before a sweep since DX mode opened. */
-} DxSweepView;
-
-/* False, and nothing in `out`, when the heap had no room for the sweeps. */
-bool dxTaskSweepView(DxSweepView *out);
+/* As GET /api/dx/sweep reads them: the stored sweeps loaded and a finished
+ * sweep taken first, and the baseline only when it was taken on the same
+ * channels as the latest sweep. False when the heap had no room for them. */
+bool dxTaskSweepView(DxSweepState *out);
 
 typedef enum {
   DX_BASE_DONE,

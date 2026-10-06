@@ -1046,6 +1046,7 @@ bool dxTaskSweepState(DxSweepState *out) {
   out->baseFixed = sSweep->baseFixed;
   out->peak = sSweep->peak.count > 0 ? &sSweep->peak : NULL;
   out->running = sSweep->running;
+  out->abandoned = sSweep->abandoned;
   out->revision = sSweep->revision;
   return true;
 }
@@ -1076,28 +1077,18 @@ DxSweepStart dxTaskSweep(void) {
   return sweepStart();
 }
 
-bool dxTaskSweepView(DxSweepView *out) {
-  memset(out, 0, sizeof(*out));
+bool dxTaskSweepView(DxSweepState *out) {
   sweepEnsure();
-  if (sSweep == NULL) {
+  sweepPoll();
+  if (!dxTaskSweepState(out)) {
     return false;
   }
-  sweepPoll();
-  out->running = sSweep->running;
-  out->abandoned = sSweep->abandoned;
-  out->baseFixed = sSweep->baseFixed;
-  if (sSweep->live.count == 0) {
-    return true;
-  }
-  out->live = &sSweep->live;
   /* A baseline fixed on other channels or at another width does not hold
    * against this sweep. */
-  if (sSweep->baseN > 0 && dxSweepSameChannels(&sSweep->base, &sSweep->live)) {
-    out->base = &sSweep->base;
-    out->baseN = sSweep->baseN;
-  }
-  if (sSweep->peak.count > 0) {
-    out->peak = &sSweep->peak;
+  if (out->live == NULL ||
+      (out->base != NULL && !dxSweepSameChannels(out->base, out->live))) {
+    out->base = NULL;
+    out->baseN = 0;
   }
   return true;
 }

@@ -22,312 +22,109 @@
 #include "radio.h"
 #include "rds_country.h"
 #include "seek.h"
+#include "settings_table.h"
 #include "signal.h"
 #include "squelch.h"
 #include "wifi_join.h"
 
 /*
- * How many bytes each shipped version of the struct took.
+ * How many bytes each shipped version of the struct took, by version.
  *
- * Every version but the newest is a number written out by hand, and the
- * newest is sizeof(Settings). When SETTINGS_VERSION goes up, the entry that
- * was sizeof becomes the number it gave. That is the whole migration
- * mechanism: a version is a known length, so a blob that
- * is not that length is corrupt rather than old.
+ * A version is a known length, so a blob that is not that length is corrupt
+ * rather than old. That is the whole migration mechanism. The size a version
+ * wrote is fixed once it ships and cannot be asked of the struct as it is
+ * today, so every version but the newest is a number written out by hand.
+ * When SETTINGS_VERSION goes up, the newest row becomes the number its
+ * sizeof gave. Two versions of the same size are a field that went into
+ * padding the older one already had; the version field tells them apart.
  */
-static uint16_t settingsSizeOfVersion(uint16_t version) {
-  switch (version) {
-    case 1:
-      /* Written out by hand, because sizeof(Settings) is the newest
-       * version's size. A radio holding a version 1 blob wrote exactly this
-       * many bytes, and that never changes. */
-      return 108;
-    case 2:
-      /* Written out by hand for the same reason version 1 is. A radio
-       * holding a version 2 blob wrote exactly this many bytes. */
-      return 132;
-    case 3:
-      /* Written out by hand, like 1 and 2. A radio holding a version 3 blob
-       * wrote exactly this many bytes. */
-      return 136;
-    case 4:
-      /* Written out by hand, like the versions before it. */
-      return 140;
-    case 5:
-      /* Written out by hand, like the versions before it. */
-      return 144;
-    case 6:
-      /* The same 144 bytes version 5 wrote. Version 6 added one byte,
-       * `beepStart`, and it went into padding version 5 already had, so the
-       * struct did not grow. The two are told apart by the version field,
-       * which is what that field is for. */
-      return 144;
-    case 7:
-      /* Written out by hand, like the versions before it. */
-      return 148;
-    case 8:
-      /* Written out by hand, like the versions before it. */
-      return 196;
-    case 9:
-      /* Written out by hand, like the versions before it. */
-      return 196;
-    case 10:
-      /* The same 196 bytes version 9 wrote. Version 10 added one byte,
-       * `rdsEnabled`, and it went into padding version 9 already had, so the
-       * struct did not grow. The same case as `beepStart` in version 6. */
-      return 196;
-    case 11:
-      /* Written out by hand, like the versions before it. */
-      return 200;
-    case 12:
-      /* Written out by hand, like the versions before it. */
-      return 200;
-    case 13:
-      /* 200, written out by hand rather than as `sizeof`. The size a version
-       * wrote is fixed once it ships and cannot be asked of the struct as it
-       * is today, so every older version in this table is a number. */
-      return 200;
-    case 14:
-      /* 204, written out by hand for the reason version 13 gives. Version 14
-       * put two bytes on the end for the volume AGC, past the last byte
-       * version 13 filled, so the struct grew. */
-      return 204;
-    case 15:
-      /* 204, written out by hand now that version 16 has grown the struct.
-       * Version 15 added the two meter segment bytes into padding version 14
-       * already had, so it wrote the same 204 bytes version 14 did. */
-      return 204;
-    case 16:
-      /* 208, written out by hand now that version 17 has grown the struct
-       * again. Version 16 put the two signal scale bytes on the end at
-       * offsets 204 and 205, past everything version 15 wrote, growing the
-       * struct to 208 with two bytes of padding after them. */
-      return 208;
-    case 17:
-      /* 256, written out by hand now that version 18 has changed the
-       * struct again. Version 17 put `theme` and a sixteen row
-       * `customTheme` on the end, past the two bytes of padding version
-       * 16 left. */
-      return 256;
-    case 18:
-      /* Version 18 shrank `customTheme` from sixteen rows to thirteen, so
-       * the struct is smaller than version 17's despite being newer. 248,
-       * written out by hand now that version 19 has changed the struct
-       * again. */
-      return 248;
-    case 19:
-      /* `displayRotation` landed in the single byte of padding version 18
-       * already left after `customTheme`, so the struct did not grow: the
-       * same 248 bytes, the two versions told apart by the version field. */
-      return 248;
-    case 20:
-      /* 252, written out by hand now that version 21 exists. */
-      return 252;
-    case 21:
-      /* The same 252 bytes. Version 21 added no field; it changed what
-       * `theme` means. Written out by hand now that version 22 exists. */
-      return 252;
-    case 22:
-      /* 264, written out by hand now that version 23 exists. */
-      return 264;
-    case 23:
-      /* The same 264 bytes. `rdsRegion` went into the padding version 22
-       * left after `dxWidthKHz`, so only the version field tells the two
-       * apart. Written out by hand now that version 24 exists. */
-      return 264;
-    case 24:
-      /* The same 264 bytes again. `dxLogRt` went into the byte version 23
-       * left after `rdsRegion`. Written out by hand now that version 25
-       * exists. */
-      return 264;
-    case 25:
-      /* 268, written out by hand now that version 26 exists. */
-      return 268;
-    case 26:
-      /* The same 268 bytes: the two offsets went into version 25's
-       * padding after `dxWatch`. Written out by hand now that version 27
-       * exists. */
-      return 268;
-    case 27:
-      /* The same 268 bytes again: `nightTheme` went into version 26's last
-       * byte of padding. Written out by hand now that version 28 exists. */
-      return 268;
-    case 28:
-      /* 272, written out by hand now that version 29 exists. */
-      return 272;
-    case 29:
-      /* The same 272 bytes: the two switches went into version 28's
-       * padding after `hotspot`. Written out by hand now that version 30
-       * exists. */
-      return 272;
-    case 30:
-      /* The same 272 bytes again: auto off went into version 29's last byte
-       * of padding. Written out by hand now that version 31 exists. */
-      return 272;
-    case 31:
-      /* 276: two bytes for auto off past version 30's end, and two of
-       * padding, since used by the update check and the touch switch. */
-      return (uint16_t)sizeof(Settings);
-    default:
-      return 0;
-  }
-}
+static const uint16_t kSizeOfVersion[SETTINGS_VERSION + 1] = {
+    [1] = 108,
+    [2] = 132,
+    [3] = 136,
+    [4] = 140,
+    [5] = 144,
+    [6] = 144,
+    [7] = 148,
+    [8] = 196,
+    [9] = 196,
+    [10] = 196,
+    [11] = 200,
+    [12] = 200,
+    [13] = 200,
+    [14] = 204,
+    [15] = 204,
+    [16] = 208,
+    [17] = 256,
+    /* Version 18 cut `customTheme` from sixteen rows to thirteen. */
+    [18] = 248,
+    [19] = 248,
+    [20] = 252,
+    [21] = 252,
+    [22] = 264,
+    [23] = 264,
+    [24] = 264,
+    [25] = 268,
+    [26] = 268,
+    [27] = 268,
+    [28] = 272,
+    [29] = 272,
+    [30] = 272,
+    [31] = (uint16_t)sizeof(Settings)};
 
 /*
- * Where the fields of a version end, which is not the same as its size.
+ * Where the fields of each version end, which is not the same as its size.
  *
  * A struct's trailing padding belongs to no field, and a field added later
- * can land inside it. `potRawMin` sits at offset 134, inside the two bytes
- * version 3 wrote as padding after its last field. Copying a version 3 blob
- * by its written length would take the new field out of that old padding.
- *
- * It is zero on every radio in the field, because the struct is memset before
- * it is filled, so this has never gone wrong. It is written this way because
- * "it happens to be zero" is not a reason, and the next field to land in
- * padding may not be so lucky.
- *
- * Expressed with offsetof rather than as numbers, so it cannot drift from the
- * struct the way a hand written offset would.
+ * can land inside it. Copying an old blob by its written length would take
+ * that new field out of the old padding. So an old blob is copied only up to
+ * the first field its version did not have, and every field after it keeps
+ * the default settingsDefaults put there. The padding is zero on every radio,
+ * because the struct is memset before it is filled, but "it happens to be
+ * zero" is not a reason. offsetof keeps this table from drifting from the
+ * struct. A row marked "padding" is a field that landed in the padding of
+ * the version before it.
  */
-static size_t settingsFieldEndOfVersion(uint16_t version) {
-  switch (version) {
-    case 1:
-      return offsetof(Settings, fmRegion);
-    case 2:
-      return offsetof(Settings, fmScanSensitivity);
-    case 3:
-      return offsetof(Settings, potRawMin);
-    case 4:
-      return offsetof(Settings, softMuteMs);
-    case 5:
-      return offsetof(Settings, beepStart);
-    case 6:
-      /* `backlightPercent` sits at offset 143, in the single byte version 6
-       * wrote as padding after `beepStart`. The same case as `potRawMin`
-       * above, and the reason this table is separate from the size one. */
-      return offsetof(Settings, backlightPercent);
-    case 7:
-      return offsetof(Settings, bandFreqKHz);
-    case 8:
-      return offsetof(Settings, fmSquelchFloor);
-    case 9:
-      /* `rdsEnabled` sits at offset 194, in the padding version 9 wrote after
-       * `fmSquelchFloor`. The same case as `potRawMin` and `backlightPercent`
-       * above, and the reason this table is separate from the size one. */
-      return offsetof(Settings, rdsEnabled);
-    case 10:
-      /* `ntpEnabled` sits at offset 195, in the padding version 10 wrote
-       * after `rdsEnabled`. The same case as `potRawMin`, `backlightPercent`
-       * and `rdsEnabled` above. */
-      return offsetof(Settings, ntpEnabled);
-    case 11:
-      /* `batteryShow` sits at offset 198, in the padding version 11 wrote
-       * after `clockOffsetMinutes`. The same case as `potRawMin`,
-       * `backlightPercent`, `rdsEnabled` and `ntpEnabled` above. */
-      return offsetof(Settings, batteryShow);
-    case 12:
-      /* `tuneMode` sits at offset 199, in the single byte version 12 wrote as
-       * padding after `batteryShow`. The same case as `potRawMin`,
-       * `backlightPercent`, `rdsEnabled` and `ntpEnabled` above. */
-      return offsetof(Settings, tuneMode);
-    case 13:
-      /* Everything up to the AGC settings, which version 14 added on the end
-       * rather than into padding: version 13 filled the last byte it had. */
-      return offsetof(Settings, agcTargetPercent);
-    case 14:
-      /* `meterSegW` and `meterSegGap` sit at offsets 202 and 203, in the two
-       * bytes version 14 wrote as padding after `agcBoostDb`. Both have a
-       * minimum of 1, so a version 14 blob copied by its written length
-       * brings two zeros in, `settingsValid` refuses the struct, and the
-       * radio comes up on defaults having lost its PIN, its station and its
-       * calibration. The same case as `potRawMin`, `backlightPercent`,
-       * `rdsEnabled`, `ntpEnabled`, `batteryShow` and `tuneMode` above. */
-      return offsetof(Settings, meterSegW);
-    case 15:
-      /* The two signal scale bytes sit at 204 and 205, past the end of what
-       * version 15 wrote, so a version 15 blob is copied whole. Unlike
-       * `meterSegW` in version 14 there is no padding to land in: version 15
-       * filled its last byte. */
-      return offsetof(Settings, sigFullFmDbuV);
-    case 16:
-      /* `theme` sits right after `sigFullAmDbuV`, where version 16 filled
-       * its last byte with no padding behind it. Version 16's own end is
-       * here rather than at sizeof(Settings), which now also counts
-       * `theme` and `customTheme` and would otherwise hand a version 16
-       * blob's copy both of those fields it never wrote. */
-      return offsetof(Settings, theme);
-    case 17:
-      /* A version 17 blob's own `theme` and `customTheme` are not carried
-       * across. `theme` is an index into ui/theme.c's table, and version
-       * 18 renamed nine of its ten rows and moved every one of them but
-       * Nightwatch to a different position, so an old index picked at
-       * random out of the new table is not the theme it used to be, which
-       * is the same kind of wrong answer a stale `customTheme` shape would
-       * give if copied byte for byte into a struct whose rows now mean
-       * something else. Both reset to what settingsDefaults just put
-       * there, the same as a field this version never wrote at all. */
-      return offsetof(Settings, theme);
-    case 18:
-      /* `displayRotation` sits in the single byte of padding version 18
-       * left after `customTheme`. Copying a version 18 blob by its own
-       * written length, 248, would read that byte as this radio's own
-       * rotation rather than the neighbour it actually is, and `Settings`
-       * happens to be 248 bytes on both sides of this change, so the
-       * length check alone cannot tell an old blob from a new one here.
-       * The same case as `potRawMin` and every field after it above. */
-      return offsetof(Settings, displayRotation);
-    case 19:
-      /* `amHighCutStart` sits at offset 247, in the single byte version 19
-       * wrote as padding after `displayRotation`. The same case as
-       * `potRawMin` and every field after it above. */
-      return offsetof(Settings, amHighCutStart);
-    case 20:
-    case 21:
-      /* `dxStopRule` sits at offset 251, in the byte versions 20 and 21
-       * wrote as padding after `lwSoftMuteStart`. The same case as
-       * `potRawMin` and every field after it above. */
-      return offsetof(Settings, dxStopRule);
-    case 22:
-      /* `rdsRegion` sits at offset 262, in the two bytes version 22 wrote
-       * as padding after `dxWidthKHz`, and the struct is 264 bytes on both
-       * sides of the change. The same case as `potRawMin` and every field
-       * after it above. */
-      return offsetof(Settings, rdsRegion);
-    case 23:
-      /* `dxLogRt` sits at offset 263, in the byte version 23 wrote as
-       * padding after `rdsRegion`. The same case again. */
-      return offsetof(Settings, dxLogRt);
-    case 24:
-      /* `dxWatch` starts at 264, just past version 24's end. */
-      return offsetof(Settings, dxWatch);
-    case 25:
-      /* `levelOffsetFmDb` sits at 265, in the padding version 25 wrote
-       * after `dxWatch`. The same case as `rdsRegion` above. */
-      return offsetof(Settings, levelOffsetFmDb);
-    case 26:
-      /* `nightTheme` sits at 267, in the byte version 26 wrote as padding
-       * after `levelOffsetAmDb`. The same case as `rdsRegion` above. */
-      return offsetof(Settings, nightTheme);
-    case 27:
-      /* `hotspot` starts at 268, just past version 27's end. */
-      return offsetof(Settings, hotspot);
-    case 28:
-      /* `webEnabled` sits at 269, in the padding version 28 wrote after
-       * `hotspot`. The same case as `rdsRegion` above. */
-      return offsetof(Settings, webEnabled);
-    case 29:
-      /* `autoOffMinutesV30` sits at 271, in the byte version 29 wrote as
-       * padding after `wifiEnabled`. The same case as `rdsRegion` above. */
-      return offsetof(Settings, autoOffMinutesV30);
-    case 30:
-      /* `autoOffMinutes` starts at 272, just past version 30's end. */
-      return offsetof(Settings, autoOffMinutes);
-    case 31:
-      return sizeof(Settings);
-    default:
-      return 0;
-  }
-}
+static const size_t kFieldEndOfVersion[SETTINGS_VERSION + 1] = {
+    [1] = offsetof(Settings, fmRegion),
+    [2] = offsetof(Settings, fmScanSensitivity),
+    [3] = offsetof(Settings, potRawMin), /* padding */
+    [4] = offsetof(Settings, softMuteMs),
+    [5] = offsetof(Settings, beepStart),
+    [6] = offsetof(Settings, backlightPercent), /* padding */
+    [7] = offsetof(Settings, bandFreqKHz),
+    [8] = offsetof(Settings, fmSquelchFloor),
+    [9] = offsetof(Settings, rdsEnabled),   /* padding */
+    [10] = offsetof(Settings, ntpEnabled),  /* padding */
+    [11] = offsetof(Settings, batteryShow), /* padding */
+    [12] = offsetof(Settings, tuneMode),    /* padding */
+    [13] = offsetof(Settings, agcTargetPercent),
+    /* Padding. Both meter segment fields have a minimum of 1, so copying
+     * version 14 by its length would bring in two zeros, settingsValid would
+     * refuse the struct, and the radio would come up on defaults without its
+     * PIN, its station and its calibration. */
+    [14] = offsetof(Settings, meterSegW),
+    [15] = offsetof(Settings, sigFullFmDbuV),
+    [16] = offsetof(Settings, theme),
+    /* Version 18 renamed and moved the theme rows, so a version 17 `theme`
+     * and `customTheme` mean something else today and keep their defaults. */
+    [17] = offsetof(Settings, theme),
+    /* Padding. Settings is 248 bytes in both version 18 and 19, so the
+     * length alone cannot tell the two apart. */
+    [18] = offsetof(Settings, displayRotation),
+    [19] = offsetof(Settings, amHighCutStart), /* padding */
+    [20] = offsetof(Settings, dxStopRule),     /* padding */
+    [21] = offsetof(Settings, dxStopRule),     /* padding */
+    [22] = offsetof(Settings, rdsRegion),      /* padding */
+    [23] = offsetof(Settings, dxLogRt),        /* padding */
+    [24] = offsetof(Settings, dxWatch),
+    [25] = offsetof(Settings, levelOffsetFmDb), /* padding */
+    [26] = offsetof(Settings, nightTheme),      /* padding */
+    [27] = offsetof(Settings, hotspot),
+    [28] = offsetof(Settings, webEnabled),        /* padding */
+    [29] = offsetof(Settings, autoOffMinutesV30), /* padding */
+    [30] = offsetof(Settings, autoOffMinutes),
+    [31] = sizeof(Settings)};
 
 static bool startLevelOk(uint8_t level) {
   return level == 0 || (level >= 20 && level <= 60);
@@ -562,20 +359,26 @@ bool settingsValid(const Settings *s) {
     return false;
   }
 
-  /* Every range below is the hardware's, not a preference. A value outside
-   * one of these is a setting that is switched on and does nothing, so it is
-   * refused here rather than in whichever caller happens to exist. */
-  if (s->fmRegion >= (uint8_t)FM_REGION_COUNT ||
-      s->mwSpacing > (uint8_t)MW_SPACING_10K) {
-    return false;
+  /* Every range here is the hardware's, not a preference. A value outside
+   * one is a setting that is switched on and does nothing, so it is refused
+   * here rather than in whichever caller happens to exist.
+   *
+   * First every setting the table holds, against the same range the API and
+   * the menu offer. Checked from the one table, so the menu can never store a
+   * value this refuses, which would make every save after it fail. */
+  for (size_t i = 0; i < settingsTableCount(); i++) {
+    const SettingRow *row = settingsTableAt(i);
+    const int32_t v = settingsTableGet(s, row);
+    if (v < row->low || v > row->high) {
+      return false;
+    }
   }
-  if (s->encoderKind > (uint8_t)ENCODER_OPTICAL ||
-      s->encoderDirection > (uint8_t)ENCODER_REVERSED) {
-    return false;
-  }
-  /* The frequency is not checked here, because what it has to be inside is
-   * the band plan, and that is a different setting. radioFromSettings judges
-   * it against the plan and falls back to the band's own start. */
+
+  /* Then what the table cannot say: the fields it does not hold, and the
+   * legal sets with a hole in them. The frequency is not checked here,
+   * because what it has to be inside is the band plan, and that is a
+   * different setting. radioFromSettings judges it against the plan and
+   * falls back to the band's own start. */
   if (s->squelchMode >= (uint8_t)SQUELCH_MODE_COUNT ||
       s->startBand >= (uint8_t)BAND_COUNT) {
     return false;
@@ -618,22 +421,8 @@ bool settingsValid(const Settings *s) {
   if (s->displayRotation != 0 && s->displayRotation != 180) {
     return false;
   }
-  if (s->dxStopRule >= DX_STOP_COUNT || s->dxScanRange >= DX_RANGE_COUNT ||
-      s->dxMemFirst < 1 || s->dxMemLast > MEMORY_SLOT_COUNT ||
-      s->dxMemFirst > s->dxMemLast || s->dxLoop > 1 || s->dxScanMute > 1 ||
-      s->dxAutoLog > 1 || s->dxDwellTenths < DX_SCAN_DWELL_MIN_TENTHS ||
-      s->dxDwellTenths > DX_SCAN_DWELL_MAX_TENTHS ||
-      !bandBandwidthAllowed(BAND_FM, s->dxWidthKHz) || s->dxWidthKHz == 0) {
-    return false;
-  }
-  if (s->rdsRegion >= RDS_REGION_COUNT || s->dxLogRt > 1 || s->dxWatch > 1 ||
-      s->hotspot >= WIFI_HOTSPOT_COUNT || s->webEnabled > 1 ||
-      s->wifiEnabled > 1 || s->levelOffsetFmDb < SIGNAL_LEVEL_OFFSET_MIN_DB ||
-      s->levelOffsetFmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
-      s->levelOffsetAmDb < SIGNAL_LEVEL_OFFSET_MIN_DB ||
-      s->levelOffsetAmDb > SIGNAL_LEVEL_OFFSET_MAX_DB ||
-      !autoOffMinutesOk(s->autoOffMinutes) || s->updateCheck > 1 ||
-      s->touchOff > 1) {
+  if (s->dxMemFirst > s->dxMemLast ||
+      !bandBandwidthAllowed(BAND_FM, s->dxWidthKHz)) {
     return false;
   }
   /* The loud end alone says whether this knob has been measured. Zero there
@@ -654,27 +443,6 @@ bool settingsValid(const Settings *s) {
   if (s->potRawMin > 4095 || s->potRawMax > 4095) {
     return false;
   }
-  /* Long enough to be a ramp and short enough that mute still feels like a
-   * button. Anything past half a second is somebody typing a number in. */
-  if (s->softMuteMs > 500) {
-    return false;
-  }
-  if (s->beepKey >= (uint8_t)BEEP_MODE_COUNT || s->beepEdge > 1 ||
-      s->beepStart > 1) {
-    return false;
-  }
-  /* Bright enough to read by. A panel driven to nothing while the radio is
-   * being used is a panel that looks broken, and the only control for it is
-   * the page that has just gone dark. The dim level has no floor, because
-   * that one is left on purpose and any input brings it back. */
-  if (s->backlightPercent < BACKLIGHT_MIN_AWAKE || s->backlightPercent > 100) {
-    return false;
-  }
-  if (s->backlightDimPercent > 100 ||
-      s->backlightDimAfterS > BACKLIGHT_DIM_AFTER_MAX_S ||
-      s->backlightFade > 1) {
-    return false;
-  }
   /* The tuning mode. The step and the width are not checked here: what they
    * have to be inside is the band plan, which is a different setting, and
    * radioApply judges each against the band it belongs to and falls back to
@@ -683,35 +451,10 @@ bool settingsValid(const Settings *s) {
   if (s->tuneMode >= (uint8_t)TUNE_MODE_COUNT) {
     return false;
   }
-  /*
-   * The AGC target is zero or a real target, never in between.
-   *
-   * The same shape as the start levels and the blankers above: zero is off,
-   * and the band of values below AGC_TARGET_MIN is not a quieter setting, it
-   * is a number nothing sensible can be done with.
-   */
-  if (s->agcTargetPercent != 0 && (s->agcTargetPercent < AGC_TARGET_MIN ||
-                                   s->agcTargetPercent > AGC_TARGET_MAX)) {
-    return false;
-  }
-  if (s->agcBoostDb > AGC_BOOST_MAX) {
-    return false;
-  }
-  /* A floor above anything the band produces would mute every station, so
-   * the range stops well short of that. 0 switches it off. */
-  if (s->fmSquelchFloor > SQUELCH_FM_LEVEL_FLOOR_MAX_DBUV) {
-    return false;
-  }
-  if (s->fmScanSensitivity < SEEK_SENSITIVITY_MIN ||
-      s->fmScanSensitivity > SEEK_SENSITIVITY_MAX ||
-      s->amScanSensitivity < SEEK_SENSITIVITY_MIN ||
-      s->amScanSensitivity > SEEK_SENSITIVITY_MAX) {
-    return false;
-  }
-  if (s->ntpEnabled > 1) {
-    return false;
-  }
-  if (s->batteryShow >= (uint8_t)BATTERY_SHOW_COUNT) {
+  /* The AGC target is zero or a real target, never in between: a number
+   * below AGC_TARGET_MIN is not a quieter setting, it is one nothing
+   * sensible can be done with. */
+  if (s->agcTargetPercent != 0 && s->agcTargetPercent < AGC_TARGET_MIN) {
     return false;
   }
   if (s->clockOffsetMinutes < CLOCK_OFFSET_MIN_MINUTES ||
@@ -774,14 +517,14 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
    * size field alone is not enough, because a corrupt blob can declare a
    * small size that matches its own truncated length and then read back as a
    * valid one character SSID. */
-  if (storedSize != len || storedSize != settingsSizeOfVersion(version)) {
+  if (storedSize != len || storedSize != kSizeOfVersion[version]) {
     return false;
   }
 
   /* Copy in only as far as that version's fields go, not as far as it wrote.
    * Anything this firmware added since keeps the default that settingsDefaults
-   * just put there. See settingsFieldEndOfVersion for why the two differ. */
-  size_t copy = settingsFieldEndOfVersion(version);
+   * just put there. See kFieldEndOfVersion for why the two differ. */
+  size_t copy = kFieldEndOfVersion[version];
   if (copy > len) {
     copy = len;
   }

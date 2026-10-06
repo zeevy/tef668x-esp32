@@ -18,6 +18,7 @@
 #include <Arduino.h>
 #include <esp_ota_ops.h>
 #include <string.h>
+#include <algorithm>
 
 /* The seven rows. The last, "Exit and start radio", is the way out every other
  * list in this UI ends with. */
@@ -99,14 +100,8 @@ static uint8_t moveCursor(uint8_t cursor, int32_t clicks) {
   if (clicks == 0) {
     return cursor;
   }
-  int32_t next = (int32_t)cursor + (clicks < 0 ? -1 : 1);
-  if (next < 0) {
-    next = 0;
-  }
-  if (next > SCREEN_RECOVERY_ROWS - 1) {
-    next = SCREEN_RECOVERY_ROWS - 1;
-  }
-  return (uint8_t)next;
+  return (uint8_t)std::clamp<int32_t>(cursor + (clicks < 0 ? -1 : 1), 0,
+                                      SCREEN_RECOVERY_ROWS - 1);
 }
 
 /* How long the knob must read up before a press can count again, so a

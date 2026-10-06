@@ -250,11 +250,9 @@ static bool writeSettings(const Settings *candidate, uint32_t nowMs) {
 
 /* The station a save wrote, for the serial log. */
 static void logSaved(const char *how, const Settings *s) {
-  char text[16];
-  bandFormatFrequency((BandId)s->startBand, s->startFreqKHz, text,
-                      sizeof(text));
-  Serial.printf("[settings] saved %s, %s %s\n", how, text,
-                bandFrequencyUnit((BandId)s->startBand));
+  char text[24];
+  bandFormatWithUnit((BandId)s->startBand, s->startFreqKHz, text, sizeof(text));
+  Serial.printf("[settings] saved %s, %s\n", how, text);
 }
 
 void settingsTaskSaveNow(void) {

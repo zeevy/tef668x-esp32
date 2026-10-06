@@ -1,6 +1,7 @@
 /* Implementation of the channel list as text. */
 #include "memory_csv.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "csv.h"
@@ -14,45 +15,11 @@ const char *memoryCsvHeader(void) {
   return kHeader;
 }
 
-static void put(char *out, size_t cap, size_t *n, char c) {
-  if (*n + 1 < cap) {
-    out[*n] = c;
-  }
-  (*n)++;
-}
-
-static void putNumber(char *out, size_t cap, size_t *n, uint32_t value) {
-  char digits[11];
-  size_t count = 0;
-  do {
-    digits[count++] = (char)('0' + (value % 10u));
-    value /= 10u;
-  } while (value != 0 && count < sizeof(digits));
-  while (count > 0) {
-    put(out, cap, n, digits[--count]);
-  }
-}
-
 size_t memoryCsvLine(const MemoryStore *m, int slot, char *out, size_t cap) {
   const MemoryChannel *c = memoryGet(m, slot);
   if (c == NULL || out == NULL) {
     return 0;
   }
-  size_t n = 0;
-  /* Counted from 1, the way the slot is shown on the panel and typed on the
-   * keypad. A file whose first channel is called 0 would be read back onto
-   * the wrong slot by anybody editing it by hand. */
-  putNumber(out, cap, &n, (uint32_t)slot + 1u);
-  put(out, cap, &n, ',');
-  const char *band = bandName((BandId)c->band);
-  for (size_t i = 0; band[i] != '\0'; i++) {
-    put(out, cap, &n, band[i]);
-  }
-  put(out, cap, &n, ',');
-  putNumber(out, cap, &n, c->freqKHz);
-  put(out, cap, &n, ',');
-  putNumber(out, cap, &n, c->bandwidthKHz);
-  put(out, cap, &n, ',');
   /* At most 16 characters as well as up to the terminator, because that is
    * the longest name the field can hold and still end inside itself.
    * memoryChannelValid is what guarantees the terminator is there, run on
@@ -61,22 +28,18 @@ size_t memoryCsvLine(const MemoryStore *m, int slot, char *out, size_t cap) {
    * doubled quote, inside the two that wrap the field. */
   char name[2 + (MEMORY_NAME_LEN - 1) * 2 + 1];
   csvQuote(c->name, MEMORY_NAME_LEN - 1, name, sizeof(name));
-  for (size_t i = 0; name[i] != '\0'; i++) {
-    put(out, cap, &n, name[i]);
-  }
   /* The PI as four hex digits, or nothing when none is known. */
-  put(out, cap, &n, ',');
+  char pi[5] = "";
   if (c->pi != 0) {
-    static const char kHex[] = "0123456789ABCDEF";
-    for (int shift = 12; shift >= 0; shift -= 4) {
-      put(out, cap, &n, kHex[(c->pi >> shift) & 0xF]);
-    }
+    snprintf(pi, sizeof(pi), "%04X", (unsigned)c->pi);
   }
-  put(out, cap, &n, '\n');
-  if (cap != 0) {
-    out[n < cap ? n : cap - 1] = '\0';
-  }
-  return n;
+  /* The slot counted from 1, the way it is shown on the panel and typed on
+   * the keypad. A file whose first channel is called 0 would be read back
+   * onto the wrong slot by anybody editing it by hand. */
+  const int n = snprintf(out, cap, "%d,%s,%lu,%u,%s,%s\n", slot + 1,
+                         bandName((BandId)c->band), (unsigned long)c->freqKHz,
+                         (unsigned)c->bandwidthKHz, name, pi);
+  return n < 0 ? 0 : (size_t)n;
 }
 
 static bool readField(const char **at, const char *end, char *out, size_t cap,

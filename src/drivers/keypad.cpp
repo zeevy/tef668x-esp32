@@ -53,10 +53,6 @@ bool keypadBegin(void) {
   return sPresent;
 }
 
-bool keypadPresent(void) {
-  return sPresent;
-}
-
 /* The expander's sixteen input lines, one bit each, low while its key is
  * held. */
 static bool keypadRawLines(uint16_t *bits) {

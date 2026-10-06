@@ -162,10 +162,6 @@ uint32_t bandTopChannel(BandId band, const BandPlanConfig *config,
 bool bandForFrequency(const BandPlanConfig *config, uint32_t freqKHz,
                       BandId *band);
 
-/* How many meter bands the table holds. Only the unit tests use it, to walk
- * the whole table. */
-size_t swMeterBandCount(void);
-
 const SwMeterBand *swMeterBandAt(size_t index);
 
 const SwMeterBand *swMeterBandFor(uint32_t freqKHz);

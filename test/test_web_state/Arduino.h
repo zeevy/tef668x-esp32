@@ -38,6 +38,10 @@ class String {
   String &operator+=(const __FlashStringHelper *text) {
     return *this += reinterpret_cast<const char *>(text);
   }
+  String &operator+=(long long v) {
+    s_ += std::to_string(v);
+    return *this;
+  }
   String &operator+=(const String &other) {
     s_ += other.s_;
     return *this;

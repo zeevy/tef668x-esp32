@@ -46,9 +46,14 @@ void sendResult(int code, const char *title, const char *message, bool bad);
 const char *safeNext(const String &want);
 
 /* web_state.cpp's own document, which web_api_tune.cpp serves as
- * GET /api/state, and its JSON escape, which the web_api_*.cpp files use. */
+ * GET /api/state, and its JSON helpers, which the web_api_*.cpp files use.
+ * jsonBool and jsonNum append `,"key":value` to an object being built.
+ * jsonNum takes any whole number, signed bytes too, which String on its own
+ * would append as the character they stand for. */
 String buildState(void);
 String jsonEscape(const char *raw);
+void jsonBool(String &out, const char *key, bool on);
+void jsonNum(String &out, const char *key, long long value);
 
 void webPagesRegisterRoutes(WebContext *web);
 void webApiRegisterRoutes(WebContext *web);

@@ -400,12 +400,9 @@ static void oirt_wins_over_the_full_fm_region_where_they_overlap(void) {
 /* ------------------------------------------------------- meter bands ----- */
 
 static void the_meter_bands_are_ordered_and_do_not_overlap(void) {
-  size_t n = swMeterBandCount();
-  TEST_ASSERT_EQUAL_size_t(15, n);
+  size_t n = 0;
   uint32_t lastHigh = 0;
-  for (size_t i = 0; i < n; i++) {
-    const SwMeterBand *m = swMeterBandAt(i);
-    TEST_ASSERT_NOT_NULL(m);
+  for (const SwMeterBand *m; (m = swMeterBandAt(n)) != NULL; n++) {
     TEST_ASSERT_GREATER_THAN_UINT32(lastHigh, m->lowKHz);
     TEST_ASSERT_GREATER_THAN_UINT32(m->lowKHz, m->highKHz);
     /* Every meter band is inside shortwave. */
@@ -413,7 +410,7 @@ static void the_meter_bands_are_ordered_and_do_not_overlap(void) {
     TEST_ASSERT_TRUE(bandContains(BAND_SW, &cfg, m->highKHz));
     lastHigh = m->highKHz;
   }
-  TEST_ASSERT_NULL(swMeterBandAt(n));
+  TEST_ASSERT_EQUAL_size_t(15, n);
 }
 
 static void a_frequency_maps_to_its_meter_band_or_to_none(void) {

@@ -241,10 +241,7 @@ bool screenScopeBegin(void) {
     return false;
   }
   const Theme *t = themeCurrent();
-  lv_obj_remove_style_all(root);
-  lv_obj_set_style_bg_color(root, uiColour(t->ground), 0);
-  lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+  uiScreenRoot(root, t->ground);
 
   sUi->bottom = NO_FLOOR_BOTTOM_TENTHS;
   sUi->root = uiBlock(root, t->ground, 0, 0, SCOPE_W, SCOPE_H);
@@ -390,9 +387,7 @@ void screenScopeEnd(void) {
   if (sUi == NULL) {
     return;
   }
-  if (lv_obj_is_valid(sUi->root)) {
-    lv_obj_del(sUi->root);
-  }
+  uiDropRoot(&sUi->root);
   free(sUi);
   sUi = NULL;
 }

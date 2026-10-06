@@ -1678,78 +1678,26 @@ static void magic_fm_1064_decodes(void) {
 }
 
 /*
- * Magic FM 106.4's own decoder identification bits: stereo, not an artificial
- * head, compressed, not dynamic PTY. The tuner's own pilot reading is not in
- * the recorded groups, so this is a fact about what the broadcaster sent, not a
- * comparison against it.
+ * Magic FM 106.4's own decoder identification says stereo. The tuner's own
+ * pilot reading is not in the recorded groups, so this is a fact about what
+ * the broadcaster sent, not a comparison against it.
  */
 static void magic_fm_1064_decoder_identification(void) {
   replay(capture(STRONG_106400), 160);
   TEST_ASSERT_TRUE(rds.info.hasDiStereo);
   TEST_ASSERT_TRUE(rds.info.diStereo);
-  TEST_ASSERT_TRUE(rds.info.hasDiArtificialHead);
-  TEST_ASSERT_FALSE(rds.info.diArtificialHead);
-  TEST_ASSERT_TRUE(rds.info.hasDiCompressed);
-  TEST_ASSERT_TRUE(rds.info.diCompressed);
-  TEST_ASSERT_TRUE(rds.info.hasDiDynamicPty);
-  TEST_ASSERT_FALSE(rds.info.diDynamicPty);
 }
 
-/* 106.4 sends 0A and 2A only: in its first 160 recorded groups, 80 of
- * each. */
-static void magic_fm_1064_group_types(void) {
+/* 106.4 sends 0A and 2A only, so no programme type name. */
+static void magic_fm_1064_has_no_ptyn(void) {
   replay(capture(STRONG_106400), 160);
-  TEST_ASSERT_EQUAL_UINT32(80, rds.info.groupTypeCount[0][0]);
-  TEST_ASSERT_EQUAL_UINT32(0, rds.info.groupTypeCount[0][1]);
-  TEST_ASSERT_EQUAL_UINT32(80, rds.info.groupTypeCount[2][0]);
-  TEST_ASSERT_EQUAL_UINT32(0, rds.info.groupTypeCount[2][1]);
-  /* Nothing else has ever been sent, group 1 and group 10 included. */
-  TEST_ASSERT_EQUAL_UINT32(0, rds.info.groupTypeCount[1][0]);
-  TEST_ASSERT_EQUAL_UINT32(0, rds.info.groupTypeCount[10][0]);
-  TEST_ASSERT_FALSE(rds.info.hasPin);
   TEST_ASSERT_FALSE(rds.info.hasPtyn);
 }
 
 /*
- * None of the recorded stations sends group 1 or group 10. So, like the AF
- * and clock tests, the PIN and PTYN tests use hand-made groups.
+ * None of the recorded stations sends group 10. So, like the AF and clock
+ * tests, the PTYN tests use hand-made groups.
  */
-static uint16_t pinBlockD(uint8_t day, uint8_t hour, uint8_t minute) {
-  return (uint16_t)(((uint16_t)(day & 0x1F) << 11) |
-                    ((uint16_t)(hour & 0x1F) << 6) | (minute & 0x3Fu));
-}
-
-static void a_pin_agreeing_twice_is_published(void) {
-  RdsRead r = group(0x1234, blockB1A(10), 0, pinBlockD(15, 21, 0));
-  rdsFeed(&rds, &r);
-  TEST_ASSERT_FALSE(rds.info.hasPin);
-  rdsFeed(&rds, &r);
-  TEST_ASSERT_TRUE(rds.info.hasPin);
-  TEST_ASSERT_EQUAL_UINT8(15, rds.info.pinDay);
-  TEST_ASSERT_EQUAL_UINT8(21, rds.info.pinHour);
-  TEST_ASSERT_EQUAL_UINT8(0, rds.info.pinMinute);
-}
-
-static void a_pin_with_day_zero_is_not_a_date(void) {
-  /* RDS: The Radio Data System (Kopitz and Marks), Section 4.6: day 1 to 31.
-   * Zero is what "no PIN sent" looks like. */
-  RdsRead r = group(0x1234, blockB1A(10), 0, pinBlockD(0, 21, 0));
-  rdsFeed(&rds, &r);
-  rdsFeed(&rds, &r);
-  TEST_ASSERT_FALSE(rds.info.hasPin);
-}
-
-static void an_hour_or_minute_out_of_range_is_not_a_pin(void) {
-  RdsRead hourBad = group(0x1234, blockB1A(10), 0, pinBlockD(15, 24, 0));
-  rdsFeed(&rds, &hourBad);
-  rdsFeed(&rds, &hourBad);
-  TEST_ASSERT_FALSE(rds.info.hasPin);
-  RdsRead minuteBad = group(0x1234, blockB1A(10), 0, pinBlockD(15, 21, 60));
-  rdsFeed(&rds, &minuteBad);
-  rdsFeed(&rds, &minuteBad);
-  TEST_ASSERT_FALSE(rds.info.hasPin);
-}
-
 static uint16_t blockB10A(uint8_t pty, uint8_t segment) {
   return (uint16_t)((10u << 12) | ((uint16_t)(pty & 0x1F) << 5) |
                     (segment & 0x01u));
@@ -2133,10 +2081,7 @@ int main(int, char **) {
   RUN_TEST(red_fm_935_decodes);
   RUN_TEST(magic_fm_1064_decodes);
   RUN_TEST(magic_fm_1064_decoder_identification);
-  RUN_TEST(magic_fm_1064_group_types);
-  RUN_TEST(a_pin_agreeing_twice_is_published);
-  RUN_TEST(a_pin_with_day_zero_is_not_a_date);
-  RUN_TEST(an_hour_or_minute_out_of_range_is_not_a_pin);
+  RUN_TEST(magic_fm_1064_has_no_ptyn);
   RUN_TEST(a_ptyn_agreeing_twice_is_published);
   RUN_TEST(a_ptyn_10b_group_is_not_read);
   RUN_TEST(the_coverage_area_names_are_the_standard_table);

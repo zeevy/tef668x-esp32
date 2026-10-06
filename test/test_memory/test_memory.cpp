@@ -163,11 +163,18 @@ static void the_nth_used_slot_passes_over_the_empty_ones(void) {
   TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryNthUsed(NULL, 0));
 }
 
+/* A step through the store under the default band plan, where every FM
+ * channel these tests store can be tuned. */
+static int step(int from, bool up) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  return memoryStepTunable(&store, &plan, from, up);
+}
+
 static void a_new_store_holds_nothing(void) {
   TEST_ASSERT_EQUAL_INT(0, memoryCount(&store));
   TEST_ASSERT_EQUAL_INT(0, memoryFirstFree(&store));
-  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT,
-                        memoryStep(&store, MEMORY_NO_SLOT, true));
+  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, step(MEMORY_NO_SLOT, true));
   for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
     TEST_ASSERT_FALSE(memorySlotUsed(&store, i));
     TEST_ASSERT_NULL(memoryGet(&store, i));
@@ -179,7 +186,6 @@ static void a_null_store_answers_without_crashing(void) {
   TEST_ASSERT_EQUAL_INT(0, memoryCount(NULL));
   TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryFirstFree(NULL));
   TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryFind(NULL, BAND_FM, 92700));
-  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryStep(NULL, 0, true));
   TEST_ASSERT_FALSE(memorySlotUsed(NULL, 0));
   TEST_ASSERT_NULL(memoryGet(NULL, 0));
   MemoryChannel c = channel(BAND_FM, 92700, "x");
@@ -368,44 +374,44 @@ static void stepping_goes_over_the_empty_slots(void) {
   TEST_ASSERT_TRUE(memorySet(&store, 50, &c));
   TEST_ASSERT_TRUE(memorySet(&store, 90, &c));
 
-  TEST_ASSERT_EQUAL_INT(50, memoryStep(&store, 2, true));
-  TEST_ASSERT_EQUAL_INT(90, memoryStep(&store, 50, true));
-  TEST_ASSERT_EQUAL_INT(50, memoryStep(&store, 90, false));
-  TEST_ASSERT_EQUAL_INT(2, memoryStep(&store, 50, false));
+  TEST_ASSERT_EQUAL_INT(50, step(2, true));
+  TEST_ASSERT_EQUAL_INT(90, step(50, true));
+  TEST_ASSERT_EQUAL_INT(50, step(90, false));
+  TEST_ASSERT_EQUAL_INT(2, step(50, false));
   /* Starting from an empty slot works too, which is what happens when a
    * channel is deleted while the radio is sitting on it. */
-  TEST_ASSERT_EQUAL_INT(50, memoryStep(&store, 30, true));
-  TEST_ASSERT_EQUAL_INT(2, memoryStep(&store, 30, false));
+  TEST_ASSERT_EQUAL_INT(50, step(30, true));
+  TEST_ASSERT_EQUAL_INT(2, step(30, false));
 }
 
 static void stepping_wraps_at_both_ends(void) {
   MemoryChannel c = channel(BAND_FM, 92700, "a");
   TEST_ASSERT_TRUE(memorySet(&store, 2, &c));
   TEST_ASSERT_TRUE(memorySet(&store, 90, &c));
-  TEST_ASSERT_EQUAL_INT(2, memoryStep(&store, 90, true));
-  TEST_ASSERT_EQUAL_INT(90, memoryStep(&store, 2, false));
+  TEST_ASSERT_EQUAL_INT(2, step(90, true));
+  TEST_ASSERT_EQUAL_INT(90, step(2, false));
 }
 
 static void stepping_from_outside_the_store_lands_on_the_end(void) {
   MemoryChannel c = channel(BAND_FM, 92700, "a");
   TEST_ASSERT_TRUE(memorySet(&store, 2, &c));
   TEST_ASSERT_TRUE(memorySet(&store, 90, &c));
-  TEST_ASSERT_EQUAL_INT(2, memoryStep(&store, MEMORY_NO_SLOT, true));
-  TEST_ASSERT_EQUAL_INT(90, memoryStep(&store, MEMORY_NO_SLOT, false));
-  TEST_ASSERT_EQUAL_INT(2, memoryStep(&store, MEMORY_SLOT_COUNT, true));
-  TEST_ASSERT_EQUAL_INT(90, memoryStep(&store, MEMORY_SLOT_COUNT, false));
+  TEST_ASSERT_EQUAL_INT(2, step(MEMORY_NO_SLOT, true));
+  TEST_ASSERT_EQUAL_INT(90, step(MEMORY_NO_SLOT, false));
+  TEST_ASSERT_EQUAL_INT(2, step(MEMORY_SLOT_COUNT, true));
+  TEST_ASSERT_EQUAL_INT(90, step(MEMORY_SLOT_COUNT, false));
 }
 
 static void the_only_channel_steps_to_itself(void) {
   MemoryChannel c = channel(BAND_FM, 92700, "a");
   TEST_ASSERT_TRUE(memorySet(&store, 40, &c));
-  TEST_ASSERT_EQUAL_INT(40, memoryStep(&store, 40, true));
-  TEST_ASSERT_EQUAL_INT(40, memoryStep(&store, 40, false));
+  TEST_ASSERT_EQUAL_INT(40, step(40, true));
+  TEST_ASSERT_EQUAL_INT(40, step(40, false));
 }
 
 static void an_empty_store_steps_nowhere(void) {
-  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryStep(&store, 0, true));
-  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, memoryStep(&store, 0, false));
+  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, step(0, true));
+  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, step(0, false));
 }
 
 static void a_channel_outside_the_band_plan_in_force_is_not_tunable(void) {
@@ -471,7 +477,6 @@ static void stepping_goes_over_a_channel_the_band_plan_cannot_reach(void) {
   TEST_ASSERT_TRUE(memorySet(&store, 1, &outside));
   TEST_ASSERT_TRUE(memorySet(&store, 2, &reachable));
 
-  TEST_ASSERT_EQUAL_INT(1, memoryStep(&store, 0, true));
   TEST_ASSERT_EQUAL_INT(2, memoryStepTunable(&store, &plan, 0, true));
   TEST_ASSERT_EQUAL_INT(0, memoryStepTunable(&store, &plan, 2, true));
   TEST_ASSERT_EQUAL_INT(0, memoryStepTunable(&store, &plan, 2, false));

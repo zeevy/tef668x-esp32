@@ -170,13 +170,7 @@ static void clearStation(Rds *rds) {
 
   rds->info.hasDiStereo = false;
   rds->info.diStereo = false;
-  rds->info.hasDiArtificialHead = false;
-  rds->info.diArtificialHead = false;
-  rds->info.hasDiCompressed = false;
-  rds->info.diCompressed = false;
-  rds->info.hasDiDynamicPty = false;
-  rds->info.diDynamicPty = false;
-  memset(rds->diCandidateSeen, 0, sizeof(rds->diCandidateSeen));
+  rds->diCandidateSeen = false;
 
   rds->info.hasPtyn = false;
   rds->info.ptyn[0] = '\0';
@@ -184,12 +178,6 @@ static void clearStation(Rds *rds) {
   memset(rds->ptynFrameHave, 0, sizeof(rds->ptynFrameHave));
   memset(rds->ptynPrevious, ' ', sizeof(rds->ptynPrevious));
   rds->ptynPreviousSeen = false;
-
-  rds->info.hasPin = false;
-  rds->info.pinDay = 0;
-  rds->info.pinHour = 0;
-  rds->info.pinMinute = 0;
-  rds->pinCandidateSeen = false;
 
   rds->info.hasPs = false;
   rds->info.ps[0] = '\0';
@@ -228,7 +216,6 @@ static void clearStation(Rds *rds) {
   rds->info.groupsUsed = 0;
   rds->info.blocksCorrected = 0;
   rds->info.blocksBad = 0;
-  memset(rds->info.groupTypeCount, 0, sizeof(rds->info.groupTypeCount));
 
   rdsExtraClear(rds);
 }
@@ -322,70 +309,22 @@ static void feedPty(Rds *rds, uint8_t pty) {
 }
 
 /*
- * One of the four decoder identification bits, addressed the same way the
- * station name's own pair is addressed in the same group. Published once
- * its own address has agreed twice, the same rule every other field here
- * follows.
- *
- * The address-to-meaning table is RDS: The Radio Data System (Kopitz and
- * Marks), Table 4.3: 0 is dynamic PTY, 1 is compressed, 2 is artificial head, 3
- * is mono/stereo, the reverse of the order a first reading of the table
- * suggests. No recorded broadcast can confirm this order, so it rests on the
- * table itself.
+ * The decoder identification stereo bit. The four DI bits share the two
+ * address bits of the station name's pair in group 0, and stereo is
+ * address 3 (RDS: The Radio Data System, Kopitz and Marks, Table 4.3). The
+ * other three say nothing this radio shows. Published once it has agreed
+ * twice, the same rule every other field here follows.
  */
-static void feedDi(Rds *rds, uint8_t address, bool bit) {
-  if (rds->diCandidateSeen[address] && rds->diCandidate[address] == bit) {
-    switch (address) {
-      case 0:
-        rds->info.hasDiDynamicPty = true;
-        rds->info.diDynamicPty = bit;
-        break;
-      case 1:
-        rds->info.hasDiCompressed = true;
-        rds->info.diCompressed = bit;
-        break;
-      case 2:
-        rds->info.hasDiArtificialHead = true;
-        rds->info.diArtificialHead = bit;
-        break;
-      default:
-        rds->info.hasDiStereo = true;
-        rds->info.diStereo = bit;
-        break;
-    }
-  }
-  rds->diCandidate[address] = bit;
-  rds->diCandidateSeen[address] = true;
-}
-
-/*
- * Programme Item Number, group type 1 block 4: the scheduled start of the
- * item now playing. Day, hour and minute are confirmed as one candidate
- * agreeing rather than three separately, so a day that repeats while the
- * hour changes under it is not mistaken for a real match.
- */
-static void feedPin(Rds *rds, uint16_t blockD) {
-  uint8_t day = (uint8_t)((blockD >> 11) & 0x1Fu);
-  uint8_t hour = (uint8_t)((blockD >> 6) & 0x1Fu);
-  uint8_t minute = (uint8_t)(blockD & 0x3Fu);
-  /* RDS: The Radio Data System (Kopitz and Marks), Section 4.6: a valid
-   * PIN holds a day from 1 to 31, an hour from 0 to 23 and a minute from
-   * 0 to 59. Anything outside those ranges is no PIN being sent, not a
-   * wrong one. */
-  if (day < 1 || day > 31 || hour > 23 || minute > 59) {
+static void feedDiStereo(Rds *rds, uint8_t address, bool bit) {
+  if (address != 3) {
     return;
   }
-  if (rds->pinCandidateSeen && rds->pinCandidateDay == day &&
-      rds->pinCandidateHour == hour && rds->pinCandidateMinute == minute) {
-    rds->info.hasPin = true;
-    rds->info.pinDay = day;
-    rds->info.pinHour = hour;
-    rds->info.pinMinute = minute;
+  if (rds->diCandidateSeen && rds->diCandidate == bit) {
+    rds->info.hasDiStereo = true;
+    rds->info.diStereo = bit;
   }
-  rds->pinCandidateDay = day;
-  rds->pinCandidateHour = hour;
-  rds->pinCandidateMinute = minute;
-  rds->pinCandidateSeen = true;
+  rds->diCandidate = bit;
+  rds->diCandidateSeen = true;
 }
 
 static void feedPtynChar(Rds *rds, int position, char ch) {
@@ -459,15 +398,7 @@ static void buildPsLong(Rds *rds) {
   /* Both ends. Only the second piece of a pair has to start flush, so the
    * first can be padded or centred, and a name drawn one space in sits
    * against nothing while every other label lines up. */
-  size_t start = 0;
-  while (start < n && built[start] == ' ') {
-    start++;
-  }
-  while (n > start && built[n - 1] == ' ') {
-    n--;
-  }
-  memcpy(rds->info.psLong, built + start, n - start);
-  rds->info.psLong[n - start] = '\0';
+  rdsNameTrim(built, n, rds->info.psLong, sizeof(rds->info.psLong));
 }
 
 /*
@@ -944,10 +875,6 @@ void rdsFeed(Rds *rds, const RdsRead *read) {
   feedPty(rds, GROUP_PTY(b));
   used = true;
 
-  /* Every group type this station actually sends, whether or not the
-   * switch below does anything with it. */
-  rds->info.groupTypeCount[GROUP_TYPE(b)][GROUP_IS_B_VERSION(b) ? 1 : 0]++;
-
   /* The group the station said carries RT+, whichever number it is. */
   if (rdsIsRtPlusGroup(rds, b)) {
     if (cOk && dOk) {
@@ -970,7 +897,7 @@ void rdsFeed(Rds *rds, const RdsRead *read) {
        * nor D to survive. RDS: The Radio Data System, Section 4.5: the
        * segment address is shared between the station name pair and this
        * bit in the same group. */
-      feedDi(rds, (uint8_t)segment, (b & 0x0004u) != 0);
+      feedDiStereo(rds, (uint8_t)segment, (b & 0x0004u) != 0);
       if (dOk) {
         feedPsChar(rds, segment * 2,
                    displayable((uint8_t)(read->block[3] >> 8)));
@@ -1017,12 +944,6 @@ void rdsFeed(Rds *rds, const RdsRead *read) {
       break;
     }
     case 1: {
-      /* Both versions carry the PIN in block 4, RDS: The Radio Data
-       * System, Section 4.6; only the A version's block 3 differs, and
-       * this radio does not read block 3 either version. */
-      if (dOk) {
-        feedPin(rds, read->block[3]);
-      }
       /* The ECC is the low eight bits of block C in the A version, when
        * the variant code in bits 12 to 14 is 0 (EN 50067, group 1A). The
        * other variants carry paging, the language and so on in the same

@@ -264,10 +264,6 @@ static Tef668xError query(Tef668xModule module, uint8_t cmd, uint8_t *out,
   return TEF668X_OK;
 }
 
-static uint16_t word16(const uint8_t *p) {
-  return (uint16_t)((uint16_t)p[0] << 8 | (uint16_t)p[1]);
-}
-
 /* ----------------------------------------------------------- bringing up -- */
 
 /*
