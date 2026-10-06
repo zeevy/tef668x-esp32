@@ -15,8 +15,8 @@
  * The screen size is always an argument, so another panel needs no change
  * here. Integer arithmetic only, so it is tested on a PC.
  *
- * Touch input is planned. No firmware code calls this module yet, and the
- * unit tests cover it.
+ * The input task feeds it each poll. Only the calibration screen acts on
+ * a touch so far.
  */
 #ifndef CORE_TOUCH_H
 #define CORE_TOUCH_H
@@ -27,6 +27,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* `num / den` rounded to the nearest, halves away from 0. `den` is
+ * positive. */
+static inline int64_t touchDivRound(int64_t num, int64_t den) {
+  return num >= 0 ? (num + den / 2) / den : -((-num + den / 2) / den);
+}
 
 /* How many steps the XPT2046's 12 bit converter has. A reading is 0 to
  * TOUCH_RAW_STEPS - 1. */

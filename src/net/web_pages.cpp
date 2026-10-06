@@ -1294,8 +1294,10 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   static const long touchValues[] = {1, 0};
   out += formSelect("tof", "Touch", offOn, touchValues, 2, st->touchOff, kAuto);
   out +=
-      F("</div><p><small>Off, the radio stops reading the touch screen. "
-        "A touch does nothing on the radio yet.</small></p>");
+      F("</div><p><small>Off, the radio stops reading the touch screen, "
+        "except on its calibration screen, Controls &gt; Calibrate Touch. "
+        "Outside that screen a touch does nothing on the radio yet."
+        "</small></p>");
   out += F("<button type=submit class='secondary fallback'>Save</button>");
   out += formClose();
   out += cardClose();

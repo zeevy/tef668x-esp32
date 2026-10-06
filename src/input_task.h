@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "core/input.h"
+#include "core/touch.h"
 #include "drivers/touch.h"
 
 /*
@@ -56,6 +57,10 @@ typedef struct {
   uint32_t touchReads; /* Touch readings taken since boot. */
   TouchRaw touch;      /* The last of them. Only good once touchReads is
                         * above 0. */
+  bool touchMapped;    /* touchAt holds a point. */
+  TouchPoint touchAt;  /* The last steady point, in screen pixels. */
+  bool touchCalStored; /* The map in use is one a person made, not the
+                        * board's own. */
 } InputStatus;
 
 /*
@@ -126,6 +131,17 @@ void inputSetBeeps(BeepMode mode);
  * the setting is known.
  */
 void inputSetTouch(bool on);
+
+/* Whether the screen is shown upside down, so a touch is turned with it. */
+void inputSetTouchUpsideDown(bool upsideDown);
+
+/*
+ * The map from touch readings to pixels in the board's own mount: one a
+ * person made and kept (`stored`), or the board's own. Get gives it and
+ * whether the screen is shown upside down; false on a board without touch.
+ */
+void inputTouchCalSet(const TouchCal *cal, bool stored);
+bool inputTouchCalGet(TouchCal *cal, bool *upsideDown);
 
 /*
  * Start learning how far the knob actually turns.

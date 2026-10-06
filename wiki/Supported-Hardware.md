@@ -40,6 +40,6 @@ To see the chip on your radio, open the menu and go to **Diagnostics > Tuner**. 
 
 ## Not supported yet
 
-- **Touch.** The firmware reads the screen's touch controller and shows its readings in the HTTP API, but a touch does nothing on the radio yet. Everything is done with the knobs, the buttons and the keypad, or from the web page.
+- **Touch.** The firmware reads the screen's touch controller, can be [calibrated](Touch-Screen.md#calibrate-the-touch-screen) and shows its readings in the HTTP API, but outside the calibration screen a touch does nothing on the radio yet. Everything is done with the knobs, the buttons and the keypad, or from the web page.
 - **Other screen layouts.** There is one layout, for a 320 x 240 screen.
 - **Other radios.** Every detail of a board is kept in one header in the code, so another TEF668x radio can be added as a new board header and a new build environment. If you have one, ask in [Discussions](https://github.com/zeevy/tef668x-esp32/discussions/categories/q-a) or open a [feature request](https://github.com/zeevy/tef668x-esp32/issues/new/choose).

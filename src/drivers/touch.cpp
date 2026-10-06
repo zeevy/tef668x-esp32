@@ -80,3 +80,11 @@ void touchRead(TouchRaw *out) {
 }
 
 #endif /* FEATURE_TOUCH */
+
+void touchTake(TouchReading *r, TouchRaw *raw) {
+  touchRead(raw);
+  r->read = true;
+  r->raw.x = (int16_t)raw->x;
+  r->raw.y = (int16_t)raw->y;
+  r->z1 = raw->z1;
+}

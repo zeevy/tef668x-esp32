@@ -694,12 +694,16 @@ static void appendRadioState(String &out) {
  *   `pdb`  The volume that reading was turned into, in dB.
  *   `pcl`  While the knob is being calibrated, the lowest and highest
  *          readings so far, as `min` and `max`. Not there otherwise.
- *   `tch`  The touch chip, on a board that has one. `on` false while the
- *          Touch setting is off; then `pen` stays false and nothing else
- *          moves. `pen` true while its pen line says a finger is down,
+ *   `tch`  The touch chip, on a board that has one. `on` true while the
+ *          chip is read: the Touch setting is on, or the calibration screen
+ *          is open. False otherwise; then `pen` stays false and nothing
+ *          else moves. `pen` true while its pen line says a finger is down,
  *          `dn` times that line went down since boot, `rd` readings taken
  *          since boot, and `x`, `y`, `z1` and `z2` the last reading, raw 0
- *          to 4095, null before the first.
+ *          to 4095, null before the first. `cal` is `stored` when a
+ *          calibration a person made is in use, `board` for the board's
+ *          own; `px` and `py` are the last steady point in screen pixels
+ *          by it, null before the first.
  *          Readings are taken only while a finger is down, at the loop's
  *          own pace, so a tap shorter than one pass of the loop can be
  *          missed by every one of these. The last reading can be one taken
@@ -748,6 +752,17 @@ static void appendInputState(String &out) {
   out += String(in.touchDowns);
   out += F(",\"rd\":");
   out += String(in.touchReads);
+  out += F(",\"cal\":\"");
+  out += in.touchCalStored ? F("stored") : F("board");
+  out += F("\"");
+  if (in.touchMapped) {
+    out += F(",\"px\":");
+    out += String((int)in.touchAt.x);
+    out += F(",\"py\":");
+    out += String((int)in.touchAt.y);
+  } else {
+    out += F(",\"px\":null,\"py\":null");
+  }
   if (in.touchReads > 0) {
     char raw[64];
     snprintf(raw, sizeof(raw), ",\"x\":%u,\"y\":%u,\"z1\":%u,\"z2\":%u}",

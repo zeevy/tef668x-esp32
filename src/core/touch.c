@@ -4,12 +4,6 @@
 
 #include <stddef.h>
 
-/* `num / den` rounded to the nearest, halves away from 0. `den` is
- * positive. */
-static int64_t divRound(int64_t num, int64_t den) {
-  return num >= 0 ? (num + den / 2) / den : -((-num + den / 2) / den);
-}
-
 /*
  * `num / den` as a gain in fixed point, for `den` positive. False for a
  * gain over one pixel per step, which touchCalValid refuses anyway; turning
@@ -26,7 +20,7 @@ static bool gain(int64_t num, int64_t den, int32_t *out) {
     num /= 2;
     den /= 2;
   }
-  *out = (int32_t)divRound(num * TOUCH_CAL_ONE, den);
+  *out = (int32_t)touchDivRound(num * TOUCH_CAL_ONE, den);
   return true;
 }
 
@@ -65,7 +59,7 @@ static bool fitAxis(const TouchPoint *raw, const TouchPoint *screen, int n,
       !gain(cxx * cys - cxy * cxs, det, gy)) {
     return false;
   }
-  *offset = (int32_t)divRound(
+  *offset = (int32_t)touchDivRound(
       ss * TOUCH_CAL_ONE - (int64_t)*gx * sx - (int64_t)*gy * sy, n);
   return true;
 }

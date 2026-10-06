@@ -40,8 +40,8 @@
 #endif
 
 #if FEATURE_TOUCH && (!defined(PIN_SPI_MISO) || !defined(PIN_TOUCH_CS) || \
-                      !defined(PIN_TOUCH_IRQ))
-#error "FEATURE_TOUCH 1 needs the SPI data in, touch chip select and pen pins."
+                      !defined(PIN_TOUCH_IRQ) || !defined(TOUCH_CAL_CORNERS))
+#error "FEATURE_TOUCH 1 needs the touch pins and TOUCH_CAL_CORNERS."
 #endif
 
 #endif /* BOARD_BOARD_H */

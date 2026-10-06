@@ -103,6 +103,7 @@ typedef enum {
   ROW_KEY_BEEPS,
   ROW_EDGE_BEEP,
   ROW_TOUCH,
+  ROW_CALIBRATE_TOUCH,
   ROW_NETWORK_TIME,
   ROW_WEB_PIN,
   ROW_HOTSPOT,
@@ -664,6 +665,10 @@ static const MenuRow kControlRows[] = {
      * reached. */
     {STR_MENU_TOUCH, ROW_TOUCH, SRC_STORED, 0, 1, 1, NOLIST, false, false,
      false},
+    /* Opens the calibration screen; the knob leaves it, so a glass that
+     * reads badly cannot trap anybody there. */
+    {STR_MENU_CALIBRATE_TOUCH, ROW_CALIBRATE_TOUCH, SRC_ACTION, 0, 0, 1, NOLIST,
+     false, false, false},
 };
 
 static const MenuRow kSystemRows[] = {
@@ -2607,6 +2612,12 @@ static void fire(const MenuRow *row) {
       menuTaskClose();
       if (!screenTaskBwOpen()) {
         Serial.println(F("[menu] the bandwidth page did not open"));
+      }
+      return;
+    case ROW_CALIBRATE_TOUCH:
+      menuTaskClose();
+      if (!screenTaskTouchCalOpen()) {
+        Serial.println(F("[menu] the touch calibration did not open"));
       }
       return;
     case ROW_GOTO_RDS:

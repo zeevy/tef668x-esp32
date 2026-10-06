@@ -85,6 +85,7 @@
   X(MENU_BAND_EDGE_BEEP, "Band Edge Beep", "Menu row name, Controls group") \
   X(MENU_START_CHIME, "Startup Chime", "Menu row name, Controls group") \
   X(MENU_TOUCH, "Touch", "Menu row name, Controls group: Off stops the radio reading the touch screen") \
+  X(MENU_CALIBRATE_TOUCH, "Calibrate Touch", "Menu row name, Controls group: opens the touch calibration screen") \
   X(MENU_CLOCK_FROM_NETWORK, "Network Time", "Menu row name, Connectivity group: Off, or the offset from UTC") \
   X(MENU_WEB_PIN, "Web PIN", "Menu row name, Connectivity group, and the title of its editor") \
   X(MENU_NEW_PIN, "New PIN", "Menu, label on the panel of the Web PIN editor") \
@@ -339,6 +340,7 @@
   X(BW_EQ, "EQ", "Bandwidth page, switch tile name") \
   X(BW_FMT_AUTO_AT, "Auto: %u kHz", "Bandwidth page, note under the tiles, the width the chip picked") \
   X(RECOVERY_ROTATE_DISPLAY, "Rotate Display", "Recovery screen row name") \
+  X(RECOVERY_CALIBRATE_TOUCH, "Calibrate Touch", "Recovery screen row name: runs the touch calibration screen, with the knob to cancel") \
   X(RECOVERY_TOUCH, "Touch", "Recovery screen row name: turns reading the touch screen on or off and restarts") \
   X(RECOVERY_START_HOTSPOT, "Start Hotspot", "Recovery screen row name: sets the Hotspot setting to On and restarts") \
   X(RECOVERY_ROLL_BACK_FIRMWARE, "Restore Previous Firmware", "Recovery screen row name") \
@@ -745,5 +747,19 @@
   X(THEME_MONO, "Mono", "Theme name") \
   X(THEME_HI_FI, "Hi-Fi", "Theme name") \
   X(THEME_VIOLET, "Violet", "Theme name") \
-  X(THEME_BLOSSOM, "Blossom", "Theme name")
+  X(THEME_BLOSSOM, "Blossom", "Theme name") \
+  X(TOUCH_CAL_TITLE, "Calibrate Touch", "Touch calibration screen, title over the instruction") \
+  X(TOUCH_CAL_HOLD, "Hold on the circle until it fills", "Touch calibration screen, while a mark is to be held") \
+  X(TOUCH_CAL_CANCEL_HINT, "Turn or press the knob to cancel", "Touch calibration screen, foot line while marks or the check are shown") \
+  X(TOUCH_CAL_CHECK, "Check", "Touch calibration screen, title while the check dot is shown") \
+  X(TOUCH_CAL_TAP_DOT, "Tap the dot", "Touch calibration screen, instruction for the check") \
+  X(TOUCH_CAL_KEPT, "Calibration kept", "Touch calibration screen, title when the check passed") \
+  X(TOUCH_CAL_FMT_LANDED, "The check landed %u px off", "Touch calibration screen, under Calibration kept; %u is the distance in pixels") \
+  X(TOUCH_CAL_BACK_HINT, "Press the knob to go back", "Touch calibration screen, foot line when the calibration was kept") \
+  X(TOUCH_CAL_NOT_KEPT, "Not kept", "Touch calibration screen, title when the new calibration was not kept") \
+  X(TOUCH_CAL_FMT_MISSED, "The check landed %u px off,", "Touch calibration screen, first line under Not kept when the check missed; %u is the distance in pixels") \
+  X(TOUCH_CAL_NO_FIT, "The marks did not make a calibration,", "Touch calibration screen, first line under Not kept when the marks could not be fitted") \
+  X(TOUCH_CAL_NOT_SAVED, "It could not be saved,", "Touch calibration screen, first line under Not kept when the new calibration could not be written") \
+  X(TOUCH_CAL_OLD_STAYS, "so the old calibration stays", "Touch calibration screen, second line under Not kept") \
+  X(TOUCH_CAL_RETRY_HINT, "Press the knob to try again, turn it to leave", "Touch calibration screen, foot line when the calibration was not kept")
 // clang-format on

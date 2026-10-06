@@ -11,10 +11,12 @@
 #include "core/logbook.h"
 #include "core/squelch.h"
 #include "core/strings.h"
+#include "core/touch_cal.h"
 #include "drivers/analog.h"
 #include "drivers/encoder.h"
 #include "drivers/keypad.h"
 #include "drivers/logbook_fs.h"
+#include "drivers/settings_nvs.h"
 #include "drivers/touch.h"
 #include "net/ntp.h"
 #include "radio_task.h"
@@ -77,6 +79,12 @@ static InputStatus sStatus;
 #if FEATURE_TOUCH
 /* The Touch setting. */
 static bool sTouchOn = true;
+/* Raw readings made steady, and the map from them to pixels: the one a
+ * person made, or the board's own, and whether the screen is shown upside
+ * down. */
+static TouchFilter sTouchFilter;
+static TouchCal sTouchCal;
+static bool sTouchUpsideDown = false;
 #endif
 
 /* The last pot reading acted on, and whether there is one yet. */
@@ -255,6 +263,14 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   touchBegin();
   /* So a finger already down at the first poll is counted as a press. */
   sStatus.touchOn = sTouchOn;
+  memset(&sTouchFilter, 0, sizeof(sTouchFilter));
+  {
+    TouchCal cal;
+    bool stored = false;
+    if (touchCalNvsLoadOrBoard(DISPLAY_WIDTH, DISPLAY_HEIGHT, &cal, &stored)) {
+      inputTouchCalSet(&cal, stored);
+    }
+  }
 #endif
 
   /* Read the pot for the status document, and send nothing.
@@ -364,6 +380,7 @@ typedef enum {
   TOP_BW,
   TOP_RDS,
   TOP_DX,
+  TOP_TOUCH_CAL,
   TOP_COUNT
 } InputTop;
 
@@ -394,6 +411,9 @@ static InputTop inputTop(bool *dxUnder) {
   *dxUnder = false;
   if (menuTaskIsOpen()) {
     return TOP_MENU;
+  }
+  if (screenTaskTouchCalIsOpen()) {
+    return TOP_TOUCH_CAL;
   }
   if (screenTaskBwIsOpen()) {
     *dxUnder = dx;
@@ -923,6 +943,31 @@ static void dxKey(int8_t key, uint32_t nowMs, bool) {
   dialKey(key, nowMs, true);
 }
 
+/* -------------------------------------------- touch calibration screen */
+
+/* While the touch calibration screen is up, the knob answers it, as its
+ * foot line says, and any other control leaves it, the old calibration
+ * kept. */
+static void calTurn(int32_t, uint32_t, bool) {
+  screenTaskTouchCalKnob(false);
+}
+
+static void calPress(ButtonEvent, bool) {
+  screenTaskTouchCalKnob(true);
+}
+
+static void calButton(ButtonEvent, bool) {
+  screenTaskTouchCalClose();
+}
+
+static void calEnter(ButtonEvent, uint32_t, bool) {
+  screenTaskTouchCalClose();
+}
+
+static void calKey(int8_t, uint32_t, bool) {
+  screenTaskTouchCalClose();
+}
+
 /* ------------------------------------------------------------ the table */
 
 /* What each screen does with each control. A button's slot may be NULL, a
@@ -950,6 +995,8 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
     {rdsTurn, rdsPress, rdsBand, rdsBandwidth, rdsMode, rdsEnter, rdsKey},
     /* TOP_DX */
     {dxTurn, dxPress, dxBand, dxBandwidth, dxMode, dxEnter, dxKey},
+    /* TOP_TOUCH_CAL */
+    {calTurn, calPress, calButton, calButton, calButton, calEnter, calKey},
 };
 
 /* The row for the screen on top. */
@@ -1548,13 +1595,17 @@ static void pollApi(uint32_t nowMs) {
 static uint32_t sTouchReadMs = 0;
 
 /*
- * Read the touch chip while a finger is down, and keep the reading for the
- * status document. Nothing on the radio acts on a touch.
+ * Read the touch chip while a finger is down, keep the reading for the
+ * status document, and feed the calibration screen while it is open.
+ * Nothing else on the radio acts on a touch.
  */
 static void pollTouch(uint32_t nowMs) {
   const bool wasOn = sStatus.touchOn;
-  sStatus.touchOn = sTouchOn;
-  if (!sTouchOn) {
+  /* The calibration screen reads the chip whatever the setting: a person
+   * opened it to make the touch screen work. */
+  const bool calOpen = screenTaskTouchCalIsOpen();
+  sStatus.touchOn = sTouchOn || calOpen;
+  if (!sStatus.touchOn) {
     sStatus.touchPen = false;
     return;
   }
@@ -1564,12 +1615,31 @@ static void pollTouch(uint32_t nowMs) {
     sStatus.touchDowns++;
   }
   sStatus.touchPen = pen;
-  if (!pen || (uint32_t)(nowMs - sTouchReadMs) < TOUCH_READ_MS) {
-    return;
+  TouchReading r;
+  memset(&r, 0, sizeof(r));
+  r.pen = pen;
+  if (pen && (uint32_t)(nowMs - sTouchReadMs) >= TOUCH_READ_MS) {
+    sTouchReadMs = nowMs;
+    touchTake(&r, &sStatus.touch);
+    sStatus.touchReads++;
   }
-  sTouchReadMs = nowMs;
-  touchRead(&sStatus.touch);
-  sStatus.touchReads++;
+  TouchPoint raw = {0, 0};
+  bool unsettled = true;
+  const bool contact = touchFilterFeed(&sTouchFilter, &r, &raw, &unsettled);
+  if (contact) {
+    sStatus.touchAt =
+        touchTurn(touchCalMap(&sTouchCal, raw, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+                  DISPLAY_WIDTH, DISPLAY_HEIGHT, sTouchUpsideDown);
+    sStatus.touchMapped = true;
+  }
+  if (calOpen) {
+    if (contact) {
+      /* A finger holding a mark is somebody at the radio: the panel stays
+       * lit and auto off waits. */
+      sActivity++;
+    }
+    screenTaskTouchCalFeed(contact, r.read, raw, unsettled, nowMs);
+  }
 }
 #endif
 
@@ -1590,6 +1660,42 @@ void inputSetTouch(bool on) {
   sTouchOn = on;
 #else
   (void)on;
+#endif
+}
+
+void inputSetTouchUpsideDown(bool upsideDown) {
+#if FEATURE_TOUCH
+  sTouchUpsideDown = upsideDown;
+#else
+  (void)upsideDown;
+#endif
+}
+
+void inputTouchCalSet(const TouchCal *cal, bool stored) {
+#if FEATURE_TOUCH
+  if (cal != NULL) {
+    sTouchCal = *cal;
+    sStatus.touchCalStored = stored;
+  }
+#else
+  (void)cal;
+  (void)stored;
+#endif
+}
+
+bool inputTouchCalGet(TouchCal *cal, bool *upsideDown) {
+#if FEATURE_TOUCH
+  if (cal != NULL) {
+    *cal = sTouchCal;
+  }
+  if (upsideDown != NULL) {
+    *upsideDown = sTouchUpsideDown;
+  }
+  return true;
+#else
+  (void)cal;
+  (void)upsideDown;
+  return false;
 #endif
 }
 

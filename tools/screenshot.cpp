@@ -2221,9 +2221,10 @@ int main(int argc, char **argv) {
     memset(&recovery, 0, sizeof(recovery));
     recovery.cursor = 0;
     static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
-        STR_RECOVERY_ROTATE_DISPLAY, STR_RECOVERY_TOUCH,
-        STR_RECOVERY_START_HOTSPOT,  STR_RECOVERY_ROLL_BACK_FIRMWARE,
-        STR_RECOVERY_ERASE_SETTINGS, STR_RECOVERY_EXIT_AND_START_RADIO,
+        STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_TOUCH,
+        STR_RECOVERY_CALIBRATE_TOUCH,      STR_RECOVERY_START_HOTSPOT,
+        STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
+        STR_RECOVERY_EXIT_AND_START_RADIO,
     };
     for (int i = 0; i < SCREEN_RECOVERY_ROWS; i++) {
       recovery.rows[i].name = txt(kRecoveryNames[i]);
@@ -2238,8 +2239,8 @@ int main(int argc, char **argv) {
 
     /* Erase Settings after a write that failed, which says so and stays
      * rather than restarting on the old settings. */
-    recovery.cursor = 4;
-    recovery.rows[4].value = txt(STR_RECOVERY_FAILED);
+    recovery.cursor = 5;
+    recovery.rows[5].value = txt(STR_RECOVERY_FAILED);
     screenRecoveryShow(&recovery);
     lv_refr_now(NULL);
     snprintf(path, sizeof(path), "%s/recovery-failed.bmp", dir);
@@ -2248,7 +2249,7 @@ int main(int argc, char **argv) {
 
     /* Erase Settings pressed once: it waits for a second press, and the foot
      * line says what that will do. */
-    recovery.rows[4].value = txt(STR_RECOVERY_PRESS_AGAIN);
+    recovery.rows[5].value = txt(STR_RECOVERY_PRESS_AGAIN);
     recovery.hint = txt(STR_RECOVERY_ASK_ERASE);
     screenRecoveryShow(&recovery);
     lv_refr_now(NULL);
@@ -2258,7 +2259,7 @@ int main(int argc, char **argv) {
 
     /* Touch pressed once, on a radio with touch on, the second press to turn
      * it off. */
-    recovery.rows[4].value = NULL;
+    recovery.rows[5].value = NULL;
     recovery.cursor = 1;
     recovery.rows[1].value = txt(STR_RECOVERY_PRESS_AGAIN);
     recovery.hint = txt(STR_RECOVERY_ASK_TOUCH_OFF);
@@ -2278,6 +2279,47 @@ int main(int argc, char **argv) {
     writeBmp(path);
     printf("  %s\n", path);
     screenRecoveryEnd();
+  }
+
+  /* The touch calibration screen: the second mark part filled, the middle
+   * mark, the check, and the three results. */
+  if (screenTouchCalBegin(false)) {
+    ScreenTouchCal cal;
+    memset(&cal, 0, sizeof(cal));
+    static const int16_t kX[5] = {32, 287, 287, 32, 160};
+    static const int16_t kY[5] = {32, 32, 207, 207, 120};
+    for (int i = 0; i < 5; i++) {
+      cal.markX[i] = kX[i];
+      cal.markY[i] = kY[i];
+    }
+    cal.dotX = 224;
+    cal.dotY = 90;
+    static const struct {
+      ScreenTouchCalStep step;
+      uint8_t mark, fill;
+      uint16_t off;
+      const char *name;
+    } kShots[] = {
+        {SCREEN_TOUCH_CAL_MARK, 1, 60, 0, "touch-cal-mark2"},
+        {SCREEN_TOUCH_CAL_MARK, 4, 0, 0, "touch-cal-mark5"},
+        {SCREEN_TOUCH_CAL_CHECK, 4, 0, 0, "touch-cal-check"},
+        {SCREEN_TOUCH_CAL_KEPT, 4, 0, 3, "touch-cal-kept"},
+        {SCREEN_TOUCH_CAL_MISSED, 4, 0, 31, "touch-cal-missed"},
+        {SCREEN_TOUCH_CAL_NO_FIT, 4, 0, 0, "touch-cal-no-fit"},
+        {SCREEN_TOUCH_CAL_NOT_SAVED, 4, 0, 0, "touch-cal-not-saved"},
+    };
+    for (const auto &shot : kShots) {
+      cal.step = shot.step;
+      cal.mark = shot.mark;
+      cal.fillPct = shot.fill;
+      cal.offPx = shot.off;
+      screenTouchCalShow(&cal);
+      lv_refr_now(NULL);
+      snprintf(path, sizeof(path), "%s/%s.bmp", dir, shot.name);
+      writeBmp(path);
+      printf("  %s\n", path);
+    }
+    screenTouchCalEnd();
   }
 
   /* A text drawn after the last capture was written still counts. */

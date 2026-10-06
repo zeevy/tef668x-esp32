@@ -18,6 +18,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "core/touch_cal.h"
+#include "ui/screen.h"
+
 #include "dx_task.h"
 
 #include "core/backlight.h"
@@ -147,6 +150,32 @@ void screenTaskRdsPage(int32_t clicks);
 bool screenTaskBwOpen(void);
 void screenTaskBwClose(void);
 bool screenTaskBwIsOpen(void);
+
+/*
+ * The touch calibration screen, from the radio screen. False when the panel
+ * is busy with another screen or has no memory for it. While it is up the
+ * input task feeds it each poll's contact, the steady raw point and whether
+ * it is unsettled; the knob answers it: in the marks or the check either
+ * leaves, the old calibration kept; on a calibration kept a press leaves; on
+ * one not kept a press starts again and a turn leaves. A calibration that
+ * passes its check is kept in NVS and put in use at once.
+ */
+bool screenTaskTouchCalOpen(void);
+bool screenTaskTouchCalIsOpen(void);
+void screenTaskTouchCalFeed(bool contact, bool fresh, TouchPoint raw,
+                            bool unsettled, uint32_t nowMs);
+void screenTaskTouchCalKnob(bool press);
+void screenTaskTouchCalClose(void);
+
+/* What the calibration screen draws for `f`, for recovery's own loop as
+ * well as this task. */
+void screenTaskTouchCalView(const TouchCalFlow *f, ScreenTouchCal *out);
+
+/* Feed a calibration one poll, and save it the moment it passes its check;
+ * one that cannot be saved ends Not kept. True when the screen changed. The
+ * calibration screen and recovery's both use it. */
+bool screenTaskTouchCalStep(TouchCalFlow *f, bool contact, bool fresh,
+                            TouchPoint raw, bool unsettled, uint32_t nowMs);
 void screenTaskBwTurn(int32_t clicks);
 void screenTaskBwPick(void);
 
