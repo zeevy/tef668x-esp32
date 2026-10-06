@@ -109,6 +109,8 @@ While a DX scan runs, any touch only stops it, as any key does. In its first sec
 - A touch clears a frequency you were typing on the keypad and does nothing else.
 - A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short.
 - While the screen is dark, and while the start-up, going to sleep or update screens show, the radio does not read the touch panel, and a touch does not wake the screen or end those screens. Use the knob, a key or the volume knob. This keeps a touch in a pocket or a bag from doing anything. A finger already on the screen when it lights up does nothing until it is lifted.
+- During a DX level sweep, about 4 seconds, the touch panel is not read either, so its readings stay clean. The calibration screen is the one exception to both.
+- A finger or a stuck panel held still does one thing at most, its hold after 1.5 seconds, and then nothing more until it lifts.
 
 ## Turn touch on or off
 

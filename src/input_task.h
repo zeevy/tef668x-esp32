@@ -123,7 +123,7 @@ typedef struct {
 
 /* The zones of the screen on show: writes no more than `max` and returns
  * how many, 0 on a screen a touch does nothing on, and while the panel is
- * dark or held by a screen a touch does nothing on. */
+ * dark, held by a screen a touch does nothing on, or a level sweep runs. */
 int inputScreenZones(InputZone *out, int max);
 
 /*
