@@ -275,21 +275,30 @@ bool screenMenuBegin(void);
 void screenMenuShow(const ScreenMenu *menu);
 void screenMenuEnd(void);
 
-/* The parts of the menu's list a touch can act on: the header, which is
- * Back, and a row slot each, MENU_ZONE_ROW for the top one. */
+/* The parts of the menu a touch can act on: the header, which is Back, a
+ * row slot each, MENU_ZONE_ROW for the top one, and on a value with a bar,
+ * the amber panel and the bar. */
 typedef enum {
   MENU_ZONE_BACK = 1,
   MENU_ZONE_ROW,
+  MENU_ZONE_PANEL = MENU_ZONE_ROW + SCREEN_MENU_ROWS,
+  MENU_ZONE_BAR,
 } MenuZone;
 
-/* The zones of the list or picker on show, the header and a zone for each
- * row drawn, meeting halfway across the gaps: writes no more than `max` and
- * returns how many, 0 while a value with a bar, the PIN, the Restart question
- * or a dialog is up. */
+/* The zones of the menu on show: on a list or picker the header and a zone
+ * for each row drawn, meeting halfway across the gaps; on a value with a bar
+ * the header, the amber panel and the bar. Writes no more than `max` and
+ * returns how many, 0 while the PIN, the Restart question or a dialog is
+ * up. */
 int screenMenuZones(TouchZone *out, int max);
 
-/* A zone's name, for GET /api/screen: "back", "row1" to "row6", or "". */
+/* A zone's name, for GET /api/screen: "back", "row1" to "row6", "panel",
+ * "bar", or "". */
 const char *screenMenuZoneName(int id);
+
+/* The value on the bar on show under `x`, in the units its ends are in, the
+ * nearest end for an `x` off the bar. */
+int32_t screenMenuBarValue(int16_t x);
 
 /* The slot of the row the cursor is on in the list or picker on show, or
  * -1. */

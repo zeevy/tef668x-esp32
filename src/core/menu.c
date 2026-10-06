@@ -261,6 +261,29 @@ uint8_t menuPageTop(uint8_t top, uint8_t count, uint8_t visible, int dir) {
   return (uint8_t)(to < 0 ? 0 : to > last ? last : to);
 }
 
+int32_t menuBarValue(int32_t at, int32_t width, int32_t stub, int32_t low,
+                     int32_t high) {
+  if (width <= 0 || at <= stub || high <= low) {
+    return low;
+  }
+  if (at >= width) {
+    return high;
+  }
+  return low + (int32_t)(((int64_t)(high - low) * at + width / 2) / width);
+}
+
+int32_t menuBarClicks(int32_t now, int32_t want, int32_t step, int32_t low,
+                      int32_t high) {
+  if (step <= 0) {
+    step = 1;
+  }
+  const int32_t off = want - now;
+  /* Rounded away from zero at an end, so the turn reaches past it and is
+   * held there; to the nearest step elsewhere. */
+  const int32_t round = want <= low || want >= high ? step - 1 : step / 2;
+  return (off + (off < 0 ? -round : round)) / step;
+}
+
 bool menuIsOpen(const Menu *m) {
   return m != NULL && m->level != MENU_CLOSED;
 }

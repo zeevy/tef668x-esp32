@@ -18,6 +18,7 @@
 #include <lvgl.h>
 #include <string.h>
 
+#include "../core/menu.h"
 #include "../core/strings.h"
 #include "draw.h"
 #include "fonts.h"
@@ -79,6 +80,10 @@ static UiFrame sFrame;
  * 0 while another shape is up, and the slot the cursor is on. */
 static uint8_t sListRows;
 static int8_t sListCursor = -1;
+/* A value with a bar on show, and its ends, for its touch zones. */
+static bool sEditBar;
+static int32_t sEditLow;
+static int32_t sEditHigh;
 static UiRow sRows[SCREEN_MENU_ROWS];
 /* A picker label with its first letter a capital. */
 static char sRowWord[SCREEN_MENU_ROWS][32];
@@ -369,6 +374,7 @@ void screenMenuShow(const ScreenMenu *menu) {
   hideRows();
   hideDialog();
   sListRows = 0;
+  sEditBar = false;
   sListCursor = -1;
   uiFrameShow(&sFrame, menu->title, NULL, NULL, NULL, NULL, NULL);
   /* The header is the title alone, so not the sleep mark either. */
@@ -520,6 +526,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
     return;
   }
   sListRows = 0;
+  sEditBar = false;
   uiFrameShow(&sFrame, v->name, NULL, NULL, NULL, v->isPicker ? NULL : v->note,
               NULL);
   uiShowIf(sFrame.sleep, false);
@@ -572,6 +579,9 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   if (!v->hasRange) {
     return;
   }
+  sEditBar = true;
+  sEditLow = v->min;
+  sEditHigh = v->max;
   const int16_t barW = (int16_t)(MENU_W - 2 * UI_MARGIN);
   int32_t span = v->max - v->min;
   int32_t at = v->at - v->min;
@@ -612,6 +622,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
     return;
   }
   sListRows = 0;
+  sEditBar = false;
   const Theme *t = themeCurrent();
   /* The box covers the middle of the screen, and the header and the rows
    * would still show round it, so they go. */
@@ -656,6 +667,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
 
 void screenMenuEnd(void) {
   sListRows = 0;
+  sEditBar = false;
   if (sMenu == NULL) {
     return;
   }
@@ -683,7 +695,19 @@ bool screenMenuIsBack(TouchPoint p) {
   return touchZoneAt(&kBack, 1, p) != TOUCH_NO_ZONE;
 }
 
+/* The amber panel, from the header down to its foot, and the bar with its
+ * limits under it. */
+#define ZONE_BAR_TOP (EDIT_PANEL_Y + EDIT_PANEL_H)
+#define ZONE_BAR_H (BAR_LIMIT_BASE + 8 - ZONE_BAR_TOP)
+
 int screenMenuZones(TouchZone *out, int max) {
+  if (sMenu != NULL && sEditBar && max >= 3) {
+    out[0] = kBack;
+    out[1] = {0, ZONE_FIRST, MENU_W, (int16_t)(ZONE_BAR_TOP - ZONE_FIRST),
+              MENU_ZONE_PANEL};
+    out[2] = {0, ZONE_BAR_TOP, MENU_W, ZONE_BAR_H, MENU_ZONE_BAR};
+    return 3;
+  }
   if (sMenu == NULL || sListRows == 0 || max < 1 + sListRows) {
     return 0;
   }
@@ -697,12 +721,17 @@ int screenMenuZones(TouchZone *out, int max) {
 }
 
 const char *screenMenuZoneName(int id) {
-  static const char *const kNames[] = {"",     "back", "row1", "row2",
-                                       "row3", "row4", "row5", "row6"};
+  static const char *const kNames[] = {"",     "back", "row1", "row2",  "row3",
+                                       "row4", "row5", "row6", "panel", "bar"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }
 
 int screenMenuCursorSlot(void) {
   return sListRows != 0 ? sListCursor : -1;
+}
+
+int32_t screenMenuBarValue(int16_t x) {
+  return menuBarValue(x - UI_MARGIN, MENU_W - 2 * UI_MARGIN, BAR_H, sEditLow,
+                      sEditHigh);
 }

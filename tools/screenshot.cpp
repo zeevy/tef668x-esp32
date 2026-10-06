@@ -1727,6 +1727,12 @@ int main(int argc, char **argv) {
         fmt(STR_MENU_FMT_NUMBER_UNIT, 100, txt(STR_COMMON_UNIT_PERCENT));
     screenMenuValueShow(&one);
     saveShot("%s/menu-value.bmp", dir);
+    {
+      /* The value editor's touch zones over it. */
+      TouchZone zones[16];
+      snprintf(path, sizeof(path), "%s/touch-value.bmp", dir);
+      saveZones(zones, screenMenuZones(zones, 16), path);
+    }
 
     /* The same once the knob has moved it: not saved until the press. */
     one.note = txt(STR_MENU_NOTE_NOT_SAVED);

@@ -1079,12 +1079,20 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
 }
 
 /*
- * The menu's list by touch: a row tapped is turned to and pressed, as the
- * knob would, the header is Back as MODE is, and a swipe up or down pages
- * the list.
+ * The menu by touch: a row tapped is turned to and pressed, as the knob
+ * would, the header is Back as MODE is, and a swipe up or down pages the
+ * list. On a value with a bar, a finger on the bar sets it and a tap on the
+ * amber panel keeps it, as the knob's press does.
  */
-static void menuTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
-                      bool) {
+static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
+                      TouchPoint last, bool) {
+  if (zone == MENU_ZONE_BAR) {
+    /* The value follows the finger, as the knob would turn it there. A
+     * zone that follows a drag gives no swipe; a finger resting to the hold
+     * time sets the value under it, and the touch ends there. */
+    menuTaskBarTo(screenMenuBarValue(event == TOUCH_TAP ? start.x : last.x));
+    return;
+  }
   if (event == TOUCH_SWIPE_UP || event == TOUCH_SWIPE_DOWN) {
     menuTaskPage(event == TOUCH_SWIPE_UP ? 1 : -1);
     return;
@@ -1094,6 +1102,10 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
   }
   if (zone == MENU_ZONE_BACK) {
     menuTaskBack();
+    return;
+  }
+  if (zone == MENU_ZONE_PANEL) {
+    menuTaskPress();
     return;
   }
   const int cursor = screenMenuCursorSlot();
@@ -1143,7 +1155,7 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
     {menuTurn, menuPress, NULL, NULL, menuMode, menuEnter, menuKey
 #if FEATURE_TOUCH
      ,
-     menuTouch, screenMenuZones, screenMenuZoneName, 0
+     menuTouch, screenMenuZones, screenMenuZoneName, MENU_ZONE_BAR
 #endif
     },
     /* TOP_BW */
