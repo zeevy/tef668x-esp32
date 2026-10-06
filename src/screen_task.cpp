@@ -1367,6 +1367,14 @@ void screenTaskBwTurn(int32_t clicks) {
   }
 }
 
+void screenTaskBwTap(uint8_t index) {
+  if (sBw == NULL || index >= sBw->count) {
+    return;
+  }
+  screenTaskBwTurn((int32_t)index - sBw->cursor);
+  screenTaskBwPick();
+}
+
 void screenTaskBwPick(void) {
   if (sBw == NULL || sBw->cursor >= sBw->count) {
     return;

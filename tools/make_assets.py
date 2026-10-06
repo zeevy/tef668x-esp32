@@ -38,7 +38,7 @@ SCREENS = [
     "menu-station-log", "menu-network-info", "menu-diagnostics",
     "menu-about", "menu-typed-choice", "menu-update-offer",
     # The bandwidth page.
-    "bw-fm", "bw-mw",
+    "bw-fm", "touch-bw", "bw-mw",
     # Start up, update, sleep and recovery.
     "boot", "veil", "update-failed", "sleeping", "recovery",
     # Touch calibration.

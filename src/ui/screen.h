@@ -746,6 +746,21 @@ typedef struct {
   const char *note; /* "Auto: 217 kHz", or NULL. */
 } ScreenBw;
 
+/* The parts of the bandwidth page a touch can act on: the header, which
+ * closes it, and a tile each, BW_ZONE_TILE for the first. */
+typedef enum {
+  BW_ZONE_BACK = 1,
+  BW_ZONE_TILE,
+} BwZone;
+
+/* The page's zones, the header and a zone for each tile shown, meeting
+ * halfway across the gaps: writes no more than `max` and returns how many,
+ * 0 while the page is not up. */
+int screenBwZones(TouchZone *out, int max);
+
+/* A zone's name, for GET /api/screen: "back", "tile1" to "tile19", or "". */
+const char *screenBwZoneName(int id);
+
 bool screenBwBegin(void);
 void screenBwShow(const ScreenBw *s);
 void screenBwEnd(void);

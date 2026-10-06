@@ -6,7 +6,7 @@ The first supported radio is the **ATS-125**, a portable FM and AM receiver with
 
 ![The radio screen, the RDS station page and the DX band scope](assets/hero.png)
 
-> **Status:** it works as a full radio today. FM and AM, seek, squelch, RDS, 99 presets, band scan, logbook, DX mode, network clock, a three level menu, a browser page, an HTTP control API and over the air updates with rollback. Touch works on the radio screen and in the menu, apart from the Web PIN, the Restart Radio question and the update offer. Still to come: touch on the other screens, other screen layouts, live telemetry and a spectrum view.
+> **Status:** it works as a full radio today. FM and AM, seek, squelch, RDS, 99 presets, band scan, logbook, DX mode, network clock, a three level menu, a browser page, an HTTP control API and over the air updates with rollback. Touch works on the radio screen, the bandwidth page and in the menu, apart from the Web PIN, the Restart Radio question and the update offer. Still to come: touch on the other screens, other screen layouts, live telemetry and a spectrum view.
 
 This is a ground up rewrite, not a fork. It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32), and shares no code with it, apart from the tuner's patch data listed under [Licence](#licence).
 

@@ -179,6 +179,9 @@ bool screenTaskTouchCalStep(TouchCalFlow *f, bool contact, bool fresh,
 void screenTaskBwTurn(int32_t clicks);
 void screenTaskBwPick(void);
 
+/* A tile tapped: turned to and picked, as the knob and its press would. */
+void screenTaskBwTap(uint8_t index);
+
 /*
  * Give the panel to the menu, and take it back.
  *

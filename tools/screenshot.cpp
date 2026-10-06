@@ -566,26 +566,36 @@ static void sceneNothing(ScreenState *s) {
 #define ZONE_MIN_W 38
 #define ZONE_MIN_H 28
 
-/*
- * A screen's touch zones outlined over what is on the panel now, written to
- * `path`: the run ends with a failure when two zones share a pixel, when a
- * zone is smaller than the targets measured to hold a tap, or when one
- * reaches past the panel.
- */
-static void saveZones(const TouchZone *zones, int n, const char *path) {
-  /* The outlines are drawn on a copy of the frame and the frame put back,
-   * since the next picture only redraws what changed. */
-  static uint16_t keep[W * H];
-  memcpy(keep, sFrame, sizeof(keep));
+/* The run ends with a failure when two of a screen's zones share a pixel,
+ * when one is smaller than the targets measured to hold a tap, or when one
+ * reaches past the panel. `name` says which screen. */
+static void checkZones(const TouchZone *zones, int n, const char *name) {
   bool bad = !touchZonesValid(zones, n);
   for (int i = 0; i < n; i++) {
     const TouchZone *z = &zones[i];
     if (z->w < ZONE_MIN_W || z->h < ZONE_MIN_H || z->x < 0 || z->y < 0 ||
         z->x + z->w > W || z->y + z->h > H) {
-      fprintf(stderr, "%s: zone %d at %d,%d is %d by %d\n", path, z->id, z->x,
+      fprintf(stderr, "%s: zone %d at %d,%d is %d by %d\n", name, z->id, z->x,
               z->y, z->w, z->h);
       bad = true;
     }
+  }
+  if (bad) {
+    fprintf(stderr, "%s: the zones overlap or are too small\n", name);
+    exit(1);
+  }
+}
+
+/* A screen's touch zones, checked, then outlined over what is on the panel
+ * now and written to `path`. */
+static void saveZones(const TouchZone *zones, int n, const char *path) {
+  checkZones(zones, n, path);
+  /* The outlines are drawn on a copy of the frame and the frame put back,
+   * since the next picture only redraws what changed. */
+  static uint16_t keep[W * H];
+  memcpy(keep, sFrame, sizeof(keep));
+  for (int i = 0; i < n; i++) {
+    const TouchZone *z = &zones[i];
     const uint16_t magenta = 0xF81F;
     for (int x = z->x; x < z->x + z->w && x < W; x++) {
       sFrame[z->y * W + x] = magenta;
@@ -595,10 +605,6 @@ static void saveZones(const TouchZone *zones, int n, const char *path) {
       sFrame[y * W + z->x] = magenta;
       sFrame[y * W + z->x + z->w - 1] = magenta;
     }
-  }
-  if (bad) {
-    fprintf(stderr, "%s: the zones overlap or are too small\n", path);
-    exit(1);
   }
   if (!writeBmp(path)) {
     fprintf(stderr, "could not write %s\n", path);
@@ -1300,8 +1306,8 @@ int main(int argc, char **argv) {
     render(scenes[i].scene, path);
     if (i == 0) {
       /* The radio screen's touch zones over the FM picture. */
-      TouchZone zones[16];
-      const int n = screenRadioZones(zones, 16);
+      TouchZone zones[TOUCH_ZONES_MAX];
+      const int n = screenRadioZones(zones, TOUCH_ZONES_MAX);
       snprintf(path, sizeof(path), "%s/touch-radio.bmp", dir);
       saveZones(zones, n, path);
     }
@@ -1441,9 +1447,9 @@ int main(int argc, char **argv) {
     screenMenuShow(&menu);
     saveShot("%s/menu-groups.bmp", dir);
     /* The list's touch zones over it. */
-    TouchZone zones[16];
+    TouchZone zones[TOUCH_ZONES_MAX];
     snprintf(path, sizeof(path), "%s/touch-menu.bmp", dir);
-    saveZones(zones, screenMenuZones(zones, 16), path);
+    saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
 
     memset(&menu, 0, sizeof(menu));
     menu.title = txt(STR_MENU_DISPLAY);
@@ -1729,9 +1735,9 @@ int main(int argc, char **argv) {
     saveShot("%s/menu-value.bmp", dir);
     {
       /* The value editor's touch zones over it. */
-      TouchZone zones[16];
+      TouchZone zones[TOUCH_ZONES_MAX];
       snprintf(path, sizeof(path), "%s/touch-value.bmp", dir);
-      saveZones(zones, screenMenuZones(zones, 16), path);
+      saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
     }
 
     /* The same once the knob has moved it: not saved until the press. */
@@ -1852,9 +1858,9 @@ int main(int argc, char **argv) {
       if (page == 0) {
         saveShot("%s/menu-theme.bmp", dir);
         /* A picker's touch zones over it. */
-        TouchZone zones[16];
+        TouchZone zones[TOUCH_ZONES_MAX];
         snprintf(path, sizeof(path), "%s/touch-picker.bmp", dir);
-        saveZones(zones, screenMenuZones(zones, 16), path);
+        saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
       } else {
         saveShot("%s/menu-theme-%d.bmp", dir, page + 1);
       }
@@ -2109,6 +2115,15 @@ int main(int argc, char **argv) {
       screenBwStateBuild(&in, &keep, &view);
       screenBwShow(&view);
       saveShot("%s/%s.bmp", dir, shots[i].name);
+      /* The page's touch zones checked on every page, and drawn over the
+       * FM one. */
+      TouchZone zones[TOUCH_ZONES_MAX];
+      const int n = screenBwZones(zones, TOUCH_ZONES_MAX);
+      checkZones(zones, n, shots[i].name);
+      if (i == 0) {
+        snprintf(path, sizeof(path), "%s/touch-bw.bmp", dir);
+        saveZones(zones, n, path);
+      }
     }
     screenBwEnd();
   }

@@ -136,6 +136,10 @@ typedef struct {
   uint8_t id;
 } TouchZone;
 
+/* The most zones a screen has: the bandwidth page's nineteen tiles and its
+ * header, with room over. */
+#define TOUCH_ZONES_MAX 24
+
 /* What touchZoneAt gives for a point in no zone. Not a uint8_t, so no
  * zone's id can be mistaken for it. */
 #define TOUCH_NO_ZONE (-1)
