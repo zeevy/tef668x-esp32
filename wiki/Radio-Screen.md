@@ -18,7 +18,7 @@ From top to bottom:
 
 | Item | What it shows |
 |---|---|
-| Menu symbol | Three lines at the top left, only while **Controls > Touch** is On. A tap on it opens the menu, see [Touch Screen](Touch-Screen.md#the-radio-screen) |
+| Menu symbol | Four lines at the top left, only while **Controls > Touch** is On. A tap on it opens the menu, see [Touch Screen](Touch-Screen.md#the-radio-screen) |
 | Band | `FM`, `OIRT`, `LW`, `MW` or `SW`. On shortwave inside a broadcast band, the metre band follows in grey, for example `31 m` |
 | Wi-Fi mark | Always shown. On your network: green bars, 3 to 0 by the Wi-Fi signal. Joining: a search mark in grey. Serving the hotspot: a hotspot mark in amber. Wi-Fi off: a crossed mark in grey |
 | Battery | Hidden on a new radio. Display > Battery set to `Percent` shows a filled shape, and `Volts` shows the voltage. It turns to the theme's fault colour, red in Nightwatch, at 20 % or less |

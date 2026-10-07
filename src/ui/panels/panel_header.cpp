@@ -21,10 +21,13 @@
 /* The line every item is centred on. */
 #define CENTRE_Y 14
 /* The menu symbol's zone, from the edge, as wide as the 38 px floor a
- * target needs, and the band name a gap past it, so a finger a few pixels
- * off on either side of the border still lands on what it aimed at. */
+ * target needs. The band name sits the header's usual gap after the symbol,
+ * so the zone takes the first 2 px of the name's box, one or two columns of
+ * its first letter; a tap on the name lands well right of them. */
 #define MENU_ZONE_W 38
-#define BAND_AFTER_MENU_X (MENU_ZONE_W + UI_GAP)
+#define BAND_AFTER_MENU_X (UI_MARGIN + UI_ICON_SIZE + UI_GAP)
+static_assert(MENU_ZONE_W - BAND_AFTER_MENU_X <= 2,
+              "the menu symbol's zone must not reach further into the name");
 
 /* The drawn battery: a 24 by 12 outline and a 2 by 6 nub on its end. */
 #define BATT_W 24
