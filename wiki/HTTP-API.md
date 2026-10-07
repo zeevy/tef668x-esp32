@@ -155,7 +155,7 @@ curl -s -b jar $R/api/settings
 ```
 
 ```json
-{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":2,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":0,"bds":90,"blf":1,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"fof":0,"aof":0,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
+{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":2,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":0,"bds":90,"blf":1,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"fof":0,"aof":0,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"kpt":20,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
 ```
 
 Most keys are the same as for [POST /api/settings](#post-apisettings) below. `sid` is the network name and `pss` says whether a passphrase is stored; the passphrase itself is never sent. `tzo` is the UTC offset and `cst` the custom theme's colours. The rest (`sql`, `sbd`, `sfq`, `svl`, `ims` and the other reception keys, `abw`) are the stored radio settings, which are changed with the tuning and sound routes and kept with `/api/save`.
@@ -166,7 +166,8 @@ What the screen shows now, one JSON object per line. The first line names the sc
 
 ```
 {"screen":"radio","page":0,"dim":false,"theme":"Nightwatch"}
-{"zone":"band","x":0,"y":0,"w":160,"h":28}
+{"zone":"menu","x":0,"y":0,"w":38,"h":28}
+{"zone":"band","x":38,"y":0,"w":122,"h":28}
 {"zone":"menu","x":160,"y":0,"w":160,"h":28}
 {"zone":"name","x":0,"y":32,"w":320,"h":34}
 {"zone":"freq","x":0,"y":66,"w":320,"h":54}
@@ -176,8 +177,9 @@ What the screen shows now, one JSON object per line. The first line names the sc
 {"zone":"bw","x":160,"y":204,"w":76,"h":28}
 {"zone":"vol","x":236,"y":204,"w":84,"h":28}
 {"x":0,"y":0,"w":320,"h":240,"fill":"#080C10","fillRole":"ground|header"}
-{"x":12,"y":3,"w":25,"h":23,"c":"#F8B000","role":"radio","font":"title","text":"FM"}
-{"x":272,"y":7,"w":36,"h":17,"c":"#E0E4E0","role":"measurement","font":"small","text":"21:51"}
+{"x":46,"y":3,"w":25,"h":23,"c":"#F8B000","role":"radio","font":"title","text":"FM"}
+{"x":272,"y":7,"w":36,"h":17,"c":"#E0E4E0","role":"measurement","font":"small","text":"20:05"}
+{"x":12,"y":7,"w":16,"h":15,"c":"#8894A0","role":"dead","font":"icons","text":""}
 {"x":12,"y":32,"w":296,"h":88,"fill":"#F8B000","fillRole":"radio"}
 ...
 ```

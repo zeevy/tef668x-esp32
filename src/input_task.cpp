@@ -1101,12 +1101,13 @@ static void dialDrag(TouchGestureEvent event, int32_t dxPx) {
 
 /*
  * The radio screen by touch. Each zone does what the key or the knob it
- * stands for does there, through the same call: the band name is a tap of
- * BAND, the header's right half the knob's press, the frequency panel's
- * upper part, with the station name, a hold of BAND for the RDS screen,
- * which is FM only, its lower part, with the frequency, the keypad to type
- * one, and either part held the knob's hold that logs the station; the mode
- * tile a tap of MODE and the bandwidth tile a hold of BW. The SQL tile opens
+ * stands for does there, through the same call: the menu symbol at the top
+ * left and the header's right half are the knob's press, the band name a
+ * tap of BAND, the frequency panel's upper part, with the station name, a
+ * hold of BAND for the RDS screen, which is FM only, its lower part, with the
+ * frequency, the keypad to type one, and either part held the knob's hold
+ * that logs the station; the mode tile a tap of MODE and the bandwidth tile a
+ * hold of BW. The SQL tile opens
  * Squelch Mode rather than stepping it, since Manual hands the volume knob
  * to the squelch and a tap that did that unseen could silence the radio.
  * The volume tile mutes, which no key does, and no key opens the keypad,

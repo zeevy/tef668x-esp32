@@ -1141,8 +1141,6 @@ static void keypadDraw(void) {
     snprintf(context, sizeof(context), txt(STR_KEYPAD_FMT_CONTEXT),
              bandName(now.band), bandFrequencyUnit(now.band));
   }
-  char typed[INPUT_DIGITS_MAX + 2];
-  screenTypedText(input.typed, typed, sizeof(typed));
   char clockText[CLOCK_TEXT_LEN];
   const char *clock = clockFormat(ntpLocalTime(), clockText, sizeof(clockText))
                           ? clockText
@@ -1150,7 +1148,9 @@ static void keypadDraw(void) {
   ScreenKeypad view;
   view.context = context;
   view.clock = clock;
-  view.typed = typed;
+  /* The digits alone: the keys under the panel already say where the next
+   * one comes from, so the radio screen's dash for it is left off here. */
+  view.typed = input.typed;
   screenKeypadShow(&view);
 }
 

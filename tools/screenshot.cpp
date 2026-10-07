@@ -409,7 +409,7 @@ static void sceneFmNoClock(ScreenState *s) {
   s->date = NULL;
 }
 
-/* Touch Off: no menu symbol, and the clock back in the corner. */
+/* Touch Off: no menu symbol, and the band name back at the margin. */
 static void sceneFmTouchOff(ScreenState *s) {
   sceneFm(s);
   s->menuMark = false;
@@ -2189,7 +2189,7 @@ int main(int argc, char **argv) {
     ScreenKeypad pad;
     pad.context = "FM \xC2\xB7 MHz";
     pad.clock = "19:32";
-    pad.typed = "104-";
+    pad.typed = "104";
     screenKeypadShow(&pad);
     saveShot("%s/keypad.bmp", dir);
     TouchZone zones[TOUCH_ZONES_MAX];

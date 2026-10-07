@@ -1,8 +1,8 @@
 /*
- * The header: the band on the left, with the metre band beside it on SW, and
- * on the right one run of, from the right, the menu symbol while Touch is On,
- * the clock, Wi-Fi, the battery and the sleep mark. No speaker: the V: tile
- * says when the radio is muted.
+ * The header: on the left the menu symbol while a finger can use it, then
+ * the band, with the metre band beside it on SW, and on the right one run
+ * of, from the right, the clock, Wi-Fi, the battery and the sleep mark. No
+ * speaker: the V: tile says when the radio is muted.
  *
  * No fill. Every item is centred on one line, 14 rows down: the band name
  * sits on baseline 21 and the rest on baseline 20, one row lower so that the
@@ -20,6 +20,11 @@
 #define RUN_BASE 20
 /* The line every item is centred on. */
 #define CENTRE_Y 14
+/* The menu symbol's zone, from the edge, as wide as the 38 px floor a
+ * target needs, and the band name a gap past it, so a finger a few pixels
+ * off on either side of the border still lands on what it aimed at. */
+#define MENU_ZONE_W 38
+#define BAND_AFTER_MENU_X (MENU_ZONE_W + UI_GAP)
 
 /* The drawn battery: a 24 by 12 outline and a 2 by 6 nub on its end. */
 #define BATT_W 24
@@ -53,6 +58,8 @@ static lv_obj_t *sBattFill;
 static lv_obj_t *sBattNub;
 static lv_obj_t *sClock;
 static lv_obj_t *sMenu;
+/* The menu symbol is drawn, so the header's zones make room for it. */
+static bool sMenuShown;
 
 /* Top of an icon's box, so its ink is centred on the header's line. */
 static int16_t iconTop(void) {
@@ -100,30 +107,30 @@ static void placeIcon(lv_obj_t *o, int16_t *right, int16_t gap) {
 static void show(const ScreenState *s) {
   const Theme *t = themeCurrent();
 
+  /* The menu symbol in the corner while a finger can use it, where a menu
+   * is looked for, and the band name after it. */
+  int16_t left = (int16_t)(sAt.x + UI_MARGIN);
+  sMenuShown = s->menuMark;
+  uiShowIf(sMenu, s->menuMark);
+  if (s->menuMark) {
+    lv_obj_set_pos(sMenu, left, iconTop());
+    left = (int16_t)(sAt.x + BAND_AFTER_MENU_X);
+  }
   uiSetOrHide(sBand, s->band);
-  uiBaseline(sBand, &roboto_title, (int16_t)(sAt.x + UI_MARGIN),
-             (int16_t)(sAt.y + BAND_BASE));
+  uiBaseline(sBand, &roboto_title, left, (int16_t)(sAt.y + BAND_BASE));
   /* In the clock's face and grey, so it reads as a note on the band rather
    * than as a second band name. */
   uiSetOrHide(sMeterBand, s->meterBand);
   if (s->meterBand != NULL) {
     uiBaseline(sMeterBand, &roboto_small,
-               (int16_t)(sAt.x + UI_MARGIN + uiTextWidth(sBand, &roboto_title) +
-                         UI_GAP),
+               (int16_t)(left + uiTextWidth(sBand, &roboto_title) + UI_GAP),
                (int16_t)(sAt.y + RUN_BASE));
   }
 
   int16_t right = (int16_t)(sAt.x + sAt.w - UI_MARGIN);
 
-  /* The menu symbol takes the corner while a finger can use it, deep in the
-   * menu's half, as far from the band name's half as it can be. */
-  uiShowIf(sMenu, s->menuMark);
-  if (s->menuMark) {
-    placeIcon(sMenu, &right, UI_GAP);
-  }
-
-  /* The clock holds the corner, or sits next to the menu symbol. Absent
-   * until a server has answered, and the run closes up over it. */
+  /* The clock holds the corner. Absent until a server has answered, and the
+   * run closes up over it. */
   if (s->clock != NULL && s->clock[0] != '\0') {
     uiSetText(sClock, s->clock);
     placeWord(sClock, &roboto_small, &right, UI_GAP);
@@ -223,17 +230,25 @@ static void show(const ScreenState *s) {
   }
 }
 
-/* The band name half, which steps the band as BAND does, and the status
- * half, which opens the menu as the knob's press does. */
+/* The menu symbol, while it is drawn, and the status half, which open the
+ * menu as the knob's press does, and between them the band name, which
+ * steps the band as BAND does. */
 static int zones(const PanelRect *at, TouchZone *out, int max) {
-  if (max < 2) {
+  const int16_t menuW = sMenuShown ? MENU_ZONE_W : 0;
+  const int n = sMenuShown ? 3 : 2;
+  if (max < n) {
     return 0;
   }
   const int16_t half = (int16_t)(at->w / 2);
-  out[0] = {at->x, at->y, half, at->h, RADIO_ZONE_BAND};
-  out[1] = {(int16_t)(at->x + half), at->y, (int16_t)(at->w - half), at->h,
-            RADIO_ZONE_MENU};
-  return 2;
+  int i = 0;
+  if (sMenuShown) {
+    out[i++] = {at->x, at->y, menuW, at->h, RADIO_ZONE_MENU};
+  }
+  out[i++] = {(int16_t)(at->x + menuW), at->y, (int16_t)(half - menuW), at->h,
+              RADIO_ZONE_BAND};
+  out[i++] = {(int16_t)(at->x + half), at->y, (int16_t)(at->w - half), at->h,
+              RADIO_ZONE_MENU};
+  return n;
 }
 
 const Panel panelHeader = {begin, show, zones};

@@ -8,8 +8,9 @@ The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller.
 
 | Where | Touch | Does |
 |---|---|---|
-| The band name, the left half of the top line | Tap | The next band, as a tap of BAND |
-| The right half of the top line, with the menu symbol | Tap | Opens the menu, as a press of the tuning knob |
+| The menu symbol, three lines at the top left | Tap | Opens the menu, as a press of the tuning knob |
+| The band name, from the menu symbol to the middle of the top line | Tap | The next band, as a tap of BAND |
+| The right half of the top line | Tap | Opens the menu too |
 | The station name, the upper part of the frequency panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
 | The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
 | Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
@@ -25,7 +26,7 @@ The line of radio text under the frequency panel is too thin to be a target, and
 
 ![The frequency keypad, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-keypad.png)
 
-A tap on the frequency opens the keypad, to type a frequency by touch. The panel at the top shows the digits typed so far and a dash for the next one, the way the radio screen shows a number typed on the keys. The top line shows the band and its unit, and the clock.
+A tap on the frequency opens the keypad, to type a frequency by touch. The panel at the top shows the digits typed so far, and is empty before the first. The top line shows the band and its unit, and the clock.
 
 | Where | Touch | Does |
 |---|---|---|

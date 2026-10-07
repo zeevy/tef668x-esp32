@@ -107,8 +107,9 @@ void screenStateReset(ScreenBuild *b);
  */
 void screenStateBuild(ScreenBuild *b, const ScreenInputs *in, ScreenState *out);
 
-/* A number being typed as the screens draw it: the digits and a dash for the
- * next, and no dash once INPUT_DIGITS_MAX are typed. */
+/* A number being typed as the radio screen and the headers draw it: the
+ * digits and a dash for the next, and no dash once INPUT_DIGITS_MAX are
+ * typed. The keypad draws the digits alone. */
 void screenTypedText(const char *typed, char *out, size_t len);
 
 #endif /* SCREEN_STATE_H */
