@@ -170,9 +170,9 @@ void screenTaskKeypadKeyed(void);
  * is busy with another screen or has no memory for it. While it is up the
  * input task feeds it each poll's contact, the steady raw point and whether
  * it is unsettled; the knob answers it: in the marks or the check either
- * leaves, the old calibration kept; on a calibration kept a press leaves; on
- * one not kept a press starts again and a turn leaves. A calibration that
- * passes its check is kept in NVS and put in use at once.
+ * leaves, the old calibration stays; on a calibration saved a press leaves; on
+ * one not saved a press starts again and a turn leaves. A calibration that
+ * passes its check is saved in NVS and put in use at once.
  */
 bool screenTaskTouchCalOpen(void);
 bool screenTaskTouchCalIsOpen(void);
@@ -186,7 +186,7 @@ void screenTaskTouchCalClose(void);
 void screenTaskTouchCalView(const TouchCalFlow *f, ScreenTouchCal *out);
 
 /* Feed a calibration one poll, and save it the moment it passes its check;
- * one that cannot be saved ends Not kept. True when the screen changed. The
+ * one that cannot be saved ends Not saved. True when the screen changed. The
  * calibration screen and recovery's both use it. */
 bool screenTaskTouchCalStep(TouchCalFlow *f, bool contact, bool fresh,
                             TouchPoint raw, bool unsettled, uint32_t nowMs);

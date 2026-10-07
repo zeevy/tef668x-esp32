@@ -90,15 +90,15 @@ static void the_marks_sit_in_from_each_corner_and_in_the_middle(void) {
   TEST_ASSERT_EQUAL_INT(90, touchCalFlowCheckDot(&flow).y);
 }
 
-/* Five marks held and a check tapped on the dot: kept, and the new map puts
+/* Five marks held and a check tapped on the dot: saved, and the new map puts
  * every mark where it was drawn, though the guide was 10 px off. */
-static void a_calibration_held_and_checked_is_kept(void) {
+static void a_calibration_held_and_checked_passes(void) {
   const TouchCal guide = roughGuide();
   touchCalFlowBegin(&flow, W, H, false, &guide);
   allMarks(false);
   TEST_ASSERT_EQUAL_INT(TOUCH_CAL_CHECK, flow.step);
   holdAt(touchCalFlowCheckDot(&flow), 3, false);
-  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_KEPT, flow.step);
+  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_PASSED, flow.step);
   TEST_ASSERT_EQUAL_UINT16(0, flow.checkOffPx);
   for (uint8_t i = 0; i < 5; i++) {
     const TouchPoint m = touchCalFlowMark(&flow, i);
@@ -171,7 +171,7 @@ static void the_next_mark_waits_for_a_lift(void) {
   TEST_ASSERT_EQUAL_INT(1, flow.filled);
 }
 
-/* The check: TOUCH_CAL_CHECK_PX off the dot is kept, one more is not. */
+/* The check: TOUCH_CAL_CHECK_PX off the dot is saved, one more is not. */
 static void the_check_has_to_land_near_the_dot(void) {
   const TouchCal guide = panelCal();
   for (int off = TOUCH_CAL_CHECK_PX; off <= TOUCH_CAL_CHECK_PX + 1; off++) {
@@ -180,7 +180,7 @@ static void the_check_has_to_land_near_the_dot(void) {
     const TouchPoint dot = touchCalFlowCheckDot(&flow);
     holdAt(pt(dot.x + off, dot.y), 3, false);
     TEST_ASSERT_EQUAL_INT(
-        off <= TOUCH_CAL_CHECK_PX ? TOUCH_CAL_KEPT : TOUCH_CAL_MISSED,
+        off <= TOUCH_CAL_CHECK_PX ? TOUCH_CAL_PASSED : TOUCH_CAL_MISSED,
         flow.step);
     TEST_ASSERT_EQUAL(off > TOUCH_CAL_CHECK_PX, touchCalFlowFailed(&flow));
     TEST_ASSERT_EQUAL_UINT16(off, flow.checkOffPx);
@@ -189,12 +189,12 @@ static void the_check_has_to_land_near_the_dot(void) {
 
 /* Calibrated with the screen upside down, the map is still the board's own
  * mount: the marks map back to where they sit in the mount. */
-static void a_calibration_upside_down_is_kept_in_the_mount(void) {
+static void a_calibration_upside_down_passes_in_the_mount(void) {
   const TouchCal guide = panelCal();
   touchCalFlowBegin(&flow, W, H, true, &guide);
   allMarks(true);
   holdAt(touchCalFlowCheckDot(&flow), 3, true);
-  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_KEPT, flow.step);
+  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_PASSED, flow.step);
   const TouchPoint mount = pt(50, 60);
   const TouchPoint got = touchCalMap(&flow.result, panelRaw(mount), W, H);
   TEST_ASSERT_INT_WITHIN(1, 50, got.x);
@@ -267,7 +267,7 @@ static void the_check_prefers_a_settled_reading(void) {
   touchCalFlowFeed(&flow, true, true, panelRaw(pt(dot.x + 60, dot.y)), true,
                    now);
   liftNow();
-  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_KEPT, flow.step);
+  TEST_ASSERT_EQUAL_INT(TOUCH_CAL_PASSED, flow.step);
 }
 
 /* The corners a pen read on this radio make a map that puts them back on
@@ -288,8 +288,8 @@ static void the_built_in_map_comes_from_the_corners(void) {
   TEST_ASSERT_FALSE(touchCalFromCorners(NULL, W, H, &cal));
 }
 
-/* A kept calibration comes back from its blob whole; a blob of another
- * version or a map that cannot be kept does not. */
+/* A saved calibration comes back from its blob whole; a blob of another
+ * version or a map that cannot be saved does not. */
 static void a_calibration_round_trips_through_its_blob(void) {
   TouchCalBlob blob;
   memset(&blob, 0, sizeof(blob));
@@ -322,14 +322,14 @@ static void a_missing_argument_is_refused(void) {
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(the_marks_sit_in_from_each_corner_and_in_the_middle);
-  RUN_TEST(a_calibration_held_and_checked_is_kept);
+  RUN_TEST(a_calibration_held_and_checked_passes);
   RUN_TEST(a_mark_takes_its_fill_of_readings);
   RUN_TEST(unsettled_readings_do_not_fill);
   RUN_TEST(a_lift_before_full_starts_the_mark_again);
   RUN_TEST(a_finger_that_slides_fills_again);
   RUN_TEST(the_next_mark_waits_for_a_lift);
   RUN_TEST(the_check_has_to_land_near_the_dot);
-  RUN_TEST(a_calibration_upside_down_is_kept_in_the_mount);
+  RUN_TEST(a_calibration_upside_down_passes_in_the_mount);
   RUN_TEST(marks_in_one_place_make_no_calibration);
   RUN_TEST(a_check_lift_with_no_reading_does_nothing);
   RUN_TEST(a_short_break_does_not_empty_the_mark);

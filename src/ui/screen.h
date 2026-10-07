@@ -901,10 +901,10 @@ const char *screenKeypadZoneName(int id);
 typedef enum {
   SCREEN_TOUCH_CAL_MARK = 0,  /* A mark to hold. */
   SCREEN_TOUCH_CAL_CHECK,     /* The check dot to tap. */
-  SCREEN_TOUCH_CAL_KEPT,      /* Kept, and how far the check landed. */
-  SCREEN_TOUCH_CAL_NO_FIT,    /* Not kept: the marks made no calibration. */
-  SCREEN_TOUCH_CAL_MISSED,    /* Not kept: the check landed too far off. */
-  SCREEN_TOUCH_CAL_NOT_SAVED, /* Not kept: it could not be saved. */
+  SCREEN_TOUCH_CAL_SAVED,     /* Saved, and how far the check landed. */
+  SCREEN_TOUCH_CAL_NO_FIT,    /* Not saved: the marks made no calibration. */
+  SCREEN_TOUCH_CAL_MISSED,    /* Not saved: the check landed too far off. */
+  SCREEN_TOUCH_CAL_NOT_SAVED, /* Not saved: it could not be written. */
 } ScreenTouchCalStep;
 
 /*

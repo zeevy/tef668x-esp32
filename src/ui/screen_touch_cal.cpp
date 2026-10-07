@@ -5,7 +5,7 @@
  * a ring at the mark to hold, whose disc grows as the mark fills, a tick at
  * each mark done, five dots for how far along it is, and the instruction in
  * the half of the screen away from the mark. Then a dot to tap as a check,
- * then whether the calibration was kept.
+ * then whether the calibration was saved.
  *
  * It draws what it is given, and owns the panel on its own, because the
  * LVGL pool holds one screen at a time.
@@ -189,9 +189,9 @@ void screenTouchCalShow(const ScreenTouchCal *s) {
       showPips(s, t, false, 0);
       uiSetText(sUi->hint, txt(STR_TOUCH_CAL_CANCEL_HINT));
       break;
-    case SCREEN_TOUCH_CAL_KEPT:
+    case SCREEN_TOUCH_CAL_SAVED:
       uiSetColour(sUi->title, t->good);
-      uiSetText(sUi->title, txt(STR_TOUCH_CAL_KEPT));
+      uiSetText(sUi->title, txt(STR_TOUCH_CAL_SAVED));
       centre(sUi->title, &roboto_title, RESULT_BASE);
       snprintf(line, sizeof(line), txt(STR_TOUCH_CAL_FMT_LANDED),
                (unsigned)s->offPx);
@@ -203,7 +203,7 @@ void screenTouchCalShow(const ScreenTouchCal *s) {
       break;
     default:
       uiSetColour(sUi->title, t->fault);
-      uiSetText(sUi->title, txt(STR_TOUCH_CAL_NOT_KEPT));
+      uiSetText(sUi->title, txt(STR_TOUCH_CAL_NOT_SAVED_TITLE));
       centre(sUi->title, &roboto_title, RESULT_BASE);
       if (s->step == SCREEN_TOUCH_CAL_MISSED) {
         snprintf(line, sizeof(line), txt(STR_TOUCH_CAL_FMT_MISSED),

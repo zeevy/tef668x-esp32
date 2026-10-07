@@ -195,11 +195,11 @@ Each panel sits a little differently in its radio. A calibration teaches the rad
 2. A ring shows near one corner. Put your finger or a pen in the ring and hold still. The ring fills, turns into a tick, and the next ring shows. Lift before you hold the next one.
 3. Do the same for all five rings: the four corners, then the middle. If you slide away or lift before a ring is full, it starts again.
 4. A dot shows. Tap it once.
-5. The screen says **Calibration kept** and how far the tap landed from the dot, or **Not kept** and why: the rings did not make a calibration, the tap landed more than 24 pixels across or down from the dot, or it could not be saved. A calibration that is not kept leaves the old one in use.
+5. The screen says **Calibration saved** and how far the tap landed from the dot, or **Not saved** and why: the rings did not make a calibration, the tap landed more than 24 pixels across or down from the dot, or it could not be written. A calibration that is not saved leaves the old one in use.
 
-While the rings or the dot show, turning or pressing the tuning knob, or any other button or key, leaves the calibration, and the old calibration stays. On **Not kept**, press the knob to try again, or turn it to leave. On **Calibration kept**, press the knob to go back.
+While the rings or the dot show, turning or pressing the tuning knob, or any other button or key, leaves the calibration, and the old calibration stays. On **Not saved**, press the knob to try again, or turn it to leave. On **Calibration saved**, press the knob to go back.
 
-A kept calibration is used at once and is kept through restarts and updates. **Erase Settings** on the recovery screen removes it with the other settings, and the radio goes back to the built-in map.
+A saved calibration is used at once and is kept through restarts and updates. **Erase Settings** on the recovery screen removes it with the other settings, and the radio goes back to the built-in map.
 
 The recovery screen has a **Calibrate Touch** row too, worked the same way with the knob, for when the menu cannot be reached.
 

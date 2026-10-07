@@ -2365,7 +2365,7 @@ int main(int argc, char **argv) {
         {SCREEN_TOUCH_CAL_MARK, 1, 60, 0, "touch-cal-mark2"},
         {SCREEN_TOUCH_CAL_MARK, 4, 0, 0, "touch-cal-mark5"},
         {SCREEN_TOUCH_CAL_CHECK, 4, 0, 0, "touch-cal-check"},
-        {SCREEN_TOUCH_CAL_KEPT, 4, 0, 3, "touch-cal-kept"},
+        {SCREEN_TOUCH_CAL_SAVED, 4, 0, 3, "touch-cal-saved"},
         {SCREEN_TOUCH_CAL_MISSED, 4, 0, 31, "touch-cal-missed"},
         {SCREEN_TOUCH_CAL_NO_FIT, 4, 0, 0, "touch-cal-no-fit"},
         {SCREEN_TOUCH_CAL_NOT_SAVED, 4, 0, 0, "touch-cal-not-saved"},

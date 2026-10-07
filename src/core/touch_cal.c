@@ -150,7 +150,7 @@ static bool feedCheck(TouchCalFlow *f, bool contact, bool fresh, TouchPoint raw,
                 f->width, f->height, f->upsideDown);
   const int32_t off = apart(at, touchCalFlowCheckDot(f));
   f->checkOffPx = (uint16_t)(off > 0xFFFF ? 0xFFFF : off);
-  f->step = off <= TOUCH_CAL_CHECK_PX ? TOUCH_CAL_KEPT : TOUCH_CAL_MISSED;
+  f->step = off <= TOUCH_CAL_CHECK_PX ? TOUCH_CAL_PASSED : TOUCH_CAL_MISSED;
   return true;
 }
 

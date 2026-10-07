@@ -1293,8 +1293,8 @@ void screenTaskTouchCalView(const TouchCalFlow *f, ScreenTouchCal *out) {
     case TOUCH_CAL_CHECK:
       v.step = SCREEN_TOUCH_CAL_CHECK;
       break;
-    case TOUCH_CAL_KEPT:
-      v.step = SCREEN_TOUCH_CAL_KEPT;
+    case TOUCH_CAL_PASSED:
+      v.step = SCREEN_TOUCH_CAL_SAVED;
       break;
     case TOUCH_CAL_NO_FIT:
       v.step = SCREEN_TOUCH_CAL_NO_FIT;
@@ -1380,10 +1380,10 @@ bool screenTaskTouchCalIsOpen(void) {
 
 bool screenTaskTouchCalStep(TouchCalFlow *f, bool contact, bool fresh,
                             TouchPoint raw, bool unsettled, uint32_t nowMs) {
-  /* The flow changes nothing more once it is kept, so this saves once. */
+  /* The flow changes nothing more once it is saved, so this saves once. */
   const bool changed =
       touchCalFlowFeed(f, contact, fresh, raw, unsettled, nowMs);
-  if (changed && f->step == TOUCH_CAL_KEPT && !touchCalNvsSave(&f->result)) {
+  if (changed && f->step == TOUCH_CAL_PASSED && !touchCalNvsSave(&f->result)) {
     f->step = TOUCH_CAL_NOT_SAVED;
   }
   return changed;
@@ -1410,7 +1410,7 @@ void screenTaskTouchCalFeed(bool contact, bool fresh, TouchPoint raw,
     return;
   }
   sCal->changed = true;
-  if (sCal->flow.step == TOUCH_CAL_KEPT) {
+  if (sCal->flow.step == TOUCH_CAL_PASSED) {
     /* Saved, so in use from now. */
     inputTouchCalSet(&sCal->flow.result, true);
   }

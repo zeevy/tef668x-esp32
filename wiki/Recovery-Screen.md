@@ -18,7 +18,7 @@ Only the tuning knob works here. The touch screen is read only by the **Calibrat
 |---|---|
 | **Rotate Display** | Turns the screen over, between `Normal` and `Upside Down`, then restarts. The row shows the rotation stored now |
 | **Touch** | Turns reading the touch screen on or off, then restarts. The row shows `On` or `Off`, the setting stored now. It is the same setting as Controls > Touch in the menu |
-| **Calibrate Touch** | Opens the touch calibration, worked as from the menu: hold each of five rings until it fills, then tap the dot. The knob leaves it while the rings or the dot show. A calibration that passes its check is kept, and pressing the knob then brings the list back. See [Touch Screen](Touch-Screen.md#calibrate-the-touch-screen) |
+| **Calibrate Touch** | Opens the touch calibration, worked as from the menu: hold each of five rings until it fills, then tap the dot. The knob leaves it while the rings or the dot show. A calibration that passes its check is saved, and pressing the knob then brings the list back. See [Touch Screen](Touch-Screen.md#calibrate-the-touch-screen) |
 | **Start Hotspot** | Sets Connectivity > Hotspot to On, then restarts. The radio then serves its own hotspot at every start, until you change that setting. Wi-Fi must be on for this |
 | **Restore Previous Firmware** | Goes back to the firmware that ran before the last update over Wi-Fi, then restarts. It shows `None` when there is no older firmware, as after an install over USB |
 | **Erase Settings** | Puts every setting back to its default, Wi-Fi details and the access PIN too, and removes the touch calibration, then restarts. The presets and the station log are kept |
