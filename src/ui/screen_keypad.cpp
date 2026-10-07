@@ -2,9 +2,8 @@
  * The frequency keypad: digits, a backspace, Cancel and OK, for typing a
  * frequency by touch.
  *
- * The number being typed sits on a panel the way the radio screen's
- * frequency panel shows it while keys type one: the digits so far and a
- * dash for the next.
+ * The number being typed sits on a panel, the digits so far and nothing
+ * more; the panel is empty before the first.
  * Each key is a plain tile, OK the filled one.
  *
  * It owns the panel on its own, like the bandwidth page, because the LVGL
