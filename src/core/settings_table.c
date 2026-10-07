@@ -82,6 +82,8 @@ static const SettingRow kRows[] = {
     ROW("slp", autoOffMinutes, 0, AUTO_OFF_MAX_MINUTES, NOW),
     ROW("upc", updateCheck, 0, 1, NOW),
     ROW("tof", touchOff, 0, 1, NOW),
+    ROW("kpt", keypadTimeoutS, SETTINGS_KEYPAD_TIMEOUT_MIN_S,
+        SETTINGS_KEYPAD_TIMEOUT_MAX_S, NOW),
 };
 
 size_t settingsTableCount(void) {

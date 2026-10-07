@@ -25,7 +25,7 @@ static char sDetailText[96];
 
 /*
  * The firmware write, in the shape of the menu's value editor:
- * the amber panel with the caption and the percentage, the bar under it and
+ * the value panel with the caption and the percentage, the bar under it and
  * the warning under that. A separate set of objects from the message, so a
  * fault and a percentage never fight over one label's font and place, and
  * both share `sVeil` as the same opaque background.
@@ -178,8 +178,8 @@ int screenRadioZones(TouchZone *out, int max) {
 }
 
 const char *screenRadioZoneName(int id) {
-  static const char *const kNames[] = {"",     "band", "menu", "panel", "scale",
-                                       "mode", "sql",  "bw",   "vol"};
+  static const char *const kNames[] = {"",     "band", "menu", "name", "scale",
+                                       "mode", "sql",  "bw",   "vol",  "freq"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

@@ -1,5 +1,5 @@
 /*
- * The amber panel: what the radio is on, and how well it hears it.
+ * The frequency panel: what the radio is on, and how well it hears it.
  *
  * A panel of `radio` with all its type in `ground`, like a lit display
  * window. Content sits UI_PAD in from its edge. The name line is on top; the
@@ -35,7 +35,7 @@
 /* The name stops this far short of the meter, so a long one never runs
  * under it. */
 #define LCD_NAME_TO_METER 6
-/* An unlit segment is 30 % ground laid over the amber, out of 255. */
+/* An unlit segment is 30 % ground laid over the panel's `radio`, out of 255. */
 #define LCD_METER_UNLIT_GROUND 77
 
 static PanelRect sAt;
@@ -175,12 +175,20 @@ static void show(const ScreenState *s) {
   }
 }
 
+/* Where the name's zone ends and the frequency's begins, in rows down: in
+ * the gap between a name's descenders, about row 32, and the tops of the
+ * digits, row 39, so a finger on either lands on what it shows. */
+#define LCD_ZONE_SPLIT 34
+
+/* The upper part, with the name, and the lower part, with the frequency. */
 static int zones(const PanelRect *at, TouchZone *out, int max) {
-  if (max < 1) {
+  if (max < 2) {
     return 0;
   }
-  out[0] = {at->x, at->y, at->w, at->h, RADIO_ZONE_PANEL};
-  return 1;
+  out[0] = {at->x, at->y, at->w, LCD_ZONE_SPLIT, RADIO_ZONE_NAME};
+  out[1] = {at->x, (int16_t)(at->y + LCD_ZONE_SPLIT), at->w,
+            (int16_t)(at->h - LCD_ZONE_SPLIT), RADIO_ZONE_FREQ};
+  return 2;
 }
 
 const Panel panelLcd = {begin, show, zones};

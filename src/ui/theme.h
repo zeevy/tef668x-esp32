@@ -40,7 +40,7 @@ typedef uint16_t ThemeColour;
 typedef struct {
   const char *name; /* What it is called in the menu. */
 
-  ThemeColour ground; /* The background, and all type on an amber fill. */
+  ThemeColour ground; /* The background, and all type on a `radio` fill. */
   /* No screen draws with it now. It stays so the stored custom theme keeps
    * its nine colours in the same order. */
   ThemeColour header;

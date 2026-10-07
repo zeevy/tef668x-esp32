@@ -154,6 +154,18 @@ void screenTaskBwClose(void);
 bool screenTaskBwIsOpen(void);
 
 /*
+ * The frequency keypad, a screen of its own in place of the radio screen,
+ * opened by a touch on the frequency. It shows the number typed, the same
+ * one the keys type, and closes by its Cancel and OK, by MODE, or after
+ * Keypad Timeout with no key used.
+ */
+bool screenTaskKeypadOpen(void);
+void screenTaskKeypadClose(void);
+bool screenTaskKeypadIsOpen(void);
+/* A key of it used: the time it stays up starts again, and it is drawn. */
+void screenTaskKeypadKeyed(void);
+
+/*
  * The touch calibration screen, from the radio screen. False when the panel
  * is busy with another screen or has no memory for it. While it is up the
  * input task feeds it each poll's contact, the steady raw point and whether

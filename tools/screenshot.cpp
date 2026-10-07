@@ -1787,7 +1787,7 @@ int main(int argc, char **argv) {
     screenMenuValueShow(&sleep);
     saveShot("%s/menu-value-auto-off.bmp", dir);
 
-    /* The Network Time row: a signed offset, with the white mark at zero,
+    /* The Network Time row: a signed offset, with the mark at zero,
      * and the one setting value that carries a colon, on a bar whose left
      * end is Off. West of Greenwich, then east, since the two signs are two
      * different characters the numeric face has to carry, then Off. */
@@ -2162,6 +2162,19 @@ int main(int argc, char **argv) {
       }
     }
     screenBwEnd();
+  }
+
+  if (screenKeypadBegin()) {
+    ScreenKeypad pad;
+    pad.context = "FM \xC2\xB7 MHz";
+    pad.clock = "19:32";
+    pad.typed = "104-";
+    screenKeypadShow(&pad);
+    saveShot("%s/keypad.bmp", dir);
+    TouchZone zones[TOUCH_ZONES_MAX];
+    snprintf(path, sizeof(path), "%s/touch-keypad.bmp", dir);
+    saveZones(zones, screenKeypadZones(zones, TOUCH_ZONES_MAX), path);
+    screenKeypadEnd();
   }
 
   if (screenScanBegin()) {

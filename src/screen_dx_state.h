@@ -146,7 +146,7 @@ typedef struct {
 /*
  * The Scanner page from the scan and the radio. Running, the frequency is
  * the channel being listened to and the tile what has been heard on it so
- * far; stopped, the frequency is the dial and the tile goes amber when the
+ * far; stopped, the frequency is the dial and the tile is filled when the
  * stop was a confirmed PI on it.
  */
 void screenScanStateBuild(const ScreenScanInputs *in, ScreenScanKeep *keep,

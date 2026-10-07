@@ -176,6 +176,7 @@ void settingsApplyInput(const Settings *s) {
   inputSetBeeps((BeepMode)s->beepKey);
   inputSetTouch(s->touchOff == 0);
   inputSetTouchUpsideDown(s->displayRotation == 180);
+  inputSetKeypadTimeout(s->keypadTimeoutS);
   /* A new time starts the count again, the same as a key would, and a time
    * chosen before a restart or a sleep counts from the start. */
   sleepTaskSetMinutes(s->autoOffMinutes);

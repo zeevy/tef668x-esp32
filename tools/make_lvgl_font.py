@@ -81,6 +81,7 @@ ICON_CODEPOINTS = (
                               " and the Scope page's cursor button to the"
                               " right"),
     ("chevron_left", 0xE5CB, "the Scope page's cursor button to the left"),
+    ("backspace", 0xE14A, "the frequency keypad's backspace key"),
     ("check_circle", 0xE86C, "a PI confirmed on this channel, on the DX page"),
     ("help", 0xE887, "a PI heard with a digit in doubt, or a country not"
                      " yet sure, on the DX page"),
@@ -106,8 +107,8 @@ ICONS = ",".join("0x%04X" % c for _, c, _ in ICON_CODEPOINTS)
 # Cut from the filled style into the same face: the outline of a person in bed
 # at 16px is a thin box that does not read as one, so it is drawn solid.
 ICON_FILLED_CODEPOINTS = (
-    ("hotel", 0xE53A, "auto off is on, and in amber the radio sleeps within"
-                      " five minutes, in the header"),
+    ("hotel", 0xE53A, "auto off is on, and in the main colour the radio sleeps"
+                      " within five minutes, in the header"),
 )
 ICONS_FILLED = ",".join("0x%04X" % c for _, c, _ in ICON_FILLED_CODEPOINTS)
 

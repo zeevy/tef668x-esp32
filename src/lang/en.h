@@ -84,6 +84,7 @@
   X(MENU_KEY_BEEPS, "Key Beeps", "Menu row name, Controls group") \
   X(MENU_BAND_EDGE_BEEP, "Band Edge Beep", "Menu row name, Controls group") \
   X(MENU_START_CHIME, "Startup Chime", "Menu row name, Controls group") \
+  X(MENU_KEYPAD_TIMEOUT, "Keypad Timeout", "Menu row name, Controls group: seconds a part typed number waits for the next key") \
   X(MENU_TOUCH, "Touch", "Menu row name, Controls group: Off stops the radio reading the touch screen") \
   X(MENU_CALIBRATE_TOUCH, "Calibrate Touch", "Menu row name, Controls group: opens the touch calibration screen") \
   X(MENU_CLOCK_FROM_NETWORK, "Network Time", "Menu row name, Connectivity group: Off, or the offset from UTC") \
@@ -221,7 +222,7 @@
   X(MENU_FMT_DB, "%d dB", "Menu, value of the AGC boost row; value of a level offset row at 0") \
   X(MENU_FMT_SIGNED_DB, "%+d dB", "Menu, value of the FM and AM Level Offset rows, with the sign") \
   X(MENU_NEVER, "Never", "Menu, value of the Dim after row at zero") \
-  X(MENU_FMT_SECONDS, "%d s", "Menu, value of the Dim after row, seconds") \
+  X(MENU_FMT_SECONDS, "%d s", "Menu, value of the Dim After and Keypad Timeout rows, seconds") \
   X(MENU_BATTERY_PER_CENT, "Percent", "Menu, value of the Battery row") \
   X(MENU_BATTERY_VOLTS, "Volts", "Menu, value of the Battery row") \
   X(MENU_KEYS, "Keypad Only", "Menu, value of the Key beeps row: keypad digits beep") \
@@ -244,7 +245,7 @@
   X(MENU_BAND_MEMORY, "Band + Presets", "Menu, value of the Scan row") \
   X(COMMON_ON, "On", "Value of every on/off row (Forced mono, iMS, Equaliser, RDS decoder, Loop the band, and so on); switch tile state") \
   X(COMMON_UNIT_PERCENT, "%", "Unit from `unitOf()`, under the bar ends for Brightness, Dim level, Noise blanker rows; unit for Volume AGC; reading unit, three times; per cent sign after the OTA progress number") \
-  X(COMMON_UNIT_S, "s", "Unit for Dim after; unit for Dwell; unit after the seconds left") \
+  X(COMMON_UNIT_S, "s", "Unit for Dim After and Keypad Timeout; unit for Dwell; unit after the seconds left") \
   X(COMMON_UNIT_MIN, "min", "Unit for Auto Off") \
   X(MENU_UNIT_MS, "ms", "Menu, unit for Mute ramp") \
   X(COMMON_UNIT_DB, "dB", "Unit for AGC boost; unit after the rise over base") \
@@ -273,7 +274,7 @@
   X(BOOT_TOUCH, "Touch", "Boot screen step name: the touch chip answered") \
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
-  X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the amber panel, in place of the radio text, while the update check runs") \
+  X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the frequency panel, in place of the radio text, while the update check runs") \
   X(RADIO_UPDATE_FAILED, "Update Failed", "Title of the message screen after a failed OTA") \
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \
   X(RADIO_PRESS_KNOB_TO_WAKE, "Press the knob to wake", "Detail line of that message: the only way to wake the radio") \
@@ -363,6 +364,10 @@
   X(BOOT_SELF_TEST, "Self Test", "Left hint on the boot screen") \
   X(COMMON_NO_VALUE, "---", "Tuner line on the boot screen until the tuner answers; name line on the radio screen with no station or memory name; name line when the station name is only spaces") \
   X(BW_TITLE, "Bandwidth", "Title of the Bandwidth page") \
+  X(KEYPAD_FMT_CONTEXT, "%s \xC2\xB7 %s", "Header context on the frequency keypad, band name and unit") \
+  X(KEYPAD_TITLE, "Frequency", "Title of the frequency keypad") \
+  X(KEYPAD_CANCEL, "Cancel", "Frequency keypad key: drops the number typed") \
+  X(KEYPAD_OK, "OK", "Frequency keypad key: tunes the number typed") \
   X(DX_CATCHES_EMPTY_TITLE, "No Catches Yet", "Empty state title on the Catches page") \
   X(DX_CATCHES_EMPTY_NOTE, "Confirmed stations from this session appear here", "Empty state note on the Catches page") \
   X(DX_TITLE_CATCHES, "Catches", "Title of the Catches page") \
@@ -394,7 +399,7 @@
   X(RDS_TITLE_TEXT, "Radio Text", "Title of RDS page 2") \
   X(RDS_TITLE_NETWORKS, "Networks", "Title of RDS page 3, the alternative frequencies and other networks") \
   X(RDS_TITLE_DECODER, "Decoder", "Title of RDS page 4") \
-  X(RDS_FMT_PTY_NUMBER, "PTY %u", "RDS page 1, in the amber panel, at the right of the programme type name's line") \
+  X(RDS_FMT_PTY_NUMBER, "PTY %u", "RDS page 1, in the name panel, at the right of the programme type name's line") \
   X(RDS_NO_COUNTRY, "no ECC heard", "RDS page 1, PI tile, when no ECC has come to name the country") \
   X(RDS_AREA, "AREA", "RDS page 1, label of the PI's coverage area") \
   X(RDS_LANG, "LANG", "RDS page 1, label of the programme language") \
@@ -706,25 +711,25 @@
   X(RTP_ID, "ID", "RT+ content type label on RDS page 2") \
   X(RTP_PURCHASE, "PURCHASE", "RT+ content type label on RDS page 2") \
   X(COMMON_FMT_CLOCK, "%02u:%02u", "Clock in every header, and the CT field on RDS page 1; hour and minute") \
-  X(DAY_SUNDAY, "SUNDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_MONDAY, "MONDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_TUESDAY, "TUESDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_WEDNESDAY, "WEDNESDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_THURSDAY, "THURSDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_FRIDAY, "FRIDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(DAY_SATURDAY, "SATURDAY", "Day name in the date line under the amber panel, in capitals") \
-  X(MONTH_JANUARY, "January", "Month name in the date line under the amber panel") \
-  X(MONTH_FEBRUARY, "February", "Month name in the date line under the amber panel") \
-  X(MONTH_MARCH, "March", "Month name in the date line under the amber panel") \
-  X(MONTH_APRIL, "April", "Month name in the date line under the amber panel") \
-  X(MONTH_MAY, "May", "Month name in the date line under the amber panel") \
-  X(MONTH_JUNE, "June", "Month name in the date line under the amber panel") \
-  X(MONTH_JULY, "July", "Month name in the date line under the amber panel") \
-  X(MONTH_AUGUST, "August", "Month name in the date line under the amber panel") \
-  X(MONTH_SEPTEMBER, "September", "Month name in the date line under the amber panel") \
-  X(MONTH_OCTOBER, "October", "Month name in the date line under the amber panel") \
-  X(MONTH_NOVEMBER, "November", "Month name in the date line under the amber panel") \
-  X(MONTH_DECEMBER, "December", "Month name in the date line under the amber panel") \
+  X(DAY_SUNDAY, "SUNDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_MONDAY, "MONDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_TUESDAY, "TUESDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_WEDNESDAY, "WEDNESDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_THURSDAY, "THURSDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_FRIDAY, "FRIDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(DAY_SATURDAY, "SATURDAY", "Day name in the date line under the frequency panel, in capitals") \
+  X(MONTH_JANUARY, "January", "Month name in the date line under the frequency panel") \
+  X(MONTH_FEBRUARY, "February", "Month name in the date line under the frequency panel") \
+  X(MONTH_MARCH, "March", "Month name in the date line under the frequency panel") \
+  X(MONTH_APRIL, "April", "Month name in the date line under the frequency panel") \
+  X(MONTH_MAY, "May", "Month name in the date line under the frequency panel") \
+  X(MONTH_JUNE, "June", "Month name in the date line under the frequency panel") \
+  X(MONTH_JULY, "July", "Month name in the date line under the frequency panel") \
+  X(MONTH_AUGUST, "August", "Month name in the date line under the frequency panel") \
+  X(MONTH_SEPTEMBER, "September", "Month name in the date line under the frequency panel") \
+  X(MONTH_OCTOBER, "October", "Month name in the date line under the frequency panel") \
+  X(MONTH_NOVEMBER, "November", "Month name in the date line under the frequency panel") \
+  X(MONTH_DECEMBER, "December", "Month name in the date line under the frequency panel") \
   X(DATE_SUFFIX_TH, "th", "Ordinal suffix on the day of the month") \
   X(DATE_SUFFIX_ST, "st", "Ordinal suffix on the day of the month") \
   X(DATE_SUFFIX_ND, "nd", "Ordinal suffix on the day of the month") \

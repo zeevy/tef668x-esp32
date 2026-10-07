@@ -4,8 +4,8 @@
  * The radio screen draws a scale under the line of radio text the way the
  * ATS-20, ATS-25 and ATS-Mini radios do. The tuned frequency stays in the
  * middle of the row and the scale moves under it as the radio tunes. The middle
- * is one amber mark, and on a station the marks nearest it stand up to a peak
- * as tall as the signal; between stations the row stays flat. There is a mark
+ * is one mark in the panel's colour, and on a station the marks nearest it
+ * stand up to a peak as tall as the signal; between stations the row stays flat. There is a mark
  * every 100 kHz on the FM bands and every 10 kHz on the AM bands, SCALE_TICK_PX
  * apart, long every tenth one, medium every fifth one half way between, short
  * between those. Each long mark carries its number: whole megahertz on FM,

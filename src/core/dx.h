@@ -155,7 +155,7 @@ bool dxPresetLearn(const RdsInfo *rds, const SeekReading *reading,
  * by shape and not only by colour.
  */
 typedef enum {
-  DX_PI_NONE,      /* Nothing heard: an empty grey tile. */
+  DX_PI_NONE,      /* Nothing heard: an empty plain tile. */
   DX_PI_SEEN,      /* Heard, no digit in doubt, not confirmed here yet. */
   DX_PI_PARTIAL,   /* Heard, and a digit changed between the last two. */
   DX_PI_CONFIRMED, /* Confirmed, and this channel's own. */
@@ -164,7 +164,7 @@ typedef enum {
 
 /*
  * Which of those it is. A PI the decoder confirmed but that is not this
- * channel's, by `dxPiConfirmed`, is only seen: the tile never goes amber for
+ * channel's, by `dxPiConfirmed`, is only seen: the tile is never filled for
  * the station next door.
  */
 DxPiTile dxPiTile(const RdsInfo *rds, const SeekReading *reading);

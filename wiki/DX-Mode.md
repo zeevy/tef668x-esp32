@@ -31,10 +31,10 @@ Turn the knob to tune by the step size. Press it for the RDS pages. Hold it to l
 | Part | What it shows |
 |---|---|
 | Header | `DX`, a stereo mark when there is a pilot, `1/4` and the clock |
-| Panel | The station name, filled in a character at a time as it arrives, the programme type and the frequency |
-| PI | Amber with a tick: confirmed. A clock mark: heard, but not confirmed as this channel's own. A `?` digit: some digits not yet sure. `0000` with `NO ID`: the station sends zero. Grey: nothing heard |
+| Station panel | The station name, filled in a character at a time as it arrives, the programme type and the frequency |
+| PI | Filled, with a tick: confirmed. A clock mark: heard, but not confirmed as this channel's own. A `?` digit: some digits not yet sure. `0000` with `NO ID`: the station sends zero. A plain tile: nothing heard |
 | Country | Two letters, worked out from the ECC and the PI, once the PI is confirmed. `?` with no ECC. In North America mode, the call letters |
-| Preset line | `P05` when this is the station stored in that preset. `not P05` in red when another station is confirmed there |
+| Preset line | `P05` when this is the station stored in that preset. `not P05` in the theme's fault colour when another station is confirmed there |
 | Six readings | LEVEL in dBµV, USN (noise) in %, WAM (multipath) in %, OFFSET in kHz, BW (the tuner's own filter reading) in kHz, and MOD (modulation) in % |
 | History | 60 bars, one a second, the peak level of each second, from 0 to 70 dBµV. A gap means no reading. It starts again when you tune |
 | Blocks A to D | Four segments for a clean block, three or two for an error the tuner fixed, one for an error it could not fix |
@@ -54,11 +54,11 @@ Turn the knob to move the cursor one channel. Hold it to tune to the cursor.
 | Part | What it shows |
 |---|---|
 | The bars | This sweep's level on each channel |
-| White tick | The baseline: the usual level of that channel |
-| Grey tick | The highest level since DX mode was opened |
+| Baseline tick | The baseline: the usual level of that channel |
+| Peak tick | The highest level since DX mode was opened |
 | Dashed line | The floor |
-| Green mark | Where the dial is |
-| Strip below | How far each channel is above its baseline (amber) or below it (grey) |
+| Dial mark | Where the dial is: a short bar at the foot of the chart and of the strip |
+| Strip below | How far each channel is above its baseline (bright) or below it (dim) |
 | `MEDIAN OF n` | The baseline is the middle value of the last n sweeps, not counting this one. The last 8 sweeps are kept over a power cycle. `FIXED` when a baseline was set from the web page |
 | `FLOOR` | The level that a quarter of the channels are below |
 | Foot | The cursor's frequency and level, and `RISE`: how far it is above its baseline, in dB |

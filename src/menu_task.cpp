@@ -103,6 +103,7 @@ typedef enum {
   ROW_CHIME,
   ROW_KEY_BEEPS,
   ROW_EDGE_BEEP,
+  ROW_KEYPAD_TIMEOUT,
   ROW_TOUCH,
   ROW_CALIBRATE_TOUCH,
   ROW_NETWORK_TIME,
@@ -657,6 +658,8 @@ static const MenuRow kControlRows[] = {
      false, false, false, NULL, "bpe"},
     {STR_MENU_START_CHIME, ROW_CHIME, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
      true, false, NULL, "bps"},
+    {STR_MENU_KEYPAD_TIMEOUT, ROW_KEYPAD_TIMEOUT, SRC_STORED, TABLE_RANGE, 5,
+     NOLIST, true, false, false, NULL, "kpt"},
     /* Off leaves the touch screen unread at once, for a panel that touches
      * itself. Recovery has the same row, for when this menu cannot be
      * reached. */
@@ -1822,6 +1825,9 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     case ROW_MUTE_RAMP:
       snprintf(out, len, txt(STR_MENU_FMT_MS), (int)v);
       return;
+    case ROW_KEYPAD_TIMEOUT:
+      snprintf(out, len, txt(STR_MENU_FMT_SECONDS), (int)v);
+      return;
     case ROW_AUTO_OFF:
       zeroWord(out, len, v, STR_COMMON_OFF, STR_MENU_FMT_MINUTES);
       return;
@@ -1959,6 +1965,7 @@ static const char *unitOf(const MenuRow *row) {
     case ROW_AM_BLANKER:
       return txt(STR_COMMON_UNIT_PERCENT);
     case ROW_DIM_AFTER:
+    case ROW_KEYPAD_TIMEOUT:
       return txt(STR_COMMON_UNIT_S);
     case ROW_AUTO_OFF:
       return txt(STR_COMMON_UNIT_MIN);

@@ -7,9 +7,9 @@
  * answered yet shows a dash rather than a tick.
  *
  * The frame every screen uses: the product on the left of the header and the
- * board on its right. The tuner the chip said it is sits on the amber panel,
+ * board on its right. The tuner the chip said it is sits on the tuner panel,
  * the way the radio screen puts what it is tuned to there. The self tests are
- * grey tiles, six in two columns and Touch across both under them, and the
+ * tiles, six in two columns and Touch across both under them, and the
  * bar under them fills as each one answers.
  *
  * It is built on the active screen on its own, before the radio layout
@@ -27,7 +27,7 @@
 #define BOOT_W 320
 #define BOOT_H 240
 
-/* The amber panel with the tuner on it. */
+/* The tuner panel. */
 #define PANEL_Y 32
 #define PANEL_H 36
 #define PANEL_BASE 58

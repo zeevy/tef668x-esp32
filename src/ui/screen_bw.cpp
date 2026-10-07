@@ -3,8 +3,8 @@
  *
  * Every width the band takes as a tile in a grid of four, automatic first
  * on FM, and on FM the iMS and equaliser switches in the last row. The
- * width in use, and a switch that is on, is filled amber; the cursor is an
- * amber ring, and a white one on an amber tile. Under the grid, where
+ * width in use, and a switch that is on, is filled in `radio`; the cursor is a
+ * ring in `radio`, and in `measurement` on a filled tile. Under the grid, where
  * automatic is in use, what the tuner has chosen.
  *
  * It draws what it is given, like every screen here, and owns the panel on
@@ -125,8 +125,8 @@ void screenBwShow(const ScreenBw *s) {
     sUi->y[i] = y;
     lv_obj_set_pos(tile, x, y);
     uiSetBgColour(tile, k->filled ? t->radio : t->rule);
-    /* The ring is the cursor: amber on a plain tile, white on an amber
-     * one, and none elsewhere. */
+    /* The ring is the cursor: `radio` on a plain tile, `measurement` on a
+     * filled one, and none elsewhere. */
     lv_obj_set_style_border_width(tile, k->cursor ? RING : 0, 0);
     if (k->cursor) {
       uiSetBorderColour(tile, k->filled ? t->measurement : t->radio);

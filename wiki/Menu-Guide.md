@@ -176,7 +176,8 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Key Beeps | Off, Keypad Only, Short & Long Press, Every Press | Off | When the radio beeps for a key |
 | Band Edge Beep | Off, On | Off | Beeps when the knob steps over a band edge |
 | Startup Chime | Off, On | On | A tone at start, once the tuner is ready. **After restart** |
-| Touch | Off, On | On | Whether the radio reads the touch screen. Off leaves it alone, for a screen that touches itself; only the calibration screen still reads it. Outside the calibration screen a touch does nothing on the radio yet. The [recovery screen](Recovery-Screen.md) has the same switch |
+| Keypad Timeout | 5 s to 60 s in steps of 5 s | 20 s | How long a number part typed on the keys or the [frequency keypad](Touch-Screen.md#the-frequency-keypad) waits for the next key. Then the number is dropped and the keypad closes |
+| Touch | Off, On | On | Whether the radio reads the touch screen. Off leaves it alone, for a screen that touches itself; only the calibration screen still reads it. The [recovery screen](Recovery-Screen.md) has the same switch |
 | Calibrate Touch | | | Opens the touch calibration: five rings to hold, then a dot to tap. See [Touch Screen](Touch-Screen.md#calibrate-the-touch-screen) |
 
 ## System

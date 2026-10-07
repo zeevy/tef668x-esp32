@@ -4,7 +4,7 @@ RDS is the data an FM station sends along with its sound: its name, its programm
 
 ## On the radio screen
 
-- The **name line** in the amber panel shows the station's RDS name. With no RDS name it shows the preset's name, or `---`.
+- The **name line** in the frequency panel shows the station's RDS name. With no RDS name it shows the preset's name, or `---`.
 - The **text line** under it shows the radio text, scrolling round. With no radio text it shows the date, once the radio has the time from the network.
 
 ## Open the RDS pages
@@ -27,7 +27,7 @@ The pages always open on page 1, and they do not time out. The header shows the 
 | Field | What it shows |
 |---|---|
 | `Stereo` or `Mono` in the header | What the station says it sends. This is the station's own flag, not the stereo pilot the tuner hears |
-| Name | The station's name, in the amber panel |
+| Name | The station's name, in the name panel |
 | Programme type | Its name, such as `Easy Listening`, and `PTY` with its number, 0 to 31 |
 | PI | The station's four digit code, in hex. Dim while it has been heard only once, with `?` for each digit that changed between two hearings. `0000` when the station sends zero |
 | ECC | The extended country code, in hex, at the top right of the PI tile |

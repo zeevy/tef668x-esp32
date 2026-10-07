@@ -70,7 +70,8 @@ static const uint16_t kSizeOfVersion[SETTINGS_VERSION + 1] = {
     [28] = 272,
     [29] = 272,
     [30] = 272,
-    [31] = (uint16_t)sizeof(Settings)};
+    [31] = 276,
+    [32] = (uint16_t)sizeof(Settings)};
 
 /*
  * Where the fields of each version end, which is not the same as its size.
@@ -124,7 +125,8 @@ static const size_t kFieldEndOfVersion[SETTINGS_VERSION + 1] = {
     [28] = offsetof(Settings, webEnabled),        /* padding */
     [29] = offsetof(Settings, autoOffMinutesV30), /* padding */
     [30] = offsetof(Settings, autoOffMinutes),
-    [31] = sizeof(Settings)};
+    [31] = offsetof(Settings, keypadTimeoutS),
+    [32] = sizeof(Settings)};
 
 static bool startLevelOk(uint8_t level) {
   return level == 0 || (level >= 20 && level <= 60);
@@ -283,6 +285,8 @@ void settingsDefaults(Settings *s) {
   s->updateCheck = 0;
   /* Touch on, since every ATS-125 has the touch screen fitted. */
   s->touchOff = 0;
+  /* Version 32. */
+  s->keypadTimeoutS = SETTINGS_KEYPAD_TIMEOUT_DEFAULT_S;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a

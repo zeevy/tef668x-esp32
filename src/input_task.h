@@ -173,6 +173,11 @@ void inputSetTouch(bool on);
 /* Whether the screen is shown upside down, so a touch is turned with it. */
 void inputSetTouchUpsideDown(bool upsideDown);
 
+/* Keypad Timeout: a part typed number is dropped after this many seconds
+ * with no key, and the frequency keypad closes. */
+void inputSetKeypadTimeout(uint8_t seconds);
+uint32_t inputKeypadTimeoutMs(void);
+
 /*
  * The map from touch readings to pixels in the board's own mount: one a
  * person made and kept (`stored`), or the board's own. Get gives it and

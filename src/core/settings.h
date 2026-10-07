@@ -37,7 +37,7 @@ extern "C" {
  * version left keeps the version, since that firmware reads the byte as
  * padding.
  */
-#define SETTINGS_VERSION 31
+#define SETTINGS_VERSION 32
 
 /* Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -440,7 +440,19 @@ typedef struct {
    * the 0 a blob written before it holds reads as touch on, the default. 1
    * for the touch screen not to be read, for a panel that touches itself. */
   uint8_t touchOff;
+
+  /* Version 32. Past the end of version 31's 276 bytes. How many seconds a
+   * number part typed on the keys or the touch keypad waits for the next
+   * key before it is dropped and the keypad closes. */
+  uint8_t keypadTimeoutS;
 } Settings;
+
+/* Keypad Timeout's limits and the value a new radio starts with. Five
+ * seconds still leaves time to find the next key; a minute is as long as a
+ * forgotten number should sit on the screen. */
+#define SETTINGS_KEYPAD_TIMEOUT_MIN_S 5
+#define SETTINGS_KEYPAD_TIMEOUT_MAX_S 60
+#define SETTINGS_KEYPAD_TIMEOUT_DEFAULT_S 20
 
 void settingsDefaults(Settings *s);
 

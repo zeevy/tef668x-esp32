@@ -9,7 +9,7 @@ The colours named on this page are those of the Nightwatch theme in the pictures
 From top to bottom:
 
 1. **Header:** the band, and at the right the status marks and the clock.
-2. **Frequency panel**, the large amber box: the station name, the frequency, the preset number, the modulation meter and the signal level.
+2. **Frequency panel**, the large filled box: the station name, the frequency, the preset number, the modulation meter and the signal level.
 3. **Text line:** the radio text, or the date.
 4. **Tuning scale.**
 5. **Four tiles:** tuning mode, squelch, filter width and volume.
@@ -43,7 +43,7 @@ On FM, the station's radio text, in blue, scrolling round. With no radio text, a
 
 ## 4. Tuning scale
 
-The tuned frequency stays in the middle, under the amber pointer, and the scale moves past it. There is a mark every 100 kHz on FM and every 10 kHz on AM. Every tenth mark is long and has a number. The four marks on each side of the pointer rise with the signal: full height is 60 dBµV on FM and 45 dBµV on AM. Where the two ends of the band meet, the scale shows a dotted join.
+The tuned frequency stays in the middle, under the pointer, and the scale moves past it. There is a mark every 100 kHz on FM and every 10 kHz on AM. Every tenth mark is long and has a number. The four marks on each side of the pointer rise with the signal: full height is 60 dBµV on FM and 45 dBµV on AM. Where the two ends of the band meet, the scale shows a dotted join.
 
 ## 5. Tiles
 

@@ -1,7 +1,7 @@
 /*
  * The DX page, page 1 of DX mode.
  *
- * On it: the station name, a character a cell while it arrives, on the amber
+ * On it: the station name, a character a cell while it arrives, on the station
  * panel with the frequency under it, the PI on its own tile beside that, six
  * readings in three columns, the last minute of signal as bars, and the four
  * RDS blocks as meters.
@@ -26,7 +26,7 @@
  * bottom margin. */
 #define DX_BOTTOM (DX_H - UI_MARGIN)
 
-/* The amber panel, and where its content runs. */
+/* The station panel, and where its content runs. */
 #define PANEL_X UI_MARGIN
 #define PANEL_Y 32
 #define PANEL_W 208
@@ -177,7 +177,7 @@ static void onBlocksDraw(lv_event_t *e) {
     const int8_t level = sBlockError[b];
     const uint8_t lit = dxBlockSegments(level);
     /* Clean and a small correction are both good; a large one is the
-     * panel's amber; one that could not be put right is a fault. */
+     * panel's `radio`; one that could not be put right is a fault. */
     const ThemeColour on = level <= 1   ? t->good
                            : level == 2 ? t->radio
                                         : t->fault;
@@ -306,7 +306,7 @@ static void showHeader(const ScreenDx *dx) {
     right = (int16_t)(right - cw - UI_GAP);
   }
   uiSetOrHide(sPosition, position);
-  /* A moment's message in amber, so it is seen; the page in grey. */
+  /* A moment's message in `radio`, so it is seen; the page in `dead`. */
   uiSetColour(sPosition, dx->positionIsMessage ? themeCurrent()->radio
                                                : themeCurrent()->dead);
   if (position != NULL) {
@@ -371,9 +371,9 @@ static void showName(const ScreenDx *dx) {
 }
 
 static void showPi(const ScreenDx *dx, const Theme *t) {
-  /* Another station on the preset is confirmed, but not amber: the tile
-   * goes grey with a red cross, so the change is in the shape as well as
-   * the colour. */
+  /* Another station on the preset is confirmed, but not filled: the tile
+   * stays plain with a cross in `fault`, so the change is in the shape as
+   * well as the colour. */
   const bool on = dx->pi == SCREEN_DX_PI_CONFIRMED && !dx->piOther;
   uiSetBgColour(sTile, on ? t->radio : t->rule);
   uiSetColour(sPiLabel, on ? t->ground : t->dead);

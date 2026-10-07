@@ -526,10 +526,23 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
  * so both write 272 too. Version 31 writes 276. */
 #define V28_SIZE 272
 
-/* What the struct is today: version 31's two byte auto off at 272, the
- * update check at 274 in what version 31 first wrote as padding, and one
- * byte of padding. */
+/* Version 31 writes 276: its two byte auto off at 272, then the update
+ * check and the touch switch at 274 and 275, in what it first wrote as
+ * padding. */
 #define V31_SIZE 276
+
+/* What the struct is today: version 32's keypad timeout at 276, and three
+ * bytes of padding. */
+#define V32_SIZE 280
+
+/* Stamp the first V31_SIZE bytes of a current struct as the version 31 blob
+ * they are: version 32 only appended. */
+static void stampV31(uint8_t *blob) {
+  uint16_t version = 31;
+  uint16_t size = V31_SIZE;
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+}
 
 /*
  * Build a version 2 blob out of a current one.
@@ -931,7 +944,7 @@ static void a_version_11_blob_gets_the_defaults_for_what_it_never_had(void) {
   /* The struct is a different size than version 11's now, because later
    * versions grew it. What matters here is that nothing before
    * `batteryShow` moved, which the offset above is the real check of. */
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -971,7 +984,7 @@ static void a_version_11_blob_gets_the_defaults_for_what_it_never_had(void) {
 static void a_version_14_blob_does_not_read_its_padding_as_a_meter(void) {
   TEST_ASSERT_EQUAL_size_t(202, offsetof(Settings, meterSegW));
   TEST_ASSERT_EQUAL_size_t(203, offsetof(Settings, meterSegGap));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   TEST_ASSERT_EQUAL_size_t(V14_SIZE, V15_SIZE);
 
   Settings source;
@@ -1060,7 +1073,7 @@ static void a_version_12_blob_keeps_the_mode_of_the_band_it_was_on(void) {
    * one for the band the radio was left on, so a radio that was seeking is
    * still seeking after the update rather than back on manual. */
   TEST_ASSERT_EQUAL_size_t(199, offsetof(Settings, tuneMode));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -1494,7 +1507,7 @@ static void a_version_15_blob_is_not_read_past_its_end(void) {
 static void a_version_16_blob_does_not_read_its_padding_as_a_theme(void) {
   TEST_ASSERT_EQUAL_size_t(206, offsetof(Settings, theme));
   TEST_ASSERT_EQUAL_size_t(207, offsetof(Settings, customTheme));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -1583,7 +1596,7 @@ static void a_version_17_blob_does_not_carry_over_its_theme(void) {
  */
 static void a_version_18_blob_does_not_read_its_padding_as_a_rotation(void) {
   TEST_ASSERT_EQUAL_size_t(246, offsetof(Settings, displayRotation));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
 
   Settings source;
   settingsDefaults(&source);
@@ -1698,7 +1711,7 @@ static void a_version_21_theme_is_kept(void) {
  */
 static void a_version_21_blob_gets_the_dx_defaults(void) {
   TEST_ASSERT_EQUAL_size_t(251, offsetof(Settings, dxStopRule));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.startFreqKHz = 95000;
@@ -1729,7 +1742,7 @@ static void a_version_21_blob_gets_the_dx_defaults(void) {
  * region. */
 static void a_version_22_blob_gets_the_default_region(void) {
   TEST_ASSERT_EQUAL_size_t(262, offsetof(Settings, rdsRegion));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.startFreqKHz = 95000;
@@ -1765,7 +1778,7 @@ static void a_version_23_blob_keeps_north_america(void) {
  * it. */
 static void a_version_23_blob_gets_the_radio_text_logged(void) {
   TEST_ASSERT_EQUAL_size_t(263, offsetof(Settings, dxLogRt));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.rdsRegion = RDS_REGION_NORTH_AMERICA;
@@ -1829,7 +1842,7 @@ static void a_version_25_blob_keeps_the_watch_off(void) {
  * long as a version 26 one, and those bytes must not be read as offsets. */
 static void a_version_25_blob_gets_no_level_offset(void) {
   TEST_ASSERT_EQUAL_size_t(265, offsetof(Settings, levelOffsetFmDb));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.dxWatch = 0;
@@ -1870,7 +1883,7 @@ static void a_version_26_blob_keeps_its_offsets(void) {
  * theme it had is kept by night as well as by day. */
 static void a_version_26_blob_keeps_its_theme_at_night(void) {
   TEST_ASSERT_EQUAL_size_t(267, offsetof(Settings, nightTheme));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.theme = 10;
@@ -1925,7 +1938,7 @@ static void a_version_27_blob_gets_the_hotspot_on_auto(void) {
 static void a_version_28_blob_gets_wifi_and_the_web_server_on(void) {
   TEST_ASSERT_EQUAL_size_t(269, offsetof(Settings, webEnabled));
   TEST_ASSERT_EQUAL_size_t(270, offsetof(Settings, wifiEnabled));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.hotspot = WIFI_HOTSPOT_OFF;
@@ -1991,12 +2004,13 @@ static void a_version_30_blob_keeps_its_auto_off_time(void) {
  * zeroed, and a stray byte reads as off rather than costing the struct. */
 static void the_update_check_in_version_31_padding_reads_as_off(void) {
   TEST_ASSERT_EQUAL_size_t(274, offsetof(Settings, updateCheck));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.autoOffMinutes = 45;
   uint8_t blob[V31_SIZE];
   memcpy(blob, &source, V31_SIZE);
+  stampV31(blob);
   Settings out;
   TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
   TEST_ASSERT_EQUAL_UINT16(45, out.autoOffMinutes);
@@ -2015,13 +2029,13 @@ static void the_update_check_in_version_31_padding_reads_as_off(void) {
  * 1 is off, and a stray byte reads as on rather than costing the struct. */
 static void the_touch_switch_in_version_31_padding_reads_as_on(void) {
   TEST_ASSERT_EQUAL_size_t(275, offsetof(Settings, touchOff));
-  TEST_ASSERT_EQUAL_size_t(V31_SIZE, sizeof(Settings));
-  TEST_ASSERT_EQUAL_UINT16(31, SETTINGS_VERSION);
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
   Settings source;
   settingsDefaults(&source);
   source.updateCheck = 1;
   uint8_t blob[V31_SIZE];
   memcpy(blob, &source, V31_SIZE);
+  stampV31(blob);
   blob[275] = 0;
   Settings out;
   TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
@@ -2041,9 +2055,9 @@ static void touch_off_survives_a_newer_blob(void) {
   Settings source;
   settingsDefaults(&source);
   source.touchOff = 1;
-  uint8_t blob[V31_SIZE + 8];
+  uint8_t blob[V32_SIZE + 8];
   memset(blob, 0, sizeof(blob));
-  memcpy(blob, &source, V31_SIZE);
+  memcpy(blob, &source, V32_SIZE);
   uint16_t version = SETTINGS_VERSION + 1;
   uint16_t size = (uint16_t)sizeof(blob);
   memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
@@ -2054,6 +2068,44 @@ static void touch_off_survives_a_newer_blob(void) {
   blob[275] = 9;
   TEST_ASSERT_TRUE(settingsFromBlob(blob, sizeof(blob), &out));
   TEST_ASSERT_EQUAL_UINT8(0, out.touchOff);
+}
+
+/* A version 31 blob has no keypad timeout, so it gets the 20 s a new radio
+ * starts with, and the rest of it is kept. */
+static void a_version_31_blob_gets_the_default_keypad_timeout(void) {
+  TEST_ASSERT_EQUAL_size_t(V31_SIZE, offsetof(Settings, keypadTimeoutS));
+  TEST_ASSERT_EQUAL_UINT16(32, SETTINGS_VERSION);
+  Settings source;
+  settingsDefaults(&source);
+  source.touchOff = 1;
+  source.keypadTimeoutS = 45;
+  uint8_t blob[V31_SIZE];
+  memcpy(blob, &source, V31_SIZE);
+  stampV31(blob);
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V31_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(20, out.keypadTimeoutS);
+  TEST_ASSERT_EQUAL_UINT8(1, out.touchOff);
+  TEST_ASSERT_EQUAL_UINT16(SETTINGS_VERSION, out.version);
+  TEST_ASSERT_EQUAL_UINT16((uint16_t)sizeof(Settings), out.size);
+}
+
+/* 20 s on a new radio, 5 to 60 kept, and one past either end refused. */
+static void the_keypad_timeout_is_5_to_60_seconds(void) {
+  Settings s;
+  settingsDefaults(&s);
+  TEST_ASSERT_EQUAL_UINT8(20, s.keypadTimeoutS);
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.keypadTimeoutS = 5;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.keypadTimeoutS = 60;
+  TEST_ASSERT_TRUE(settingsValid(&s));
+  s.keypadTimeoutS = 4;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.keypadTimeoutS = 61;
+  TEST_ASSERT_FALSE(settingsValid(&s));
+  s.keypadTimeoutS = 0;
+  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 /* On on a new radio, and only 0 or 1 stored. */
@@ -2363,6 +2415,8 @@ int main(int, char **) {
   RUN_TEST(the_touch_switch_in_version_31_padding_reads_as_on);
   RUN_TEST(touch_off_survives_a_newer_blob);
   RUN_TEST(touch_is_on_and_takes_only_0_or_1);
+  RUN_TEST(a_version_31_blob_gets_the_default_keypad_timeout);
+  RUN_TEST(the_keypad_timeout_is_5_to_60_seconds);
   RUN_TEST(an_auto_off_time_nobody_can_choose_is_refused);
   RUN_TEST(a_switch_past_one_is_refused);
   RUN_TEST(new_network_details_turn_a_hotspot_on_back_to_auto);

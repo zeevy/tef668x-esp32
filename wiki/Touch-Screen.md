@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question and the update offer, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch never does anything a knob or a key cannot do.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question and the update offer, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
 
 ## The radio screen
 
@@ -10,15 +10,35 @@ The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller.
 |---|---|---|
 | The band name, the left half of the top line | Tap | The next band, as a tap of BAND |
 | The right half of the top line | Tap | Opens the menu, as a press of the tuning knob |
-| The amber panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
-| The amber panel | Hold | Logs the station, as the tuning knob held |
+| The station name, the upper part of the frequency panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
+| The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
+| Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
 | The scale | Drag | Tunes as the scale moves with your finger: one mark for every 8 pixels, 100 kHz on FM and 10 kHz on AM, onto the nearest channel of the band, and never onto another band where two bands overlap. Drag to the left to go up, as when you slide a dial strip under a fixed pointer. Past the end of the band it goes round to the other end |
 | The tuning mode tile | Tap | The next tuning mode, as a tap of MODE |
 | The SQ tile | Tap | Opens **Squelch Mode** straight away. Keep a choice with the knob, or go back, and you are on the radio screen again |
 | The BW tile | Tap | Opens the bandwidth page, as BW held |
 | The V tile | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
 
-The line of radio text under the amber panel is too thin to be a target, and does nothing.
+The line of radio text under the frequency panel is too thin to be a target, and does nothing.
+
+## The frequency keypad
+
+![The frequency keypad, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-keypad.png)
+
+A tap on the frequency opens the keypad, to type a frequency by touch. The panel at the top shows the digits typed so far and a dash for the next one, the way the radio screen shows a number typed on the keys. The top line shows the band and its unit, and the clock.
+
+| Where | Touch | Does |
+|---|---|---|
+| A digit | Tap | Types the digit, as its key on the radio |
+| The backspace key, at the left of the bottom row | Tap | Takes back the last digit |
+| OK | Tap | Closes the keypad and tunes the number, as ENTER |
+| Cancel, or the top line | Tap | Drops the number and closes the keypad |
+
+The number is read as in [Tuning](Tuning.md#typing-a-frequency): no decimal point, the band you are on first, and a list to pick from when it fits more than one other band.
+
+The radio's own keys work on the keypad too. The digits type. ENTER and a press of the tuning knob are OK. MODE and DX are Cancel, and MODE held drops the number and opens the menu. A turn of the knob, BAND and BW do nothing.
+
+With no key for **Controls > Keypad Timeout**, 20 seconds on a new radio, the keypad closes and the number is dropped. The keypad does not open while the menu, DX mode, the RDS screen or the bandwidth page is up.
 
 ## The menu
 
@@ -39,7 +59,7 @@ On a value with a bar, such as Brightness or Squelch Floor:
 | Where | Touch | Does |
 |---|---|---|
 | The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then turn the knob for the last step |
-| The amber panel | Tap | Keeps the value, as a press of the tuning knob |
+| The value panel, above the bar | Tap | Keeps the value, as a press of the tuning knob |
 | The top line, with the title | Tap | Back: the old value comes back |
 
 ## The bandwidth page
@@ -80,7 +100,7 @@ On the DX page also:
 
 | Where | Touch | Does |
 |---|---|---|
-| The amber panel or the PI tile | Tap | Opens the RDS screen over DX mode, as a press of the tuning knob |
+| The station panel or the PI tile | Tap | Opens the RDS screen over DX mode, as a press of the tuning knob |
 | The readings under them | Tap | Opens the bandwidth page with DX mode's widths, as BW held |
 
 On the Scope page also:
@@ -95,9 +115,9 @@ With Touch On, the foot row of the Scope page is five blocks: a button to move t
 | The chart and the strip under it | Hold | Moves the cursor there and tunes to it, as the tuning knob held |
 | The left or right arrow button | Tap | Moves the cursor one channel, as a click of the tuning knob |
 | The frequency or the level tile | Tap | Tunes to the cursor's channel |
-| The Sweep button in the middle | Tap | Sweeps the band, as a press of the tuning knob. A sweep takes about 4 seconds; the screen is not read while it runs, so the button is grey then, and the knob's press stops a sweep |
+| The Sweep button in the middle | Tap | Sweeps the band, as a press of the tuning knob. A sweep takes about 4 seconds; the screen is not read while it runs, so the button is dimmed then, and the knob's press stops a sweep |
 
-On the Scanner page also: a tap on the amber panel starts a scan, or goes on with one that was stopped, as a press of the tuning knob.
+On the Scanner page also: a tap on the scan panel starts a scan, or goes on with one that was stopped, as a press of the tuning knob.
 
 On the Catches page also:
 
@@ -112,8 +132,8 @@ While a DX scan runs, any touch only stops it, as any key does. In its first sec
 ## What any touch does
 
 - A touch stops a running DX scan and does nothing else, as any key does.
-- A touch clears a frequency you were typing on the keypad and does nothing else.
-- A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short.
+- Outside the frequency keypad, a touch clears a frequency you were typing on the radio's keys and does nothing else.
+- A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short. A tap on the frequency keypad is a key: it beeps from Keypad Only up.
 - While the screen is dark, and while the start-up, going to sleep or update screens show, the radio does not read the touch panel, and a touch does not wake the screen or end those screens. Use the knob, a key or the volume knob. This keeps a touch in a pocket or a bag from doing anything. A finger already on the screen when it lights up does nothing until it is lifted.
 - During a DX level sweep, about 4 seconds, the touch panel is not read either, so its readings stay clean. The calibration screen is the one exception to both.
 - A finger or a stuck panel held still does one thing at most, its hold after 1.5 seconds, and then nothing more until it lifts.

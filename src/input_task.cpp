@@ -10,6 +10,7 @@
 #include "board/board.h"
 #include "core/logbook.h"
 #include "core/scale.h"
+#include "core/settings.h"
 #include "core/squelch.h"
 #include "core/strings.h"
 #include "core/touch_cal.h"
@@ -47,9 +48,8 @@ static uint8_t sTypedLen = 0;
 /* When the last digit was keyed, so a half typed number does not sit
  *  there for ever waiting for an enter that is not coming. */
 static uint32_t sTypedMs = 0;
-
-/* A part typed number is dropped after this long with no new digit. */
-#define TYPED_TIMEOUT_MS 10000
+/* Keypad Timeout, which the settings set before any key can be read. */
+static uint32_t sKeypadTimeoutMs = SETTINGS_KEYPAD_TIMEOUT_DEFAULT_S * 1000;
 
 /*
  * How often the keypad is read, in milliseconds.
@@ -226,7 +226,7 @@ static void clearTyped(void) {
  * more.
  */
 static bool typingInProgress(uint32_t nowMs) {
-  return sTypedLen > 0 && (uint32_t)(nowMs - sTypedMs) < TYPED_TIMEOUT_MS;
+  return sTypedLen > 0 && (uint32_t)(nowMs - sTypedMs) < sKeypadTimeoutMs;
 }
 
 /*
@@ -235,6 +235,9 @@ static bool typingInProgress(uint32_t nowMs) {
  * reaches every caller.
  */
 static void cancelTyping(void) {
+  if (sTypedLen == 0) {
+    return;
+  }
   clearTyped();
   note("typed number cleared");
 }
@@ -390,6 +393,7 @@ typedef enum {
   TOP_RDS,
   TOP_DX,
   TOP_TOUCH_CAL,
+  TOP_KEYPAD,
   TOP_COUNT
 } InputTop;
 
@@ -423,6 +427,9 @@ static InputTop inputTop(bool *dxUnder) {
   }
   if (screenTaskTouchCalIsOpen()) {
     return TOP_TOUCH_CAL;
+  }
+  if (screenTaskKeypadIsOpen()) {
+    return TOP_KEYPAD;
   }
   if (screenTaskBwIsOpen()) {
     *dxUnder = dx;
@@ -952,6 +959,71 @@ static void dxKey(int8_t key, uint32_t nowMs, bool) {
   dialKey(key, nowMs, true);
 }
 
+/* ------------------------------------------------- the frequency keypad */
+
+/* Its OK: the keypad goes first, so the radio screen, or the menu's choice
+ * of bands, can have the panel, then the number is tuned as ENTER tunes it. */
+static void keypadOk(void) {
+  screenTaskKeypadClose();
+  enterTyped();
+}
+
+static void keypadCancel(void) {
+  cancelTyping();
+  screenTaskKeypadClose();
+}
+
+/* The last digit typed taken back, which keeps the number alive as a new
+ * digit would. */
+static void typedBackspace(uint32_t nowMs) {
+  if (sTypedLen == 0) {
+    return;
+  }
+  sTypedMs = nowMs;
+  sTyped[--sTypedLen] = '\0';
+  memcpy(sStatus.typed, sTyped, sizeof(sTyped));
+  note("typed digit taken back");
+}
+
+/* On the keypad the keys type, ENTER and the knob's press are OK, MODE is
+ * Cancel and its hold the menu; the rest do nothing there. */
+static void keypadTurn(int32_t, uint32_t, bool) {}
+
+static void keypadPress(ButtonEvent event, bool) {
+  if (event == BUTTON_SHORT) {
+    keypadOk();
+  }
+}
+
+/* MODE held drops the number as Cancel does, so a half typed one does not
+ * sit under the menu and eat its first turn. */
+static void keypadMode(ButtonEvent event, bool) {
+  keypadCancel();
+  if (event == BUTTON_LONG) {
+    menuTaskOpen();
+  }
+}
+
+static void keypadEnter(ButtonEvent event, uint32_t, bool) {
+  if (event == BUTTON_SHORT) {
+    keypadOk();
+  }
+}
+
+static void keypadKey(int8_t key, uint32_t nowMs, bool) {
+  if (key == KEYPAD_DX) {
+    keypadCancel();
+    return;
+  }
+  dialKey(key, nowMs, false);
+  /* A digit refused at the length limit still keeps the number, so it and
+   * the keypad run out together. */
+  if (sTypedLen > 0) {
+    sTypedMs = nowMs;
+  }
+  screenTaskKeypadKeyed();
+}
+
 /* -------------------------------------------- touch calibration screen */
 
 /* While the touch calibration screen is up, the knob answers it, as its
@@ -1030,12 +1102,15 @@ static void dialDrag(TouchGestureEvent event, int32_t dxPx) {
 /*
  * The radio screen by touch. Each zone does what the key or the knob it
  * stands for does there, through the same call: the band name is a tap of
- * BAND, the header's right half the knob's press, the amber panel a hold of
- * BAND for the RDS screen, which is FM only, and held, the knob's hold that
- * logs the station; the mode tile a tap of MODE and the bandwidth tile a
- * hold of BW. The SQL tile opens Squelch Mode rather than stepping it, since
- * Manual hands the volume knob to the squelch and a tap that did that
- * unseen could silence the radio. The volume tile mutes, which no key does.
+ * BAND, the header's right half the knob's press, the frequency panel's
+ * upper part, with the station name, a hold of BAND for the RDS screen,
+ * which is FM only, its lower part, with the frequency, the keypad to type
+ * one, and either part held the knob's hold that logs the station; the mode
+ * tile a tap of MODE and the bandwidth tile a hold of BW. The SQL tile opens
+ * Squelch Mode rather than stepping it, since Manual hands the volume knob
+ * to the squelch and a tap that did that unseen could silence the radio.
+ * The volume tile mutes, which no key does, and no key opens the keypad,
+ * since the keys type a number themselves.
  */
 static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
                        TouchPoint last, bool dxUnder) {
@@ -1045,7 +1120,8 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
     }
     return;
   }
-  if (zone == RADIO_ZONE_PANEL && event == TOUCH_HOLD) {
+  if ((zone == RADIO_ZONE_NAME || zone == RADIO_ZONE_FREQ) &&
+      event == TOUCH_HOLD) {
     radioPress(BUTTON_LONG, dxUnder);
     return;
   }
@@ -1059,8 +1135,11 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
     case RADIO_ZONE_MENU:
       radioPress(BUTTON_SHORT, dxUnder);
       break;
-    case RADIO_ZONE_PANEL:
+    case RADIO_ZONE_NAME:
       radioBand(BUTTON_LONG, dxUnder);
+      break;
+    case RADIO_ZONE_FREQ:
+      note(screenTaskKeypadOpen() ? "keypad" : "keypad, the panel is busy");
       break;
     case RADIO_ZONE_MODE:
       radioMode(BUTTON_SHORT, dxUnder);
@@ -1084,13 +1163,13 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
 /*
  * DX mode by touch. On every page a swipe left or right is the next page or
  * the one before, the page position the next page as BAND, and the title
- * leaves DX mode as MODE does. On the DX page the amber panel and the PI tile
+ * leaves DX mode as MODE does. On the DX page the station panel and the PI tile
  * open the RDS screen over it, as the knob's press, and the readings the
  * bandwidth page with DX mode's widths, as BW held. On the Scope page the
  * chart moves the cursor and the foot tile tunes to it, as the knob's hold;
  * with Touch On its foot row also has a button each way for the cursor and
  * Sweep, the knob's click and press.
- * On the Scanner page the amber panel starts a scan or goes on with one, as
+ * On the Scanner page the scan panel starts a scan or goes on with one, as
  * the knob's press; while a scan runs any touch only stops it. On the Catches
  * page a row tapped is tuned and held is logged, and a swipe up or down
  * moves a screen of rows.
@@ -1203,6 +1282,29 @@ static void rdsTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
 }
 
 /*
+ * The keypad by touch: each key is the call the keys and ENTER make, the
+ * header is Cancel.
+ */
+static void keypadTouch(TouchGestureEvent event, int zone, TouchPoint,
+                        TouchPoint, bool) {
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  const int key = zone - KEYPAD_ZONE_KEY;
+  const uint32_t nowMs = millis();
+  if (zone == KEYPAD_ZONE_BACK || key == SCREEN_KEYPAD_CANCEL) {
+    keypadCancel();
+  } else if (key == SCREEN_KEYPAD_OK) {
+    keypadOk();
+  } else if (key == SCREEN_KEYPAD_BACKSPACE) {
+    typedBackspace(nowMs);
+    screenTaskKeypadKeyed();
+  } else if (key >= 0 && key <= 9) {
+    keypadKey((int8_t)key, nowMs, false);
+  }
+}
+
+/*
  * The bandwidth page by touch: a tile tapped is turned to and picked, as the
  * knob and its press would, and the page stays up so widths can be compared
  * by ear; the header closes it as MODE does.
@@ -1223,7 +1325,7 @@ static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
  * The menu by touch: a row tapped is turned to and pressed, as the knob
  * would, the header is Back as MODE is, and a swipe up or down pages the
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
- * amber panel keeps it, as the knob's press does.
+ * value panel keeps it, as the knob's press does.
  */
 static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
                       TouchPoint last, bool) {
@@ -1322,6 +1424,13 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
     },
     /* TOP_TOUCH_CAL */
     {calTurn, calPress, calButton, calButton, calButton, calEnter, calKey},
+    /* TOP_KEYPAD */
+    {keypadTurn, keypadPress, NULL, NULL, keypadMode, keypadEnter, keypadKey
+#if FEATURE_TOUCH
+     ,
+     keypadTouch, screenKeypadZones, screenKeypadZoneName, 0
+#endif
+    },
 };
 
 /* The row for the screen on top. */
@@ -1354,9 +1463,10 @@ static void onTurn(int32_t clicks, uint32_t nowMs) {
    * reasoning as the buttons. It cancels the entry and does not also step
    * the dial or move a menu row: a turn made to change what is typed and a
    * turn made to tune are two different intentions, and this one is the
-   * first.
+   * first. The keypad is the one place a number is typed on purpose, so
+   * there its own handlers decide.
    */
-  if (typingInProgress(nowMs)) {
+  if (typingInProgress(nowMs) && !screenTaskKeypadIsOpen()) {
     cancelTyping();
     return;
   }
@@ -1418,9 +1528,10 @@ static void onButton(PanelButton which, ButtonEvent event, bool wasTyping) {
    * request to do the button's own job as well. Both from one press would
    * be acting on two intentions at once, so the button does nothing this
    * time beyond cancelling the entry, the same as any other key here that
-   * is not a digit or ENTER.
+   * is not a digit or ENTER. But for on the keypad, where the knob's press
+   * is OK and MODE is Cancel.
    */
-  if (wasTyping) {
+  if (wasTyping && !screenTaskKeypadIsOpen()) {
     cancelTyping();
     return;
   }
@@ -1673,19 +1784,21 @@ static void onKey(int8_t key, uint32_t nowMs) {
 
 static void pollKeypad(uint32_t nowMs) {
   static uint32_t lastPollMs = 0;
-  if (!sStatus.keypadPresent) {
-    return;
-  }
   if ((uint32_t)(nowMs - lastPollMs) < KEYPAD_POLL_MS) {
     return;
   }
   lastPollMs = nowMs;
 
   /* A number left half typed is dropped, so the next person to press a key
-   * is not silently continuing somebody else's. */
-  if (sTypedLen > 0 && (uint32_t)(nowMs - sTypedMs) >= TYPED_TIMEOUT_MS) {
+   * is not silently continuing somebody else's. Before the check for the
+   * keys' chip, since the touch keypad and the API type without it. */
+  if (sTypedLen > 0 && (uint32_t)(nowMs - sTypedMs) >= sKeypadTimeoutMs) {
     note("typed number timed out");
     clearTyped();
+    screenTaskKeypadClose();
+  }
+  if (!sStatus.keypadPresent) {
+    return;
   }
 
   /* One read of the expander, giving both the key and the raw lines. Reading
@@ -1970,10 +2083,11 @@ static const char *const kGestureName[] = {
  *
  * The checks a key makes for itself are made once for the whole gesture, on
  * its first event, since a drag is many events: the beep by Key Beeps, a tap
- * as a short press and a hold as a long one; a running DX scan, which any
- * touch stops and does nothing else, as any key does; and a number being
- * typed, which a touch clears and does nothing else. True when it did one of
- * those two, which is all the gesture does. A drag is noted once, not on
+ * as a short press, a tap on the keypad as a key and a hold as a long press;
+ * a running DX scan, which any touch stops and does nothing else, as any key
+ * does; and a number being typed, which a touch off the keypad clears and
+ * does nothing else. True when it did one of those two, which is all the
+ * gesture does. A drag is noted once, not on
  * every sample. Then the screen on top acts on it, if the zone is one of its
  * own.
  */
@@ -1988,14 +2102,18 @@ static bool onTouch(TouchGestureEvent event, bool first, int zone,
       sStatus.touchGestures++;
     }
     const bool hold = event == TOUCH_HOLD;
-    if (sBeepMode >= BEEP_EVERY_PRESS ||
+    /* A tap on the keypad is a key, and beeps as the keys do. */
+    const bool key = in == &kScreenInput[TOP_KEYPAD] && event == TOUCH_TAP &&
+                     zone != TOUCH_NO_ZONE;
+    if (sBeepMode >= BEEP_EVERY_PRESS || (sBeepMode >= BEEP_KEYS && key) ||
         (sBeepMode >= BEEP_KEYS_AND_LONG && hold)) {
       radioBeep(hold ? BEEP_LONG_MS : BEEP_MS);
     }
     if (stopScanFirst()) {
       return true;
     }
-    if (typingInProgress(nowMs)) {
+    /* But for on the keypad, where a touch is what types it. */
+    if (typingInProgress(nowMs) && in != &kScreenInput[TOP_KEYPAD]) {
       cancelTyping();
       return true;
     }
@@ -2193,6 +2311,14 @@ void inputSetTouch(bool on) {
 #else
   (void)on;
 #endif
+}
+
+void inputSetKeypadTimeout(uint8_t seconds) {
+  sKeypadTimeoutMs = (uint32_t)seconds * 1000;
+}
+
+uint32_t inputKeypadTimeoutMs(void) {
+  return sKeypadTimeoutMs;
 }
 
 void inputSetTouchUpsideDown(bool upsideDown) {
