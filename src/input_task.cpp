@@ -1328,11 +1328,25 @@ static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
  * value panel keeps it, as the knob's press does; minus and plus are a click
  * of the knob each way, and Keep its press. On Restart Radio's question a
- * tap on No or Yes takes it. A hold on any of these acts once, as a tap
- * does.
+ * tap on No or Yes takes it. On the Web PIN its keys type a digit as a key
+ * does, backspace goes back one, and Cancel is Back. A hold on any of these
+ * acts once, as a tap does.
  */
 static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
                       TouchPoint last, bool) {
+  if (zone >= MENU_ZONE_PIN_KEY && zone < MENU_ZONE_PIN_KEY + SCREEN_PIN_KEYS) {
+    if (event == TOUCH_TAP || event == TOUCH_HOLD) {
+      const int key = zone - MENU_ZONE_PIN_KEY;
+      if (key == SCREEN_PIN_CANCEL) {
+        menuTaskBack();
+      } else if (key == SCREEN_PIN_BACKSPACE) {
+        menuTaskDigitBack();
+      } else {
+        menuTaskDigit((uint8_t)((key + 1) % 10));
+      }
+    }
+    return;
+  }
   if (zone == MENU_ZONE_BUTTON || zone == MENU_ZONE_BUTTON + 1) {
     if (event == TOUCH_TAP || event == TOUCH_HOLD) {
       menuTaskTapButton((uint8_t)(zone - MENU_ZONE_BUTTON));
@@ -2124,8 +2138,12 @@ static bool onTouch(TouchGestureEvent event, bool first, int zone,
     }
     const bool hold = event == TOUCH_HOLD;
     /* A tap on the keypad is a key, and beeps as the keys do. */
-    const bool key = in == &kScreenInput[TOP_KEYPAD] && event == TOUCH_TAP &&
-                     zone != TOUCH_NO_ZONE;
+    const bool pinKey = in == &kScreenInput[TOP_MENU] &&
+                        zone >= MENU_ZONE_PIN_KEY &&
+                        zone < MENU_ZONE_PIN_KEY + SCREEN_PIN_KEYS;
+    const bool key =
+        event == TOUCH_TAP &&
+        ((in == &kScreenInput[TOP_KEYPAD] && zone != TOUCH_NO_ZONE) || pinKey);
     if (sBeepMode >= BEEP_EVERY_PRESS || (sBeepMode >= BEEP_KEYS && key) ||
         (sBeepMode >= BEEP_KEYS_AND_LONG && hold)) {
       radioBeep(hold ? BEEP_LONG_MS : BEEP_MS);
@@ -2140,8 +2158,15 @@ static bool onTouch(TouchGestureEvent event, bool first, int zone,
     }
   }
   if (first || event != TOUCH_DRAG) {
-    const char *where =
-        zone != TOUCH_NO_ZONE && in->zoneName != NULL ? in->zoneName(zone) : "";
+    /* A Web PIN digit is noted as one, never as which: GET /api/state,
+     * which shows this note, needs no PIN. */
+    const bool pinDigit = in == &kScreenInput[TOP_MENU] &&
+                          zone >= MENU_ZONE_PIN_KEY &&
+                          zone < MENU_ZONE_PIN_KEY + SCREEN_PIN_BACKSPACE;
+    const char *where = pinDigit ? "digit of the PIN"
+                        : zone != TOUCH_NO_ZONE && in->zoneName != NULL
+                            ? in->zoneName(zone)
+                            : "";
     char seen[INPUT_EVENT_MAX];
     snprintf(seen, sizeof(seen), "touch %s%s%s", kGestureName[event],
              where[0] != '\0' ? " " : "", where);

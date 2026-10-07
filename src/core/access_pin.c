@@ -117,6 +117,14 @@ bool accessPinEditType(AccessPinEdit *edit, uint8_t digit) {
   return accessPinEditNext(edit);
 }
 
+bool accessPinEditBack(AccessPinEdit *edit) {
+  if (edit == NULL || edit->at == 0) {
+    return false;
+  }
+  edit->at--;
+  return true;
+}
+
 uint32_t accessPinEditValue(const AccessPinEdit *edit) {
   if (edit == NULL) {
     return 0;

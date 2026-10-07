@@ -120,6 +120,10 @@ void menuTaskBack(void);
  */
 bool menuTaskDigit(uint8_t digit);
 
+/* Back one digit of the Web PIN being set, by its backspace key. False when
+ * the PIN is not being set or is on its first digit. */
+bool menuTaskDigitBack(void);
+
 /*
  * Called from loop(). Takes the CPU sample once a second, and redraws the
  * rows whose values change on their own rather than only when the knob does:

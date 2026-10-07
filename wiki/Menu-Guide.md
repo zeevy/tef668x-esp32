@@ -163,7 +163,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Wi-Fi | Off, On | On | Off stops Wi-Fi and the hotspot, and with them the web page and the API. Only this row, or Erase Settings on the recovery screen, turns it back on |
 | Hotspot | Auto, On, Off | Auto | Auto: the radio's own hotspot only when your network cannot be joined or none is stored. On: always, in place of your network. Off: never |
 | Web Server | Off, On | On | The web page, the API and updates over Wi-Fi |
-| Web PIN | Six digits | 000000 | The access PIN. The row shows the six digits. Turn to set a digit, press for the next one, or type the digits on the keypad. Saved on the sixth digit |
+| Web PIN | Six digits | 000000 | The access PIN. The row shows the six digits. Turn to set a digit, press for the next one, or type the digits on the keypad or on the screen's keys while Touch is On, where a backspace key goes back a digit. Saved on the sixth digit |
 | Network Time | Off, -12:00 to +14:00 in steps of 15 minutes | +00:00 | Sets the clock from the network, at this offset from UTC |
 | Network Info | Read only | | Connection Status, Web Address, IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address |
 

@@ -65,6 +65,20 @@
 #define DIGIT_DOT_W 18
 #define DIGIT_DOT_H 4
 #define DIGIT_PLACE_BASE 172
+/* The Web PIN with its keys: the digits on a panel 60 high, as the
+ * frequency keypad's, and three rows of four keys under it. */
+#define PAD_PANEL_H 60
+#define PAD_VALUE_BASE 82
+#define PAD_BOX_TOP (PAD_VALUE_BASE - (EDIT_VALUE_BASE - DIGIT_BOX_TOP))
+#define PAD_KEY_TOP 98
+#define PAD_KEY_H 40
+#define PAD_KEY_GAP 4
+#define PAD_COLS 4
+#define PAD_KEY_W \
+  ((MENU_W - 2 * UI_MARGIN - (PAD_COLS - 1) * UI_GAP) / PAD_COLS)
+#define PAD_KEY_X(i) (UI_MARGIN + ((i) % PAD_COLS) * (PAD_KEY_W + UI_GAP))
+#define PAD_KEY_Y(i) \
+  (PAD_KEY_TOP + ((i) / PAD_COLS) * (PAD_KEY_H + PAD_KEY_GAP))
 /* A digit still to come: the ground colour 45 % into the panel's. */
 #define DIGIT_STILL_MIX 115
 /* The dialog: a box of the row colour in the middle, its title on the first
@@ -110,6 +124,8 @@ static lv_obj_t *sLabel;
 /* Minus, Keep and plus, built only while they show, every part a child of
  * one layer so it goes as one. */
 static lv_obj_t *sSteps;
+/* The Web PIN's keys, the same way. */
+static lv_obj_t *sPad;
 static lv_obj_t *sValueBig;
 static lv_obj_t *sValueWord;
 static lv_obj_t *sValueUnit;
@@ -265,6 +281,72 @@ static void buildSteps(const Theme *t) {
   }
 }
 
+/* What key `i` of the Web PIN's pad says, and in which face. */
+static const char *padText(uint8_t i, const lv_font_t **face) {
+  static const char *const kDigits[] = {"1", "2", "3", "4", "5",
+                                        "6", "7", "8", "9", "0"};
+  if (i < SCREEN_PIN_BACKSPACE) {
+    *face = &roboto_value;
+    return kDigits[i];
+  }
+  if (i == SCREEN_PIN_BACKSPACE) {
+    *face = &roboto_icons;
+    return ICON_BACKSPACE;
+  }
+  *face = &roboto_text;
+  return txt(STR_KEYPAD_CANCEL);
+}
+
+/*
+ * The Web PIN's twelve keys, drawn by one object rather than a tile and a
+ * label each: the menu screen holds the most objects of any, and on it the
+ * big digits need a free block of the LVGL pool to draw, which 24 more
+ * objects took away.
+ */
+static void onPadDraw(lv_event_t *e) {
+  lv_layer_t *layer = lv_event_get_layer(e);
+  const Theme *t = themeCurrent();
+  lv_draw_rect_dsc_t tile;
+  lv_draw_rect_dsc_init(&tile);
+  tile.radius = UI_TILE_R;
+  tile.bg_opa = LV_OPA_COVER;
+  tile.bg_color = uiColour(t->rule);
+  lv_draw_label_dsc_t mark;
+  lv_draw_label_dsc_init(&mark);
+  mark.color = uiColour(t->measurement);
+  for (uint8_t i = 0; i < SCREEN_PIN_KEYS; i++) {
+    const lv_area_t key = {PAD_KEY_X(i), PAD_KEY_Y(i),
+                           PAD_KEY_X(i) + PAD_KEY_W - 1,
+                           PAD_KEY_Y(i) + PAD_KEY_H - 1};
+    lv_draw_rect(layer, &tile, &key);
+    const lv_font_t *face = NULL;
+    const char *text = padText(i, &face);
+    lv_point_t size;
+    lv_text_get_size(&size, text, face, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    const int32_t x = PAD_KEY_X(i) + (PAD_KEY_W - size.x) / 2;
+    /* The capitals on the key's middle, as a tile's word sits; the symbol
+     * centred in its box. */
+    const int32_t top =
+        i == SCREEN_PIN_BACKSPACE
+            ? PAD_KEY_Y(i) + (PAD_KEY_H - UI_ICON_SIZE) / 2 + UI_ICON_INK_DROP
+            : uiRowTop(face, (int16_t)(PAD_KEY_Y(i) + PAD_KEY_H / 2 +
+                                       lv_font_get_line_height(face) / 3));
+    const lv_area_t at = {x, top, x + size.x - 1,
+                          top + lv_font_get_line_height(face) - 1};
+    mark.font = face;
+    mark.text = text;
+    lv_draw_label(layer, &mark, &at);
+  }
+}
+
+static void buildPad(void) {
+  if (sPad != NULL) {
+    return;
+  }
+  sPad = wholeScreen();
+  lv_obj_add_event_cb(sPad, onPadDraw, LV_EVENT_DRAW_MAIN, NULL);
+}
+
 /* A label's colour set only when it changes, as `uiSetColour` does for a
  * theme role, for a colour mixed from two. */
 static void setTextColour(lv_obj_t *o, lv_color_t c) {
@@ -332,6 +414,13 @@ static void hideSteps(void) {
   }
 }
 
+static void hidePad(void) {
+  if (sPad != NULL) {
+    lv_obj_delete(sPad);
+    sPad = NULL;
+  }
+}
+
 static void showEditor(bool on) {
   uiShowIf(sPanel, on);
   if (on) {
@@ -340,6 +429,7 @@ static void showEditor(bool on) {
   uiShowIf(sBar, on);
   if (!on) {
     hideSteps();
+    hidePad();
     uiShowIf(sLabel, false);
     uiShowIf(sValueBig, false);
     uiShowIf(sValueWord, false);
@@ -517,13 +607,20 @@ static bool numericFace(const char *text) {
  */
 static void showDigits(const ScreenMenuValue *v) {
   const Theme *t = themeCurrent();
+  /* With the keys, the digits sit on a smaller panel, the keys show where
+   * the next one comes from, and the box is the place: no label, dots or
+   * place line. */
+  const bool pad = v->buttons;
+  if (pad) {
+    buildPad();
+  }
   uiShowIf(sValueBig, false);
   uiShowIf(sValueWord, false);
   uiShowIf(sValueUnit, false);
   uiShowIf(sBar, false);
   uiShowIf(sBarMin, false);
   uiShowIf(sBarMax, false);
-  uiSetOrHide(sLabel, v->label);
+  uiSetOrHide(sLabel, pad ? NULL : v->label);
   uiBaseline(sLabel, &roboto_small, (int16_t)(UI_MARGIN + UI_PAD),
              EDIT_LABEL_BASE);
   const char *digits = v->digits != NULL ? v->digits : "";
@@ -552,21 +649,21 @@ static void showDigits(const ScreenMenuValue *v) {
     const int16_t w = uiTextWidth(sDigit[i], &roboto_freq);
     uiBaseline(sDigit[i], &roboto_freq,
                (int16_t)(digitCellX(i, count) + (DIGIT_CELL_W - w) / 2),
-               EDIT_VALUE_BASE);
+               pad ? PAD_VALUE_BASE : EDIT_VALUE_BASE);
   }
   uiShowIf(sDigitBox, true);
   lv_obj_set_pos(
       sDigitBox,
       (int16_t)(digitCellX(at, count) + (DIGIT_CELL_W - DIGIT_BOX_W) / 2),
-      DIGIT_BOX_TOP);
-  uiShowIf(sDigitDots, true);
+      pad ? PAD_BOX_TOP : DIGIT_BOX_TOP);
+  uiShowIf(sDigitDots, !pad);
   if (count != sDigitCount || at != sDigitAt) {
     sDigitCount = count;
     sDigitAt = at;
     lv_obj_invalidate(sDigitDots);
   }
-  uiSetOrHide(sDigitPlace, v->digitPlace);
-  if (v->digitPlace != NULL) {
+  uiSetOrHide(sDigitPlace, pad ? NULL : v->digitPlace);
+  if (!pad && v->digitPlace != NULL) {
     const int16_t w = uiTextWidth(sDigitPlace, &roboto_small);
     uiBaseline(sDigitPlace, &roboto_small, (int16_t)((MENU_W - w) / 2),
                DIGIT_PLACE_BASE);
@@ -598,6 +695,13 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
     buildSteps(themeCurrent());
   } else {
     hideSteps();
+  }
+  /* The Web PIN with its keys has the smaller panel; every other value the
+   * full one. */
+  const bool pad = v->isDigits && v->buttons;
+  lv_obj_set_height(sPanel, pad ? PAD_PANEL_H : EDIT_PANEL_H);
+  if (!pad) {
+    hidePad();
   }
   if (v->isDigits) {
     showDigits(v);
@@ -744,6 +848,7 @@ void screenMenuEnd(void) {
   sPanel = NULL;
   sLabel = NULL;
   sSteps = NULL;
+  sPad = NULL;
   sValueBig = NULL;
   sValueWord = NULL;
   sValueUnit = NULL;
@@ -776,6 +881,31 @@ bool screenMenuIsBack(TouchPoint p) {
 #define ZONE_PLUS_X (STEP_PLUS_X - UI_GAP / 2)
 
 int screenMenuZones(TouchZone *out, int max) {
+  /* The Web PIN's keys, each reaching halfway across the gaps round it, and
+   * the header, which is Back. */
+  if (sMenu != NULL && sPad != NULL) {
+    if (max < 1 + SCREEN_PIN_KEYS) {
+      return 0;
+    }
+    out[0] = kBack;
+    for (uint8_t i = 0; i < SCREEN_PIN_KEYS; i++) {
+      /* The outer keys reach the screen's edges and foot, where a finger on
+       * a resistive glass reads furthest off. */
+      const uint8_t col = i % PAD_COLS;
+      const int16_t x0 = col == 0 ? 0 : (int16_t)(PAD_KEY_X(i) - UI_GAP / 2);
+      const int16_t x1 = col == PAD_COLS - 1
+                             ? MENU_W
+                             : (int16_t)(PAD_KEY_X(i) + PAD_KEY_W + UI_GAP / 2);
+      const int16_t y0 = (int16_t)(PAD_KEY_Y(i) - PAD_KEY_GAP / 2);
+      const int16_t y1 =
+          i >= SCREEN_PIN_KEYS - PAD_COLS
+              ? MENU_H
+              : (int16_t)(PAD_KEY_Y(i) + PAD_KEY_H + PAD_KEY_GAP / 2);
+      out[1 + i] = {x0, y0, (int16_t)(x1 - x0), (int16_t)(y1 - y0),
+                    (uint8_t)(MENU_ZONE_PIN_KEY + i)};
+    }
+    return 1 + SCREEN_PIN_KEYS;
+  }
   /* A question box's two answers, each reaching halfway across the gap
    * between them and a gap above and below. */
   if (sMenu != NULL && sDialog != NULL) {
@@ -821,8 +951,10 @@ int screenMenuZones(TouchZone *out, int max) {
 
 const char *screenMenuZoneName(int id) {
   static const char *const kNames[] = {
-      "",      "back", "row1",  "row2", "row3", "row4",    "row5",   "row6",
-      "panel", "bar",  "minus", "keep", "plus", "button1", "button2"};
+      "",        "back",  "row1", "row2",  "row3",      "row4",  "row5",
+      "row6",    "panel", "bar",  "minus", "keep",      "plus",  "button1",
+      "button2", "pin1",  "pin2", "pin3",  "pin4",      "pin5",  "pin6",
+      "pin7",    "pin8",  "pin9", "pin0",  "backspace", "cancel"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

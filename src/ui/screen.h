@@ -289,17 +289,28 @@ typedef enum {
   MENU_ZONE_KEEP,
   MENU_ZONE_PLUS,
   MENU_ZONE_BUTTON, /* A question box's first answer; the second follows. */
+  /* The Web PIN's keys, SCREEN_PIN_KEYS of them from here, in the order
+   * they are drawn: 1 to 9, 0, backspace, Cancel. */
+  MENU_ZONE_PIN_KEY = MENU_ZONE_BUTTON + 2,
 } MenuZone;
+
+/* The Web PIN's keys with touch: three rows of four. Key `i` below
+ * SCREEN_PIN_BACKSPACE types the digit (i + 1) % 10. */
+#define SCREEN_PIN_KEYS 12
+#define SCREEN_PIN_BACKSPACE 10
+#define SCREEN_PIN_CANCEL 11
 
 /* The zones of the menu on show: on a list or picker the header and a zone
  * for each row drawn, meeting halfway across the gaps; on a value with a bar
  * the header, the value panel, the bar and any buttons; on a question box
- * that takes taps its two answers. Writes no more than `max` and returns how
- * many, 0 while the PIN or a box that takes no taps is up. */
+ * that takes taps its two answers; on the Web PIN with its keys, the header
+ * and the keys. Writes no more than `max` and returns how many, 0 while the
+ * PIN without keys or a box that takes no taps is up. */
 int screenMenuZones(TouchZone *out, int max);
 
 /* A zone's name, for GET /api/screen: "back", "row1" to "row6", "panel",
- * "bar", "minus", "keep", "plus", "button1", "button2", or "". */
+ * "bar", "minus", "keep", "plus", "button1", "button2", "pin1" to "pin9",
+ * "pin0", "backspace", "cancel", or "". */
 const char *screenMenuZoneName(int id);
 
 /* The value on the bar on show under `x`, in the units its ends are in, the
@@ -349,7 +360,7 @@ typedef struct {
   const char *note;
   /* Touch is On and the chip answered: minus, Keep and plus under a bar,
    * and the note at the top of the value panel, since the buttons take its
-   * line. */
+   * line; on the Web PIN, a smaller panel and its keys. */
   bool buttons;
 
   /*
