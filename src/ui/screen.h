@@ -83,8 +83,8 @@ typedef struct {
   bool batteryValid;
   uint8_t batteryPercent;
   const char *batteryText;
-  /* Touch is On: the menu symbol in the corner, over the half of the header
-   * a tap opens the menu from. */
+  /* Touch is On and the chip answered: the menu symbol in the top left
+   * corner, before the band name. */
   bool menuMark;
 
   /* ---- the frequency panel ---- */
@@ -851,7 +851,7 @@ void screenBwEnd(void);
 typedef struct {
   const char *context; /* "FM \xC2\xB7 MHz", the band typed for. */
   const char *clock;   /* Local, or NULL. */
-  const char *typed;   /* The digits so far and a dash, "104-", or NULL. */
+  const char *typed;   /* The digits so far, "104", or NULL. */
 } ScreenKeypad;
 
 /* Put the keypad up, fill it in and take it down, as the bandwidth page. */
@@ -972,8 +972,8 @@ void screenShow(const ScreenState *state);
 
 /* The parts of the radio screen a touch can act on. */
 typedef enum {
-  RADIO_ZONE_BAND = 1, /* The band name, the left half of the header. */
-  RADIO_ZONE_MENU,     /* The right half of the header. */
+  RADIO_ZONE_BAND = 1, /* The band name, from the menu symbol to the middle. */
+  RADIO_ZONE_MENU,     /* The menu symbol, and the header's right half. */
   RADIO_ZONE_NAME,     /* The frequency panel's upper part: the name. */
   RADIO_ZONE_SCALE,    /* The tuning scale, which follows a drag. */
   RADIO_ZONE_MODE,     /* The four tiles, left to right. */
