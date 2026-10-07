@@ -474,6 +474,7 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
   out->clock = in->clock;
   out->revision = in->revision;
   out->sweeping = in->sweeping;
+  out->buttons = in->touchOn;
   out->floor = SCREEN_SCOPE_NONE;
   out->dial = UINT16_MAX;
 

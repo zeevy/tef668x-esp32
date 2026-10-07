@@ -552,8 +552,9 @@ int screenDxZones(TouchZone *out, int max, bool dxPage) {
 
 const char *screenDxZoneName(int id) {
   static const char *const kNames[] = {
-      "",     "back", "next", "body", "panel", "pi",   "readings", "chart",
-      "foot", "row1", "row2", "row3", "row4",  "row5", "row6"};
+      "",         "back",  "next", "body", "panel", "pi",
+      "readings", "chart", "foot", "row1", "row2",  "row3",
+      "row4",     "row5",  "row6", "left", "right", "sweep"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

@@ -13,6 +13,7 @@
  * its own, because the LVGL pool holds one screen at a time.
  */
 #include <lvgl.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "../core/strings.h"
@@ -59,6 +60,21 @@
 #define TILE_H 30
 #define TILE_BASE 219
 #define SMALL_UNIT_GAP 3
+/* With Touch On the foot row is five blocks: a button for the cursor to the
+ * left, the frequency, Sweep in the middle of the screen, the level, and a
+ * button for the cursor to the right. Each button 38 wide, the narrowest
+ * target measured to hold a tap, the two tiles sharing what is left, all 4
+ * apart and the tile's height. */
+#define BUTTON_W 38
+#define FOOT_GAP 4
+#define BUTTONS 3
+#define FOOT_TILE_W ((BOX_W - BUTTONS * BUTTON_W - 4 * FOOT_GAP) / 2)
+#define FREQ_TILE_X (UI_MARGIN + BUTTON_W + FOOT_GAP)
+#define SWEEP_X (FREQ_TILE_X + FOOT_TILE_W + FOOT_GAP)
+#define LEVEL_TILE_X (SWEEP_X + BUTTON_W + FOOT_GAP)
+/* Left, right and Sweep, in the order of the buttons' objects. */
+static const int16_t kButtonX[BUTTONS] = {
+    UI_MARGIN, LEVEL_TILE_X + FOOT_TILE_W + FOOT_GAP, SWEEP_X};
 
 /* The page's objects and what the drawing callbacks draw from, on the
  * heap while the page is up: static RAM has no room left.
@@ -82,6 +98,11 @@ typedef struct {
   lv_obj_t *rise;
   lv_obj_t *riseUnit;
   lv_obj_t *riseWord;
+  lv_obj_t *button[BUTTONS];
+  lv_obj_t *buttonIcon[BUTTONS];
+  lv_obj_t *bandRise;  /* The rise, up in the chart, with the buttons. */
+  lv_obj_t *levelTile; /* The level's own tile, with the buttons. */
+  char bandRiseText[24];
   ScreenScope shown;
   int16_t bottom;
 } ScopeUi;
@@ -259,6 +280,10 @@ bool screenScopeBegin(void) {
 
   sUi->tile =
       uiRound(sUi->root, t->rule, UI_MARGIN, TILE_Y, BOX_W, TILE_H, UI_TILE_R);
+  /* Before the texts, so they are drawn over it. */
+  sUi->levelTile = uiRound(sUi->root, t->rule, LEVEL_TILE_X, TILE_Y,
+                           FOOT_TILE_W, TILE_H, UI_TILE_R);
+  uiShowIf(sUi->levelTile, false);
   sUi->freq = uiLabel(sUi->root, &roboto_text, t->radio);
   sUi->freqUnit = uiLabel(sUi->root, &roboto_label, t->dead);
   uiSetTextStatic(sUi->freqUnit, txt(STR_COMMON_UNIT_MHZ));
@@ -270,6 +295,26 @@ bool screenScopeBegin(void) {
   uiSetTextStatic(sUi->riseUnit, txt(STR_COMMON_UNIT_DB));
   sUi->riseWord = uiLabel(sUi->root, &roboto_label, t->dead);
   uiSetTextStatic(sUi->riseWord, txt(STR_DX_RISE));
+  static const char *const kIcons[BUTTONS] = {ICON_CHEVRON_LEFT, ICON_CHEVRON,
+                                              ICON_PLAY};
+  for (uint8_t i = 0; i < BUTTONS; i++) {
+    sUi->button[i] = uiRound(sUi->root, t->rule, kButtonX[i], TILE_Y, BUTTON_W,
+                             TILE_H, UI_TILE_R);
+    sUi->buttonIcon[i] = uiLabel(sUi->root, &roboto_icons, t->measurement);
+    uiSetTextStatic(sUi->buttonIcon[i], kIcons[i]);
+    lv_obj_set_pos(
+        sUi->buttonIcon[i],
+        (int16_t)(kButtonX[i] + (BUTTON_W - UI_ICON_SIZE) / 2),
+        (int16_t)(TILE_Y + (TILE_H - UI_ICON_SIZE) / 2 + UI_ICON_INK_DROP));
+  }
+  sUi->bandRise = uiLabel(sUi->root, &roboto_label, t->radio);
+  /* The touch blocks hidden until a show asks for them, so a page never
+   * shown has none of them. */
+  for (uint8_t i = 0; i < BUTTONS; i++) {
+    uiShowIf(sUi->button[i], false);
+    uiShowIf(sUi->buttonIcon[i], false);
+  }
+  uiShowIf(sUi->bandRise, false);
   return true;
 }
 
@@ -308,32 +353,76 @@ static void showLabels(const ScreenScope *s) {
   }
 }
 
+/* The three buttons, shown with Touch On, and grey while a sweep runs: the
+ * glass is not read then, so the knob moves the cursor and its press stops
+ * the sweep. */
+static void showButtons(const ScreenScope *s, const Theme *t) {
+  for (uint8_t i = 0; i < BUTTONS; i++) {
+    uiShowIf(sUi->button[i], s->buttons);
+    uiShowIf(sUi->buttonIcon[i], s->buttons);
+    if (s->buttons) {
+      uiSetColour(sUi->buttonIcon[i], s->sweeping ? t->dead : t->measurement);
+    }
+  }
+}
+
+/* With the buttons the rise goes up into the chart's top band, between its
+ * two corner labels, but for while a sweep runs, when its word is there. */
+static void showBandRise(const ScreenScope *s, const Theme *t) {
+  const bool on = s->buttons && s->cursorRise != NULL && !s->sweeping;
+  uiShowIf(sUi->bandRise, on);
+  if (!on) {
+    return;
+  }
+  snprintf(sUi->bandRiseText, sizeof(sUi->bandRiseText), "%s %s %s",
+           txt(STR_DX_RISE), s->cursorRise, txt(STR_COMMON_UNIT_DB));
+  uiSetText(sUi->bandRise, sUi->bandRiseText);
+  uiSetColour(sUi->bandRise, s->riseUp ? t->radio : t->dead);
+  const int16_t w = uiTextWidth(sUi->bandRise, &roboto_label);
+  uiBaseline(sUi->bandRise, &roboto_label, (int16_t)(SCOPE_W / 2 - w / 2),
+             CORNER_BASE);
+}
+
 static void showTile(const ScreenScope *s, const Theme *t) {
-  const int16_t in = UI_MARGIN + UI_PAD;
-  const int16_t right = SCOPE_W - UI_MARGIN - UI_PAD;
+  /* With the buttons the frequency and the level each have a tile of their
+   * own, the frequency without the unit the axis under the chart already
+   * gives, each centred in its tile, and the rise goes up into the chart. */
+  const int16_t tileX = s->buttons ? FREQ_TILE_X : UI_MARGIN;
+  const int16_t tileW = s->buttons ? FOOT_TILE_W : BOX_W;
+  lv_obj_set_pos(sUi->tile, tileX, TILE_Y);
+  lv_obj_set_size(sUi->tile, tileW, TILE_H);
+  uiShowIf(sUi->levelTile, s->buttons);
+  const int16_t in = (int16_t)(tileX + UI_PAD);
+  const int16_t right = (int16_t)(tileX + tileW - UI_PAD);
   uiSetOrHide(sUi->freq, s->cursorFreq);
-  uiShowIf(sUi->freqUnit, s->cursorFreq != NULL);
+  uiShowIf(sUi->freqUnit, s->cursorFreq != NULL && !s->buttons);
   if (s->cursorFreq != NULL) {
-    uiBaseline(sUi->freq, &roboto_text, in, TILE_BASE);
     const int16_t fw = uiTextWidth(sUi->freq, &roboto_text);
+    uiBaseline(sUi->freq, &roboto_text,
+               s->buttons ? (int16_t)(tileX + (tileW - fw) / 2) : in,
+               TILE_BASE);
     uiBaseline(sUi->freqUnit, &roboto_label,
                (int16_t)(in + fw + SMALL_UNIT_GAP), TILE_BASE);
   }
   uiSetOrHide(sUi->level, s->cursorLevel);
   uiShowIf(sUi->levelUnit, s->cursorLevel != NULL);
   if (s->cursorLevel != NULL) {
-    /* The level's pair in the middle of the tile. */
+    /* The level's pair in the middle of the tile, or of its own tile. */
     const int16_t lw = uiTextWidth(sUi->level, &roboto_text);
     const int16_t uw = uiTextWidth(sUi->levelUnit, &roboto_label);
-    const int16_t x = (int16_t)(SCOPE_W / 2 - (lw + SMALL_UNIT_GAP + uw) / 2);
+    const int16_t pair = (int16_t)(lw + SMALL_UNIT_GAP + uw);
+    const int16_t x = s->buttons
+                          ? (int16_t)(LEVEL_TILE_X + (FOOT_TILE_W - pair) / 2)
+                          : (int16_t)(SCOPE_W / 2 - pair / 2);
     uiBaseline(sUi->level, &roboto_text, x, TILE_BASE);
     uiBaseline(sUi->levelUnit, &roboto_label,
                (int16_t)(x + lw + SMALL_UNIT_GAP), TILE_BASE);
   }
-  uiSetOrHide(sUi->rise, s->cursorRise);
-  uiShowIf(sUi->riseUnit, s->cursorRise != NULL);
-  uiShowIf(sUi->riseWord, s->cursorRise != NULL);
-  if (s->cursorRise != NULL) {
+  const char *rise = s->buttons ? NULL : s->cursorRise;
+  uiSetOrHide(sUi->rise, rise);
+  uiShowIf(sUi->riseUnit, rise != NULL);
+  uiShowIf(sUi->riseWord, rise != NULL);
+  if (rise != NULL) {
     uiSetColour(sUi->rise, s->riseUp ? t->radio : t->dead);
     uiBaselineRight(sUi->riseUnit, &roboto_label, right, TILE_BASE);
     const int16_t uw = uiTextWidth(sUi->riseUnit, &roboto_label);
@@ -381,6 +470,8 @@ void screenScopeShow(const ScreenScope *s) {
   }
   showLabels(s);
   showTile(s, t);
+  showButtons(s, t);
+  showBandRise(s, t);
 }
 
 void screenScopeEnd(void) {
@@ -400,9 +491,25 @@ int screenScopeZones(TouchZone *out, int max) {
    * the tile to the foot. */
   const int16_t top = out[2].y;
   const int16_t foot = (int16_t)(TILE_Y - 2);
+  const int16_t footH = (int16_t)(SCOPE_H - foot);
   out[2] = {0, top, SCOPE_W, (int16_t)(foot - top), DX_ZONE_CHART};
-  out[3] = {0, foot, SCOPE_W, (int16_t)(SCOPE_H - foot), DX_ZONE_FOOT};
-  return 4;
+  if (!sUi->shown.buttons || max < 8) {
+    out[3] = {0, foot, SCOPE_W, footH, DX_ZONE_FOOT};
+    return 4;
+  }
+  /* The foot row's five, meeting halfway across the gaps between them; a
+   * tap on either tile tunes, as the one tile does without the buttons. */
+  const int16_t half = FOOT_GAP / 2;
+  const int16_t freqL = (int16_t)(FREQ_TILE_X - half);
+  const int16_t sweepL = (int16_t)(SWEEP_X - half);
+  const int16_t levelL = (int16_t)(LEVEL_TILE_X - half);
+  const int16_t rightL = (int16_t)(kButtonX[1] - half);
+  out[3] = {0, foot, freqL, footH, DX_ZONE_LEFT};
+  out[4] = {freqL, foot, (int16_t)(sweepL - freqL), footH, DX_ZONE_FOOT};
+  out[5] = {sweepL, foot, (int16_t)(levelL - sweepL), footH, DX_ZONE_SWEEP};
+  out[6] = {levelL, foot, (int16_t)(rightL - levelL), footH, DX_ZONE_FOOT};
+  out[7] = {rightL, foot, (int16_t)(SCOPE_W - rightL), footH, DX_ZONE_RIGHT};
+  return 8;
 }
 
 int32_t screenScopeChannelAt(int16_t x) {

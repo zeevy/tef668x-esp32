@@ -1442,6 +1442,17 @@ static void the_age_shows_only_when_both_times_are_known(void) {
   TEST_ASSERT_NULL(pv.clock);
 }
 
+/* The touch buttons are drawn with Touch On only. */
+static void the_scope_buttons_follow_the_touch_setting(void) {
+  ScreenScopeInputs in;
+  memset(&in, 0, sizeof(in));
+  buildScope(&in);
+  TEST_ASSERT_FALSE(pv.buttons);
+  in.touchOn = true;
+  buildScope(&in);
+  TEST_ASSERT_TRUE(pv.buttons);
+}
+
 static void scope_builder_leaves_everything_alone_on_null_inputs(void) {
   const ScreenScopeInputs in = realScope();
   FILL(pv);
@@ -1662,6 +1673,7 @@ int main(void) {
   RUN_TEST(the_rise_has_a_sign_only_when_it_is_above_the_baseline);
   RUN_TEST(a_baseline_or_peak_on_other_channels_is_left_out);
   RUN_TEST(the_age_shows_only_when_both_times_are_known);
+  RUN_TEST(the_scope_buttons_follow_the_touch_setting);
   RUN_TEST(scope_builder_leaves_everything_alone_on_null_inputs);
   RUN_TEST(a_message_takes_the_header_while_it_shows);
   RUN_TEST(the_offset_holds_through_small_moves_and_follows_a_real_one);

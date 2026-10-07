@@ -1086,7 +1086,9 @@ static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
  * leaves DX mode as MODE does. On the DX page the amber panel and the PI tile
  * open the RDS screen over it, as the knob's press, and the readings the
  * bandwidth page with DX mode's widths, as BW held. On the Scope page the
- * chart moves the cursor and the foot tile tunes to it, as the knob's hold.
+ * chart moves the cursor and the foot tile tunes to it, as the knob's hold;
+ * with Touch On its foot row also has a button each way for the cursor and
+ * Sweep, the knob's click and press.
  * On the Scanner page the amber panel starts a scan or goes on with one, as
  * the knob's press; while a scan runs any touch only stops it. On the Catches
  * page a row tapped is tuned and held is logged, and a swipe up or down
@@ -1135,7 +1137,8 @@ static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
     }
     return;
   }
-  if (zone >= DX_ZONE_ROW && (event == TOUCH_TAP || event == TOUCH_HOLD)) {
+  if (zone >= DX_ZONE_ROW && zone < DX_ZONE_LEFT &&
+      (event == TOUCH_TAP || event == TOUCH_HOLD)) {
     /* A catch: turned to, then tuned by a tap or logged by a hold, as the
      * knob's press and hold. */
     const int cursor = screenCatchesCursorSlot();
@@ -1166,6 +1169,15 @@ static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
       break;
     case DX_ZONE_FOOT:
       dxPress(BUTTON_LONG, dxUnder);
+      break;
+    case DX_ZONE_LEFT:
+    case DX_ZONE_RIGHT:
+      /* A channel a tap, as a click of the knob. */
+      screenTaskDxTurn(zone == DX_ZONE_LEFT ? -1 : 1);
+      break;
+    case DX_ZONE_SWEEP:
+      /* The knob's press on Scope: a sweep, or the one running stopped. */
+      dxPress(BUTTON_SHORT, dxUnder);
       break;
     default:
       break;

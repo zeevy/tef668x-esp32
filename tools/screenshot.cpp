@@ -1047,11 +1047,20 @@ static void renderScopes(const char *dir) {
   in.clock = "17:43";
   renderScopeView(dir, "scope", &in);
   {
-    /* The page's touch zones over it. */
+    /* With Touch On: the buttons in the foot row, the rise up in the chart,
+     * and the touch zones over it; then the same while a sweep runs. */
+    in.touchOn = true;
+    renderScopeView(dir, "scope-touch", &in);
     char path[512];
     TouchZone zones[TOUCH_ZONES_MAX];
     snprintf(path, sizeof(path), "%s/touch-scope.bmp", dir);
     saveZones(zones, screenScopeZones(zones, TOUCH_ZONES_MAX), path);
+    in.sweeping = true;
+    in.revision++;
+    renderScopeView(dir, "scope-touch-sweeping", &in);
+    in.sweeping = false;
+    in.touchOn = false;
+    in.revision++;
   }
   uiSetSleepMark(UI_SLEEP_SOON);
   renderScopeView(dir, "scope-sleep", &in);
