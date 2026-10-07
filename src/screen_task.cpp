@@ -1939,7 +1939,7 @@ void screenTaskPoll(void) {
   InputStatus input;
   inputStatusGet(&input);
   in.typed = input.typed;
-  in.touchOn = input.touchOn && input.touchChip;
+  in.touchOn = inputTouchUsable();
   /*
    * What the network is doing, in the four states the header can draw.
    *

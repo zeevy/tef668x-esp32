@@ -45,6 +45,14 @@
 #define BAR_ZERO_W 2
 #define BAR_ZERO_H 20
 #define BAR_LIMIT_BASE 180
+/* With Touch On, minus, Keep and plus under the limits, in a row of three
+ * with the tiles' 8 px gaps, ending on the bottom margin. */
+#define STEP_Y 192
+#define STEP_H 36
+#define STEP_SIDE_W 93
+#define STEP_KEEP_X (UI_MARGIN + STEP_SIDE_W + UI_GAP)
+#define STEP_KEEP_W (MENU_W - 2 * UI_MARGIN - 2 * (STEP_SIDE_W + UI_GAP))
+#define STEP_PLUS_X (MENU_W - UI_MARGIN - STEP_SIDE_W)
 /* The digits editor: up to six digits on the panel, one cell each, the one
  * being set in a box, and a dot under each below the panel. */
 #define DIGITS_MAX 6
@@ -99,6 +107,9 @@ static lv_obj_t *sPanel;
 static lv_obj_t *sTrack;
 static lv_obj_t *sThumb;
 static lv_obj_t *sLabel;
+/* Minus, Keep and plus, built only while they show, every part a child of
+ * one layer so it goes as one. */
+static lv_obj_t *sSteps;
 static lv_obj_t *sValueBig;
 static lv_obj_t *sValueWord;
 static lv_obj_t *sValueUnit;
@@ -221,6 +232,37 @@ static void buildDialog(const Theme *t) {
   }
 }
 
+static void buildSteps(const Theme *t) {
+  if (sSteps != NULL) {
+    return;
+  }
+  sSteps = wholeScreen();
+  static const int16_t kStepX[3] = {UI_MARGIN, STEP_KEEP_X, STEP_PLUS_X};
+  static const int16_t kStepW[3] = {STEP_SIDE_W, STEP_KEEP_W, STEP_SIDE_W};
+  for (uint8_t i = 0; i < 3; i++) {
+    const bool keep = i == 1;
+    (void)uiRound(sSteps, keep ? t->radio : t->rule, kStepX[i], STEP_Y,
+                  kStepW[i], STEP_H, UI_TILE_R);
+    const lv_font_t *face = keep ? &roboto_text : &roboto_icons;
+    lv_obj_t *mark = uiLabel(sSteps, face, keep ? t->ground : t->measurement);
+    uiSetTextStatic(mark, i == 0 ? ICON_MINUS
+                          : keep ? txt(STR_MENU_KEEP)
+                                 : ICON_PLUS);
+    const int16_t w = uiTextWidth(mark, face);
+    const int16_t x = (int16_t)(kStepX[i] + (kStepW[i] - w) / 2);
+    if (keep) {
+      /* The capitals on the button's middle, as a tile's word sits. */
+      uiBaseline(
+          mark, face, x,
+          (int16_t)(STEP_Y + STEP_H / 2 + lv_font_get_line_height(face) / 3));
+    } else {
+      lv_obj_set_pos(
+          mark, x,
+          (int16_t)(STEP_Y + (STEP_H - UI_ICON_SIZE) / 2 + UI_ICON_INK_DROP));
+    }
+  }
+}
+
 /* A label's colour set only when it changes, as `uiSetColour` does for a
  * theme role, for a colour mixed from two. */
 static void setTextColour(lv_obj_t *o, lv_color_t c) {
@@ -281,14 +323,22 @@ static void showScroll(uint8_t total, uint8_t top) {
   lv_obj_set_pos(sThumb, SCROLL_X, y);
 }
 
+static void hideSteps(void) {
+  if (sSteps != NULL) {
+    lv_obj_delete(sSteps);
+    sSteps = NULL;
+  }
+}
+
 static void showEditor(bool on) {
   uiShowIf(sPanel, on);
   if (on) {
     showScroll(0, 0);
   }
-  uiShowIf(sLabel, false);
   uiShowIf(sBar, on);
   if (!on) {
+    hideSteps();
+    uiShowIf(sLabel, false);
     uiShowIf(sValueBig, false);
     uiShowIf(sValueWord, false);
     uiShowIf(sValueUnit, false);
@@ -527,8 +577,12 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   }
   sListRows = 0;
   sEditBar = false;
-  uiFrameShow(&sFrame, v->name, NULL, NULL, NULL, v->isPicker ? NULL : v->note,
-              NULL);
+  /* With the buttons on the bottom line, the note moves to the top of the
+   * value panel. */
+  const bool buttons =
+      v->buttons && v->hasRange && !v->isPicker && !v->isDigits;
+  uiFrameShow(&sFrame, v->name, NULL, NULL, NULL,
+              v->isPicker || buttons ? NULL : v->note, NULL);
   uiShowIf(sFrame.sleep, false);
   hideRows();
   hideDialog();
@@ -538,11 +592,19 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
     return;
   }
   showEditor(true);
+  if (buttons) {
+    buildSteps(themeCurrent());
+  } else {
+    hideSteps();
+  }
   if (v->isDigits) {
     showDigits(v);
     return;
   }
   hideDigits();
+  uiSetOrHide(sLabel, buttons ? v->note : NULL);
+  uiBaseline(sLabel, &roboto_small, (int16_t)(UI_MARGIN + UI_PAD),
+             EDIT_LABEL_BASE);
 
   /* The value and its unit centred as one on the panel, the way the radio
    * screen keeps a frequency and its unit together. */
@@ -676,6 +738,7 @@ void screenMenuEnd(void) {
   uiDropRoot(&sMenu);
   sPanel = NULL;
   sLabel = NULL;
+  sSteps = NULL;
   sValueBig = NULL;
   sValueWord = NULL;
   sValueUnit = NULL;
@@ -700,13 +763,28 @@ bool screenMenuIsBack(TouchPoint p) {
 #define ZONE_BAR_TOP (EDIT_PANEL_Y + EDIT_PANEL_H)
 #define ZONE_BAR_H (BAR_LIMIT_BASE + 8 - ZONE_BAR_TOP)
 
+/* Minus, Keep and plus, from halfway across the gap above them to the
+ * screen's foot, and halfway across the gaps between them. */
+#define ZONE_STEP_TOP (ZONE_BAR_TOP + ZONE_BAR_H)
+#define ZONE_STEP_H (MENU_H - ZONE_STEP_TOP)
+#define ZONE_KEEP_X (STEP_KEEP_X - UI_GAP / 2)
+#define ZONE_PLUS_X (STEP_PLUS_X - UI_GAP / 2)
+
 int screenMenuZones(TouchZone *out, int max) {
   if (sMenu != NULL && sEditBar && max >= 3) {
     out[0] = kBack;
     out[1] = {0, ZONE_FIRST, MENU_W, (int16_t)(ZONE_BAR_TOP - ZONE_FIRST),
               MENU_ZONE_PANEL};
     out[2] = {0, ZONE_BAR_TOP, MENU_W, ZONE_BAR_H, MENU_ZONE_BAR};
-    return 3;
+    if (sSteps == NULL || max < 6) {
+      return 3;
+    }
+    out[3] = {0, ZONE_STEP_TOP, ZONE_KEEP_X, ZONE_STEP_H, MENU_ZONE_MINUS};
+    out[4] = {ZONE_KEEP_X, ZONE_STEP_TOP, (int16_t)(ZONE_PLUS_X - ZONE_KEEP_X),
+              ZONE_STEP_H, MENU_ZONE_KEEP};
+    out[5] = {ZONE_PLUS_X, ZONE_STEP_TOP, (int16_t)(MENU_W - ZONE_PLUS_X),
+              ZONE_STEP_H, MENU_ZONE_PLUS};
+    return 6;
   }
   if (sMenu == NULL || sListRows == 0 || max < 1 + sListRows) {
     return 0;
@@ -721,8 +799,9 @@ int screenMenuZones(TouchZone *out, int max) {
 }
 
 const char *screenMenuZoneName(int id) {
-  static const char *const kNames[] = {"",     "back", "row1", "row2",  "row3",
-                                       "row4", "row5", "row6", "panel", "bar"};
+  static const char *const kNames[] = {"",      "back", "row1", "row2",  "row3",
+                                       "row4",  "row5", "row6", "panel", "bar",
+                                       "minus", "keep", "plus"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

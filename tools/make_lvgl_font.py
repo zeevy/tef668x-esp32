@@ -82,6 +82,8 @@ ICON_CODEPOINTS = (
                               " right"),
     ("chevron_left", 0xE5CB, "the Scope page's cursor button to the left"),
     ("backspace", 0xE14A, "the frequency keypad's backspace key"),
+    ("remove", 0xE15B, "the value editor's minus button, with Touch On"),
+    ("add", 0xE145, "the value editor's plus button, with Touch On"),
     ("menu", 0xE5D2, "the menu symbol in the radio screen's header, with"
                      " Touch On"),
     ("check_circle", 0xE86C, "a PI confirmed on this channel, on the DX page"),

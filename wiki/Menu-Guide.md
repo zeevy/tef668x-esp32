@@ -27,7 +27,7 @@ Press a row to change it. Depending on the row you get a bar with its two ends, 
 
 ### Notes
 
-A short note shows when something could not be done: in a list, on the row in place of its value, and on a value screen, on its bottom line. It clears on the next turn or press.
+A short note shows when something could not be done: in a list, on the row in place of its value, and on a value screen, on its bottom line, or at the top of the value panel while Touch is On and the minus, Keep and plus buttons take the bottom line. It clears on the next turn or press.
 
 | Note | When |
 |---|---|
