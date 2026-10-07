@@ -21,13 +21,13 @@ The group list shows how many rows each group has. A row that opens a sub-group 
 
 Press a row to change it. Depending on the row you get a bar with its two ends, a list with a tick on the saved choice, the Web PIN's digit editor, or a question with No and Yes.
 
-- Most rows act at once as you turn, so you hear or see the result. Some act only when you press to keep the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN.
-- Press to keep the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
+- Most rows act at once as you turn, so you hear or see the result. Some act only when you press to save the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN.
+- Press to save the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
 - Rows marked **after restart** below show `Applies after restart`, and take effect the next time the radio starts.
 
 ### Notes
 
-A short note shows when something could not be done: in a list, on the row in place of its value, and on a value screen, on its bottom line, or at the top of the value panel while Touch is On and the minus, Keep and plus buttons take the bottom line. It clears on the next turn or press.
+A short note shows when something could not be done: in a list, on the row in place of its value, and on a value screen, on its bottom line, or at the top of the value panel while Touch is On and the minus, Save and plus buttons take the bottom line. It clears on the next turn or press.
 
 | Note | When |
 |---|---|
@@ -143,12 +143,12 @@ See [Display and Themes](Display-and-Themes.md).
 
 | Row | Values | New radio | What it does |
 |---|---|---|---|
-| Theme > Day Theme | The 15 themes and Custom | Clear Day | The theme from 06:00 to 17:59. Acts when kept |
-| Theme > Night Theme | The 15 themes and Custom | Nightwatch | The theme from 18:00 to 05:59. Acts when kept |
+| Theme > Day Theme | The 15 themes and Custom | Clear Day | The theme from 06:00 to 17:59. Acts when saved |
+| Theme > Night Theme | The 15 themes and Custom | Nightwatch | The theme from 18:00 to 05:59. Acts when saved |
 | Brightness | 5 to 100 % in steps of 5 | 100 % | The screen light |
 | Dim Level | 0 to 100 % in steps of 5 | 20 % | The light after Dim After |
 | Dim After | Never, 5 to 240 s in steps of 5 | Never | How long with no input before the screen dims |
-| Display Rotation | Normal, Upside Down | Normal | Turns the screen over. Acts when kept, no restart |
+| Display Rotation | Normal, Upside Down | Normal | Turns the screen over. Acts when saved, no restart |
 | Battery | Off, Percent, Volts | Off | How the battery shows in the header |
 | Level Offset > FM Level Offset | -25 to +15 dB | 0 dB | Added to every FM and OIRT level shown |
 | Level Offset > AM Level Offset | -25 to +15 dB | 0 dB | Added to every LW, MW and SW level shown |
@@ -156,7 +156,7 @@ See [Display and Themes](Display-and-Themes.md).
 
 ## Connectivity
 
-See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act when you press to keep them.
+See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act when you press to save them.
 
 | Row | Values | New radio | What it does |
 |---|---|---|---|

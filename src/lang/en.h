@@ -265,7 +265,7 @@
   X(MENU_NOTE_NOT_STORED, "Not saved - restored", "Menu, note when the settings store refused the value") \
   X(MENU_NOTE_NOT_PUT_BACK, "Radio busy - not restored", "Menu, note when the undo could not reach the tuner") \
   X(MENU_NOTE_NOT_SAVED, "Not Saved", "Menu, under the bar once a value differs from the saved one, or at the top of the value panel with Touch On, and on its row after backing out of it") \
-  X(MENU_KEEP, "Keep", "Value editor, with Touch On: the button between minus and plus that keeps the value") \
+  X(MENU_SAVE, "Save", "Value editor, with Touch On: the button between minus and plus that saves the value") \
   X(RADIO_PRESS_TO_START, "Press to start", "Scanner page, header message when a turn or a typed digit is refused there") \
   X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or a scan walks the dial") \
   X(RADIO_FMT_NO_BAND, "%s is in no band", "Name line, a moment after ENTER on a typed number no band holds") \

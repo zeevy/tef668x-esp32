@@ -45,13 +45,13 @@
 #define BAR_ZERO_W 2
 #define BAR_ZERO_H 20
 #define BAR_LIMIT_BASE 180
-/* With Touch On, minus, Keep and plus under the limits, in a row of three
+/* With Touch On, minus, Save and plus under the limits, in a row of three
  * with the tiles' 8 px gaps, ending on the bottom margin. */
 #define STEP_Y 192
 #define STEP_H 36
 #define STEP_SIDE_W 93
-#define STEP_KEEP_X (UI_MARGIN + STEP_SIDE_W + UI_GAP)
-#define STEP_KEEP_W (MENU_W - 2 * UI_MARGIN - 2 * (STEP_SIDE_W + UI_GAP))
+#define STEP_SAVE_X (UI_MARGIN + STEP_SIDE_W + UI_GAP)
+#define STEP_SAVE_W (MENU_W - 2 * UI_MARGIN - 2 * (STEP_SIDE_W + UI_GAP))
 #define STEP_PLUS_X (MENU_W - UI_MARGIN - STEP_SIDE_W)
 /* The digits editor: up to six digits on the panel, one cell each, the one
  * being set in a box, and a dot under each below the panel. */
@@ -121,7 +121,7 @@ static lv_obj_t *sPanel;
 static lv_obj_t *sTrack;
 static lv_obj_t *sThumb;
 static lv_obj_t *sLabel;
-/* Minus, Keep and plus, built only while they show, every part a child of
+/* Minus, Save and plus, built only while they show, every part a child of
  * one layer so it goes as one. */
 static lv_obj_t *sSteps;
 /* The Web PIN's keys, the same way. */
@@ -255,20 +255,20 @@ static void buildSteps(const Theme *t) {
     return;
   }
   sSteps = wholeScreen();
-  static const int16_t kStepX[3] = {UI_MARGIN, STEP_KEEP_X, STEP_PLUS_X};
-  static const int16_t kStepW[3] = {STEP_SIDE_W, STEP_KEEP_W, STEP_SIDE_W};
+  static const int16_t kStepX[3] = {UI_MARGIN, STEP_SAVE_X, STEP_PLUS_X};
+  static const int16_t kStepW[3] = {STEP_SIDE_W, STEP_SAVE_W, STEP_SIDE_W};
   for (uint8_t i = 0; i < 3; i++) {
-    const bool keep = i == 1;
-    (void)uiRound(sSteps, keep ? t->radio : t->rule, kStepX[i], STEP_Y,
+    const bool save = i == 1;
+    (void)uiRound(sSteps, save ? t->radio : t->rule, kStepX[i], STEP_Y,
                   kStepW[i], STEP_H, UI_TILE_R);
-    const lv_font_t *face = keep ? &roboto_text : &roboto_icons;
-    lv_obj_t *mark = uiLabel(sSteps, face, keep ? t->ground : t->measurement);
+    const lv_font_t *face = save ? &roboto_text : &roboto_icons;
+    lv_obj_t *mark = uiLabel(sSteps, face, save ? t->ground : t->measurement);
     uiSetTextStatic(mark, i == 0 ? ICON_MINUS
-                          : keep ? txt(STR_MENU_KEEP)
+                          : save ? txt(STR_MENU_SAVE)
                                  : ICON_PLUS);
     const int16_t w = uiTextWidth(mark, face);
     const int16_t x = (int16_t)(kStepX[i] + (kStepW[i] - w) / 2);
-    if (keep) {
+    if (save) {
       /* The capitals on the button's middle, as a tile's word sits. */
       uiBaseline(
           mark, face, x,
@@ -874,11 +874,11 @@ bool screenMenuIsBack(TouchPoint p) {
 #define ZONE_BAR_TOP (EDIT_PANEL_Y + EDIT_PANEL_H)
 #define ZONE_BAR_H (BAR_LIMIT_BASE + 8 - ZONE_BAR_TOP)
 
-/* Minus, Keep and plus, from halfway across the gap above them to the
+/* Minus, Save and plus, from halfway across the gap above them to the
  * screen's foot, and halfway across the gaps between them. */
 #define ZONE_STEP_TOP (ZONE_BAR_TOP + ZONE_BAR_H)
 #define ZONE_STEP_H (MENU_H - ZONE_STEP_TOP)
-#define ZONE_KEEP_X (STEP_KEEP_X - UI_GAP / 2)
+#define ZONE_SAVE_X (STEP_SAVE_X - UI_GAP / 2)
 #define ZONE_PLUS_X (STEP_PLUS_X - UI_GAP / 2)
 
 int screenMenuZones(TouchZone *out, int max) {
@@ -931,9 +931,9 @@ int screenMenuZones(TouchZone *out, int max) {
     if (sSteps == NULL || max < 6) {
       return 3;
     }
-    out[3] = {0, ZONE_STEP_TOP, ZONE_KEEP_X, ZONE_STEP_H, MENU_ZONE_MINUS};
-    out[4] = {ZONE_KEEP_X, ZONE_STEP_TOP, (int16_t)(ZONE_PLUS_X - ZONE_KEEP_X),
-              ZONE_STEP_H, MENU_ZONE_KEEP};
+    out[3] = {0, ZONE_STEP_TOP, ZONE_SAVE_X, ZONE_STEP_H, MENU_ZONE_MINUS};
+    out[4] = {ZONE_SAVE_X, ZONE_STEP_TOP, (int16_t)(ZONE_PLUS_X - ZONE_SAVE_X),
+              ZONE_STEP_H, MENU_ZONE_SAVE};
     out[5] = {ZONE_PLUS_X, ZONE_STEP_TOP, (int16_t)(MENU_W - ZONE_PLUS_X),
               ZONE_STEP_H, MENU_ZONE_PLUS};
     return 6;
@@ -953,7 +953,7 @@ int screenMenuZones(TouchZone *out, int max) {
 const char *screenMenuZoneName(int id) {
   static const char *const kNames[] = {
       "",        "back",  "row1", "row2",  "row3",      "row4",  "row5",
-      "row6",    "panel", "bar",  "minus", "keep",      "plus",  "button1",
+      "row6",    "panel", "bar",  "minus", "save",      "plus",  "button1",
       "button2", "pin1",  "pin2", "pin3",  "pin4",      "pin5",  "pin6",
       "pin7",    "pin8",  "pin9", "pin0",  "backspace", "cancel"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]

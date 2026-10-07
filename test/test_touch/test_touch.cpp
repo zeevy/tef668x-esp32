@@ -470,7 +470,8 @@ static void a_zone_with_no_area_is_refused(void) {
 
 /* Figures for the tests only, set far enough apart to test each boundary
  * alone. The radio's own come from taps measured on its glass. */
-static const TouchGestureConfig GESTURE = {10, 40, 300, TOUCH_HOLD_MS};
+static const TouchGestureConfig GESTURE = {10,  40, 300, TOUCH_HOLD_MS,
+                                           500, 100};
 
 static TouchGesture gesture;
 
@@ -486,7 +487,22 @@ static TouchGestureEvent feedAt(bool down, int x, int y, bool settled, int zone,
   s.unsettled = !settled;
   s.zone = zone;
   s.zoneDrags = drags;
+  s.zoneRepeats = false;
   s.screen = screen;
+  return touchGestureFeed(&gesture, &GESTURE, &s, ms);
+}
+
+/* A settled sample on a zone that repeats. */
+static TouchGestureEvent feedRepeat(bool down, int x, int y, int zone,
+                                    uint32_t ms) {
+  TouchSample s;
+  s.down = down;
+  s.at = pt(x, y);
+  s.unsettled = false;
+  s.zone = zone;
+  s.zoneDrags = false;
+  s.zoneRepeats = true;
+  s.screen = 1;
   return touchGestureFeed(&gesture, &GESTURE, &s, ms);
 }
 
@@ -506,6 +522,85 @@ static TouchGestureEvent lift(uint32_t ms) {
   TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feed(false, 0, 0, 0, false, 1,
                                             ms + TOUCH_LIFT_BRIDGE_MS - 1));
   return feed(false, 0, 0, 0, false, 1, ms + TOUCH_LIFT_BRIDGE_MS);
+}
+
+/* Held on a zone that repeats: one step at the delay, then one every
+ * period, to the millisecond, and the lift after them reports nothing. */
+static void a_repeating_zone_steps_while_held(void) {
+  gestureSetUp();
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, feedRepeat(true, 100, 100, 2, START_MS));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 100, 100, 2, START_MS + 499));
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 500));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 100, 100, 2, START_MS + 599));
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 600));
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 700));
+  /* Well past the hold time: still steps, never a hold. */
+  for (uint32_t ms = START_MS + 800; ms <= START_MS + TOUCH_HOLD_MS + 100;
+       ms += 100) {
+    TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT, feedRepeat(true, 100, 100, 2, ms));
+  }
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + TOUCH_HOLD_MS + 150));
+}
+
+/* A sample that comes late gives one step, and the next comes a period
+ * after it: no burst making up for the missed ones. */
+static void a_late_sample_gives_one_step_not_a_burst(void) {
+  gestureSetUp();
+  feedRepeat(true, 100, 100, 2, START_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 500));
+  /* The loop stalls 450 ms: three periods missed. */
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 1050));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 100, 100, 2, START_MS + 1060));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 100, 100, 2, START_MS + 1149));
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 1150));
+}
+
+/* A pen that never lifts steps TOUCH_REPEAT_MAX times and then nothing. */
+static void a_stuck_pen_stops_repeating(void) {
+  gestureSetUp();
+  feedRepeat(true, 100, 100, 2, START_MS);
+  uint32_t ms = START_MS + 500;
+  int steps = 0;
+  for (int i = 0; i < TOUCH_REPEAT_MAX + 20; i++, ms += 100) {
+    if (feedRepeat(true, 100, 100, 2, ms) == TOUCH_REPEAT) {
+      steps++;
+    }
+  }
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT_MAX, steps);
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(ms));
+}
+
+/* A quick tap on a zone that repeats is one tap, as anywhere else. */
+static void a_quick_tap_on_a_repeating_zone_is_a_tap(void) {
+  gestureSetUp();
+  feedRepeat(true, 100, 100, 2, START_MS);
+  feedRepeat(true, 100, 100, 2, START_MS + 120);
+  TEST_ASSERT_EQUAL_INT(TOUCH_TAP, lift(START_MS + 200));
+}
+
+/* A finger that slides off the zone stops the steps. */
+static void sliding_off_stops_the_repeat(void) {
+  gestureSetUp();
+  feedRepeat(true, 100, 100, 2, START_MS);
+  TEST_ASSERT_EQUAL_INT(TOUCH_REPEAT,
+                        feedRepeat(true, 100, 100, 2, START_MS + 500));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 104, 100, 3, START_MS + 550));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 104, 100, 3, START_MS + 600));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING,
+                        feedRepeat(true, 104, 100, 3, START_MS + 900));
+  TEST_ASSERT_EQUAL_INT(TOUCH_NOTHING, lift(START_MS + 950));
 }
 
 static void a_tap_is_reported_once_the_lift_has_lasted_the_bridge(void) {
@@ -937,7 +1032,8 @@ typedef struct {
 } Played;
 
 static Played playBack(const TouchCapSet &set, const TouchCal *cal) {
-  static const TouchGestureConfig kRadio = {16, 64, 1000, TOUCH_HOLD_MS};
+  static const TouchGestureConfig kRadio = {
+      16, 64, 1000, TOUCH_HOLD_MS, TOUCH_REPEAT_DELAY_MS, TOUCH_REPEAT_MS};
   static TouchPoint tapAt[64];
   Played p;
   memset(&p, 0, sizeof(p));
@@ -1113,6 +1209,11 @@ int main(int, char **) {
   RUN_TEST(overlapping_zones_are_refused);
   RUN_TEST(a_zone_with_no_area_is_refused);
   RUN_TEST(a_tap_is_reported_once_the_lift_has_lasted_the_bridge);
+  RUN_TEST(a_repeating_zone_steps_while_held);
+  RUN_TEST(a_quick_tap_on_a_repeating_zone_is_a_tap);
+  RUN_TEST(sliding_off_stops_the_repeat);
+  RUN_TEST(a_late_sample_gives_one_step_not_a_burst);
+  RUN_TEST(a_stuck_pen_stops_repeating);
   RUN_TEST(the_hold_time_splits_a_tap_from_a_hold);
   RUN_TEST(nothing_follows_a_hold);
   RUN_TEST(the_slop_is_the_furthest_a_tap_can_move);

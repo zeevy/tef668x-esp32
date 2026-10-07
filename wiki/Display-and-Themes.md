@@ -8,7 +8,7 @@ The colours, the brightness and dimming, the screen rotation, the battery mark a
 
 There are 15 themes and a custom one. Every text and mark in the 15 themes has a contrast of at least 4.5:1 against its background, checked by a test in the code.
 
-The radio uses two of them: a **Day Theme** from 06:00 to 17:59 and a **Night Theme** from 18:00 to 05:59, by the network clock. Until the radio has the time, it uses the day theme. Set them at **Display > Theme**. A theme takes effect when you press to keep it, not as you turn through the list. Each theme in the list shows four colour samples.
+The radio uses two of them: a **Day Theme** from 06:00 to 17:59 and a **Night Theme** from 18:00 to 05:59, by the network clock. Until the radio has the time, it uses the day theme. Set them at **Display > Theme**. A theme takes effect when you press to save it, not as you turn through the list. Each theme in the list shows four colour samples.
 
 | Theme | Made for |
 |---|---|
@@ -49,7 +49,7 @@ The screen dims over 750 ms. It does not dim when Dim Level is at or above Brigh
 
 ## Display Rotation
 
-**Display Rotation** is **Normal** or **Upside Down**, Normal at the start. It turns the screen when you press to keep it, with no restart. It is the same setting as **Rotate Display** on the [recovery screen](Recovery-Screen.md), which you open by holding the tuning knob down at power on.
+**Display Rotation** is **Normal** or **Upside Down**, Normal at the start. It turns the screen when you press to save it, with no restart. It is the same setting as **Rotate Display** on the [recovery screen](Recovery-Screen.md), which you open by holding the tuning knob down at power on.
 
 ## Battery
 

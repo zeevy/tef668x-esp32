@@ -207,6 +207,9 @@ static int32_t travel(TouchPoint a, TouchPoint b) {
  * bridge. */
 static TouchGestureEvent lifted(const TouchGesture *g,
                                 const TouchGestureConfig *cfg) {
+  if (g->repeated) {
+    return TOUCH_NOTHING;
+  }
   if (!g->moved) {
     return g->offZone ? TOUCH_NOTHING : TOUCH_TAP;
   }
@@ -241,6 +244,9 @@ static void begin(TouchGesture *g, const TouchSample *s, uint32_t nowMs) {
   g->moved = false;
   g->offZone = false;
   g->drags = s->zoneDrags;
+  g->repeats = s->zoneRepeats;
+  g->repeated = false;
+  g->steps = 0;
   g->zone = s->zone;
   g->screen = s->screen;
   g->startMs = nowMs;
@@ -302,6 +308,7 @@ TouchGestureEvent touchGestureFeed(TouchGesture *g,
       g->last = s->at;
       g->zone = s->zone;
       g->drags = s->zoneDrags;
+      g->repeats = s->zoneRepeats;
       if (travel(g->origin, s->at) > cfg->swipePx) {
         g->moved = true;
       }
@@ -312,6 +319,7 @@ TouchGestureEvent touchGestureFeed(TouchGesture *g,
       g->start = s->at;
       g->zone = s->zone;
       g->drags = s->zoneDrags;
+      g->repeats = s->zoneRepeats;
     }
     const bool newPoint = s->at.x != g->last.x || s->at.y != g->last.y;
     g->last = s->at;
@@ -324,6 +332,27 @@ TouchGestureEvent touchGestureFeed(TouchGesture *g,
     if (g->moved && g->drags && newPoint) {
       return TOUCH_DRAG;
     }
+  }
+  if (g->repeats) {
+    /* Held still on a zone that repeats: steps, never a hold. */
+    if (g->moved || g->offZone) {
+      return TOUCH_NOTHING;
+    }
+    const bool due = g->repeated
+                         ? (int32_t)(nowMs - g->nextMs) >= 0
+                         : (uint32_t)(nowMs - g->startMs) >= cfg->repeatDelayMs;
+    if (!due) {
+      return TOUCH_NOTHING;
+    }
+    /* The next a period from now, not from when this one was due: a late
+     * sample gives one step, never a burst making up for the ones it
+     * missed. */
+    g->repeated = true;
+    g->nextMs = nowMs + cfg->repeatMs;
+    if (++g->steps >= TOUCH_REPEAT_MAX) {
+      g->done = true;
+    }
+    return TOUCH_REPEAT;
   }
   if (!g->moved && !g->offZone &&
       (uint32_t)(nowMs - g->startMs) >= cfg->holdMs) {

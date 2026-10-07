@@ -276,7 +276,7 @@ Only one key can wait at a time. A key sent before the one before it was handled
 |---|---|
 | `x` | Across, in screen pixels, 0 to 319 |
 | `y` | Down, in screen pixels, 0 to 239 |
-| `g` | `tap`, `hold`, `swipe-left`, `swipe-right`, `swipe-up`, `swipe-down` or `drag`. A swipe starts at `x`, `y` |
+| `g` | `tap`, `hold`, `swipe-left`, `swipe-right`, `swipe-up`, `swipe-down` or `drag`. A swipe starts at `x`, `y`. On the value editor's minus and plus, where a resting finger repeats, `hold` steps once |
 | `x2`, `y2` | For `drag` only: where it ends. The scale moves by the distance from `x` to `x2` |
 
 ```

@@ -279,14 +279,14 @@ void screenMenuEnd(void);
 
 /* The parts of the menu a touch can act on: the header, which is Back, a
  * row slot each, MENU_ZONE_ROW for the top one, and on a value with a bar,
- * the value panel, the bar and, with its buttons, minus, Keep and plus. */
+ * the value panel, the bar and, with its buttons, minus, Save and plus. */
 typedef enum {
   MENU_ZONE_BACK = 1,
   MENU_ZONE_ROW,
   MENU_ZONE_PANEL = MENU_ZONE_ROW + SCREEN_MENU_ROWS,
   MENU_ZONE_BAR,
   MENU_ZONE_MINUS,
-  MENU_ZONE_KEEP,
+  MENU_ZONE_SAVE,
   MENU_ZONE_PLUS,
   MENU_ZONE_BUTTON, /* A question box's first answer; the second follows. */
   /* The Web PIN's keys, SCREEN_PIN_KEYS of them from here, in the order
@@ -309,7 +309,7 @@ typedef enum {
 int screenMenuZones(TouchZone *out, int max);
 
 /* A zone's name, for GET /api/screen: "back", "row1" to "row6", "panel",
- * "bar", "minus", "keep", "plus", "button1", "button2", "pin1" to "pin9",
+ * "bar", "minus", "save", "plus", "button1", "button2", "pin1" to "pin9",
  * "pin0", "backspace", "cancel", or "". */
 const char *screenMenuZoneName(int id);
 
@@ -358,7 +358,7 @@ typedef struct {
    * the value panel with `buttons`, and on the line under the bar or the
    * digits otherwise. NULL for none. */
   const char *note;
-  /* Touch is On and the chip answered: minus, Keep and plus under a bar,
+  /* Touch is On and the chip answered: minus, Save and plus under a bar,
    * and the note at the top of the value panel, since the buttons take its
    * line; on the Web PIN, a smaller panel and its keys. */
   bool buttons;
