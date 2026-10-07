@@ -44,7 +44,7 @@ SCREENS = [
     # Start up, update, sleep and recovery.
     "boot", "veil", "update-failed", "sleeping", "recovery",
     # Touch calibration.
-    "touch-cal-mark2", "touch-cal-kept",
+    "touch-cal-mark2", "touch-cal-saved",
 ]
 
 THEMES = [

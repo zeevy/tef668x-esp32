@@ -1,6 +1,6 @@
 /*
  * Calibrating the touch screen: the marks a person holds, the check after
- * them, and how a calibration is kept in a blob of its own.
+ * them, and how a calibration is saved in a blob of its own.
  *
  * A calibration maps the touch chip's raw readings to pixels in the board's
  * own mount (core/touch.h). Each glass is mounted a little differently, so a
@@ -43,7 +43,7 @@ extern "C" {
  * where the finger is. */
 #define TOUCH_CAL_STILL_PX 32
 
-/* How near the check dot a tap must land for the calibration to be kept,
+/* How near the check dot a tap must land for the calibration to be saved,
  * along either axis. Light fingertip taps landed within 15.4 px of where
  * they clustered along either axis; the fit's own few pixels at the dot
  * come on top. */
@@ -52,11 +52,11 @@ extern "C" {
 typedef enum {
   TOUCH_CAL_MARK = 0,  /* Holding the marks, one at a time. */
   TOUCH_CAL_CHECK,     /* Tapping the check dot. */
-  TOUCH_CAL_KEPT,      /* The new calibration passed its check. */
+  TOUCH_CAL_PASSED,    /* The new calibration passed its check. */
   TOUCH_CAL_NO_FIT,    /* The marks did not make a calibration that can be
-                       * kept, touchCalValid's rules. */
+                       * saved, touchCalValid's rules. */
   TOUCH_CAL_MISSED,    /* The check landed too far from the dot. */
-  TOUCH_CAL_NOT_SAVED, /* It passed, but could not be kept. Set by the
+  TOUCH_CAL_NOT_SAVED, /* It passed, but could not be saved. Set by the
                         * caller that keeps it; the flow never sets it. */
 } TouchCalStep;
 
@@ -117,22 +117,22 @@ bool touchCalFlowFeed(TouchCalFlow *f, bool contact, bool fresh, TouchPoint raw,
 bool touchCalFromCorners(const TouchPoint corners[4], int16_t width,
                          int16_t height, TouchCal *out);
 
-/* Whether the flow ended with a calibration that was not kept, which a
+/* Whether the flow ended with a calibration that was not saved, which a
  * press of the knob starts again. */
 bool touchCalFlowFailed(const TouchCalFlow *f);
 
-/* The version a kept calibration is written with. A new layout gets a new
+/* The version a saved calibration is written with. A new layout gets a new
  * number, and a blob of any other number is not read. */
 #define TOUCH_CAL_BLOB_VERSION 1
 
-/* A calibration as it is kept: a version in front of it. */
+/* A calibration as it is saved: a version in front of it. */
 typedef struct {
   uint16_t version;
   uint16_t spare; /* Always 0. */
   TouchCal cal;
 } TouchCalBlob;
 
-/* The calibration in a kept blob. False, and `out` untouched, for a blob of
+/* The calibration in a saved blob. False, and `out` untouched, for a blob of
  * another version, or one touchCalValid refuses for this screen. */
 bool touchCalBlobRead(const TouchCalBlob *blob, int16_t width, int16_t height,
                       TouchCal *out);

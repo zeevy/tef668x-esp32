@@ -762,13 +762,13 @@
   X(TOUCH_CAL_CANCEL_HINT, "Turn or press the knob to cancel", "Touch calibration screen, foot line while marks or the check are shown") \
   X(TOUCH_CAL_CHECK, "Check", "Touch calibration screen, title while the check dot is shown") \
   X(TOUCH_CAL_TAP_DOT, "Tap the dot", "Touch calibration screen, instruction for the check") \
-  X(TOUCH_CAL_KEPT, "Calibration kept", "Touch calibration screen, title when the check passed") \
-  X(TOUCH_CAL_FMT_LANDED, "The check landed %u px off", "Touch calibration screen, under Calibration kept; %u is the distance in pixels") \
-  X(TOUCH_CAL_BACK_HINT, "Press the knob to go back", "Touch calibration screen, foot line when the calibration was kept") \
-  X(TOUCH_CAL_NOT_KEPT, "Not kept", "Touch calibration screen, title when the new calibration was not kept") \
-  X(TOUCH_CAL_FMT_MISSED, "The check landed %u px off,", "Touch calibration screen, first line under Not kept when the check missed; %u is the distance in pixels") \
-  X(TOUCH_CAL_NO_FIT, "The marks did not make a calibration,", "Touch calibration screen, first line under Not kept when the marks could not be fitted") \
-  X(TOUCH_CAL_NOT_SAVED, "It could not be saved,", "Touch calibration screen, first line under Not kept when the new calibration could not be written") \
-  X(TOUCH_CAL_OLD_STAYS, "so the old calibration stays", "Touch calibration screen, second line under Not kept") \
-  X(TOUCH_CAL_RETRY_HINT, "Press the knob to try again, turn it to leave", "Touch calibration screen, foot line when the calibration was not kept")
+  X(TOUCH_CAL_SAVED, "Calibration saved", "Touch calibration screen, title when the check passed") \
+  X(TOUCH_CAL_FMT_LANDED, "The check landed %u px off", "Touch calibration screen, under Calibration saved; %u is the distance in pixels") \
+  X(TOUCH_CAL_BACK_HINT, "Press the knob to go back", "Touch calibration screen, foot line when the calibration was saved") \
+  X(TOUCH_CAL_NOT_SAVED_TITLE, "Not saved", "Touch calibration screen, title when the new calibration was not saved") \
+  X(TOUCH_CAL_FMT_MISSED, "The check landed %u px off,", "Touch calibration screen, first line under Not saved when the check missed; %u is the distance in pixels") \
+  X(TOUCH_CAL_NO_FIT, "The marks did not make a calibration,", "Touch calibration screen, first line under Not saved when the marks could not be fitted") \
+  X(TOUCH_CAL_NOT_SAVED, "It could not be written,", "Touch calibration screen, first line under Not saved when the new calibration could not be written") \
+  X(TOUCH_CAL_OLD_STAYS, "so the old calibration stays", "Touch calibration screen, second line under Not saved") \
+  X(TOUCH_CAL_RETRY_HINT, "Press the knob to try again, turn it to leave", "Touch calibration screen, foot line when the calibration was not saved")
 // clang-format on
