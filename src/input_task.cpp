@@ -194,14 +194,16 @@ static bool panelIsDimmed(void) {
 #if FEATURE_TOUCH
 /*
  * Whether a touch does nothing now: the panel dark, the radio going to
- * sleep, the boot screen up, or a firmware write or its failure message
- * holding the panel. Asked on every poll, so it only looks: panelIsDimmed
+ * sleep, the boot screen up, a firmware write or its failure message
+ * holding the panel, or a level sweep running, whose readings must not take
+ * in the chip's clock. Asked on every poll, so it only looks: panelIsDimmed
  * also ends the boot hold and closes the failure message, which is what a
  * key there is for, not a finger.
  */
 static bool touchIgnored(void) {
   return screenTaskBacklightState(NULL) || screenTaskSleepShowing() ||
-         screenTaskBootShowing() || screenTaskUpdateHolding();
+         screenTaskBootShowing() || screenTaskUpdateHolding() ||
+         radioSweepBusy();
 }
 #endif
 
@@ -2115,10 +2117,9 @@ static void pollTouch(uint32_t nowMs) {
   /* Touch is not read while the panel is dark, and does not wake it: a
    * pocket or a bag can press the glass, and the knob, a key or the volume
    * knob wake it. The same while the boot screen, the going to sleep screen
-   * or an update holds the panel, which a key ends. Nor during a level sweep, so its readings cannot take in
-   * the chip's clock. The calibration screen is read whatever: a person is
-   * holding a mark. */
-  const bool resting = !calOpen && (touchIgnored() || radioSweepBusy());
+   * or an update holds the panel, which a key ends, and during a level sweep.
+   * The calibration screen is read whatever: a person is holding a mark. */
+  const bool resting = !calOpen && touchIgnored();
   const bool pen = touchPenDown();
   /* A finger already down when touch comes on did not go down now. */
   if (pen && !sStatus.touchPen && wasOn) {
