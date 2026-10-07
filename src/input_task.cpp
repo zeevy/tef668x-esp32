@@ -1327,11 +1327,18 @@ static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
  * would, the header is Back as MODE is, and a swipe up or down pages the
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
  * value panel keeps it, as the knob's press does; minus and plus are a click
- * of the knob each way, and Keep its press. A hold on them acts once, as a
- * tap does.
+ * of the knob each way, and Keep its press. On Restart Radio's question a
+ * tap on No or Yes takes it. A hold on any of these acts once, as a tap
+ * does.
  */
 static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
                       TouchPoint last, bool) {
+  if (zone == MENU_ZONE_BUTTON || zone == MENU_ZONE_BUTTON + 1) {
+    if (event == TOUCH_TAP || event == TOUCH_HOLD) {
+      menuTaskTapButton((uint8_t)(zone - MENU_ZONE_BUTTON));
+    }
+    return;
+  }
   if (zone == MENU_ZONE_MINUS || zone == MENU_ZONE_KEEP ||
       zone == MENU_ZONE_PLUS) {
     if (event == TOUCH_TAP || event == TOUCH_HOLD) {

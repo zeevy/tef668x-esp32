@@ -112,8 +112,10 @@
   X(MENU_UPDATE_THIS_RADIO, "This radio", "Update offer, first fact: the version this radio runs") \
   X(MENU_UPDATE_NEW_VERSION, "New version", "Update offer, second fact: the version on offer") \
   X(MENU_UPDATE_DOWNLOAD, "Download", "Update offer, third fact: the image size") \
-  X(MENU_UPDATE_SETTINGS, "Settings", "Update offer, fourth fact: what happens to the settings") \
-  X(MENU_UPDATE_KEPT, "Kept", "Update offer, value of the Settings fact") \
+  X(COMMON_SETTINGS, "Settings", "Update offer, fourth fact, and the Restart Radio question box's first: what happens to the settings") \
+  X(COMMON_KEPT, "Kept", "Update offer and Restart Radio question box, value of the Settings fact") \
+  X(MENU_FMT_QUESTION, "%s?", "Title of the question box a row that asks first opens, %s is the row's name: Restart Radio?") \
+  X(MENU_STATION, "Station", "Restart Radio question box, fact label: the band and frequency the radio comes back on") \
   X(MENU_UPDATE_NOW, "Update", "Update offer, left button: download and install the newer version") \
   X(MENU_LATER, "Later", "Update offer, right button: close the offer") \
   X(MENU_FMT_MEGABYTES, "%s MB", "Value of the Update to row and of the offer's Download fact: the image size, %s such as 1.7") \
@@ -209,8 +211,8 @@
   X(MENU_FMT_SCAN_SAVED, "Saved %u", "Menu, value of a station scan row after its band's last scan: presets it saved") \
   X(MENU_FMT_SCAN_STOPPED, "Stopped, %u saved", "Menu, value of a station scan row after its band's last scan, when a tune or the radio stopped it before the end: presets it saved") \
   X(MENU_FMT_SCAN_NO_ROOM, "Full, %u not saved", "Menu, value of a station scan row after its band's last scan, when new stations found every preset slot full: how many") \
-  X(COMMON_YES, "Yes", "Value of the Restart Radio confirm row turned to yes") \
-  X(COMMON_NO, "No", "Value of a confirm action row at rest; Sync tile on RDS page 4 when not synchronised") \
+  X(COMMON_YES, "Yes", "The Restart Radio question box's right answer, and the Restart Radio row's value while it is on Yes") \
+  X(COMMON_NO, "No", "The Restart Radio question box's left answer, where the knob starts, and the Restart Radio row's value in the System list; Sync tile on RDS page 4 when not synchronised") \
   X(MENU_UNKNOWN_VALUE, "Unknown", "Menu, value of the Band plan row for an index outside the table") \
   X(MENU_FMT_KHZ, "%d kHz", "Menu, value of the MW spacing row, 9 or 10; value of the Filter width and Tuning step rows") \
   X(COMMON_ROTATION_NORMAL, "Normal", "Value of the Rotation row and of its picker, and of recovery's Rotate Display row: the display the right way up") \

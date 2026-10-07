@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices and its values with a bar, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The other parts, the Web PIN, the Restart Radio question and the update offer, are still worked with the knobs, the buttons and the keypad, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The Web PIN and the update offer are still worked with the knobs, the buttons and the keypad, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
 
 ## The radio screen
 
@@ -68,6 +68,21 @@ On a value with a bar, such as Brightness or Squelch Floor:
 Minus, Keep and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
 
 ![The value screen with minus, Keep and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
+
+## The Restart Radio question
+
+![The Restart Radio question, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-question.png)
+
+**System > Restart Radio** asks first, in a box: `Restart Radio?`, that the settings are kept, and the station the radio comes back on.
+
+| Where | Touch | Does |
+|---|---|---|
+| No, on the left | Tap | Nothing is done, and the box closes |
+| Yes, on the right | Tap | The radio restarts |
+
+The knob starts on No. Turning it moves between the two, and a press takes the one that is lit. A tap takes an answer at once, with no second step.
+
+The update offer looks like this box but takes no taps: it opens by itself over the radio screen, where a finger already on its way to the scale could land on Update. Answer it with the knob.
 
 ## The bandwidth page
 

@@ -19,7 +19,7 @@ The group list shows how many rows each group has. A row that opens a sub-group 
 
 ### Changing a value
 
-Press a row to change it. Depending on the row you get a bar with its two ends, a list with a tick on the saved choice, the Web PIN's digit editor, or No and Yes.
+Press a row to change it. Depending on the row you get a bar with its two ends, a list with a tick on the saved choice, the Web PIN's digit editor, or a question with No and Yes.
 
 - Most rows act at once as you turn, so you hear or see the result. Some act only when you press to keep the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN.
 - Press to keep the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
@@ -187,7 +187,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Auto Off | Off, 5 to 600 minutes in steps of 5 | Off | Minutes with no input before the radio sleeps |
 | Check for Updates | Off, On | Off | Looks on GitHub for a newer release once the radio is on the network, at every start, and when the menu closes after it is turned on. See [Updating](Updating.md#from-github-on-the-radio) |
 | Firmware Update | Press | | While a newer release is known, it is called **Update to** and the version, with the size: press it for the offer, a box with the versions and the size and the buttons **Update** and **Later**. Otherwise its value says why there is nothing to install, `Up to date`, `Not checked`, `Checking`, `Check failed`, or `Off` before any check in this start, and a press shows `No update found` |
-| Restart Radio | No, Yes | No | Press, turn to Yes, press again. The radio restarts |
+| Restart Radio | No, Yes | No | Press for the question `Restart Radio?`, turn to Yes and press, or tap Yes. The radio restarts |
 
 ## Diagnostics
 

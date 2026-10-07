@@ -62,6 +62,10 @@ bool menuTaskOpenUpdateOffer(void);
  */
 void menuTaskTapRow(int32_t by);
 
+/* A tap on an answer of Restart Radio's question box, 0 for No on the left:
+ * taken as the knob would take it. Nothing while that box is not up. */
+void menuTaskTapButton(uint8_t button);
+
 /*
  * The value being changed moved to `value`, from a finger on its bar: in
  * the bar's own units, an index on a row that walks a list, and turned there
@@ -72,7 +76,7 @@ void menuTaskBarTo(int32_t value);
 /*
  * A page of the list or picker on show, for a swipe: the window and the
  * cursor move a whole window on, `dir` 1, or back, -1, stopping at the ends.
- * Nothing on a value with a bar, the PIN, the Restart question or a dialog.
+ * Nothing on a value with a bar, the PIN, or a question box.
  */
 void menuTaskPage(int dir);
 
