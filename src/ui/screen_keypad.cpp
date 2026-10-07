@@ -71,6 +71,7 @@ bool screenKeypadBegin(void) {
   uiScreenRoot(root, t->ground);
   sUi->root = uiBlock(root, t->ground, 0, 0, KEYPAD_W, KEYPAD_H);
   uiFrameBegin(&sUi->frame, sUi->root, t, t->radio);
+  uiFrameMarks(&sUi->frame, true, false);
   uiRound(sUi->root, t->radio, UI_MARGIN, PANEL_Y, KEYPAD_W - 2 * UI_MARGIN,
           PANEL_H, UI_RADIUS);
   sUi->number = uiLabel(sUi->root, &NUMBER_FONT, t->ground);

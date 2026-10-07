@@ -244,8 +244,7 @@ static void showStation(const ScreenRds *r, const Theme *t) {
       diKnown ? txt(r->stereo == SCREEN_RDS_YES ? STR_RDS_STEREO : STR_RDS_MONO)
               : NULL);
   uiSetColour(sDiIcon, r->stereo == SCREEN_RDS_YES ? t->broadcast : t->dead);
-  const int16_t diX =
-      (int16_t)(UI_MARGIN + uiTextWidth(sFrame.title, &roboto_title) + UI_PAD);
+  const int16_t diX = (int16_t)(uiFrameTitleEnd(&sFrame) + UI_PAD);
   const int16_t diInkEnd =
       placeIcon(sDiIcon, ICON_EQ, diX, uiIconTop(UI_HEAD_RUN_BASE));
   uiBaseline(sDiWord, &roboto_label, (int16_t)(diInkEnd + P1_CHIP_ICON_GAP),
@@ -834,6 +833,7 @@ bool screenRdsBegin(void) {
 
   sRds = uiBlock(root, t->ground, 0, 0, RDS_W, RDS_H);
   uiFrameBegin(&sFrame, sRds, t, t->radio);
+  uiFrameMarks(&sFrame, true, true);
   sBody = lv_obj_create(sRds);
   lv_obj_remove_style_all(sBody);
   lv_obj_set_pos(sBody, 0, 0);
@@ -876,14 +876,15 @@ void screenRdsShow(const ScreenRds *rds) {
      * mark giving way too. */
     char fit[40];
     uiSetText(sFrame.title, txt(kTitle[page]));
-    const int16_t left =
-        (int16_t)(UI_MARGIN + uiTextWidth(sFrame.title, &roboto_title) +
-                  UI_GAP);
+    /* A moment's message in place of the page: no page mark after it. */
+    uiFrameMarks(&sFrame, true, false);
+    const int16_t left = (int16_t)(uiFrameTitleEnd(&sFrame) + UI_GAP);
     uiFrameShow(&sFrame, txt(kTitle[page]), NULL,
                 uiFitHeaderText(rds->message, RDS_W, left, fit, sizeof(fit)),
                 NULL, NULL, NULL);
     uiSetColour(sFrame.position, t->radio);
   } else {
+    uiFrameMarks(&sFrame, true, true);
     uiFrameShow(&sFrame, txt(kTitle[page]), ctx, pageOf, rds->clock, NULL,
                 NULL);
     uiSetColour(sFrame.position, t->dead);

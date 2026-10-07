@@ -47,9 +47,9 @@
 /* The name sits further from the PI than a label from its value. */
 #define PS_GAP 12
 
-/* The NEW pill beside the title. The "Scanner" title is 66 wide from the
- * margin, so the pill at 96 sits 18 past it. */
-#define PILL_X 96
+/* The NEW pill beside the title, 18 past its end, wherever the title
+ * starts. */
+#define PILL_GAP 18
 #define PILL_Y 6
 #define PILL_W 36
 #define PILL_H 18
@@ -102,12 +102,9 @@ bool screenScanBegin(void) {
   uiFrameBegin(&sFrame, sRoot, t, t->radio);
   /* Set now, so the header's room is known on the first show. */
   uiSetText(sFrame.title, txt(STR_DX_TITLE_SCANNER));
-  sPill = uiRound(sRoot, t->good, PILL_X, PILL_Y, PILL_W, PILL_H, PILL_H / 2);
+  sPill = uiRound(sRoot, t->good, 0, PILL_Y, PILL_W, PILL_H, PILL_H / 2);
   sPillText = uiLabel(sRoot, &roboto_label, t->ground);
   uiSetTextStatic(sPillText, txt(STR_DX_NEW));
-  const int16_t nw = uiTextWidth(sPillText, &roboto_label);
-  uiBaseline(sPillText, &roboto_label, (int16_t)(PILL_X + (PILL_W - nw) / 2),
-             PILL_BASE);
 
   sPanel =
       uiRound(sRoot, t->radio, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, UI_RADIUS);
@@ -280,12 +277,21 @@ void screenScanShow(const ScreenScan *s) {
     return;
   }
   const Theme *t = themeCurrent();
+  /* While a scan runs any touch only stops it, so the header promises no
+   * back and no next page then; nor a next page after a message. */
+  const bool idle = s->state != SCREEN_SCAN_RUNNING;
+  uiFrameMarks(&sFrame, idle, idle && !s->positionIsMessage);
+  uiSetText(sFrame.title, txt(STR_DX_TITLE_SCANNER));
+  const int16_t pillX = (int16_t)(uiFrameTitleEnd(&sFrame) + PILL_GAP);
+  lv_obj_set_x(sPill, pillX);
+  uiBaseline(
+      sPillText, &roboto_label,
+      (int16_t)(pillX + (PILL_W - uiTextWidth(sPillText, &roboto_label)) / 2),
+      PILL_BASE);
   /* The header's run starts past the title, or past the NEW pill while it
    * shows. */
-  const int16_t left =
-      s->isNew ? (int16_t)(PILL_X + PILL_W + UI_GAP)
-               : (int16_t)(UI_MARGIN +
-                           uiTextWidth(sFrame.title, &roboto_title) + UI_GAP);
+  const int16_t left = s->isNew ? (int16_t)(pillX + PILL_W + UI_GAP)
+                                : (int16_t)(uiFrameTitleEnd(&sFrame) + UI_GAP);
   char fit[40];
   const char *position =
       uiFitHeaderText(s->position, SCAN_W, left, fit, sizeof(fit));

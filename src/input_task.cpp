@@ -6,6 +6,7 @@
 #include "menu_task.h"
 #include "screen_task.h"
 #include "screen_task_dx.h"
+#include "ui/draw.h"
 
 #include "board/board.h"
 #include "core/logbook.h"
@@ -2354,6 +2355,9 @@ void inputPoll(void) {
 void inputSetTouch(bool on) {
 #if FEATURE_TOUCH
   sTouchOn = on;
+  /* At once, so a menu drawn straight after the Touch row is kept carries
+   * the right marks. */
+  uiSetTouchMarks(inputTouchUsable());
 #else
   (void)on;
 #endif

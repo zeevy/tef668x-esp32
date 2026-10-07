@@ -484,6 +484,7 @@ bool screenMenuBegin(void) {
 
   sMenu = uiBlock(root, t->ground, 0, 0, MENU_W, MENU_H);
   uiFrameBegin(&sFrame, sMenu, t, t->radio);
+  uiFrameMarks(&sFrame, true, false);
   for (uint8_t i = 0; i < SCREEN_MENU_ROWS; i++) {
     uiRowBegin(&sRows[i], sMenu, t, UI_MENU_ROW_H, UI_MENU_ROW_PITCH);
   }

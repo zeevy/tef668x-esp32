@@ -1013,9 +1013,12 @@ static void renderScopeView(const char *dir, const char *name,
                             const ScreenScopeInputs *in) {
   static ScreenScopeKeep keep;
   ScreenScope view;
+  /* The header's marks follow the same Touch state as the foot row. */
+  uiSetTouchMarks(in->touchOn);
   screenScopeStateBuild(in, &keep, &view);
   screenScopeShow(&view);
   saveShot("%s/dx-%s.bmp", dir, name);
+  uiSetTouchMarks(true);
 }
 
 /*
@@ -1294,6 +1297,8 @@ int main(int argc, char **argv) {
     settingsDefaults(&defaults);
     themeSetCustomColours(defaults.customTheme);
   }
+  /* Touch On, as on a new radio: the headers carry their touch marks. */
+  uiSetTouchMarks(true);
   if (!screenBegin()) {
     fprintf(stderr, "screenBegin failed\n");
     return 1;
@@ -1504,6 +1509,11 @@ int main(int argc, char **argv) {
     menu.total = 8; /* Display's rows, six shown. */
     screenMenuShow(&menu);
     saveShot("%s/menu-screen.bmp", dir);
+    /* With Touch Off: no back mark, the title at the margin. */
+    uiSetTouchMarks(false);
+    screenMenuShow(&menu);
+    saveShot("%s/menu-screen-touch-off.bmp", dir);
+    uiSetTouchMarks(true);
 
     /* Back from a brightness turned to and not saved: its row says so. */
     menu.note = txt(STR_MENU_NOTE_NOT_SAVED);
@@ -1805,8 +1815,10 @@ int main(int argc, char **argv) {
     /* Touch Off: no buttons, and the note back on the bottom line. */
     one.buttons = false;
     one.note = txt(STR_MENU_NOTE_NOT_SAVED);
+    uiSetTouchMarks(false);
     screenMenuValueShow(&one);
     saveShot("%s/menu-value-touch-off.bmp", dir);
+    uiSetTouchMarks(true);
     one.note = NULL;
     one.buttons = true;
 
@@ -1898,6 +1910,7 @@ int main(int argc, char **argv) {
           snprintf(path, sizeof(path), "%s/touch-pin.bmp", dir);
           saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
           pin.buttons = false;
+          uiSetTouchMarks(false);
           screenMenuValueShow(&pin);
           lv_refr_now(NULL);
           int off[2] = {0, 0};
@@ -1910,6 +1923,7 @@ int main(int argc, char **argv) {
             exit(1);
           }
           saveShot("%s/menu-pin-touch-off.bmp", dir);
+          uiSetTouchMarks(true);
         }
       }
     }

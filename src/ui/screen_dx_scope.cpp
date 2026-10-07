@@ -455,11 +455,11 @@ void screenScopeShow(const ScreenScope *s) {
   sUi->bottom = s->floor != SCREEN_SCOPE_NONE
                     ? (int16_t)(s->floor - UNDER_FLOOR_TENTHS)
                     : (int16_t)NO_FLOOR_BOTTOM_TENTHS;
+  /* No next page mark after a moment's message. */
+  uiFrameMarks(&sUi->frame, true, !s->positionIsMessage);
   char fit[40];
   const char *position = uiFitHeaderText(
-      s->position, SCOPE_W,
-      (int16_t)(UI_MARGIN + uiTextWidth(sUi->frame.title, &roboto_title) +
-                UI_GAP),
+      s->position, SCOPE_W, (int16_t)(uiFrameTitleEnd(&sUi->frame) + UI_GAP),
       fit, sizeof(fit));
   uiFrameShow(&sUi->frame, txt(STR_DX_TITLE_SCOPE), s->context, position,
               s->clock, NULL, NULL);

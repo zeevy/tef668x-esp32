@@ -73,6 +73,7 @@ bool screenBwBegin(void) {
 
   sUi->root = uiBlock(root, t->ground, 0, 0, BW_W, BW_H);
   uiFrameBegin(&sUi->frame, sUi->root, t, t->radio);
+  uiFrameMarks(&sUi->frame, true, false);
   for (uint8_t i = 0; i < SCREEN_BW_TILES; i++) {
     sUi->tile[i] = uiRound(sUi->root, t->rule, 0, 0, TILE_W, TILE_H, UI_TILE_R);
     lv_obj_set_style_border_opa(sUi->tile[i], LV_OPA_COVER, 0);
