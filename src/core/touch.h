@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "input.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -229,6 +230,21 @@ bool touchFilterFeed(TouchFilter *f, const TouchReading *r, TouchPoint *at,
 #define TOUCH_HOLD_MS 1500
 
 /*
+ * A finger resting on a button that repeats, the value editor's minus and
+ * plus: the first step after the keys' own long press time, then one every
+ * period. Of 100, 150 and 250 ms tried by finger on this glass, 100 ran past
+ * the value aimed at and 150 stopped on it.
+ */
+#define TOUCH_REPEAT_DELAY_MS BUTTON_LONG_MS
+#define TOUCH_REPEAT_MS 150
+
+/* The most steps one resting finger makes: the longest list of values in
+ * the menu, Auto Off's 121, runs end to end within it, and a pen stuck on
+ * the glass, or a panel pressed in a bag, then steps no further until it
+ * lifts. */
+#define TOUCH_REPEAT_MAX 128
+
+/*
  * What a finger did, worked out from the steady points of one touch.
  *
  * Every gesture belongs to the zone it started in and to the screen it
@@ -262,6 +278,12 @@ typedef enum {
   TOUCH_SWIPE_RIGHT,
   TOUCH_SWIPE_UP,
   TOUCH_SWIPE_DOWN,
+  /* Held still in a zone that repeats: once at the repeat delay, counted
+   * from the first contact, and then a repeat period after each one, until
+   * the finger lifts, moves or leaves the zone, or TOUCH_REPEAT_MAX of them
+   * have come. Such a zone has no hold, and its lift reports nothing once it
+   * repeated; a lift before that is a tap. */
+  TOUCH_REPEAT,
 } TouchGestureEvent;
 
 /*
@@ -279,16 +301,21 @@ typedef struct {
   uint16_t swipeMs;
   /* How long a touch is held still before it is a hold, TOUCH_HOLD_MS. */
   uint16_t holdMs;
+  /* In a zone that repeats: the first repeat after this long, and one more
+   * every period after it. */
+  uint16_t repeatDelayMs;
+  uint16_t repeatMs;
 } TouchGestureConfig;
 
 /* One sample, given every poll whether or not anything changed. */
 typedef struct {
-  bool down;       /* There is contact now, as the filter says. */
-  TouchPoint at;   /* Where, in pixels. Read only while `down`. */
-  bool unsettled;  /* Fewer than three readings stand behind `at`. */
-  int zone;        /* touchZoneAt for `at`. Read only while `down`. */
-  bool zoneDrags;  /* That zone takes drags. Read only while `down`. */
-  uint32_t screen; /* Changes whenever another screen is shown. */
+  bool down;        /* There is contact now, as the filter says. */
+  TouchPoint at;    /* Where, in pixels. Read only while `down`. */
+  bool unsettled;   /* Fewer than three readings stand behind `at`. */
+  int zone;         /* touchZoneAt for `at`. Read only while `down`. */
+  bool zoneDrags;   /* That zone takes drags. Read only while `down`. */
+  bool zoneRepeats; /* That zone repeats while held. Read only while `down`. */
+  uint32_t screen;  /* Changes whenever another screen is shown. */
 } TouchSample;
 
 /*
@@ -305,6 +332,10 @@ typedef struct {
   bool moved;      /* Past the slop. */
   bool offZone;    /* Left its zone at some point. */
   bool drags;      /* Its zone takes drags. */
+  bool repeats;    /* Its zone repeats while held. */
+  bool repeated;   /* It has repeated at least once. */
+  uint8_t steps;   /* How many times it has repeated. */
+  uint32_t nextMs; /* When it repeats next, once it has. */
   int zone;        /* The zone it started in. */
   uint32_t screen; /* The screen it started on. */
   uint32_t startMs;

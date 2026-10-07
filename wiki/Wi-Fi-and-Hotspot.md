@@ -4,7 +4,7 @@ How the radio decides which network to be on, and what the three Connectivity sw
 
 ## The three switches
 
-All three are in the menu at **Connectivity**. Each acts when you press to keep it.
+All three are in the menu at **Connectivity**. Each acts when you press to save it.
 
 | Row | Values | New radio | What it does |
 |---|---|---|---|

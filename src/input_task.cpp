@@ -1327,11 +1327,12 @@ static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
  * The menu by touch: a row tapped is turned to and pressed, as the knob
  * would, the header is Back as MODE is, and a swipe up or down pages the
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
- * value panel keeps it, as the knob's press does; minus and plus are a click
- * of the knob each way, and Keep its press. On Restart Radio's question a
- * tap on No or Yes takes it. On the Web PIN its keys type a digit as a key
- * does, backspace goes back one, and Cancel is Back. A hold on any of these
- * acts once, as a tap does.
+ * value panel saves it, as the knob's press does; minus and plus are a click
+ * of the knob each way, and Save its press; a finger resting on minus or
+ * plus steps again and again. On Restart Radio's question a tap on No or Yes
+ * takes it. On the Web PIN its keys type a digit as a key does, backspace
+ * goes back one, and Cancel is Back. A hold on the others acts once, as a
+ * tap does.
  */
 static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
                       TouchPoint last, bool) {
@@ -1354,10 +1355,12 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
     }
     return;
   }
-  if (zone == MENU_ZONE_MINUS || zone == MENU_ZONE_KEEP ||
+  if (zone == MENU_ZONE_MINUS || zone == MENU_ZONE_SAVE ||
       zone == MENU_ZONE_PLUS) {
-    if (event == TOUCH_TAP || event == TOUCH_HOLD) {
-      if (zone == MENU_ZONE_KEEP) {
+    /* A finger resting on minus or plus repeats; a hold sent over the API
+     * steps once. */
+    if (event == TOUCH_TAP || event == TOUCH_HOLD || event == TOUCH_REPEAT) {
+      if (zone == MENU_ZONE_SAVE) {
         menuTaskPress();
       } else {
         menuTaskTurn(zone == MENU_ZONE_PLUS ? 1 : -1);
@@ -2083,7 +2086,8 @@ static uint32_t sTouchReadMs = 0;
  * swipes travelled at least 164, so 64 px of travel is a swipe, and the
  * slowest natural swipe took 771 ms, so a swipe is one done within a second.
  */
-static const TouchGestureConfig kGesture = {16, 64, 1000, TOUCH_HOLD_MS};
+static const TouchGestureConfig kGesture = {
+    16, 64, 1000, TOUCH_HOLD_MS, TOUCH_REPEAT_DELAY_MS, TOUCH_REPEAT_MS};
 
 static TouchGesture sGesture;
 /* The gesture under way has had its first event, and with it the checks a
@@ -2109,8 +2113,8 @@ static void touchRest(void) {
 
 /* What a gesture is called in `inp.lst`, by TouchGestureEvent. */
 static const char *const kGestureName[] = {
-    "",           "tap",         "hold",     "drag",      "drag end",
-    "swipe left", "swipe right", "swipe up", "swipe down"};
+    "",           "tap",         "hold",     "drag",       "drag end",
+    "swipe left", "swipe right", "swipe up", "swipe down", "repeat"};
 
 /*
  * One thing a finger did, from the glass or from POST /api/touch: `first`
@@ -2194,14 +2198,19 @@ static int screenZones(TouchZone *zones, const ScreenInput **in) {
   return (*in)->zones != NULL ? (*in)->zones(zones, TOUCH_ZONES_MAX) : 0;
 }
 
-/* The zone of the screen on top holding `at`, and whether it follows a
- * drag. */
-static int zoneAt(TouchPoint at, bool *drags) {
+/* The zone of the screen on top holding `at`, whether it follows a drag,
+ * and whether it repeats while held: only the value editor's minus and
+ * plus. */
+static int zoneAt(TouchPoint at, bool *drags, bool *repeats) {
   const ScreenInput *in = NULL;
   TouchZone zones[TOUCH_ZONES_MAX];
   const int n = screenZones(zones, &in);
   const int zone = touchZoneAt(zones, n, at);
   *drags = zone != TOUCH_NO_ZONE && zone == in->dragZone;
+  if (repeats != NULL) {
+    *repeats = in == &kScreenInput[TOP_MENU] &&
+               (zone == MENU_ZONE_MINUS || zone == MENU_ZONE_PLUS);
+  }
   return zone;
 }
 
@@ -2210,7 +2219,7 @@ static int zoneAt(TouchPoint at, bool *drags) {
  * swipes, and no other zone drags. */
 static bool gestureFits(TouchGestureEvent event, TouchPoint at, TouchPoint to) {
   bool drags = false;
-  (void)zoneAt(at, &drags);
+  (void)zoneAt(at, &drags, NULL);
   if (event != TOUCH_DRAG) {
     return !drags || event < TOUCH_SWIPE_LEFT;
   }
@@ -2222,7 +2231,7 @@ static bool gestureFits(TouchGestureEvent event, TouchPoint at, TouchPoint to) {
  * start and its end. */
 static void apiTouch(const ApiInput *in, uint32_t nowMs) {
   bool drags = false;
-  const int zone = zoneAt(in->at, &drags);
+  const int zone = zoneAt(in->at, &drags, NULL);
   (void)drags;
   if (in->touch == TOUCH_DRAG) {
     if (!onTouch(TOUCH_DRAG, true, zone, in->at, in->to, nowMs)) {
@@ -2251,7 +2260,8 @@ static void gestureFeed(bool contact, TouchPoint at, bool unsettled,
   s.at = at;
   s.unsettled = unsettled;
   s.zoneDrags = false;
-  s.zone = contact ? zoneAt(at, &s.zoneDrags) : TOUCH_NO_ZONE;
+  s.zoneRepeats = false;
+  s.zone = contact ? zoneAt(at, &s.zoneDrags, &s.zoneRepeats) : TOUCH_NO_ZONE;
   /* The menu's place too, so a gesture begun on one level of it does not
    * act on the next, and the catches drawn, so one begun on a row does not
    * act on another catch the list re-sorted into it. */

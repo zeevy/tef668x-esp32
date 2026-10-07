@@ -18,7 +18,7 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
 | The scale | Drag | Tunes as the scale moves with your finger: one mark for every 8 pixels, 100 kHz on FM and 10 kHz on AM, onto the nearest channel of the band, and never onto another band where two bands overlap. Drag to the left to go up, as when you slide a dial strip under a fixed pointer. Past the end of the band it goes round to the other end |
 | The tuning mode tile | Tap | The next tuning mode, as a tap of MODE |
-| The SQ tile | Tap | Opens **Squelch Mode** straight away. Keep a choice with the knob, or go back, and you are on the radio screen again |
+| The SQ tile | Tap | Opens **Squelch Mode** straight away. Save a choice with the knob, or go back, and you are on the radio screen again |
 | The BW tile | Tap | Opens the bandwidth page, as BW held |
 | The V tile | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
 
@@ -51,7 +51,7 @@ On the list of groups, on the rows of a group, and on a list of choices, such as
 
 | Where | Touch | Does |
 |---|---|---|
-| A row | Tap | The same as turning the tuning knob to that row and pressing it: a group opens, a value opens to be changed, a Go To row does what it says, and on a list of choices the choice is kept. A row that only shows something does nothing |
+| A row | Tap | The same as turning the tuning knob to that row and pressing it: a group opens, a value opens to be changed, a Go To row does what it says, and on a list of choices the choice is saved. A row that only shows something does nothing |
 | The top line, with the title | Tap | Back, as a tap of MODE: from a list of choices to its group with the old choice kept, from a group to the list of groups, and from the list of groups out of the menu |
 | The list | Swipe up or down | The next or the previous six rows. The list stops at its first and last row |
 
@@ -62,14 +62,15 @@ On a value with a bar, such as Brightness or Squelch Floor:
 | Where | Touch | Does |
 |---|---|---|
 | The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then use minus and plus for the last step |
-| The value panel, above the bar | Tap | Keeps the value, as a press of the tuning knob |
-| Minus or plus, under the bar | Tap or hold | One step down or up, as one click of the tuning knob. A hold steps once, as a tap does |
-| Keep, between minus and plus | Tap or hold | Keeps the value, as a press of the tuning knob |
+| The value panel, above the bar | Tap | Saves the value, as a press of the tuning knob |
+| Minus or plus, under the bar | Tap | One step down or up, as one click of the tuning knob |
+| Minus or plus, under the bar | Keep your finger on it | After 0.6 s it steps by itself, about 7 steps a second, until you lift |
+| Save, between minus and plus | Tap | Saves the value, as a press of the tuning knob |
 | The top line, with the title | Tap | Back: the old value comes back |
 
-Minus, Keep and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
+Minus, Save and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
 
-![The value screen with minus, Keep and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
+![The value screen with minus, Save and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
 
 ## The Web PIN
 
@@ -171,16 +172,16 @@ While a DX scan runs, any touch only stops it, as any key does. In its first sec
 
 - A touch stops a running DX scan and does nothing else, as any key does.
 - Outside the frequency keypad, a touch clears a frequency you were typing on the radio's keys and does nothing else.
-- A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short. A tap on the frequency keypad is a key: it beeps from Keypad Only up.
+- A hold is a finger kept still for 1.5 seconds. With **Key Beeps** at Short & Long Press, a hold beeps long. At Every Press, a hold beeps long and a tap or a swipe beeps short. A finger resting on minus or plus beeps once, short, at Every Press only. A tap on the frequency keypad is a key: it beeps from Keypad Only up.
 - While the screen is dark, and while the start-up, going to sleep or update screens show, the radio does not read the touch panel, and a touch does not wake the screen or end those screens. Use the knob, a key or the volume knob. This keeps a touch in a pocket or a bag from doing anything. A finger already on the screen when it lights up does nothing until it is lifted.
 - During a DX level sweep, about 4 seconds, the touch panel is not read either, so its readings stay clean. The calibration screen is the one exception to both.
-- A finger or a stuck panel held still does one thing at most, its hold after 1.5 seconds, and then nothing more until it lifts.
+- A finger or a stuck panel held still does one thing at most, its hold after 1.5 seconds, and then nothing more until it lifts. On minus and plus it steps instead, at most 128 times, enough to cross the longest list of values, and then nothing more until it lifts.
 
 ## Turn touch on or off
 
 **Controls > Touch** in the menu, On or Off. It is On on a new radio. Off, the radio does not read the touch panel at all. Use it for a panel that touches itself, for example a cracked one.
 
-The parts drawn only for a finger, the menu symbol in the radio screen's header, minus, Keep and plus on a value screen, and the Scope page's buttons, show only while Touch is On and the touch chip answered at start up, as the boot screen's **Touch** row says. With Touch Off, or a chip that did not answer, those screens look as they do for the knob alone.
+The parts drawn only for a finger, the menu symbol in the radio screen's header, minus, Save and plus on a value screen, and the Scope page's buttons, show only while Touch is On and the touch chip answered at start up, as the boot screen's **Touch** row says. With Touch Off, or a chip that did not answer, those screens look as they do for the knob alone.
 
 When the menu cannot be used, the [recovery screen](Recovery-Screen.md) has the same switch as its **Touch** row.
 
