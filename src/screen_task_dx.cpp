@@ -9,6 +9,7 @@
 #include "core/band_plan.h"
 #include "core/clock.h"
 #include "dx_task.h"
+#include "input_task.h"
 #include "memory_store.h"
 #include "net/ntp.h"
 #include "radio_task.h"
@@ -141,6 +142,9 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     in.pages = SCREEN_DX_PAGES;
     in.clock = clock;
     in.confirm = screenTaskHeaderMessage();
+    InputStatus input;
+    inputStatusGet(&input);
+    in.touchOn = input.touchOn;
     ScreenScope view;
     screenScopeStateBuild(&in, &sScopeKeep, &view);
     screenScopeShow(&view);

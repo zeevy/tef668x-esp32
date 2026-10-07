@@ -94,6 +94,7 @@ LV_FONT_DECLARE(roboto_icons)
 #define ICON_TICK "\xEE\x99\xA8"         /* U+E668 check */
 #define ICON_CROSS "\xEE\x97\x8D"        /* U+E5CD close */
 #define ICON_CHEVRON "\xEE\x97\x8C"      /* U+E5CC chevron_right */
+#define ICON_CHEVRON_LEFT "\xEE\x97\x8B" /* U+E5CB chevron_left */
 #define ICON_CHECK_CIRCLE "\xEE\xA1\xAC" /* U+E86C check_circle */
 #define ICON_HELP "\xEE\xA2\x87"         /* U+E887 help */
 #define ICON_SCHEDULE "\xEE\xA2\xB5"     /* U+E8B5 schedule */
