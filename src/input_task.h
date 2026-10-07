@@ -173,6 +173,10 @@ void inputSetTouch(bool on);
 /* Whether the screen is shown upside down, so a touch is turned with it. */
 void inputSetTouchUpsideDown(bool upsideDown);
 
+/* A finger can act: Touch is On and the touch chip answered at start up.
+ * What a screen asks before it draws a control only a finger uses. */
+bool inputTouchUsable(void);
+
 /* Keypad Timeout: a part typed number is dropped after this many seconds
  * with no key, and the frequency keypad closes. */
 void inputSetKeypadTimeout(uint8_t seconds);

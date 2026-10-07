@@ -199,7 +199,7 @@
   X(MENU_FMT_VOLTS_AT_START, "%u.%02u V at start", "Menu, value of the Battery Voltage row: the reading taken at start up, since Wi-Fi holds the converter while it runs") \
   X(MENU_FMT_PATH, "%s > %s", "Menu, the title of a sub-group or of a setting's own screen: the list it sits in, then its own name") \
   X(MENU_FMT_AGC_ROW, "%u %%, %+d dB", "Menu, value of the Volume AGC row while it runs: its target and what it is doing to the sound now") \
-  X(MENU_FMT_AGC_GAIN_NOW, "Gain now %+d dB", "Menu, note under the bar of the Volume AGC and AGC Boost screens: what the AGC is doing to the sound now") \
+  X(MENU_FMT_AGC_GAIN_NOW, "Gain now %+d dB", "Menu, note under the bar, or at the top of the value panel with Touch On, of the Volume AGC and AGC Boost screens: what the AGC is doing to the sound now") \
   X(LOG_FMT_PI, "PI %04X", "Station Log, an entry with a PI and no name: its PI in hex") \
   X(MENU_STATION_LOG, "Station Log", "Sub-group name, Stations > Station Log: the logbook, newest first") \
   X(MENU_FMT_CHIP, "%s v%u.%u", "Menu, value of the Chip row, model and revision") \
@@ -252,7 +252,7 @@
   X(MENU_UNIT_DBUV, "dBuV", "Menu, unit for the level rows") \
   X(COMMON_UNIT_KHZ, "kHz", "Unit for Filter width, Tuning step, DX width; reading unit, twice; frequency unit for AM bands") \
   X(MENU_FMT_NUMBER_UNIT, "%d %s", "Menu, limit text under each bar end, number and unit (concatenation of value and `unitOf()`)") \
-  X(MENU_HINT_RESTART, "Applies after restart", "Menu, note for a row with needsRestart: on the picker's cursor row, under the bar otherwise") \
+  X(MENU_HINT_RESTART, "Applies after restart", "Menu, note for a row with needsRestart: on the picker's cursor row, under the bar otherwise, or at the top of the value panel with Touch On") \
   X(MENU_TITLE, "Menu", "Menu, title of the group list") \
   X(COMMON_FM_ONLY, "FM only", "Value of an FM-only row on AM; Scanner press result") \
   X(MENU_NOTE_OFF_PLAN, "Not on the band plan", "Menu, note after pressing a preset or Station Log row whose frequency is not on the band it names under the band plan now") \
@@ -262,7 +262,8 @@
   X(MENU_NOTE_UPDATE_ON_TRIAL, "Update on trial - wait", "Menu, note after Restart Radio or Sleep while an OTA image is on trial") \
   X(MENU_NOTE_NOT_STORED, "Not saved - restored", "Menu, note when the settings store refused the value") \
   X(MENU_NOTE_NOT_PUT_BACK, "Radio busy - not restored", "Menu, note when the undo could not reach the tuner") \
-  X(MENU_NOTE_NOT_SAVED, "Not Saved", "Menu, under the bar once a value differs from the saved one, and on its row after backing out of it") \
+  X(MENU_NOTE_NOT_SAVED, "Not Saved", "Menu, under the bar once a value differs from the saved one, or at the top of the value panel with Touch On, and on its row after backing out of it") \
+  X(MENU_KEEP, "Keep", "Value editor, with Touch On: the button between minus and plus that keeps the value") \
   X(RADIO_PRESS_TO_START, "Press to start", "Scanner page, header message when a turn or a typed digit is refused there") \
   X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or a scan walks the dial") \
   X(RADIO_FMT_NO_BAND, "%s is in no band", "Name line, a moment after ENTER on a typed number no band holds") \

@@ -1326,10 +1326,23 @@ static void bwTouch(TouchGestureEvent event, int zone, TouchPoint, TouchPoint,
  * The menu by touch: a row tapped is turned to and pressed, as the knob
  * would, the header is Back as MODE is, and a swipe up or down pages the
  * list. On a value with a bar, a finger on the bar sets it and a tap on the
- * value panel keeps it, as the knob's press does.
+ * value panel keeps it, as the knob's press does; minus and plus are a click
+ * of the knob each way, and Keep its press. A hold on them acts once, as a
+ * tap does.
  */
 static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
                       TouchPoint last, bool) {
+  if (zone == MENU_ZONE_MINUS || zone == MENU_ZONE_KEEP ||
+      zone == MENU_ZONE_PLUS) {
+    if (event == TOUCH_TAP || event == TOUCH_HOLD) {
+      if (zone == MENU_ZONE_KEEP) {
+        menuTaskPress();
+      } else {
+        menuTaskTurn(zone == MENU_ZONE_PLUS ? 1 : -1);
+      }
+    }
+    return;
+  }
   if (zone == MENU_ZONE_BAR) {
     /* The value follows the finger, as the knob would turn it there. A
      * zone that follows a drag gives no swipe; a finger resting to the hold
@@ -2311,6 +2324,14 @@ void inputSetTouch(bool on) {
   sTouchOn = on;
 #else
   (void)on;
+#endif
+}
+
+bool inputTouchUsable(void) {
+#if FEATURE_TOUCH
+  return sTouchOn && sStatus.touchChip;
+#else
+  return false;
 #endif
 }
 

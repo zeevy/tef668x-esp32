@@ -183,7 +183,7 @@ typedef struct {
   const char *clock;    /* Local, or NULL. */
   const char *confirm;  /* A moment's message for the header, or NULL. */
   int8_t levelOffsetDb; /* The FM level offset, whole dB. */
-  bool touchOn;         /* Touch is On: the page shows its touch buttons. */
+  bool touchOn; /* Touch is On and the chip answered: the touch buttons. */
 } ScreenScopeInputs;
 
 /*

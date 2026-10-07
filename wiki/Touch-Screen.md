@@ -59,9 +59,15 @@ On a value with a bar, such as Brightness or Squelch Floor:
 
 | Where | Touch | Does |
 |---|---|---|
-| The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then turn the knob for the last step |
+| The bar, with its limits under it | Tap, drag or hold | The value moves to where the finger is, at once, as the tuning knob would turn it there. A finger held still for 1.5 s sets the value under it, and must lift before it can move it again. A value with many steps, such as Squelch Floor or Network Time, is hard to hit exactly by finger: get near, then use minus and plus for the last step |
 | The value panel, above the bar | Tap | Keeps the value, as a press of the tuning knob |
+| Minus or plus, under the bar | Tap or hold | One step down or up, as one click of the tuning knob. A hold steps once, as a tap does |
+| Keep, between minus and plus | Tap or hold | Keeps the value, as a press of the tuning knob |
 | The top line, with the title | Tap | Back: the old value comes back |
+
+Minus, Keep and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
+
+![The value screen with minus, Keep and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
 
 ## The bandwidth page
 
@@ -142,6 +148,8 @@ While a DX scan runs, any touch only stops it, as any key does. In its first sec
 ## Turn touch on or off
 
 **Controls > Touch** in the menu, On or Off. It is On on a new radio. Off, the radio does not read the touch panel at all. Use it for a panel that touches itself, for example a cracked one.
+
+The parts drawn only for a finger, the menu symbol in the radio screen's header, minus, Keep and plus on a value screen, and the Scope page's buttons, show only while Touch is On and the touch chip answered at start up, as the boot screen's **Touch** row says. With Touch Off, or a chip that did not answer, those screens look as they do for the knob alone.
 
 When the menu cannot be used, the [recovery screen](Recovery-Screen.md) has the same switch as its **Touch** row.
 

@@ -279,23 +279,26 @@ void screenMenuEnd(void);
 
 /* The parts of the menu a touch can act on: the header, which is Back, a
  * row slot each, MENU_ZONE_ROW for the top one, and on a value with a bar,
- * the value panel and the bar. */
+ * the value panel, the bar and, with its buttons, minus, Keep and plus. */
 typedef enum {
   MENU_ZONE_BACK = 1,
   MENU_ZONE_ROW,
   MENU_ZONE_PANEL = MENU_ZONE_ROW + SCREEN_MENU_ROWS,
   MENU_ZONE_BAR,
+  MENU_ZONE_MINUS,
+  MENU_ZONE_KEEP,
+  MENU_ZONE_PLUS,
 } MenuZone;
 
 /* The zones of the menu on show: on a list or picker the header and a zone
  * for each row drawn, meeting halfway across the gaps; on a value with a bar
- * the header, the value panel and the bar. Writes no more than `max` and
- * returns how many, 0 while the PIN, the Restart question or a dialog is
- * up. */
+ * the header, the value panel, the bar and any buttons. Writes no more than
+ * `max` and returns how many, 0 while the PIN, the Restart question or a
+ * dialog is up. */
 int screenMenuZones(TouchZone *out, int max);
 
 /* A zone's name, for GET /api/screen: "back", "row1" to "row6", "panel",
- * "bar", or "". */
+ * "bar", "minus", "keep", "plus", or "". */
 const char *screenMenuZoneName(int id);
 
 /* The value on the bar on show under `x`, in the units its ends are in, the
@@ -339,9 +342,14 @@ typedef struct {
   const char *minText;
   const char *maxText;
   /* Something about this setting the screen cannot otherwise say, such as
-   * "Applies after restart": on the cursor's row of a picker, and on the
-   * line under the bar or the digits otherwise. NULL for none. */
+   * "Applies after restart": on the cursor's row of a picker, at the top of
+   * the value panel with `buttons`, and on the line under the bar or the
+   * digits otherwise. NULL for none. */
   const char *note;
+  /* Touch is On and the chip answered: minus, Keep and plus under a bar,
+   * and the note at the top of the value panel, since the buttons take its
+   * line. */
+  bool buttons;
 
   /*
    * A named choice, picked from a short list instead of scrubbed on a bar.

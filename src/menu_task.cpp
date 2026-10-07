@@ -2261,6 +2261,7 @@ static void drawValue(void) {
             highText, sizeof(highText));
   view.minText = lowText;
   view.maxText = highText;
+  view.buttons = inputTouchUsable();
   /* Only what the screen cannot say on its own: what the last press did,
    * that a value turned to is not saved until the press, or that the
    * setting waits for a restart. */

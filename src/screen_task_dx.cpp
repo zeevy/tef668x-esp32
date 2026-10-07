@@ -142,9 +142,7 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     in.pages = SCREEN_DX_PAGES;
     in.clock = clock;
     in.confirm = screenTaskHeaderMessage();
-    InputStatus input;
-    inputStatusGet(&input);
-    in.touchOn = input.touchOn;
+    in.touchOn = inputTouchUsable();
     ScreenScope view;
     screenScopeStateBuild(&in, &sScopeKeep, &view);
     screenScopeShow(&view);

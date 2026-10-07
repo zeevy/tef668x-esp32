@@ -1734,6 +1734,7 @@ int main(int argc, char **argv) {
 
     ScreenMenuValue dwell;
     memset(&dwell, 0, sizeof(dwell));
+    dwell.buttons = true; /* Touch On, as on a new radio. */
     dwell.name =
         fmt(STR_MENU_FMT_PATH, txt(STR_MENU_DX_SETUP), txt(STR_MENU_DWELL));
     dwell.value = "2.5";
@@ -1752,6 +1753,7 @@ int main(int argc, char **argv) {
      * its limits. */
     ScreenMenuValue one;
     memset(&one, 0, sizeof(one));
+    one.buttons = true; /* Touch On, as on a new radio. */
     one.name =
         fmt(STR_MENU_FMT_PATH, txt(STR_MENU_DISPLAY), txt(STR_MENU_BRIGHTNESS));
     one.value = "70";
@@ -1779,10 +1781,19 @@ int main(int argc, char **argv) {
     saveShot("%s/menu-value-not-saved.bmp", dir);
     one.note = NULL;
 
+    /* Touch Off: no buttons, and the note back on the bottom line. */
+    one.buttons = false;
+    one.note = txt(STR_MENU_NOTE_NOT_SAVED);
+    screenMenuValueShow(&one);
+    saveShot("%s/menu-value-touch-off.bmp", dir);
+    one.note = NULL;
+    one.buttons = true;
+
     /* Auto Off at 30 minutes, on a bar from Off to ten hours in five minute
      * steps. */
     ScreenMenuValue sleep;
     memset(&sleep, 0, sizeof(sleep));
+    sleep.buttons = true; /* Touch On, as on a new radio. */
     sleep.name =
         fmt(STR_MENU_FMT_PATH, txt(STR_MENU_SYSTEM), txt(STR_MENU_AUTO_OFF));
     sleep.value = "30";
@@ -1802,6 +1813,7 @@ int main(int argc, char **argv) {
      * different characters the numeric face has to carry, then Off. */
     ScreenMenuValue offset;
     memset(&offset, 0, sizeof(offset));
+    offset.buttons = true; /* Touch On, as on a new radio. */
     offset.name = fmt(STR_MENU_FMT_PATH, txt(STR_MENU_CONNECTIVITY),
                       txt(STR_MENU_CLOCK_FROM_NETWORK));
     offset.value = "-05:30";
