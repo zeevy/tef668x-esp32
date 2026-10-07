@@ -38,10 +38,11 @@ typedef struct {
   /* Goes up whenever a stored channel changes, so the channel name read
    * from `readChannel` is read again only then. */
   uint32_t memoryGeneration;
-  const char *typed;       /* Digits typed on the keypad so far, or NULL. */
-  ScreenWifi wifi;         /* What the network is doing. */
-  bool rssiValid;          /* The link's strength below was read. */
-  int8_t rssiDbm;          /* The link's strength, in dBm. */
+  const char *typed; /* Digits typed on the keypad so far, or NULL. */
+  bool touchOn;      /* Touch is On and the chip answered: a finger can act. */
+  ScreenWifi wifi;   /* What the network is doing. */
+  bool rssiValid;    /* The link's strength below was read. */
+  int8_t rssiDbm;    /* The link's strength, in dBm. */
   const Battery *battery;  /* The battery readings, or NULL. */
   BatteryShow batteryShow; /* How the battery is shown, if at all. */
   const char *clock;       /* "14:05", or NULL until a server has answered. */

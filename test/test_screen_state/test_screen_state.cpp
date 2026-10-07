@@ -450,6 +450,18 @@ static void the_clock_date_fault_and_log_confirm_are_null_until_set(void) {
   TEST_ASSERT_NULL(state.fault);
 }
 
+/* The menu symbol follows the Touch setting, both ways. */
+static void the_menu_mark_shows_only_with_touch_on(void) {
+  buildNow();
+  TEST_ASSERT_FALSE(state.menuMark);
+  in.touchOn = true;
+  buildNow();
+  TEST_ASSERT_TRUE(state.menuMark);
+  in.touchOn = false;
+  buildNow();
+  TEST_ASSERT_FALSE(state.menuMark);
+}
+
 /* ------------------------------------------------------------ the tiles */
 
 static void the_audio_tile_says_why_there_is_no_sound(void) {
@@ -783,6 +795,7 @@ int main(void) {
   RUN_TEST(rds_is_not_read_on_am);
 
   RUN_TEST(the_clock_date_fault_and_log_confirm_are_null_until_set);
+  RUN_TEST(the_menu_mark_shows_only_with_touch_on);
 
   RUN_TEST(the_audio_tile_says_why_there_is_no_sound);
   RUN_TEST(the_tiles_read_the_settings);

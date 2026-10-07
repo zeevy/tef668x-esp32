@@ -294,6 +294,7 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
    * screen_task.cpp reads them. */
   state.clock = in->clock;
   state.date = in->date;
+  state.menuMark = in->touchOn;
 
   /* What the tuner last refused. Without it the screen can show a station the
    * radio is not actually on, with nothing to say so. */
