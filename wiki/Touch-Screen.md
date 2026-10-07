@@ -85,11 +85,17 @@ On the DX page also:
 
 On the Scope page also:
 
+![The Scope page with Touch On, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-scope.png)
+
+With Touch On, the foot row of the Scope page is five blocks: a button to move the cursor left, the cursor's frequency, a Sweep button, the cursor's level, and a button to move the cursor right. The rise moves up into the chart's top line. With Touch Off the page is as before, one tile with all three readings.
+
 | Where | Touch | Does |
 |---|---|---|
-| The chart and the strip under it | Tap or drag | Moves the cursor to the channel under the finger. The chart has about 1.4 pixels a channel, so turn the knob for the last channel |
+| The chart and the strip under it | Tap or drag | Moves the cursor to the channel under the finger. The chart has about 1.4 pixels a channel, so use the arrow buttons or the knob for the last channel |
 | The chart and the strip under it | Hold | Moves the cursor there and tunes to it, as the tuning knob held |
-| The tile at the foot | Tap | Tunes to the cursor's channel |
+| The left or right arrow button | Tap | Moves the cursor one channel, as a click of the tuning knob |
+| The frequency or the level tile | Tap | Tunes to the cursor's channel |
+| The Sweep button in the middle | Tap | Sweeps the band, as a press of the tuning knob. A sweep takes about 4 seconds; the screen is not read while it runs, so the button is grey then, and the knob's press stops a sweep |
 
 On the Scanner page also: a tap on the amber panel starts a scan, or goes on with one that was stopped, as a press of the tuning knob.
 

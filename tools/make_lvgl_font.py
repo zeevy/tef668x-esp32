@@ -77,7 +77,10 @@ ICON_CODEPOINTS = (
     ("check", 0xE668, "a self test that passed, and a saved menu choice"),
     ("close", 0xE5CD, "a self test that failed"),
     ("wifi_off", 0xE648, "not joined, and not trying"),
-    ("chevron_right", 0xE5CC, "a menu group row, which opens another list"),
+    ("chevron_right", 0xE5CC, "a menu group row, which opens another list,"
+                              " and the Scope page's cursor button to the"
+                              " right"),
+    ("chevron_left", 0xE5CB, "the Scope page's cursor button to the left"),
     ("check_circle", 0xE86C, "a PI confirmed on this channel, on the DX page"),
     ("help", 0xE887, "a PI heard with a digit in doubt, or a country not"
                      " yet sure, on the DX page"),
@@ -87,7 +90,8 @@ ICON_CODEPOINTS = (
                              " Catches page, and the update offer's title."
                              " Name checked in the font"),
     ("inbox", 0xE156, "the Catches page with nothing caught yet"),
-    ("play_arrow", 0xE037, "the DX scanner running"),
+    ("play_arrow", 0xE037, "the DX scanner running, and the Scope page's"
+                           " Sweep button"),
     ("pause", 0xE034, "the DX scanner stopped"),
     ("traffic", 0xE565, "TP, a station that carries traffic news, on the"
                         " RDS Station page"),

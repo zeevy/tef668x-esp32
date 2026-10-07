@@ -638,6 +638,9 @@ typedef enum {
   DX_ZONE_CHART, /* Scope: the chart and the rise strip, which follow a drag. */
   DX_ZONE_FOOT,  /* Scope: the cursor channel's tile. */
   DX_ZONE_ROW,   /* Catches: the top row; the rest follow it. */
+  DX_ZONE_LEFT = DX_ZONE_ROW + 6, /* Scope, past the six rows: cursor left. */
+  DX_ZONE_RIGHT,                  /* Scope: cursor right. */
+  DX_ZONE_SWEEP,                  /* Scope: Sweep. */
 } DxZone;
 
 /* The zones of the DX page when `dxPage`, else of any other DX page:
@@ -645,7 +648,8 @@ typedef enum {
 int screenDxZones(TouchZone *out, int max, bool dxPage);
 
 /* A zone's name, for GET /api/screen: "back", "next", "body", "panel", "pi",
- * "readings", "chart", "foot", "row1" to "row6", or "". */
+ * "readings", "chart", "foot", "row1" to "row6", "left", "right", "sweep",
+ * or "". */
 const char *screenDxZoneName(int id);
 
 /*
@@ -771,6 +775,9 @@ typedef struct {
   const char *cursorLevel; /* "51.4", or NULL for no reading. */
   const char *cursorRise;  /* "+0.4", or NULL with no baseline there. */
   bool riseUp;             /* Above the baseline: amber, else grey. */
+  /* Touch is On: the foot row gives room to a button each way for the
+   * cursor and a Sweep button, and the rise moves up into the chart. */
+  bool buttons;
 } ScreenScope;
 
 bool screenScopeBegin(void);
