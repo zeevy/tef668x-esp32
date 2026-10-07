@@ -115,6 +115,7 @@ The `tch` object inside `inp` shows what the touch controller reads, to check th
 | `pen` | True while a finger or a pen is on the screen |
 | `dn` | How many times the touch controller's pen line has gone low since start. A light touch can break contact and count more than once |
 | `ges` | How many taps, holds, drags and swipes since start. A tap is counted a moment after the finger lifts, and a hold once it has been still for 1.5 s. Touches are not read while the panel is dark, and do not wake it |
+| `chip` | True when the touch chip answered at start up with a reading of its own temperature, the boot screen's Touch row. False when it gave nothing, as a missing chip or a broken data line does |
 | `rd` | How many readings have been taken since start. Readings are taken only while something is on the screen, up to 100 a second. A very short tap, made while the radio is busy redrawing, can be missed by `pen`, `dn` and `rd` alike |
 | `x`, `y` | Where the last reading was, in the touch controller's own steps, 0 to 4095. These are not screen pixels: on the ATS-125, with Display Rotation at Normal, `x` grows down the screen and `y` grows from right to left |
 | `cal` | `stored` when a calibration made on this radio is in use, `board` for the built-in map. See [Touch Screen](Touch-Screen.md) |

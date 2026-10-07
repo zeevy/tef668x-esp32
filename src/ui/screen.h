@@ -146,8 +146,9 @@ typedef struct {
   const char *fault; /* What went wrong, or NULL when nothing did. */
 } ScreenState;
 
-/* How many self tests the boot screen has room for. Two columns of three. */
-#define SCREEN_BOOT_STEPS 6
+/* How many self tests the boot screen has room for: two columns of three,
+ * and one more across both under them. */
+#define SCREEN_BOOT_STEPS 7
 
 /* What one self test came back with. */
 typedef enum {
@@ -172,11 +173,9 @@ typedef struct {
 /*
  * The boot screen.
  *
- * Every row is something `setup` actually answered. There are no Touch and
- * Clock rows, because this firmware can say nothing true about either at boot:
- * touch is not built, and the clock needs a network that deliberately arrives
- * after the radio does. A tick there would not be earned, so those two are
- * not rows.
+ * Every row is something `setup` actually answered. There is no Clock row,
+ * because the clock needs a network that deliberately arrives after the radio
+ * does, so a tick there would not be earned.
  */
 typedef struct {
   const char *product; /* TEF668X. */

@@ -491,6 +491,17 @@ void setup() {
     Serial.println(F("[input] no keypad answered at 0x20, knob only"));
   }
   screenTaskBootStep(BOOT_STEP_KEYPAD, keypadOk, NULL);
+#if FEATURE_TOUCH
+  {
+    /* Read when the input started, a moment ago. */
+    InputStatus input;
+    inputStatusGet(&input);
+    screenTaskBootStep(BOOT_STEP_TOUCH, input.touchChip, NULL);
+  }
+#else
+  /* No touch chip on this board, so no row. */
+  screenTaskBootAbsent(BOOT_STEP_TOUCH);
+#endif
   /* After inputBegin, which puts the built in figures back. */
   inputSetPotConfig(&pot);
 
@@ -501,7 +512,7 @@ void setup() {
    * settings blob nothing else on the radio depends on this mounting, so a
    * person who never holds ENTER has no reason to see a row about it.
    *
-   * After the boot screen's own six rows are already up, not before them:
+   * After the boot screen's own rows are already up, not before them:
    * the first boot after a flash formats a partition nothing has used yet,
    * which is not instant, and the panel must not sit dark waiting on it.
    */

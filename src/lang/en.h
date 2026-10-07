@@ -270,6 +270,7 @@
   X(BOOT_RADIO, "Radio", "Boot screen step name") \
   X(BOOT_CHANNELS, "Presets", "Boot screen step name") \
   X(BOOT_KEYPAD, "Keypad", "Boot screen step name") \
+  X(BOOT_TOUCH, "Touch", "Boot screen step name: the touch chip answered") \
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
   X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the amber panel, in place of the radio text, while the update check runs") \

@@ -6,7 +6,7 @@ What the radio does when it starts for the first time, and how to put it on your
 
 At every start the radio runs a short self test and shows each check as it is done.
 
-![The boot screen, with six checks and a progress bar](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/boot.png)
+![The boot screen, with seven checks and a progress bar](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/boot.png)
 
 The top line shows `TEF668X` and the radio, `ATS125`. The amber banner under it shows the tuner chip and the firmware version, for example `TEF6686 v0.1.0`, or `---` until the tuner answers. A check shows a tick when it passed, a cross when it failed, and `-` while it is still waiting. A check with a value, such as the number of presets, shows the value instead: in red when the check failed.
 
@@ -18,6 +18,7 @@ The top line shows `TEF668X` and the radio, `ATS125`. The amber banner under it 
 | Presets | The stored presets were read. The number is how many there are. A number in red means some could not be read |
 | Keypad | The keypad answered. Without it the knob still works |
 | Battery | The battery voltage, read once at start up |
+| Touch | The touch screen's chip answered, with a reading of its own temperature. A cross means it gave nothing, and touch will not work; the knob and the keys still do. Not shown on a radio without a touch screen |
 
 A failed check does not stop the start. The radio carries on, so it can still be reached over Wi-Fi and updated.
 

@@ -266,6 +266,7 @@ bool inputBegin(EncoderKind kind, EncoderDirection direction) {
   sStatus.keypadPresent = keypadBegin();
 #if FEATURE_TOUCH
   touchBegin();
+  sStatus.touchChip = touchChipAnswers(touchTemp0());
   /* So a finger already down at the first poll is counted as a press. */
   sStatus.touchOn = sTouchOn;
   memset(&sTouchFilter, 0, sizeof(sTouchFilter));

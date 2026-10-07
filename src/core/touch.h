@@ -155,6 +155,17 @@ bool touchZonesValid(const TouchZone *zones, int n);
 int touchZoneAt(const TouchZone *zones, int n, TouchPoint p);
 
 /*
+ * Whether the touch chip answered, from its TEMP0 reading: the chip's own
+ * temperature diode, single ended against the supply. From -40 to 85 C the
+ * diode sits between about 0.47 and 0.74 V, which against a supply of 3.0 to
+ * 3.6 V is 539 to 1005 counts; one radio read 705 at room temperature. A
+ * chip not there, or a data line that does not work, reads 0 or 4095.
+ */
+#define TOUCH_TEMP0_LOW 500
+#define TOUCH_TEMP0_HIGH 1050
+bool touchChipAnswers(uint16_t temp0);
+
+/*
  * The weakest reading that is contact. With nothing on the glass the chip's
  * first contact reading, Z1, reads 0 to 5, a reading taken as a finger lifts
  * among them; the weakest real touch measured, a fingertip at a corner that

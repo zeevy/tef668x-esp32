@@ -46,4 +46,8 @@ void touchRead(TouchRaw *out);
  * takes it. */
 void touchTake(TouchReading *r, TouchRaw *raw);
 
+/* The chip's TEMP0 reading, for whether it answers at all: 0 when nothing
+ * answers. */
+uint16_t touchTemp0(void);
+
 #endif /* DRIVERS_TOUCH_H */

@@ -30,6 +30,10 @@
 #define XPT_Z1 0xB1    /* First pressure input. */
 #define XPT_Z2 0xC1    /* Second pressure input. */
 #define XPT_Y_END 0x90 /* Y position, then power down with the pen line on. */
+/* The temperature diode, single ended against the supply, with the internal
+ * reference left off so it cannot fight whatever the reference pin is tied
+ * to. */
+#define XPT_TEMP0 0x85
 
 static SPISettings sSettings(TOUCH_SPI_HZ, MSBFIRST, SPI_MODE0);
 
@@ -77,6 +81,20 @@ void touchRead(TouchRaw *out) {
   out->y = convert(spi, XPT_Y_END);
   digitalWrite(PIN_TOUCH_CS, HIGH);
   spi.endTransaction();
+}
+
+uint16_t touchTemp0(void) {
+  SPIClass &spi = displaySpi();
+  spi.beginTransaction(sSettings);
+  digitalWrite(PIN_TOUCH_CS, LOW);
+  /* Twice, the first to let the input settle, then power down with the pen
+   * line back on, as every read ends. */
+  (void)convert(spi, XPT_TEMP0);
+  const uint16_t t = convert(spi, XPT_TEMP0);
+  (void)convert(spi, XPT_Y_END);
+  digitalWrite(PIN_TOUCH_CS, HIGH);
+  spi.endTransaction();
+  return t;
 }
 
 #endif /* FEATURE_TOUCH */

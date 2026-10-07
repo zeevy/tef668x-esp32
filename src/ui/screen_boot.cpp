@@ -2,15 +2,15 @@
  * The boot screen: what came up, and what answered.
  *
  * It is the one screen a person sees before the radio exists, so everything
- * on it is something `setup` has actually been told. The rows are the six
+ * on it is something `setup` has actually been told. The rows are the
  * questions it can answer by the time it draws them, and a row that has not
  * answered yet shows a dash rather than a tick.
  *
  * The frame every screen uses: the product on the left of the header and the
  * board on its right. The tuner the chip said it is sits on the amber panel,
- * the way the radio screen puts what it is tuned to there. The six self tests
- * are grey tiles in two columns, and the bar under them fills as each one
- * answers.
+ * the way the radio screen puts what it is tuned to there. The self tests are
+ * grey tiles, six in two columns and Touch across both under them, and the
+ * bar under them fills as each one answers.
  *
  * It is built on the active screen on its own, before the radio layout
  * exists, and deleted whole when the radio takes over.
@@ -29,20 +29,21 @@
 
 /* The amber panel with the tuner on it. */
 #define PANEL_Y 32
-#define PANEL_H 44
-#define PANEL_BASE 62
+#define PANEL_H 36
+#define PANEL_BASE 58
 
-/* The tests: two columns of three tiles, 28 high on a 36 pitch. */
+/* The tests: two columns of three tiles, then one across both, 28 high on a
+ * 32 pitch. */
 #define TEST_ROWS 3
-#define TEST_TOP 84
-#define TEST_PITCH 36
+#define TEST_TOP 76
+#define TEST_PITCH 32
 #define TEST_H 28
 #define TEST_BASE 20
 
-/* The bar under them. */
-#define BAR_Y 196
-#define BAR_H 12
-#define BAR_R 6
+/* The bar under them, thin enough to leave the hint line its room. */
+#define BAR_Y 204
+#define BAR_H 8
+#define BAR_R 4
 
 static lv_obj_t *sBoot;
 static UiFrame sFrame;
@@ -57,12 +58,23 @@ static int16_t tileW(void) {
   return (int16_t)((BOOT_W - 2 * UI_MARGIN - UI_GAP) / 2);
 }
 
+/* Tests past the two columns are a row each across both. */
+static bool across(uint8_t i) {
+  return i >= 2 * TEST_ROWS;
+}
+
+static int16_t tileWidth(uint8_t i) {
+  return across(i) ? (int16_t)(BOOT_W - 2 * UI_MARGIN) : tileW();
+}
+
 static int16_t tileX(uint8_t i) {
-  return (int16_t)(UI_MARGIN + (i >= TEST_ROWS ? tileW() + UI_GAP : 0));
+  return (int16_t)(UI_MARGIN +
+                   (!across(i) && i >= TEST_ROWS ? tileW() + UI_GAP : 0));
 }
 
 static int16_t tileY(uint8_t i) {
-  return (int16_t)(TEST_TOP + (i % TEST_ROWS) * TEST_PITCH);
+  const uint8_t row = across(i) ? (uint8_t)(i - TEST_ROWS) : i % TEST_ROWS;
+  return (int16_t)(TEST_TOP + row * TEST_PITCH);
 }
 
 bool screenBootBegin(void) {
@@ -92,8 +104,8 @@ bool screenBootBegin(void) {
   sTuner = uiLabel(sBoot, &roboto_menu, t->ground);
 
   for (uint8_t i = 0; i < SCREEN_BOOT_STEPS; i++) {
-    sTile[i] =
-        uiRound(sBoot, t->rule, tileX(i), tileY(i), tileW(), TEST_H, UI_TILE_R);
+    sTile[i] = uiRound(sBoot, t->rule, tileX(i), tileY(i), tileWidth(i), TEST_H,
+                       UI_TILE_R);
     sName[i] = uiLabel(sBoot, &roboto_small, t->measurement);
     sMark[i] = uiLabel(sBoot, &roboto_icons, t->dead);
     uiShowIf(sTile[i], false);
@@ -139,7 +151,7 @@ void screenBootShow(const ScreenBoot *boot) {
       continue;
     }
     const int16_t base = (int16_t)(tileY(i) + TEST_BASE);
-    const int16_t right = (int16_t)(tileX(i) + tileW() - UI_PAD);
+    const int16_t right = (int16_t)(tileX(i) + tileWidth(i) - UI_PAD);
     uiSetText(sName[i], step->name);
     uiBaseline(sName[i], &roboto_small, (int16_t)(tileX(i) + UI_PAD), base);
     /*

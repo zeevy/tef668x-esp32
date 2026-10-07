@@ -1072,6 +1072,18 @@ static void the_owners_taps_holds_and_swipes_come_out_as_made(void) {
   }
 }
 
+/* The chip answers with a temperature reading in its band; a missing chip
+ * reads 0 and a floating line 4095. */
+static void the_chip_answers_inside_its_temperature_band(void) {
+  TEST_ASSERT_TRUE(touchChipAnswers(705));
+  TEST_ASSERT_TRUE(touchChipAnswers(TOUCH_TEMP0_LOW));
+  TEST_ASSERT_TRUE(touchChipAnswers(TOUCH_TEMP0_HIGH));
+  TEST_ASSERT_FALSE(touchChipAnswers(TOUCH_TEMP0_LOW - 1));
+  TEST_ASSERT_FALSE(touchChipAnswers(TOUCH_TEMP0_HIGH + 1));
+  TEST_ASSERT_FALSE(touchChipAnswers(0));
+  TEST_ASSERT_FALSE(touchChipAnswers(4095));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
   RUN_TEST(the_pe5pvb_defaults_fit_back);
@@ -1129,5 +1141,6 @@ int main(int, char **) {
   RUN_TEST(the_point_is_the_median_of_the_latest_three);
   RUN_TEST(a_missing_filter_or_reading_is_no_contact);
   RUN_TEST(the_owners_taps_holds_and_swipes_come_out_as_made);
+  RUN_TEST(the_chip_answers_inside_its_temperature_band);
   return UNITY_END();
 }

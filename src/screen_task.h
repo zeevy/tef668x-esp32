@@ -43,7 +43,8 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees);
 /*
  * The self tests the boot screen reports, in the order they are drawn.
  *
- * The first three are the left column and the last three the right. Every one
+ * The first three are the left column, the next three the right, and Touch
+ * a row of its own across both under them. Every one
  * of them is something `setup` is told by the thing itself, and every one can
  * come back false. That is the test for whether a row belongs here. There is
  * no `Panel` row, because a panel that did not start has no boot screen to
@@ -59,6 +60,7 @@ typedef enum {
   BOOT_STEP_CHANNELS, /* The channel store opened. The value is the count. */
   BOOT_STEP_KEYPAD,   /* A keypad answered at 0x20. */
   BOOT_STEP_BATTERY,  /* The one battery reading this boot gets. */
+  BOOT_STEP_TOUCH,    /* The touch chip answered with its temperature. */
 } BootStep;
 
 /*

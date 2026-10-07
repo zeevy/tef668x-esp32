@@ -1413,8 +1413,8 @@ int main(int argc, char **argv) {
   boot.board = version;
   boot.tuner = fmt(STR_BOOT_FMT_TUNER_VERSION, "TEF6686", FIRMWARE_VERSION);
   static const StrId names[SCREEN_BOOT_STEPS] = {
-      STR_BOOT_SETTINGS, STR_COMMON_TUNER, STR_BOOT_RADIO,
-      STR_BOOT_CHANNELS, STR_BOOT_KEYPAD,  STR_COMMON_BATTERY,
+      STR_BOOT_SETTINGS, STR_COMMON_TUNER,   STR_BOOT_RADIO, STR_BOOT_CHANNELS,
+      STR_BOOT_KEYPAD,   STR_COMMON_BATTERY, STR_BOOT_TOUCH,
   };
   for (int i = 0; i < SCREEN_BOOT_STEPS; i++) {
     boot.steps[i].name = txt(names[i]);
@@ -1427,7 +1427,8 @@ int main(int argc, char **argv) {
   boot.steps[4].mark = SCREEN_BOOT_FAILED;
   boot.steps[5].mark = SCREEN_BOOT_OK;
   boot.steps[5].value = fmt(STR_COMMON_FMT_VOLTS, 3u, 91u);
-  boot.done = 5;
+  boot.steps[6].mark = SCREEN_BOOT_OK;
+  boot.done = 6;
   boot.total = SCREEN_BOOT_STEPS;
   if (screenBootBegin()) {
     screenBootShow(&boot);

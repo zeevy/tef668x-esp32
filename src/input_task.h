@@ -62,6 +62,7 @@ typedef struct {
   bool touchCalStored; /* The map in use is one a person made, not the
                         * board's own. */
   uint32_t touchGestures; /* Taps, holds, drags and swipes since boot. */
+  bool touchChip; /* The touch chip answered at start up, with its TEMP0. */
 } InputStatus;
 
 /*
