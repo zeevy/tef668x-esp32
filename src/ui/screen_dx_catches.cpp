@@ -209,11 +209,12 @@ void screenCatchesShow(const ScreenCatches *c) {
   }
   const Theme *t = themeCurrent();
 
+  /* No next page mark after a moment's message. */
+  uiFrameMarks(&sFrame, true, !c->positionIsMessage);
   char fit[40];
   const char *position = uiFitHeaderText(
-      c->position, CATCH_W,
-      (int16_t)(UI_MARGIN + uiTextWidth(sFrame.title, &roboto_title) + UI_GAP),
-      fit, sizeof(fit));
+      c->position, CATCH_W, (int16_t)(uiFrameTitleEnd(&sFrame) + UI_GAP), fit,
+      sizeof(fit));
   uiFrameShow(&sFrame, txt(STR_DX_TITLE_CATCHES), c->range, position, c->clock,
               NULL, NULL);
   uiSetColour(sFrame.position, c->positionIsMessage ? themeCurrent()->radio

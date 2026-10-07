@@ -1710,6 +1710,8 @@ static void reopenForTheme(void) {
 }
 
 void screenTaskPoll(void) {
+  /* The headers' touch marks follow the Touch setting and the chip. */
+  uiSetTouchMarks(inputTouchUsable());
   if (sBootUp && sSwap == BOOT_SWAP_NONE) {
     /* Signed subtraction, so the millis wrap is one more pass round rather
      * than a boot screen held for another forty nine days. */

@@ -101,6 +101,9 @@
 
 static lv_obj_t *sDx;
 static lv_obj_t *sTitle;
+/* The touch marks, as every other page's header draws them. */
+static lv_obj_t *sBack;
+static lv_obj_t *sNext;
 static lv_obj_t *sRing[2];
 static lv_obj_t *sSleep;
 static lv_obj_t *sPosition;
@@ -216,7 +219,11 @@ bool screenDxBegin(void) {
 
   sTitle = uiLabel(sDx, &roboto_title, t->radio);
   uiSetTextStatic(sTitle, txt(STR_DX_TITLE));
-  uiBaseline(sTitle, &roboto_title, UI_MARGIN, UI_HEAD_TITLE_BASE);
+  sBack = uiLabel(sDx, &roboto_icons, t->radio);
+  uiSetTextStatic(sBack, ICON_CHEVRON_LEFT);
+  lv_obj_set_pos(sBack, UI_BACK_MARK_X, UI_HEAD_ICON_TOP);
+  sNext = uiLabel(sDx, &roboto_icons, t->dead);
+  uiSetTextStatic(sNext, ICON_CHEVRON);
   sRing[0] = ring(sDx, t);
   sRing[1] = ring(sDx, t);
   sSleep = uiLabel(sDx, &roboto_icons, t->dead);
@@ -292,10 +299,14 @@ bool screenDxBegin(void) {
  * which is cut to the room left of the title, the sleep mark and the stereo
  * mark's place. */
 static void showHeader(const ScreenDx *dx) {
+  const bool marks = uiTouchMarks();
+  const int16_t titleX = marks ? UI_TITLE_AFTER_BACK : UI_MARGIN;
+  uiShowIf(sBack, marks);
+  uiBaseline(sTitle, &roboto_title, titleX, UI_HEAD_TITLE_BASE);
   char fit[40];
   const char *position =
       uiFitHeaderText(dx->position, DX_W,
-                      (int16_t)(UI_MARGIN + uiTextWidth(sTitle, &roboto_title) +
+                      (int16_t)(titleX + uiTextWidth(sTitle, &roboto_title) +
                                 UI_GAP + STEREO_W + UI_GAP),
                       fit, sizeof(fit));
   int16_t right = (int16_t)(DX_W - UI_MARGIN);
@@ -309,7 +320,14 @@ static void showHeader(const ScreenDx *dx) {
   /* A moment's message in `radio`, so it is seen; the page in `dead`. */
   uiSetColour(sPosition, dx->positionIsMessage ? themeCurrent()->radio
                                                : themeCurrent()->dead);
+  const bool nextOn = marks && position != NULL && !dx->positionIsMessage;
+  uiShowIf(sNext, nextOn);
   if (position != NULL) {
+    if (nextOn) {
+      lv_obj_set_pos(sNext, (int16_t)(right - UI_ICON_SIZE + 3),
+                     UI_HEAD_ICON_TOP);
+      right = (int16_t)(right - UI_ICON_SIZE + 2);
+    }
     const int16_t pw = uiTextWidth(sPosition, &roboto_label);
     uiBaseline(sPosition, &roboto_label, (int16_t)(right - pw),
                UI_HEAD_RUN_BASE);

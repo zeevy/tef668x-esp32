@@ -202,11 +202,36 @@ typedef struct {
   lv_obj_t *hintLeft;
   lv_obj_t *hintRight;
   lv_obj_t *sleep; /* The sleep mark, left of the run. */
-  int16_t w;       /* The parent's width, read once when it was built. */
+  /* With touch, a < before the title where a tap goes back, and a > after
+   * the page position where a tap goes to the next page; each only on a
+   * screen whose header does that, by uiFrameMarks. */
+  lv_obj_t *back;
+  lv_obj_t *next;
+  bool backMark;
+  bool pageMark;
+  int16_t w; /* The parent's width, read once when it was built. */
 } UiFrame;
 
 void uiFrameBegin(UiFrame *f, lv_obj_t *parent, const Theme *t,
                   ThemeColour title);
+
+/* Which of the touch marks this header carries: `back` where a tap on the
+ * title goes back, `page` where a tap on the page position goes on. */
+void uiFrameMarks(UiFrame *f, bool back, bool page);
+
+/* Whether a finger can act, so the touch marks are drawn: one setting for
+ * every screen, as the sleep mark is, set by the screen task. */
+void uiSetTouchMarks(bool on);
+bool uiTouchMarks(void);
+
+/* Where the title ends, the back mark before it counted: what a run fitted
+ * into the rest of the header starts from. */
+int16_t uiFrameTitleEnd(const UiFrame *f);
+
+/* Where a header's title starts, after the back mark while it shows, and
+ * where the back mark itself sits. */
+#define UI_BACK_MARK_X (UI_MARGIN - 4)
+#define UI_TITLE_AFTER_BACK (UI_BACK_MARK_X + UI_ICON_SIZE + 2)
 
 /*
  * The person in bed every header shows while auto off is on: grey, and in
@@ -233,8 +258,8 @@ void uiFrameShow(UiFrame *f, const char *title, const char *context,
 /*
  * `text` in the label face, cut to fit a header's run from `left` to the
  * right margin of a screen `w` wide, with room kept for the sleep mark while
- * it shows. For a header's text that can be long, such as a moment's message
- * in place of the page and the clock.
+ * it shows and for the page mark while touch marks show. For a header's page
+ * position, or a moment's message in its place, which can be long.
  */
 const char *uiFitHeaderText(const char *text, int16_t w, int16_t left,
                             char *out, size_t cap);

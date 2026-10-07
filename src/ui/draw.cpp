@@ -256,6 +256,46 @@ void uiFrameBegin(UiFrame *f, lv_obj_t *parent, const Theme *t,
   f->hintRight = uiLabel(parent, &roboto_label, t->dead);
   f->sleep = uiLabel(parent, &roboto_icons, t->dead);
   uiSetTextStatic(f->sleep, ICON_SLEEP);
+  f->back = NULL;
+  f->next = NULL;
+  f->backMark = false;
+  f->pageMark = false;
+}
+
+/* Each mark is built the first time a screen asks for it, so a header that
+ * never shows one spends none of the LVGL pool on it. */
+void uiFrameMarks(UiFrame *f, bool back, bool page) {
+  f->backMark = back;
+  f->pageMark = page;
+  lv_obj_t *parent = lv_obj_get_parent(f->title);
+  const Theme *t = themeCurrent();
+  if (back && f->back == NULL) {
+    f->back = uiLabel(parent, &roboto_icons, t->radio);
+    uiSetTextStatic(f->back, ICON_CHEVRON_LEFT);
+    lv_obj_set_pos(f->back, UI_BACK_MARK_X, UI_HEAD_ICON_TOP);
+  }
+  if (page && f->next == NULL) {
+    f->next = uiLabel(parent, &roboto_icons, t->dead);
+    uiSetTextStatic(f->next, ICON_CHEVRON);
+  }
+}
+
+static bool sTouchMarks = false;
+
+void uiSetTouchMarks(bool on) {
+  sTouchMarks = on;
+}
+
+bool uiTouchMarks(void) {
+  return sTouchMarks;
+}
+
+static int16_t frameTitleX(const UiFrame *f) {
+  return sTouchMarks && f->backMark ? UI_TITLE_AFTER_BACK : UI_MARGIN;
+}
+
+int16_t uiFrameTitleEnd(const UiFrame *f) {
+  return (int16_t)(frameTitleX(f) + uiTextWidth(f->title, &roboto_title));
 }
 
 static UiSleepMark sSleepMark = UI_SLEEP_NONE;
@@ -282,19 +322,47 @@ void uiFrameShow(UiFrame *f, const char *title, const char *context,
                  const char *position, const char *clock, const char *hintLeft,
                  const char *hintRight) {
   const int16_t w = f->w;
-  uiSetText(f->title, title != NULL ? title : "");
-  uiBaseline(f->title, &roboto_title, UI_MARGIN, UI_HEAD_TITLE_BASE);
+  const bool hasTitle = title != NULL && title[0] != '\0';
+  uiSetText(f->title, hasTitle ? title : "");
+  if (f->back != NULL) {
+    uiShowIf(f->back, sTouchMarks && f->backMark && hasTitle);
+  }
+  uiBaseline(f->title, &roboto_title, frameTitleX(f), UI_HEAD_TITLE_BASE);
 
   int16_t right = (int16_t)(w - UI_MARGIN);
   lv_obj_t *const runs[3] = {f->clock, f->position, f->context};
   const char *const words[3] = {clock, position, context};
   const lv_font_t *const faces[3] = {&roboto_small, &roboto_label,
                                      &roboto_label};
+  const bool nextOn = f->next != NULL && sTouchMarks && f->pageMark &&
+                      position != NULL && position[0] != '\0';
+  if (f->next != NULL) {
+    uiShowIf(f->next, nextOn);
+  }
+  /* The run never reaches the title: the context, the last word placed, is
+   * cut to the room left between them, the sleep mark's place kept. */
+  const int16_t sleepW =
+      sSleepMark != UI_SLEEP_NONE ? (int16_t)(UI_ICON_SIZE + UI_GAP) : 0;
+  const int16_t titleEnd =
+      (int16_t)(uiFrameTitleEnd(f) + (hasTitle ? UI_GAP : 0));
+  char fit[48];
   for (int k = 0; k < 3; k++) {
     const bool on = words[k] != NULL && words[k][0] != '\0';
-    uiSetOrHide(runs[k], on ? words[k] : NULL);
+    const char *word =
+        on && runs[k] == f->context
+            ? uiFitText(words[k], faces[k],
+                        (int16_t)(right - titleEnd - sleepW), fit, sizeof(fit))
+            : words[k];
+    uiSetOrHide(runs[k], on ? word : NULL);
     if (!on) {
       continue;
+    }
+    /* The page mark tight after the position: the symbol's box carries
+     * space either side of its ink. */
+    if (runs[k] == f->position && nextOn) {
+      lv_obj_set_pos(f->next, (int16_t)(right - UI_ICON_SIZE + 3),
+                     UI_HEAD_ICON_TOP);
+      right = (int16_t)(right - UI_ICON_SIZE + 2);
     }
     const int16_t tw = uiTextWidth(runs[k], faces[k]);
     uiBaseline(runs[k], faces[k], (int16_t)(right - tw), UI_HEAD_RUN_BASE);
@@ -317,8 +385,9 @@ const char *uiFitHeaderText(const char *text, int16_t w, int16_t left,
                             char *out, size_t cap) {
   const int16_t sleep =
       sSleepMark != UI_SLEEP_NONE ? (int16_t)(UI_ICON_SIZE + UI_GAP) : 0;
-  return uiFitText(text, &roboto_label, (int16_t)(w - UI_MARGIN - left - sleep),
-                   out, cap);
+  const int16_t page = sTouchMarks ? (int16_t)(UI_ICON_SIZE - 2) : 0;
+  return uiFitText(text, &roboto_label,
+                   (int16_t)(w - UI_MARGIN - left - sleep - page), out, cap);
 }
 
 /* The text's baseline sits 6 rows below a row's middle, 21 down a row of
