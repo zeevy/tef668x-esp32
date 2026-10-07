@@ -1881,6 +1881,7 @@ int main(int argc, char **argv) {
         pin.digitAt = kPin[i].at;
         pin.digitPlace = place;
         pin.label = txt(STR_MENU_NEW_PIN);
+        pin.buttons = true; /* Touch On, as on a new radio. */
         screenMenuValueShow(&pin);
         lv_refr_now(NULL);
         int count[2] = {0, 0};
@@ -1891,6 +1892,25 @@ int main(int argc, char **argv) {
           exit(1);
         }
         saveShot("%s/%s.bmp", dir, kPin[i].file);
+        if (i == 1) {
+          /* Its keys' touch zones, and the same PIN with Touch Off. */
+          TouchZone zones[TOUCH_ZONES_MAX];
+          snprintf(path, sizeof(path), "%s/touch-pin.bmp", dir);
+          saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
+          pin.buttons = false;
+          screenMenuValueShow(&pin);
+          lv_refr_now(NULL);
+          int off[2] = {0, 0};
+          uiReadPanel(countPinTexts, NULL, off);
+          if (off[0] != 6 || off[1] != 0) {
+            fprintf(stderr,
+                    "menu-pin-touch-off: %d stars and %d digits read back, not "
+                    "6 and 0\n",
+                    off[0], off[1]);
+            exit(1);
+          }
+          saveShot("%s/menu-pin-touch-off.bmp", dir);
+        }
       }
     }
 

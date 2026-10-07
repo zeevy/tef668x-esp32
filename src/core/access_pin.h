@@ -110,6 +110,10 @@ bool accessPinEditNext(AccessPinEdit *edit);
  * and changes nothing. */
 bool accessPinEditType(AccessPinEdit *edit, uint8_t digit);
 
+/* Go back to the digit before, to set it again; its digit is kept until it
+ * is. False on the first digit, where there is nothing to go back to. */
+bool accessPinEditBack(AccessPinEdit *edit);
+
 /* The PIN the digits make, 0 to 999999. */
 uint32_t accessPinEditValue(const AccessPinEdit *edit);
 

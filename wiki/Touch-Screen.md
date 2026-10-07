@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The Web PIN and the update offer are still worked with the knobs, the buttons and the keypad, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Web PIN, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The update offer is still worked with the knobs and the buttons, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
 
 ## The radio screen
 
@@ -68,6 +68,20 @@ On a value with a bar, such as Brightness or Squelch Floor:
 Minus, Keep and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
 
 ![The value screen with minus, Keep and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
+
+## The Web PIN
+
+![The Web PIN with its keys, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-pin.png)
+
+**Connectivity > Web PIN** shows the six digits on a panel and, while Touch is On, three rows of keys under it. The digit being set has a box round it.
+
+| Where | Touch | Does |
+|---|---|---|
+| A digit, 0 to 9 | Tap | Sets the boxed digit and moves to the next, as the digit key on the radio does. The sixth saves the PIN |
+| Backspace | Tap | Goes back one digit, to set it again |
+| Cancel, or the top line | Tap | Leaves the PIN as it was |
+
+The digits never show in [GET /api/screen](HTTP-API.md#get-apiscreen), which reads them out as stars. With Touch Off the screen is as before: the knob turns the boxed digit and its press moves on.
 
 ## The Restart Radio question
 

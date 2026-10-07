@@ -3307,6 +3307,15 @@ void menuTaskBack(void) {
   draw();
 }
 
+bool menuTaskDigitBack(void) {
+  gestureBegins();
+  if (!menuIsOpen(&sMenu) || !pinEditing() || !accessPinEditBack(&sPin)) {
+    return false;
+  }
+  draw();
+  return true;
+}
+
 bool menuTaskDigit(uint8_t digit) {
   gestureBegins();
   if (!menuIsOpen(&sMenu) || !pinEditing() || digit > 9) {

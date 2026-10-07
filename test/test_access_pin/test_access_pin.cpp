@@ -229,12 +229,34 @@ static void typed_digits_fill_in_and_the_sixth_finishes(void) {
   TEST_ASSERT_EQUAL_UINT32(482917, accessPinEditValue(&e));
 }
 
+/* Back steps to the digit before and keeps it until it is set again; on the
+ * first digit there is nothing to go back to. */
+static void back_steps_to_the_digit_before(void) {
+  AccessPinEdit e;
+  accessPinEditBegin(&e, 0);
+  TEST_ASSERT_FALSE(accessPinEditBack(&e));
+  TEST_ASSERT_EQUAL_UINT8(0, e.at);
+  TEST_ASSERT_FALSE(accessPinEditType(&e, 4));
+  TEST_ASSERT_FALSE(accessPinEditType(&e, 9));
+  TEST_ASSERT_TRUE(accessPinEditBack(&e));
+  TEST_ASSERT_EQUAL_UINT8(1, e.at);
+  TEST_ASSERT_EQUAL_UINT32(490000, accessPinEditValue(&e));
+  TEST_ASSERT_FALSE(accessPinEditType(&e, 8));
+  TEST_ASSERT_EQUAL_UINT8(2, e.at);
+  TEST_ASSERT_EQUAL_UINT32(480000, accessPinEditValue(&e));
+  /* From the last digit, back to the fifth. */
+  e.at = 5;
+  TEST_ASSERT_TRUE(accessPinEditBack(&e));
+  TEST_ASSERT_EQUAL_UINT8(4, e.at);
+}
+
 static void the_editor_does_nothing_with_a_null(void) {
   accessPinEditBegin(NULL, 1);
   accessPinEditTurn(NULL, 1);
   TEST_ASSERT_FALSE(accessPinEditNext(NULL));
   TEST_ASSERT_FALSE(accessPinEditType(NULL, 1));
   TEST_ASSERT_EQUAL_UINT32(0, accessPinEditValue(NULL));
+  TEST_ASSERT_FALSE(accessPinEditBack(NULL));
 }
 
 int main(int, char **) {
@@ -257,6 +279,7 @@ int main(int, char **) {
   RUN_TEST(a_turn_changes_one_digit_and_goes_round);
   RUN_TEST(the_sixth_press_finishes_the_pin);
   RUN_TEST(typed_digits_fill_in_and_the_sixth_finishes);
+  RUN_TEST(back_steps_to_the_digit_before);
   RUN_TEST(the_editor_does_nothing_with_a_null);
   return UNITY_END();
 }
