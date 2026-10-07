@@ -687,6 +687,8 @@ static void appendRadioState(String &out) {
  *          `pen` and `dn` move. `pen` true while its pen line says a finger is down,
  *          `dn` times that line went down since boot, `rd` readings taken
  *          since boot, `ges` the taps, holds, drags and swipes since boot,
+ *          `chip` whether the chip answered at start up with its own
+ *          temperature, the boot screen's Touch row,
  *          and `x`, `y`, `z1` and `z2` the last reading, raw 0 to 4095,
  *          null before the first. `cal` is `stored` when a
  *          calibration a person made is in use, `board` for the board's
@@ -733,6 +735,7 @@ static void appendInputState(String &out) {
   jsonNum(out, "dn", in.touchDowns);
   jsonNum(out, "rd", in.touchReads);
   jsonNum(out, "ges", in.touchGestures);
+  jsonBool(out, "chip", in.touchChip);
   out += F(",\"cal\":\"");
   out += in.touchCalStored ? F("stored") : F("board");
   out += F("\"");

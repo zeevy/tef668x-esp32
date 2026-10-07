@@ -168,6 +168,10 @@ static bool overlap(const TouchZone *a, const TouchZone *b) {
          b->y < a->y + a->h;
 }
 
+bool touchChipAnswers(uint16_t temp0) {
+  return temp0 >= TOUCH_TEMP0_LOW && temp0 <= TOUCH_TEMP0_HIGH;
+}
+
 bool touchZonesValid(const TouchZone *zones, int n) {
   for (int i = 0; i < n; i++) {
     if (zones[i].w < 1 || zones[i].h < 1) {

@@ -275,8 +275,8 @@ static void swapBegin(void) {
  * is the one place that knows both.
  */
 static const StrId kBootNames[SCREEN_BOOT_STEPS] = {
-    STR_BOOT_SETTINGS, STR_COMMON_TUNER, STR_BOOT_RADIO,
-    STR_BOOT_CHANNELS, STR_BOOT_KEYPAD,  STR_COMMON_BATTERY,
+    STR_BOOT_SETTINGS, STR_COMMON_TUNER,   STR_BOOT_RADIO, STR_BOOT_CHANNELS,
+    STR_BOOT_KEYPAD,   STR_COMMON_BATTERY, STR_BOOT_TOUCH,
 };
 
 static void writeBacklight(uint8_t percent) {
