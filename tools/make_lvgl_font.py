@@ -84,8 +84,8 @@ ICON_CODEPOINTS = (
     ("backspace", 0xE14A, "the frequency keypad's backspace key"),
     ("remove", 0xE15B, "the value editor's minus button, with Touch On"),
     ("add", 0xE145, "the value editor's plus button, with Touch On"),
-    ("menu", 0xE5D2, "the menu symbol in the radio screen's header, with"
-                     " Touch On"),
+    ("density_small", 0xEBA8, "the menu symbol, four lines, at the top left of"
+                              " the radio screen, with Touch On"),
     ("check_circle", 0xE86C, "a PI confirmed on this channel, on the DX page"),
     ("help", 0xE887, "a PI heard with a digit in doubt, or a country not"
                      " yet sure, on the DX page"),

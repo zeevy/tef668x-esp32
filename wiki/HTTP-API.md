@@ -177,9 +177,14 @@ What the screen shows now, one JSON object per line. The first line names the sc
 {"zone":"bw","x":160,"y":204,"w":76,"h":28}
 {"zone":"vol","x":236,"y":204,"w":84,"h":28}
 {"x":0,"y":0,"w":320,"h":240,"fill":"#080C10","fillRole":"ground|header"}
-{"x":46,"y":3,"w":25,"h":23,"c":"#F8B000","role":"radio","font":"title","text":"FM"}
-{"x":272,"y":7,"w":36,"h":17,"c":"#E0E4E0","role":"measurement","font":"small","text":"20:05"}
-{"x":12,"y":7,"w":16,"h":15,"c":"#8894A0","role":"dead","font":"icons","text":""}
+{"x":36,"y":3,"w":25,"h":23,"c":"#F8B000","role":"radio","font":"title","text":"FM"}
+{"x":248,"y":7,"w":16,"h":15,"c":"#8894A0","role":"dead","font":"icons","text":""}
+{"x":248,"y":7,"w":16,"h":15,"c":"#30C098","role":"good","font":"icons","text":""}
+{"x":214,"y":8,"w":24,"h":12,"border":1,"borderC":"#8894A0","borderRole":"dead"}
+{"x":216,"y":10,"w":11,"h":8,"fill":"#30C098","fillRole":"good"}
+{"x":238,"y":11,"w":2,"h":6,"fill":"#8894A0","fillRole":"dead"}
+{"x":272,"y":7,"w":36,"h":17,"c":"#E0E4E0","role":"measurement","font":"small","text":"20:29"}
+{"x":12,"y":7,"w":16,"h":15,"c":"#8894A0","role":"dead","font":"icons","text":""}
 {"x":12,"y":32,"w":296,"h":88,"fill":"#F8B000","fillRole":"radio"}
 ...
 ```
