@@ -107,7 +107,7 @@ Numbers are whole numbers. A value with a fraction is sent in tenths: `"sig":168
 | `inp` | The controls: `pot` and `pdb` the volume knob, `typ` digits being typed, `lst` the last key in words, and `tch` the touch screen, below |
 | `tun` | The tuner and the station, below |
 
-The `tch` object inside `inp` shows what the touch controller reads, to check the touch screen works. Outside the calibration screen a touch only stops a running DX scan, clears a number being typed and beeps as Key Beeps says; `lst` then names it, such as `touch tap`:
+The `tch` object inside `inp` shows what the touch controller reads, to check the touch screen works. Outside the calibration screen a touch acts on the part of the screen it starts on, as [Touch Screen](Touch-Screen.md) describes, and beeps as Key Beeps says; `lst` then names it with that part, such as `touch tap band`:
 
 | Key | What it is |
 |---|---|
@@ -168,7 +168,8 @@ What the screen shows now, one JSON object per line. The first line names the sc
 {"screen":"radio","page":0,"dim":false,"theme":"Nightwatch"}
 {"zone":"band","x":0,"y":0,"w":160,"h":28}
 {"zone":"menu","x":160,"y":0,"w":160,"h":28}
-{"zone":"panel","x":0,"y":32,"w":320,"h":88}
+{"zone":"name","x":0,"y":32,"w":320,"h":34}
+{"zone":"freq","x":0,"y":66,"w":320,"h":54}
 {"zone":"scale","x":0,"y":144,"w":320,"h":56}
 {"zone":"mode","x":0,"y":204,"w":84,"h":28}
 {"zone":"sql","x":84,"y":204,"w":76,"h":28}
@@ -409,6 +410,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `slp` | 0 to 600 | Auto Off in minutes, 0 for off |
 | `upc` | 0, 1 | Check for Updates. Turned on, the radio looks in this start too |
 | `tof` | 0, 1 | Touch off: 1 stops the radio reading the touch screen, 0 reads it. Controls > Touch shows 0 as On |
+| `kpt` | 5 to 60 | Keypad Timeout: seconds a part typed number waits for the next key |
 | `enc`, `edr` | 0, 1 | Encoder type and direction. After a restart |
 | `dst`, `dsc` | 0 to 2 | DX stop condition; DX scan range |
 | `dmf`, `dml` | 1 to 99 | DX preset range |

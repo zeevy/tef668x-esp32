@@ -89,9 +89,7 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
   {
     const char *typed = in->typed != NULL ? in->typed : "";
     if (typed[0] != '\0') {
-      const bool full = strlen(typed) >= INPUT_DIGITS_MAX;
-      snprintf(b->typing, sizeof(b->typing),
-               full ? "%s" : txt(STR_RADIO_FMT_TYPED), typed);
+      screenTypedText(typed, b->typing, sizeof(b->typing));
       state.typing = b->typing;
     }
   }
@@ -308,4 +306,10 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
   /* What the radio is doing for a few seconds, on the line under the panel
    * in place of the radio text. */
   state.notice = in->notice;
+}
+
+void screenTypedText(const char *typed, char *out, size_t len) {
+  snprintf(out, len,
+           strlen(typed) >= INPUT_DIGITS_MAX ? "%s" : txt(STR_RADIO_FMT_TYPED),
+           typed);
 }

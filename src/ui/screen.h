@@ -21,7 +21,7 @@
 
 /* Why there is no sound, which decides what the V: tile shows. */
 typedef enum {
-  SCREEN_AUDIO_ON = 0,    /* The volume, in amber. */
+  SCREEN_AUDIO_ON = 0,    /* The volume, in `radio`. */
   SCREEN_AUDIO_MUTED,     /* A person did it. MUTE, in the warning colour. */
   SCREEN_AUDIO_SQUELCHED, /* The squelch did it. The volume, in grey. */
 } ScreenAudio;
@@ -84,7 +84,7 @@ typedef struct {
   uint8_t batteryPercent;
   const char *batteryText;
 
-  /* ---- the amber panel ---- */
+  /* ---- the frequency panel ---- */
   /*
    * The name line: the confirmation of a logbook write while it holds, else
    * what the station calls itself, else what a person called this memory
@@ -276,7 +276,7 @@ void screenMenuEnd(void);
 
 /* The parts of the menu a touch can act on: the header, which is Back, a
  * row slot each, MENU_ZONE_ROW for the top one, and on a value with a bar,
- * the amber panel and the bar. */
+ * the value panel and the bar. */
 typedef enum {
   MENU_ZONE_BACK = 1,
   MENU_ZONE_ROW,
@@ -286,7 +286,7 @@ typedef enum {
 
 /* The zones of the menu on show: on a list or picker the header and a zone
  * for each row drawn, meeting halfway across the gaps; on a value with a bar
- * the header, the amber panel and the bar. Writes no more than `max` and
+ * the header, the value panel and the bar. Writes no more than `max` and
  * returns how many, 0 while the PIN, the Restart question or a dialog is
  * up. */
 int screenMenuZones(TouchZone *out, int max);
@@ -376,7 +376,7 @@ void screenMenuValueShow(const ScreenMenuValue *value);
  * A question with two answers, as a box in the middle of the screen: a
  * title, up to four facts as a label on the left and its value on the
  * right, and the two answers as buttons along the foot. The knob moves the
- * amber between the buttons and a press takes the one it is on, so the
+ * fill between the buttons and a press takes the one it is on, so the
  * answers sit side by side, the way a turn to the right moves right.
  *
  * Drawn on the menu's screen, because the LVGL pool holds one screen at a
@@ -557,10 +557,10 @@ const char *screenRdsZoneName(int id);
 
 /* The PI tile's five looks, by shape and not only by colour. */
 typedef enum {
-  SCREEN_DX_PI_NONE,      /* An empty grey tile. */
-  SCREEN_DX_PI_SEEN,      /* Grey, amber digits, a clock: heard once. */
-  SCREEN_DX_PI_PARTIAL,   /* Grey, amber digits with `?`, a help mark. */
-  SCREEN_DX_PI_CONFIRMED, /* Amber, a tick. */
+  SCREEN_DX_PI_NONE,      /* An empty plain tile. */
+  SCREEN_DX_PI_SEEN,      /* Plain, digits in `radio`, a clock: heard once. */
+  SCREEN_DX_PI_PARTIAL,   /* Plain, digits in `radio` with `?`, a help mark. */
+  SCREEN_DX_PI_CONFIRMED, /* Filled, a tick. */
   SCREEN_DX_PI_ZERO       /* Grey, dead digits, a block mark and NO ID. */
 } ScreenDxPi;
 
@@ -596,7 +596,7 @@ typedef struct {
    * only worked out from the PI. */
   bool countryUnsure;
   /* A confirmed PI that is not the stored one of the preset the dial is on:
-   * a grey tile, a red cross, and `country` saying "not P03" in red. */
+   * a plain tile, a cross and `country` saying "not P03", both in `fault`. */
   bool piOther;
 
   /* The six readings, each a number already formatted. */
@@ -624,9 +624,9 @@ void screenDxEnd(void);
 /* The parts of DX mode's pages a touch can act on: on every page the
  * header's left half, with the title, which leaves DX mode, and its right
  * half, with the page position, the next page; under them the body, which on
- * the DX page is the amber panel, the PI tile, the readings and the graphs,
+ * the DX page is the station panel, the PI tile, the readings and the graphs,
  * on the Scope page the chart and the foot tile, on the Scanner page the
- * amber panel and the rest, and on the Catches page a zone a row. */
+ * scan panel and the rest, and on the Catches page a zone a row. */
 typedef enum {
   DX_ZONE_BACK = 1,
   DX_ZONE_NEXT,
@@ -653,7 +653,7 @@ const char *screenDxZoneName(int id);
 
 /*
  * The DX Catches page, the fourth page of DX mode. Six rows a screen, the one
- * under the cursor amber, or an empty box when nothing has been caught.
+ * under the cursor filled, or an empty box when nothing has been caught.
  */
 #define SCREEN_CATCH_ROWS 6
 
@@ -675,7 +675,7 @@ typedef struct {
   bool positionIsMessage; /* The position is a moment's message. */
   const char *clock;      /* Local, or NULL. */
   uint8_t rows;           /* 0 to SCREEN_CATCH_ROWS. */
-  uint8_t cursor;         /* Which of those rows is amber. */
+  uint8_t cursor;         /* Which of those rows is filled. */
   ScreenCatchRow row[SCREEN_CATCH_ROWS];
 } ScreenCatches;
 
@@ -696,7 +696,7 @@ int screenCatchesCursorSlot(void);
 uint16_t screenCatchesRowsId(void);
 
 /*
- * The DX Scanner page, the third page of DX mode. The amber panel with what the
+ * The DX Scanner page, the third page of DX mode. The scan panel with what the
  * scan is doing, the band's progress under it, and the station on the channel
  * in a tile at the foot.
  */
@@ -724,7 +724,7 @@ typedef struct {
   const char *from;  /* "87.5". */
   const char *to;    /* "108.0". */
   const char *step;  /* "89 / 206", or NULL. */
-  bool stationOn;    /* The tile amber: stopped on a catch. */
+  bool stationOn;    /* The tile filled: stopped on a catch. */
   const char *pi;    /* "63B2", "63?2", or NULL for an empty tile. */
   bool piSure;       /* Confirmed as this channel's own, not only heard. */
   const char *ps;    /* The name, or NULL. */
@@ -739,7 +739,7 @@ void screenScanShow(const ScreenScan *s);
 void screenScanEnd(void);
 
 /* The Scanner page's zones: the header's two halves as on every DX page,
- * the amber panel, and the rest of the body. 0 while it is not up. */
+ * the scan panel, and the rest of the body. 0 while it is not up. */
 int screenScanZones(TouchZone *out, int max);
 
 /*
@@ -773,7 +773,7 @@ typedef struct {
   const char *cursorFreq;  /* "98.30", or NULL with no sweep. */
   const char *cursorLevel; /* "51.4", or NULL for no reading. */
   const char *cursorRise;  /* "+0.4", or NULL with no baseline there. */
-  bool riseUp;             /* Above the baseline: amber, else grey. */
+  bool riseUp;             /* Above the baseline: `radio`, else `dead`. */
   /* Touch is On: the foot row gives room to a button each way for the
    * cursor and a Sweep button, and the rise moves up into the chart. */
   bool buttons;
@@ -836,6 +836,38 @@ const char *screenBwZoneName(int id);
 bool screenBwBegin(void);
 void screenBwShow(const ScreenBw *s);
 void screenBwEnd(void);
+
+/* ------------------------------------------------- the frequency keypad */
+
+/* The keypad's keys: the ten digits by their value, then these. */
+#define SCREEN_KEYPAD_BACKSPACE 10
+#define SCREEN_KEYPAD_CANCEL 11
+#define SCREEN_KEYPAD_OK 12
+#define SCREEN_KEYPAD_KEYS 13
+
+typedef struct {
+  const char *context; /* "FM \xC2\xB7 MHz", the band typed for. */
+  const char *clock;   /* Local, or NULL. */
+  const char *typed;   /* The digits so far and a dash, "104-", or NULL. */
+} ScreenKeypad;
+
+/* Put the keypad up, fill it in and take it down, as the bandwidth page. */
+bool screenKeypadBegin(void);
+void screenKeypadShow(const ScreenKeypad *k);
+void screenKeypadEnd(void);
+
+/* The keypad's zones: the header, which is Cancel, and a key each,
+ * KEYPAD_ZONE_KEY + the key's number. */
+typedef enum {
+  KEYPAD_ZONE_BACK = 1,
+  KEYPAD_ZONE_KEY,
+} KeypadZone;
+
+int screenKeypadZones(TouchZone *out, int max);
+
+/* A zone's name, for GET /api/screen: "back", "0" to "9", "backspace",
+ * "cancel", "ok", or "". */
+const char *screenKeypadZoneName(int id);
 
 /* ---------------------------------------------- touch calibration screen */
 
@@ -939,12 +971,13 @@ void screenShow(const ScreenState *state);
 typedef enum {
   RADIO_ZONE_BAND = 1, /* The band name, the left half of the header. */
   RADIO_ZONE_MENU,     /* The right half of the header. */
-  RADIO_ZONE_PANEL,    /* The amber panel. */
+  RADIO_ZONE_NAME,     /* The frequency panel's upper part: the name. */
   RADIO_ZONE_SCALE,    /* The tuning scale, which follows a drag. */
   RADIO_ZONE_MODE,     /* The four tiles, left to right. */
   RADIO_ZONE_SQL,
   RADIO_ZONE_BW,
   RADIO_ZONE_VOL,
+  RADIO_ZONE_FREQ, /* The frequency panel's lower part: the frequency. */
 } RadioZone;
 
 /* The radio screen's zones, from each panel of the layout: writes no more
@@ -980,7 +1013,7 @@ void screenMessage(const char *line1, const char *line2);
  * A firmware write, in progress, across the middle of the screen.
  *
  * The shape of the menu's value editor: the caption and the percentage, the
- * one thing that moves, on the amber panel, the bar under it, and a line
+ * one thing that moves, on the value panel, the bar under it, and a line
  * saying not to pull the plug. A write shows it from its first byte: a
  * `percent` below zero, before the size is known, draws it with no number
  * and an empty bar. `screenMessage`'s two lines are what is left when a

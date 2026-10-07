@@ -344,7 +344,7 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees) {
    */
   memset(&sBoot, 0, sizeof(sBoot));
   sBoot.product = txt(STR_RADIO_PRODUCT_NAME);
-  /* The board alone: the version is on the amber panel, beside the tuner. */
+  /* The board alone: the version is on the tuner panel, beside the tuner. */
   sBoot.board = BOARD_NAME_DISPLAY;
   sBoot.total = SCREEN_BOOT_STEPS;
   for (uint8_t i = 0; i < SCREEN_BOOT_STEPS; i++) {
@@ -460,10 +460,7 @@ const char *screenTaskHeaderMessage(void) {
   inputStatusGet(&input);
   if (input.typed[0] != '\0') {
     char typed[INPUT_DIGITS_MAX + 2];
-    snprintf(typed, sizeof(typed),
-             strlen(input.typed) >= INPUT_DIGITS_MAX ? "%s"
-                                                     : txt(STR_RADIO_FMT_TYPED),
-             input.typed);
+    screenTypedText(input.typed, typed, sizeof(typed));
     snprintf(text, sizeof(text), txt(STR_COMMON_FMT_TUNE_TYPED), typed);
     return text;
   }
@@ -531,6 +528,7 @@ void screenTaskUpdateBegin(void) {
   screenTaskDxClose();
   screenTaskRdsClose();
   screenTaskTouchCalClose();
+  screenTaskKeypadClose();
   /*
    * The menu goes first, wherever it was, and it goes at once.
    *
@@ -571,6 +569,7 @@ void screenTaskSleepShow(bool on) {
   screenTaskRdsClose();
   screenTaskBwClose();
   screenTaskTouchCalClose();
+  screenTaskKeypadClose();
   menuTaskClose();
   menuDownNow();
   if (!sReady) {
@@ -733,6 +732,7 @@ bool screenTaskMenuBegin(void) {
   screenTaskBwClose();
   screenTaskRdsClose();
   screenTaskTouchCalClose();
+  screenTaskKeypadClose();
   if (!sReady) {
     /* No radio layout means the panel never came up, and a menu drawn on a
      * panel nobody can see is settings changed blind. */
@@ -814,6 +814,7 @@ ScreenDxOpenResult screenTaskDxOpen(void) {
   }
   screenTaskBwClose();
   screenTaskRdsClose();
+  screenTaskKeypadClose();
   if (!sReady || sMenuUp || sSwap != BOOT_SWAP_NONE) {
     return SCREEN_DX_PANEL_BUSY;
   }
@@ -1122,6 +1123,84 @@ static bool bwDraw(void) {
   return true;
 }
 
+/* ------------------------------------------------- the frequency keypad */
+
+/* The keypad up in place of the radio screen, and when a key of it was last
+ * used. */
+static bool sKeypadUp = false;
+static uint32_t sKeypadKeyedMs = 0;
+
+static void keypadDraw(void) {
+  InputStatus input;
+  inputStatusGet(&input);
+  /* Kept from the last read, so a lock the radio task holds a moment longer
+   * does not blank the band for a frame. */
+  static char context[24];
+  RadioSettings now;
+  if (radioGetSettings(&now)) {
+    snprintf(context, sizeof(context), txt(STR_KEYPAD_FMT_CONTEXT),
+             bandName(now.band), bandFrequencyUnit(now.band));
+  }
+  char typed[INPUT_DIGITS_MAX + 2];
+  screenTypedText(input.typed, typed, sizeof(typed));
+  char clockText[CLOCK_TEXT_LEN];
+  const char *clock = clockFormat(ntpLocalTime(), clockText, sizeof(clockText))
+                          ? clockText
+                          : NULL;
+  ScreenKeypad view;
+  view.context = context;
+  view.clock = clock;
+  view.typed = typed;
+  screenKeypadShow(&view);
+}
+
+bool screenTaskKeypadOpen(void) {
+  if (sKeypadUp) {
+    return true;
+  }
+  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL || sCal != NULL ||
+      sSwap != BOOT_SWAP_NONE) {
+    return false;
+  }
+  screenEnd();
+  sReady = false;
+  if (!screenKeypadBegin()) {
+    sReady = screenBegin();
+    return false;
+  }
+  sKeypadUp = true;
+  sKeypadKeyedMs = millis();
+  keypadDraw();
+  lvglPortRefreshNow();
+  return true;
+}
+
+void screenTaskKeypadClose(void) {
+  if (!sKeypadUp) {
+    return;
+  }
+  sKeypadUp = false;
+  screenKeypadEnd();
+  sReady = screenBegin();
+  if (!sReady) {
+    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    return;
+  }
+  sLastPollMs = millis() - SCREEN_POLL_MS;
+}
+
+bool screenTaskKeypadIsOpen(void) {
+  return sKeypadUp;
+}
+
+void screenTaskKeypadKeyed(void) {
+  sKeypadKeyedMs = millis();
+  if (sKeypadUp) {
+    keypadDraw();
+    lvglPortRefreshNow();
+  }
+}
+
 bool screenTaskBwOpen(void) {
   if (sBw != NULL) {
     return true;
@@ -1130,6 +1209,7 @@ bool screenTaskBwOpen(void) {
     return false;
   }
   screenTaskRdsClose();
+  screenTaskKeypadClose();
   if (!sReady && !sDxUp) {
     return false;
   }
@@ -1268,7 +1348,7 @@ bool screenTaskTouchCalOpen(void) {
   if (sCal != NULL) {
     return true;
   }
-  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL ||
+  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL || sKeypadUp ||
       sSwap != BOOT_SWAP_NONE) {
     return false;
   }
@@ -1412,6 +1492,7 @@ void screenTaskRdsToggle(void) {
     return;
   }
   screenTaskBwClose();
+  screenTaskKeypadClose();
   if ((!sReady && !sDxUp) || sMenuUp || sSwap != BOOT_SWAP_NONE) {
     /* The panel belongs to something else, or is part way through a change.
      * One screen at a time, always. */
@@ -1502,6 +1583,8 @@ const char *screenTaskShowing(uint8_t *page) {
     name = "touch-calibration";
   } else if (screenTaskBwIsOpen()) {
     name = "bandwidth";
+  } else if (sKeypadUp) {
+    name = "keypad";
   } else if (sRdsUp) {
     name = "rds";
     p = sRdsPage;
@@ -1570,6 +1653,16 @@ static void presetLearnPoll(uint32_t nowMs) {
  * falls back the way closing it does.
  */
 static void reopenForTheme(void) {
+  if (sKeypadUp) {
+    screenKeypadEnd();
+    if (screenKeypadBegin()) {
+      keypadDraw();
+      return;
+    }
+    sKeypadUp = false;
+    sReady = screenBegin();
+    return;
+  }
   if (sCal != NULL) {
     screenTouchCalEnd();
     if (screenTouchCalBegin(false)) {
@@ -1659,7 +1752,8 @@ void screenTaskPoll(void) {
   /* `sReady` means the radio layout exists, and it does not while another
    * screen owns the panel. So every screen counts as ready here, or the fade
    * back in and the redraw below would never run for it. */
-  if (!sReady && !sMenuUp && !sRdsUp && !sDxUp && sBw == NULL && sCal == NULL) {
+  if (!sReady && !sMenuUp && !sRdsUp && !sDxUp && sBw == NULL && sCal == NULL &&
+      !sKeypadUp) {
     return;
   }
   uint32_t nowMs = millis();
@@ -1759,6 +1853,26 @@ void screenTaskPoll(void) {
     if ((uint32_t)(nowMs - sLastPollMs) >= SCREEN_POLL_MS) {
       sLastPollMs = nowMs;
       bwDraw();
+    }
+    return;
+  }
+
+  if (sKeypadUp) {
+    /* The keypad, after Keypad Timeout with no key: with a number typed the
+     * input layer drops it and closes the keypad in one step, so the number
+     * never shows on the radio screen; with none it closes here. Redrawn on
+     * the radio's cadence for the clock and the band. */
+    if ((uint32_t)(nowMs - sKeypadKeyedMs) >= inputKeypadTimeoutMs()) {
+      InputStatus input;
+      inputStatusGet(&input);
+      if (input.typed[0] == '\0') {
+        screenTaskKeypadClose();
+        return;
+      }
+    }
+    if ((uint32_t)(nowMs - sLastPollMs) >= SCREEN_POLL_MS) {
+      sLastPollMs = nowMs;
+      keypadDraw();
     }
     return;
   }

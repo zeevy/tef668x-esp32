@@ -3,9 +3,9 @@
  * time.
  *
  * Every key, knob turn or write from the browser starts the count again.
- * While it is on the header shows a person in bed, which turns amber for the
- * last five minutes; in the last thirty seconds the sound fades down, and at
- * the end the radio sleeps. Any use before then puts it back to awake at
+ * While it is on the header shows a person in bed, which turns to `radio`
+ * for the last five minutes; in the last thirty seconds the sound fades
+ * down, and at the end the radio sleeps. Any use before then puts it back to awake at
  * once.
  *
  * This decides which of those it is and nothing else. What counts as use,
@@ -21,8 +21,8 @@
 extern "C" {
 #endif
 
-/* How long before the radio sleeps the sleep mark turns amber. Five minutes
- * is long enough to be seen across a room before the fade starts. */
+/* How long before the radio sleeps the sleep mark turns to `radio`. Five
+ * minutes is long enough to be seen across a room before the fade starts. */
 #define AUTO_OFF_WARN_MS 300000UL
 
 /*
@@ -40,7 +40,7 @@ extern "C" {
 
 typedef enum {
   AUTO_OFF_AWAKE = 0, /* Off, or more than five minutes to go. */
-  AUTO_OFF_WARN,      /* The last five minutes: the sleep mark is amber. */
+  AUTO_OFF_WARN,      /* The last five minutes: the sleep mark is in `radio`. */
   AUTO_OFF_FADE,      /* The last thirty seconds: the sound fades too. */
   AUTO_OFF_SLEEP      /* Time is up. */
 } AutoOffPhase;

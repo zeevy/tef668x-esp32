@@ -1,5 +1,5 @@
 /*
- * The line under the amber panel: what the station is saying, or the date.
+ * The line under the frequency panel: what the station is saying, or the date.
  *
  * For the few seconds the radio itself is busy with something a person
  * should know about, such as an update check, it says so here instead, in

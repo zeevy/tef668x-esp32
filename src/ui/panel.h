@@ -59,8 +59,8 @@ typedef struct {
 const Layout *layoutFor(void);
 
 /* The panels of the radio screen. */
-extern const Panel panelHeader;   /* Band name and the status run. */
-extern const Panel panelLcd;      /* The amber panel: name, frequency, level. */
+extern const Panel panelHeader; /* Band name and the status run. */
+extern const Panel panelLcd; /* The frequency panel: name, frequency, level. */
 extern const Panel panelTextLine; /* Radio text, or the date. */
 extern const Panel panelScale;    /* The sliding tuning scale. */
 extern const Panel panelTiles;    /* Mode, SQL, BW and VOL. */

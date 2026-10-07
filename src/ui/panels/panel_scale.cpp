@@ -8,9 +8,9 @@
  * stand on one row and the numbers sit under them, so a peak never reaches
  * a number.
  *
- * The middle is one amber mark, 2 by 32, drawn whatever the signal, so the
+ * The middle is one mark in `radio`, 2 by 32, drawn whatever the signal, so the
  * dial always shows. On a station the four marks either side of it stand up
- * to a peak as tall as the signal, fading from amber to the scale's own
+ * to a peak as tall as the signal, fading from `radio` to the scale's own
  * colour outwards.
  * Between stations the row stays flat.
  *

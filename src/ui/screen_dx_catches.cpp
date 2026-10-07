@@ -5,7 +5,7 @@
  * the menu's row height and pitch, since like the menu the page has no line
  * of hints under them. Columns: the local time, the frequency, the PI, the
  * name, the country, the NEW badge, the best level and how many times it
- * was confirmed. The row under the cursor is amber. With nothing caught it
+ * was confirmed. The row under the cursor is filled. With nothing caught it
  * shows an empty box saying so.
  *
  * It draws what it is given, like every screen here, and owns the panel on

@@ -6,8 +6,8 @@
  * in the layer that knows what a radio is; this file owns pixels, and the
  * knob only moves which page is on screen.
  *
- * Four pages in the same style the radio and DX screens use: an amber panel for
- * what matters most, grey tiles for the rest, symbols for flags, and the same
+ * Four pages in the same style the radio and DX screens use: a filled panel for
+ * what matters most, plain tiles for the rest, symbols for flags, and the same
  * frame, the page's name on the left of the header and the station's frequency,
  * the page and the clock on the right. There is no line of hints along the
  * bottom, so every page runs down to the bottom margin.
@@ -32,7 +32,7 @@
 #define RIGHT (RDS_W - UI_MARGIN)
 #define BOTTOM (RDS_H - UI_MARGIN) /* Nothing lower on any page. */
 
-/* The amber panel and the tile beside it, the DX page's own measures. */
+/* The name panel and the tile beside it, the DX page's own measures. */
 #define PANEL_Y 32
 #define STATION_PANEL_W 208
 #define TILE_X 228
@@ -68,7 +68,7 @@ static lv_obj_t *staticLabel(const lv_font_t *font, ThemeColour c,
 
 /*
  * Who the station is, then what it says it is doing, then the rest. The
- * name and programme type on the amber panel with the PI tile beside it,
+ * name and programme type on the name panel with the PI tile beside it,
  * the four symbol tiles straight under them, and four readings as tiles
  * standing on the bottom, the last ending at y 226 as a list row does.
  *
@@ -274,7 +274,7 @@ static void showStation(const ScreenRds *r, const Theme *t) {
 
 /* The RT+ rows, or the note that stands for them, stand on the bottom: each
  * row has the height of a list row and the last ends at y 226, as the
- * menu's does. The amber panel takes all the height above them. */
+ * menu's does. The name panel takes all the height above them. */
 #define P2_TEXT_W (WIDE_W - 2 * UI_PAD)
 #define P2_ROWS_END (BOTTOM - 2)
 #define P2_TAG_H 30

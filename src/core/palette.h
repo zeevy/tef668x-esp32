@@ -25,7 +25,7 @@ extern "C" {
  * colours and core/settings.h's `customTheme` stores its rows.
  */
 typedef enum {
-  PALETTE_GROUND = 0,  /* The background, and all type on an amber fill. */
+  PALETTE_GROUND = 0,  /* The background, and all type on a `radio` fill. */
   PALETTE_HEADER,      /* One step off ground. Kept for a filled header. */
   PALETTE_RULE,        /* The fill of a tile or a menu row. */
   PALETTE_RADIO,       /* What the radio is set to: panel fill, band, values. */

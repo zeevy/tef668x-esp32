@@ -5,9 +5,9 @@
  * given a rectangle and draws inside it, so another panel size or another
  * orientation is another table in another file and no change to any panel.
  *
- * The layout is the amber panel with a row of tiles under it. Each panel is
+ * The layout is the frequency panel with a row of tiles under it. Each panel is
  * given the full width and keeps UI_MARGIN from both sides itself. Top to
- * bottom: the header 0 to 27, 4 rows of air, the amber panel 32 to 119, the
+ * bottom: the header 0 to 27, 4 rows of air, the frequency panel 32 to 119, the
  * line of radio text or date 120 to 143, the scale 144 to 199, 4 rows of air,
  * the tiles 204 to 231, and 8 rows of air under them to the edge.
  */

@@ -39,8 +39,8 @@ Type the digits on the keypad, then press ENTER. [Tuning](Tuning.md#typing-a-fre
 
 - If the number does not fit the band you are on, and fits more than one other band, a list asks which band to tune.
 - If it fits no band, the screen says that the number `is in no band`.
-- Up to 7 digits are taken. The number is dropped 10 seconds after the last digit.
-- A turn of the knob, the knob press, BAND, BW, MODE, DX or a touch on the screen drops the number and does nothing else.
+- Up to 7 digits are taken. The number is dropped after **Controls > Keypad Timeout** with no key, 20 seconds on a new radio.
+- A turn of the knob, the knob press, BAND, BW, MODE, DX or a touch on the screen drops the number and does nothing else. On the [frequency keypad](Touch-Screen.md#the-frequency-keypad) the keys do what that page says instead.
 
 ## In the menu
 

@@ -36,7 +36,7 @@ LV_FONT_DECLARE(roboto_freq)
  * station name on RDS page 1. */
 LV_FONT_DECLARE(roboto_name)
 
-/* 24px, Medium. The signal level on the amber panel, the PI on the DX page
+/* 24px, Medium. The signal level on the frequency panel, the PI on the DX page
  * and on RDS page 1, and the dwell seconds left on the Scanner page. */
 LV_FONT_DECLARE(roboto_value)
 
@@ -95,6 +95,7 @@ LV_FONT_DECLARE(roboto_icons)
 #define ICON_CROSS "\xEE\x97\x8D"        /* U+E5CD close */
 #define ICON_CHEVRON "\xEE\x97\x8C"      /* U+E5CC chevron_right */
 #define ICON_CHEVRON_LEFT "\xEE\x97\x8B" /* U+E5CB chevron_left */
+#define ICON_BACKSPACE "\xEE\x85\x8A"    /* U+E14A backspace */
 #define ICON_CHECK_CIRCLE "\xEE\xA1\xAC" /* U+E86C check_circle */
 #define ICON_HELP "\xEE\xA2\x87"         /* U+E887 help */
 #define ICON_SCHEDULE "\xEE\xA2\xB5"     /* U+E8B5 schedule */

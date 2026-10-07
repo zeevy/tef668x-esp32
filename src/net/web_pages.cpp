@@ -1257,18 +1257,20 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   out += formClose();
   out += cardClose();
 
-  /* The same switch as Controls > Touch and recovery's Touch row. */
-  out += cardOpen("Touch screen");
+  /* The same switch as Controls > Touch and recovery's Touch row, and
+   * Controls > Keypad Timeout. */
+  out += cardOpen("Touch and keypad");
   out += formOpen("/api/settings");
   out += F("<div class=grid>");
   /* Stored as off, so On is 0; listed Off first, as every other switch. */
   static const long touchValues[] = {1, 0};
   out += formSelect("tof", "Touch", offOn, touchValues, 2, st->touchOff, kAuto);
+  out += formSetting(st, "kpt", "Keypad timeout, seconds", kAuto);
   out +=
-      F("</div><p><small>Off, the radio stops reading the touch screen, "
-        "except on its calibration screen, Controls &gt; Calibrate Touch. "
-        "Outside that screen a touch does nothing on the radio yet."
-        "</small></p>");
+      F("</div><p><small>Touch Off, the radio stops reading the touch "
+        "screen, except on its calibration screen, Controls &gt; Calibrate "
+        "Touch. A number part typed on the keys or the touch keypad is "
+        "dropped after the keypad timeout with no key.</small></p>");
   out += F("<button type=submit class='secondary fallback'>Save</button>");
   out += formClose();
   out += cardClose();

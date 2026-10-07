@@ -572,8 +572,9 @@ static bool updateWouldInterrupt(void) {
   return bandScanActive() || dxTaskScan()->state == DX_SCAN_RUNNING ||
          radioSweepBusy() || menuTaskIsOpen() || screenTaskDxIsOpen() ||
          screenTaskRdsIsOpen() || screenTaskBwIsOpen() ||
-         screenTaskTouchCalIsOpen() || screenTaskSleepShowing() ||
-         screenTaskBootShowing() || screenTaskUpdateHolding();
+         screenTaskKeypadIsOpen() || screenTaskTouchCalIsOpen() ||
+         screenTaskSleepShowing() || screenTaskBootShowing() ||
+         screenTaskUpdateHolding();
 }
 
 /*

@@ -6,9 +6,9 @@
  * header, which is the title alone. A fourth, a question with two buttons,
  * is a box of its own over the middle, with the header hidden.
  *
- * Rows are the radio screen's grey tiles, 296 by 29 and 4 apart, six to a
- * page, and the row the knob is on takes the panel's amber with dark type.
- * A number being changed sits in the middle of the amber panel, above a bar
+ * Rows are the radio screen's tiles, 296 by 29 and 4 apart, six to a
+ * page, and the row the knob is on is filled in `radio` with dark type.
+ * A number being changed sits in the middle of the value panel, above a bar
  * with a rounded fill; the header already names what it is.
  *
  * It owns the panel on its own, like the boot screen, because the LVGL pool
@@ -28,7 +28,7 @@
 #define MENU_W 320
 #define MENU_H 240
 
-/* The value editor: the amber panel, 100 high from y 32. */
+/* The value editor: the value panel, 100 high from y 32. */
 #define EDIT_PANEL_Y 32
 #define EDIT_PANEL_H 100
 #define EDIT_LABEL_BASE 56
@@ -37,7 +37,7 @@
  * in the number face and 19 px in the word face. */
 #define EDIT_NUMBER_BASE 100
 #define EDIT_WORD_BASE 91
-/* The bar, and the white mark at zero on a signed value. */
+/* The bar, and the mark at zero on a signed value. */
 #define BAR_Y 148
 #define BAR_H 12
 #define BAR_R 6
@@ -695,7 +695,7 @@ bool screenMenuIsBack(TouchPoint p) {
   return touchZoneAt(&kBack, 1, p) != TOUCH_NO_ZONE;
 }
 
-/* The amber panel, from the header down to its foot, and the bar with its
+/* The value panel, from the header down to its foot, and the bar with its
  * limits under it. */
 #define ZONE_BAR_TOP (EDIT_PANEL_Y + EDIT_PANEL_H)
 #define ZONE_BAR_H (BAR_LIMIT_BASE + 8 - ZONE_BAR_TOP)

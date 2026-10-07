@@ -26,7 +26,7 @@
 #define UI_GAP 8      /* Between groups, between tiles, between header items. */
 #define UI_TIGHT 4    /* A label to its value. */
 #define UI_UNIT_GAP 6 /* A big number to its unit. */
-#define UI_RADIUS 10  /* The amber panel. */
+#define UI_RADIUS 10  /* A screen's big filled panel. */
 #define UI_TILE_R 6   /* A tile or a menu row. */
 
 /* The one glyph that ends a string cut short, U+2026, as UTF-8. */

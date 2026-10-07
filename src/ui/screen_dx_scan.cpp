@@ -1,10 +1,10 @@
 /*
  * The DX Scanner page, the third page of DX mode.
  *
- * The amber panel says what the scan is doing: its mark and mode, the stop
+ * The scan panel says what the scan is doing: its mark and mode, the stop
  * rule, the frequency, the dwell and how much of it is left. Under it the
  * band's progress, and at the foot a tile with the station on the channel,
- * amber once the scan has stopped on it. The page has no line of hints, so
+ * filled once the scan has stopped on it. The page has no line of hints, so
  * the tile sits on the bottom margin, where the Scope page has its own, and
  * the progress sits halfway between it and the panel.
  *
@@ -22,7 +22,7 @@
 #define SCAN_W 320
 #define SCAN_H 240
 
-/* The amber panel, and where its content runs. */
+/* The scan panel, and where its content runs. */
 #define PANEL_X UI_MARGIN
 #define PANEL_Y 32
 #define PANEL_W (SCAN_W - 2 * UI_MARGIN)

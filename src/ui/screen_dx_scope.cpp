@@ -1,10 +1,11 @@
 /*
  * The DX Scope page.
  *
- * The latest level sweep as a bar for each channel, with a white tick at
- * the baseline, a grey tick at the peak hold and a dashed line at the noise
- * floor. Under it a strip of the rise over the baseline, amber up and grey
- * down. A white cursor through both, a green mark under the dial's channel,
+ * The latest level sweep as a bar for each channel, with a bright tick at
+ * the baseline, a dim tick at the peak hold and a dashed line at the noise
+ * floor. Under it a strip of the rise over the baseline, in `radio` up and
+ * `dead` down. A bright cursor through both, a `good` mark under the dial's
+ * channel,
  * and at the foot a tile with the cursor channel's frequency, level and
  * named rise, on the bottom margin: the page has no line of hints, so the
  * level chart takes the height.
