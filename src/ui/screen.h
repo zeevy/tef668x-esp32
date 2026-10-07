@@ -288,17 +288,18 @@ typedef enum {
   MENU_ZONE_MINUS,
   MENU_ZONE_KEEP,
   MENU_ZONE_PLUS,
+  MENU_ZONE_BUTTON, /* A question box's first answer; the second follows. */
 } MenuZone;
 
 /* The zones of the menu on show: on a list or picker the header and a zone
  * for each row drawn, meeting halfway across the gaps; on a value with a bar
- * the header, the value panel, the bar and any buttons. Writes no more than
- * `max` and returns how many, 0 while the PIN, the Restart question or a
- * dialog is up. */
+ * the header, the value panel, the bar and any buttons; on a question box
+ * that takes taps its two answers. Writes no more than `max` and returns how
+ * many, 0 while the PIN or a box that takes no taps is up. */
 int screenMenuZones(TouchZone *out, int max);
 
 /* A zone's name, for GET /api/screen: "back", "row1" to "row6", "panel",
- * "bar", "minus", "keep", "plus", or "". */
+ * "bar", "minus", "keep", "plus", "button1", "button2", or "". */
 const char *screenMenuZoneName(int id);
 
 /* The value on the bar on show under `x`, in the units its ends are in, the
@@ -396,11 +397,13 @@ void screenMenuValueShow(const ScreenMenuValue *value);
 #define SCREEN_DIALOG_FACTS 4
 
 typedef struct {
+  const char *icon; /* A symbol before the title, or NULL for none. */
   const char *title;
   const char *label[SCREEN_DIALOG_FACTS]; /* NULL ends the facts. */
   const char *value[SCREEN_DIALOG_FACTS];
   const char *button[2];
   uint8_t cursor; /* The button the knob is on, 0 or 1. */
+  bool taps;      /* A tap on an answer takes it: its two touch zones. */
 } ScreenMenuDialog;
 
 void screenMenuDialogShow(const ScreenMenuDialog *dialog);

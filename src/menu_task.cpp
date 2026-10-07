@@ -51,6 +51,7 @@
 #include "sleep_task.h"
 #include "system_info.h"
 #include "ui/draw.h"
+#include "ui/fonts.h"
 #include "ui/screen.h"
 #include "ui/theme.h"
 
@@ -227,9 +228,10 @@ typedef struct {
   /*
    * Ask before doing it.
    *
-   * Drawn as a value of no or yes rather than as a screen of its own, so the
-   * confirmation costs no new state and works like every other row: turn to
-   * yes, press to do it. Only on a row that cannot be undone. A
+   * Kept as a value of no or yes, so the confirmation costs no new state and
+   * works like every other row: turn to yes, press to do it. It is drawn as
+   * a question box, No on the left where the knob starts, Yes on the right,
+   * and a tap on either takes it. Only on a row that cannot be undone. A
    * confirmation on every action is one nobody reads.
    */
   bool confirm;
@@ -2229,9 +2231,54 @@ static bool barValueChanged(const MenuRow *row) {
          row->id != ROW_WEB_PIN && sMenu.value != sMenu.was;
 }
 
+/* The station a restart comes back on, read once when the question opens:
+ * the one the save before the restart writes, a scan's starting channel
+ * while a scan runs rather than the channel it is on. Empty when it could
+ * not be read. */
+static char sConfirmStation[24];
+
+static void confirmStationRead(void) {
+  sConfirmStation[0] = '\0';
+  Settings saved;
+  char freq[16];
+  if (sLive != NULL && settingsBuildCandidate(sLive, &saved, NULL) &&
+      bandFormatWithUnit((BandId)saved.startBand, saved.startFreqKHz, freq,
+                         sizeof(freq))) {
+    snprintf(sConfirmStation, sizeof(sConfirmStation),
+             txt(STR_COMMON_FMT_TWO_WORDS), bandName((BandId)saved.startBand),
+             freq);
+  }
+}
+
+/* A row that asks first, Restart Radio: a question box, as the update offer
+ * is drawn, with No first and where the knob starts. */
+static void drawConfirm(const MenuRow *row) {
+  static char title[32];
+  snprintf(title, sizeof(title), txt(STR_MENU_FMT_QUESTION), txt(row->name));
+  ScreenMenuDialog dialog;
+  memset(&dialog, 0, sizeof(dialog));
+  dialog.title = title;
+  dialog.label[0] = txt(STR_COMMON_SETTINGS);
+  dialog.value[0] = txt(STR_COMMON_KEPT);
+  if (sConfirmStation[0] != '\0') {
+    dialog.label[1] = txt(STR_MENU_STATION);
+    dialog.value[1] = sConfirmStation;
+  }
+  dialog.button[0] = txt(STR_COMMON_NO);
+  dialog.button[1] = txt(STR_COMMON_YES);
+  dialog.cursor = sMenu.value != 0 ? 1 : 0;
+  dialog.taps = true;
+  screenMenuDialogShow(&dialog);
+  screenTaskMenuDrawn();
+}
+
 static void drawValue(void) {
   const MenuRow *row = rowAt(sMenu.row);
   if (row == NULL) {
+    return;
+  }
+  if (row->confirm) {
+    drawConfirm(row);
     return;
   }
   static char bare[20];
@@ -2283,10 +2330,8 @@ static void drawValue(void) {
 
   /*
    * The third shape, alongside the list and the bar: a named choice out of
-   * a short list rather than a number or a word standing alone. Every
-   * confirmation (`Restart`) is `bar = false` too and is kept on
-   * the plain word screen instead, since "no" and "yes" are not a list to
-   * scroll.
+   * a short list rather than a number or a word standing alone. A
+   * confirmation has its own shape, the question box, drawn above.
    */
   if (row->id == ROW_WEB_PIN) {
     drawPinValue(&view);
@@ -2804,6 +2849,9 @@ static void drawChoice(void) {
              mb);
     ScreenMenuDialog dialog;
     memset(&dialog, 0, sizeof(dialog));
+    /* No taps: the offer opens by itself over the radio screen, where a
+     * finger already on its way to the scale would land on Update. */
+    dialog.icon = ICON_NEW;
     dialog.title = txt(STR_MENU_UPDATE_TITLE);
     dialog.label[0] = txt(STR_MENU_UPDATE_THIS_RADIO);
     dialog.value[0] = FIRMWARE_VERSION;
@@ -2811,8 +2859,8 @@ static void drawChoice(void) {
     dialog.value[1] = version != NULL ? version : "";
     dialog.label[2] = txt(STR_MENU_UPDATE_DOWNLOAD);
     dialog.value[2] = sValueText[0];
-    dialog.label[3] = txt(STR_MENU_UPDATE_SETTINGS);
-    dialog.value[3] = txt(STR_MENU_UPDATE_KEPT);
+    dialog.label[3] = txt(STR_COMMON_SETTINGS);
+    dialog.value[3] = txt(STR_COMMON_KEPT);
     dialog.button[0] = txt(STR_MENU_UPDATE_NOW);
     dialog.button[1] = txt(STR_MENU_LATER);
     dialog.cursor = sChoice.cursor;
@@ -3036,6 +3084,17 @@ void menuTaskTurn(int32_t clicks) {
   draw();
 }
 
+void menuTaskTapButton(uint8_t button) {
+  const MenuRow *row = rowAt(sMenu.row);
+  if (button > 1 || sChoice.active || sMenu.level != MENU_EDIT || row == NULL ||
+      !row->confirm) {
+    return;
+  }
+  /* The answer as the knob would leave it, then the knob's press. */
+  sMenu.value = button;
+  menuTaskPress();
+}
+
 void menuTaskTapRow(int32_t by) {
   if (sChoice.active) {
     /* The choice moves one row a turn whatever the clicks. */
@@ -3154,6 +3213,7 @@ void menuTaskPress(void) {
         /* A confirmation starts at no, whatever it said last time. */
         sMenu.value = 0;
         sMenu.was = 0;
+        confirmStationRead();
         break;
       }
       int32_t at = 0;

@@ -37,7 +37,7 @@ SCREENS = [
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "touch-value",
     "menu-theme", "touch-picker", "menu-presets",
     "menu-station-log", "menu-network-info", "menu-diagnostics",
-    "menu-about", "menu-typed-choice", "menu-update-offer",
+    "menu-about", "menu-typed-choice", "menu-update-offer", "touch-question",
     # The bandwidth page.
     "bw-fm", "touch-bw", "bw-mw",
     # Start up, update, sleep and recovery.

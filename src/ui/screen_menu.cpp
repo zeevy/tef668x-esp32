@@ -131,6 +131,8 @@ static int16_t sBarZero =
     -1; /* -1 for a value with no zero inside its range. */
 /* The dialog, every part a child of one layer so it goes as one. */
 static lv_obj_t *sDialog;
+static lv_obj_t *sDialogIcon;
+static bool sDialogTaps;
 static lv_obj_t *sDialogTitle;
 static lv_obj_t *sDialogLabel[SCREEN_DIALOG_FACTS];
 static lv_obj_t *sDialogValue[SCREEN_DIALOG_FACTS];
@@ -166,6 +168,7 @@ static void hideDialog(void) {
   }
   lv_obj_delete(sDialog);
   sDialog = NULL;
+  sDialogIcon = NULL;
   sDialogTitle = NULL;
   for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
     sDialogLabel[i] = NULL;
@@ -215,9 +218,8 @@ static void buildDialog(const Theme *t) {
   sDialog = wholeScreen();
   (void)uiRound(sDialog, t->rule, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H,
                 UI_RADIUS);
-  lv_obj_t *icon = uiLabel(sDialog, &roboto_icons, t->radio);
-  uiSetTextStatic(icon, ICON_NEW);
-  lv_obj_set_pos(icon, DIALOG_X + UI_PAD, uiIconTop(DIALOG_TITLE_BASE));
+  sDialogIcon = uiLabel(sDialog, &roboto_icons, t->radio);
+  lv_obj_set_pos(sDialogIcon, DIALOG_X + UI_PAD, uiIconTop(DIALOG_TITLE_BASE));
   sDialogTitle = uiLabel(sDialog, &roboto_title, t->radio);
   for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
     sDialogLabel[i] = uiLabel(sDialog, &roboto_small, t->dead);
@@ -695,9 +697,12 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
   uiShowIf(sFrame.sleep, false);
   buildDialog(t);
 
+  sDialogTaps = d->taps;
+  const bool icon = d->icon != NULL && d->icon[0] != '\0';
+  uiSetOrHide(sDialogIcon, icon ? d->icon : NULL);
   uiSetText(sDialogTitle, d->title != NULL ? d->title : "");
   uiBaseline(sDialogTitle, &roboto_title,
-             (int16_t)(DIALOG_X + UI_PAD + UI_ICON_SIZE + UI_GAP),
+             (int16_t)(DIALOG_X + UI_PAD + (icon ? UI_ICON_SIZE + UI_GAP : 0)),
              DIALOG_TITLE_BASE);
   bool ended = false;
   for (uint8_t i = 0; i < SCREEN_DIALOG_FACTS; i++) {
@@ -771,6 +776,22 @@ bool screenMenuIsBack(TouchPoint p) {
 #define ZONE_PLUS_X (STEP_PLUS_X - UI_GAP / 2)
 
 int screenMenuZones(TouchZone *out, int max) {
+  /* A question box's two answers, each reaching halfway across the gap
+   * between them and a gap above and below. */
+  if (sMenu != NULL && sDialog != NULL) {
+    if (!sDialogTaps || max < 2) {
+      return 0;
+    }
+    for (uint8_t i = 0; i < 2; i++) {
+      out[i] = {(int16_t)(DIALOG_X + UI_PAD + i * (DIALOG_BUTTON_W + UI_GAP) -
+                          UI_GAP / 2),
+                (int16_t)(DIALOG_BUTTON_Y - UI_GAP),
+                (int16_t)(DIALOG_BUTTON_W + UI_GAP),
+                (int16_t)(DIALOG_BUTTON_H + 2 * UI_GAP),
+                (uint8_t)(MENU_ZONE_BUTTON + i)};
+    }
+    return 2;
+  }
   if (sMenu != NULL && sEditBar && max >= 3) {
     out[0] = kBack;
     out[1] = {0, ZONE_FIRST, MENU_W, (int16_t)(ZONE_BAR_TOP - ZONE_FIRST),
@@ -799,9 +820,9 @@ int screenMenuZones(TouchZone *out, int max) {
 }
 
 const char *screenMenuZoneName(int id) {
-  static const char *const kNames[] = {"",      "back", "row1", "row2",  "row3",
-                                       "row4",  "row5", "row6", "panel", "bar",
-                                       "minus", "keep", "plus"};
+  static const char *const kNames[] = {
+      "",      "back", "row1",  "row2", "row3", "row4",    "row5",   "row6",
+      "panel", "bar",  "minus", "keep", "plus", "button1", "button2"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

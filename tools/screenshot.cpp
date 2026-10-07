@@ -1625,6 +1625,7 @@ int main(int argc, char **argv) {
       snprintf(size, sizeof(size), txt(STR_MENU_FMT_MEGABYTES), "1.9");
       ScreenMenuDialog dialog;
       memset(&dialog, 0, sizeof(dialog));
+      dialog.icon = ICON_NEW;
       dialog.title = txt(STR_MENU_UPDATE_TITLE);
       dialog.label[0] = txt(STR_MENU_UPDATE_THIS_RADIO);
       dialog.value[0] = "0.1.0";
@@ -1632,12 +1633,32 @@ int main(int argc, char **argv) {
       dialog.value[1] = "0.2.0";
       dialog.label[2] = txt(STR_MENU_UPDATE_DOWNLOAD);
       dialog.value[2] = size;
-      dialog.label[3] = txt(STR_MENU_UPDATE_SETTINGS);
-      dialog.value[3] = txt(STR_MENU_UPDATE_KEPT);
+      dialog.label[3] = txt(STR_COMMON_SETTINGS);
+      dialog.value[3] = txt(STR_COMMON_KEPT);
       dialog.button[0] = txt(STR_MENU_UPDATE_NOW);
       dialog.button[1] = txt(STR_MENU_LATER);
       screenMenuDialogShow(&dialog);
       saveShot("%s/menu-update-offer.bmp", dir);
+
+      /* Restart Radio's question: no symbol, No on the left where the knob
+       * starts, and the two answers' touch zones over it. */
+      static char question[32];
+      snprintf(question, sizeof(question), txt(STR_MENU_FMT_QUESTION),
+               txt(STR_MENU_RESTART));
+      memset(&dialog, 0, sizeof(dialog));
+      dialog.title = question;
+      dialog.label[0] = txt(STR_COMMON_SETTINGS);
+      dialog.value[0] = txt(STR_COMMON_KEPT);
+      dialog.label[1] = txt(STR_MENU_STATION);
+      dialog.value[1] = "FM 106.40 MHz";
+      dialog.button[0] = txt(STR_COMMON_NO);
+      dialog.button[1] = txt(STR_COMMON_YES);
+      dialog.taps = true;
+      screenMenuDialogShow(&dialog);
+      saveShot("%s/menu-restart.bmp", dir);
+      TouchZone zones[TOUCH_ZONES_MAX];
+      snprintf(path, sizeof(path), "%s/touch-question.bmp", dir);
+      saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
     }
 
     /* The About group, the last one, with nothing to edit. The build is a
