@@ -409,6 +409,12 @@ static void sceneFmNoClock(ScreenState *s) {
   s->date = NULL;
 }
 
+/* Touch Off: no menu symbol, and the clock back in the corner. */
+static void sceneFmTouchOff(ScreenState *s) {
+  sceneFm(s);
+  s->menuMark = false;
+}
+
 /* A shortwave scene tuned to `khz`: the frequency, the scale and the metre
  * band all from the one number, through core's own rules, so a scene cannot
  * show a metre band the radio would not. */
@@ -617,6 +623,7 @@ static void saveZones(const TouchZone *zones, int n, const char *path) {
 static void render(void (*scene)(ScreenState *), const char *path) {
   ScreenState s;
   memset(&s, 0, sizeof(s));
+  s.menuMark = true; /* Touch On, as on a new radio. */
   scene(&s);
   screenShow(&s);
   saveShot("%s", path);
@@ -1252,6 +1259,7 @@ static bool renderCapture(const char *path, uint32_t khz, bool withRds) {
   in.battery = &battery;
   in.batteryShow = BATTERY_SHOW_PERCENT;
   in.clock = "05:09";
+  in.touchOn = true;
   in.date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
                 txt(STR_DATE_SUFFIX_TH), txt(STR_MONTH_SEPTEMBER), 2026);
   in.nowMs = 0;
@@ -1317,6 +1325,7 @@ int main(int argc, char **argv) {
       {"fm-volts", sceneFmVolts},
       {"fm-volts-low", sceneFmVoltsLow},
       {"fm-noclock", sceneFmNoClock},
+      {"fm-touch-off", sceneFmTouchOff},
       {"sw", sceneSw},
       {"sw-top", sceneSwTop},
       {"mw", sceneMw},

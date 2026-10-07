@@ -30,7 +30,7 @@ No. It works as a radio with Wi-Fi off. Wi-Fi is needed for the web page, the HT
 
 ### Does touch work?
 
-Not yet. The firmware reads the screen's touch controller, but outside the calibration screen a touch does nothing on the radio yet. To check that your screen's touch works, watch `tch` in [GET /api/state](HTTP-API.md#get-apistate) while you press the screen. If the screen ever acts on its own once touch does something, turn it off at **Controls > Touch**, or on the [recovery screen](Recovery-Screen.md) when the menu cannot be used. To calibrate it, see [Touch Screen](Touch-Screen.md).
+Yes. The radio screen, the frequency keypad, the menu, the bandwidth page, the RDS screen and DX mode's pages can be worked by finger, as [Touch Screen](Touch-Screen.md) describes. While Touch is On, three lines at the far right of the radio screen's header mark where a tap opens the menu. To check that your screen's touch works, watch `tch` in [GET /api/state](HTTP-API.md#get-apistate) while you press the screen. If the screen ever acts on its own, turn it off at **Controls > Touch**, or on the [recovery screen](Recovery-Screen.md) when the menu cannot be used. To calibrate it, see [Touch Screen](Touch-Screen.md).
 
 ### Why is the clock wrong, or not shown?
 

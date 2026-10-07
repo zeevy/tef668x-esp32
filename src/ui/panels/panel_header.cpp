@@ -1,7 +1,8 @@
 /*
  * The header: the band on the left, with the metre band beside it on SW, and
- * on the right one run of, from the right, the clock, Wi-Fi, the battery and
- * the sleep mark. No speaker: the V: tile says when the radio is muted.
+ * on the right one run of, from the right, the menu symbol while Touch is On,
+ * the clock, Wi-Fi, the battery and the sleep mark. No speaker: the V: tile
+ * says when the radio is muted.
  *
  * No fill. Every item is centred on one line, 14 rows down: the band name
  * sits on baseline 21 and the rest on baseline 20, one row lower so that the
@@ -51,6 +52,7 @@ static lv_obj_t *sBattBody;
 static lv_obj_t *sBattFill;
 static lv_obj_t *sBattNub;
 static lv_obj_t *sClock;
+static lv_obj_t *sMenu;
 
 /* Top of an icon's box, so its ink is centred on the header's line. */
 static int16_t iconTop(void) {
@@ -77,6 +79,8 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
   sBattFill = uiRound(parent, t->good, 0, 0, 0, BATT_H - 4, 1);
   sBattNub = uiBlock(parent, t->dead, 0, 0, BATT_NUB_W, BATT_NUB_H);
   sClock = uiLabel(parent, &roboto_small, t->measurement);
+  sMenu = uiLabel(parent, &roboto_icons, t->dead);
+  uiSetTextStatic(sMenu, ICON_MENU);
 }
 
 /* A word in the run, ending at `*right`, which then moves past it. */
@@ -111,8 +115,15 @@ static void show(const ScreenState *s) {
 
   int16_t right = (int16_t)(sAt.x + sAt.w - UI_MARGIN);
 
-  /* The clock holds the corner. Absent until a server has answered, and the
-   * run closes up over it. */
+  /* The menu symbol takes the corner while a finger can use it, deep in the
+   * menu's half, as far from the band name's half as it can be. */
+  uiShowIf(sMenu, s->menuMark);
+  if (s->menuMark) {
+    placeIcon(sMenu, &right, UI_GAP);
+  }
+
+  /* The clock holds the corner, or sits next to the menu symbol. Absent
+   * until a server has answered, and the run closes up over it. */
   if (s->clock != NULL && s->clock[0] != '\0') {
     uiSetText(sClock, s->clock);
     placeWord(sClock, &roboto_small, &right, UI_GAP);

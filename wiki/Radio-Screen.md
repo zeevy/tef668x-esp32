@@ -8,7 +8,7 @@ The colours named on this page are those of the Nightwatch theme in the pictures
 
 From top to bottom:
 
-1. **Header:** the band, and at the right the status marks and the clock.
+1. **Header:** the band, and at the right the status marks, the clock and, while Touch is On, the menu symbol.
 2. **Frequency panel**, the large filled box: the station name, the frequency, the preset number, the modulation meter and the signal level.
 3. **Text line:** the radio text, or the date.
 4. **Tuning scale.**
@@ -22,7 +22,8 @@ From top to bottom:
 | Wi-Fi mark | Always shown. On your network: green bars, 3 to 0 by the Wi-Fi signal. Joining: a search mark in grey. Serving the hotspot: a hotspot mark in amber. Wi-Fi off: a crossed mark in grey |
 | Battery | Hidden on a new radio. Display > Battery set to `Percent` shows a filled shape, and `Volts` shows the voltage. It turns to the theme's fault colour, red in Nightwatch, at 20 % or less |
 | Sleep mark | A person in bed, only while Auto Off is on. It turns amber in the last 5 minutes |
-| Clock | `HH:MM`, at the far right. It is hidden until the radio has the time from the network |
+| Clock | `HH:MM`, at the right. It is hidden until the radio has the time from the network |
+| Menu symbol | Three lines at the far right, only while **Controls > Touch** is On. A tap on the right half of the header opens the menu, see [Touch Screen](Touch-Screen.md#the-radio-screen) |
 
 ## 2. Frequency panel
 

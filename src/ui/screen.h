@@ -83,6 +83,9 @@ typedef struct {
   bool batteryValid;
   uint8_t batteryPercent;
   const char *batteryText;
+  /* Touch is On: the menu symbol in the corner, over the half of the header
+   * a tap opens the menu from. */
+  bool menuMark;
 
   /* ---- the frequency panel ---- */
   /*

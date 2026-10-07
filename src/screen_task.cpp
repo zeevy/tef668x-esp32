@@ -1939,6 +1939,7 @@ void screenTaskPoll(void) {
   InputStatus input;
   inputStatusGet(&input);
   in.typed = input.typed;
+  in.touchOn = input.touchOn && input.touchChip;
   /*
    * What the network is doing, in the four states the header can draw.
    *
@@ -1981,7 +1982,7 @@ void screenTaskPoll(void) {
   in.battery = &sBattery;
   in.batteryShow = sBatteryShow;
   /*
-   * The clock, at the far right of the top strip, and only once a server has
+   * The clock, at the right of the top strip, and only once a server has
    * actually answered.
    *
    * This board has no battery backed clock, so between switching on and the

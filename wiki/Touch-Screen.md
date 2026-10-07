@@ -9,7 +9,7 @@ The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller.
 | Where | Touch | Does |
 |---|---|---|
 | The band name, the left half of the top line | Tap | The next band, as a tap of BAND |
-| The right half of the top line | Tap | Opens the menu, as a press of the tuning knob |
+| The right half of the top line, with the menu symbol | Tap | Opens the menu, as a press of the tuning knob |
 | The station name, the upper part of the frequency panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
 | The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
 | Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
