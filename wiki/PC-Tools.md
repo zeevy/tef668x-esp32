@@ -33,8 +33,13 @@ XDR-GTK passes the radio's data on: its own RDS Spy server (port 7376 on the PC)
 
 1. In its setup, connect it to xdrd over the network, not to a serial port: IP `tef668x.local` or the radio's address, port `7373`, password the Web PIN.
 2. Choose the `tef` device profile.
+3. To change the width from its page, turn on its bandwidth switch in its setup; off, it drops width commands from every browser but one on the PC itself.
 
-The web server's sound comes from a sound input on the PC it runs on, not over this link.
+As it connects, it tunes the radio to its own start frequency, 87.5 MHz unless you set another in its setup, and sets its own start volume.
+
+Its sound comes from a sound input on the PC it runs on, not over this link. The ATS-125 has only its speaker, no headphone or line out socket, so with this radio the page shows the frequency, the signal and the RDS, with no sound.
+
+Checked with FM-DX Webserver 1.4.0b: tuning and the width from its page, the RDS, the signal and a tune made on the radio.
 
 ## What the radio does with each setting
 

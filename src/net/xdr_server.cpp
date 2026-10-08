@@ -57,7 +57,8 @@ typedef struct {
   int fd;      /* The socket, or -1 for a free slot. */
   uint32_t ip; /* Its address, as the socket gives it. */
   bool signedIn;
-  bool started; /* Sent x: it gets the signal and the RDS. */
+  bool started;       /* Sent x: it gets the signal and the RDS. */
+  uint32_t startPass; /* The pass it started in: it has the state of that. */
   bool overlong;
   uint8_t len;
   uint32_t sinceMs; /* When it connected. */
@@ -108,6 +109,9 @@ static bool sUsersChanged = false;
 /* The radio was muted by a PC's volume of 0, so the last PC to leave lifts
  * it: nobody at the radio asked for silence. */
 static bool sMutedByPc = false;
+/* Counts the loop's passes, so a PC started in a pass is not sent that
+ * pass's batch on top of the whole state. */
+static uint32_t sPass = 0;
 /* When that mute was asked for: a snapshot from before the radio task took
  * it still shows the radio playing. */
 static uint32_t sMutedAtMs = 0;
@@ -313,13 +317,11 @@ static Told inForce(const RadioSnapshot *s) {
   return now;
 }
 
-/* The echo of everything that changed since `was`, or of everything. */
+/* The echo of everything but the frequency that changed since `was`, or of
+ * everything. */
 static void addChanges(const Told *now, const Told *was) {
   const bool all = !was->valid;
   char line[16];
-  if (all || now->freqKHz != was->freqKHz) {
-    addValue('T', (long)now->freqKHz);
-  }
   if (all || now->mode != was->mode) {
     addValue('M', now->mode);
   }
@@ -358,14 +360,28 @@ static void addPi(const Told *now) {
   }
 }
 
+/*
+ * The frequency goes last in a send. FM-DX Webserver drops the lines after a
+ * frequency it already shows. It shows its own start frequency before the
+ * radio has tuned there. So nothing may come after the frequency in a send.
+ * XDR-GTK and FM-DX Webserver both clear their RDS on a frequency line. The
+ * next pass sends the PI again with the next RDS groups.
+ */
+static void addTune(uint32_t khz) {
+  addValue('T', (long)khz);
+}
+
+static void addRds(Told *told, bool fromNow);
+
 /* What a PC that has just started is told: OK, then the whole state, and the
  * values this radio has no control for, as fixed: the RF AGC at its highest
- * start, one aerial, no attenuation, no rotator. */
+ * start, one aerial, no attenuation, no rotator. The frequency last. The first
+ * PC to start also sets what every PC was last told, so the next pass does
+ * not send the frequency again. */
 static void start(Pc *pc) {
   if (!radioGetSnapshot(&sLink->snap)) {
     return;
   }
-  pc->started = true;
   sLink->outLen = 0;
   add("OK", 2);
   /* First, since XDR-GTK clears its RDS on an aerial line. */
@@ -373,12 +389,19 @@ static void start(Pc *pc) {
   addValue('Z', 0);
   addValue('V', 0);
   addValue('C', 0);
-  const Told now = inForce(&sLink->snap);
+  Told now = inForce(&sLink->snap);
   const Told none = {};
   addChanges(&now, &none);
-  addPi(&now);
+  addTune(now.freqKHz);
   sendAll(pc, sLink->out, sLink->outLen);
   sLink->outLen = 0;
+  if (!sLink->told.valid) {
+    now.rdsNext = sLink->told.rdsNext;
+    addRds(&now, true);
+    sLink->told = now;
+  }
+  pc->started = true;
+  pc->startPass = sPass;
 }
 
 static void tune(int32_t khz) {
@@ -607,8 +630,8 @@ static bool anyStarted(void) {
   return false;
 }
 
-/* The echoes, the RDS and, when due, the signal, to every started PC in one
- * send each. */
+/* The echoes, the RDS, the signal when due, and a new frequency last, to
+ * every started PC in one send each. */
 static void sendDue(bool lineDue) {
   if (!radioGetSnapshot(&sLink->snap)) {
     return;
@@ -631,16 +654,21 @@ static void sendDue(bool lineDue) {
                                  s->quality.stereo, s->settings.forcedMono, am);
     add(line, len);
   }
+  if (!sLink->told.valid || now.freqKHz != sLink->told.freqKHz) {
+    addTune(now.freqKHz);
+  }
   sLink->told = now;
-  for (int i = 0; i < XDR_CLIENTS_MAX && sLink->outLen > 0; i++) {
-    if (sLink->pc[i].started) {
-      sendAll(&sLink->pc[i], sLink->out, sLink->outLen);
+  for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+    Pc *pc = &sLink->pc[i];
+    if (pc->started && pc->startPass != sPass) {
+      sendAll(pc, sLink->out, sLink->outLen);
     }
   }
 }
 
 void xdrServerLoop(void) {
   const uint32_t now = millis();
+  sPass++;
   const bool wanted =
       sSettings != NULL && sSettings->pcLink != 0 && sSettings->wifiEnabled;
   if (!wanted) {
