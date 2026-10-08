@@ -35,6 +35,7 @@
 #include "net/rollback.h"
 #include "net/update_check.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "radio_task.h"
 #include "ui/draw.h"
 #include "ui/panel.h"
@@ -1942,6 +1943,7 @@ void screenTaskPoll(void) {
   inputStatusGet(&input);
   in.typed = input.typed;
   in.touchOn = inputTouchUsable();
+  in.pcLink = xdrServerClients() > 0;
   /*
    * What the network is doing, in the four states the header can draw.
    *

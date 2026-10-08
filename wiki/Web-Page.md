@@ -20,7 +20,7 @@ The buttons at the top lead to seven pages:
 | DX | `/dx` | Yes | RDS as it arrives, the band sweep chart and the DX catches |
 | System | `/system` | Yes | The firmware, updates and reboot |
 
-On the Radio, FM & RDS, Settings and DX pages, and for the Hotspot on the Network page, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. If the radio refuses a change, for example because your sign in has run out, the note is red and says why, and the field goes back to what the radio has. The Wi-Fi, PIN, firmware and reboot buttons, and a refused sign in, open a short result page instead.
+On the Radio, FM & RDS, Settings and DX pages, and for the Hotspot and the PC Link on the Network page, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. If the radio refuses a change, for example because your sign in has run out, the note is red and says why, and the field goes back to what the radio has. The Wi-Fi, PIN, firmware and reboot buttons, and a refused sign in, open a short result page instead.
 
 ## Signing in
 
@@ -86,7 +86,8 @@ The frequency and band update when the page opens, after each change you make on
 
 - **Wi-Fi**: the network name and passphrase, and **Save and join**. The radio moves to that network at once. The stored name shows only when you are signed in, or on the setup hotspot.
 - **Hotspot**: Auto, On or Off. Choosing a value saves it at once, and the radio's answer shows in the note at the bottom of the screen. A change can move the radio between your Wi-Fi and its own hotspot, and then the page stops answering at the address you used: On while you are on your Wi-Fi, or Off or Auto while you are on the hotspot. See [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md).
-- **Access PIN**: enter six digits and press **Change PIN**. It takes effect at once and signs every browser out.
+- **PC Link**: Off or On, saved at once like the hotspot. On opens port 7373 for XDR-GTK and FM-DX Webserver, and the card lists the address of each PC connected. See [PC Tools](PC-Tools.md).
+- **Access PIN**: enter six digits and press **Change PIN**. It takes effect at once and signs every browser and every PC out.
 
 Not signed in, the page shows the Wi-Fi form and the sign in box.
 

@@ -326,6 +326,12 @@ static void sceneFm(ScreenState *s) {
   s->tunerReady = true;
 }
 
+/* FM with a PC signed in over the PC Link. */
+static void scenePcLink(ScreenState *s) {
+  sceneFm(s);
+  s->pcMark = true;
+}
+
 /* A hold of ENTER, mid confirmation: the name line says so. */
 static void sceneFmLogged(ScreenState *s) {
   sceneFm(s);
@@ -1358,6 +1364,9 @@ int main(int argc, char **argv) {
   snprintf(path, sizeof(path), "%s/fm-sleep.bmp", dir);
   render(sceneFm, path);
   uiSetSleepMark(UI_SLEEP_NONE);
+  /* A PC signed in over the PC Link: the laptop left of the Wi-Fi symbol. */
+  snprintf(path, sizeof(path), "%s/fm-pc-link.bmp", dir);
+  render(scenePcLink, path);
 
   /* FM with a station, FM bare and medium wave in every theme but Custom,
    * by saved index. The rebuild a theme change triggers is the same one the

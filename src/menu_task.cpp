@@ -30,6 +30,7 @@
 #include "core/strings.h"
 #include "core/update_check.h"
 #include "core/version.h"
+#include "core/xdr.h"
 #include "drivers/battery_adc.h"
 #include "drivers/device_id.h"
 #include "drivers/logbook_fs.h"
@@ -45,6 +46,7 @@
 #include "net/update_check.h"
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "radio_task.h"
 #include "screen_task.h"
 #include "settings_task.h"
@@ -111,6 +113,7 @@ typedef enum {
   ROW_WEB_PIN,
   ROW_HOTSPOT,
   ROW_WEB_SERVER,
+  ROW_PC_LINK,
   ROW_WIFI,
   ROW_ENCODER,
   ROW_ENCODER_DIR,
@@ -162,6 +165,7 @@ typedef enum {
 
   ROW_NET_STATE,
   ROW_NET_ADDRESS,
+  ROW_NET_PC_LINK,
   ROW_NET_NAME,
   ROW_NET_MAC,
   ROW_ABOUT_VERSION,
@@ -613,6 +617,7 @@ static const MenuRow kDisplayRows[] = {
 static const MenuRow kNetInfoRows[] = {
     INFO(STR_MENU_STATUS, ROW_NET_STATE),
     INFO(STR_MENU_WEB_ADDRESS, ROW_NET_ADDRESS),
+    INFO(STR_MENU_PC_LINK, ROW_NET_PC_LINK),
     INFO(STR_MENU_IP_ADDRESS, ROW_NET_IP),
     INFO(STR_MENU_WI_FI_NAME, ROW_NET_NAME),
     INFO(STR_MENU_WI_FI_SIGNAL, ROW_NET_SIGNAL),
@@ -632,6 +637,10 @@ static const MenuRow kConnectRows[] = {
      false, false, NULL, "hsp"},
     {STR_MENU_WEB_SERVER, ROW_WEB_SERVER, SRC_STORED, TABLE_RANGE, 1, NOLIST,
      false, false, false, NULL, "web"},
+    /* XDR-GTK and FM-DX Webserver on port 7373. Applied on the press, like
+     * the three above: each step would drop every PC. */
+    {STR_MENU_PC_LINK, ROW_PC_LINK, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
+     false, false, NULL, "pcl"},
     /* Set a digit at a time on its own editor, not scrubbed as a number, and
      * saved only on the sixth digit, through the same call the browser's
      * Network page uses. */
@@ -1530,6 +1539,25 @@ static void infoText(RowId id, char *out, size_t len) {
         snprintf(out, len, "%s", wifiAddress());
       }
       return;
+    case ROW_NET_PC_LINK:
+      /* What to type in XDR-GTK while nobody is connected, the radio's name
+       * where it is announced, as the web address does; how many PCs are
+       * signed in once one is. */
+      if (!xdrServerListening()) {
+        putText(out, len, STR_COMMON_OFF);
+      } else if (strcmp(wifiAddress(), "0.0.0.0") == 0) {
+        /* No network yet: no port, as the web address shows none. */
+        snprintf(out, len, "%s", wifiAddress());
+      } else if (xdrServerClients() > 0) {
+        snprintf(out, len, txt(STR_MENU_FMT_PC_CONNECTED),
+                 (unsigned)xdrServerClients());
+      } else if (wifiAnnouncedName() != NULL) {
+        snprintf(out, len, txt(STR_MENU_FMT_NAME_ADDRESS), wifiAnnouncedName(),
+                 (unsigned)XDR_PORT);
+      } else {
+        snprintf(out, len, "%s:%u", wifiAddress(), (unsigned)XDR_PORT);
+      }
+      return;
     case ROW_NET_NAME:
       snprintf(out, len, "%s", wifiNetworkName());
       return;
@@ -2196,7 +2224,7 @@ static bool actsOnKeep(const MenuRow *row) {
   return row != NULL &&
          (row->id == ROW_DISPLAY_ROTATION || row->id == ROW_WEB_PIN ||
           row->id == ROW_HOTSPOT || row->id == ROW_WEB_SERVER ||
-          row->id == ROW_WIFI || isThemeRow(row));
+          row->id == ROW_PC_LINK || row->id == ROW_WIFI || isThemeRow(row));
 }
 
 /* Whether the Web PIN is being set, where a turn, a press and a digit key go

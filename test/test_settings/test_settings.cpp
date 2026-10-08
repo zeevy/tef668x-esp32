@@ -531,8 +531,8 @@ static void a_version_1_blob_gets_the_defaults_for_what_it_never_had(void) {
  * padding. */
 #define V31_SIZE 276
 
-/* What the struct is today: version 32's keypad timeout at 276, and three
- * bytes of padding. */
+/* What the struct is today: version 32's keypad timeout at 276, the PC Link
+ * at 277 in what it first wrote as padding, and two bytes of padding. */
 #define V32_SIZE 280
 
 /* Stamp the first V31_SIZE bytes of a current struct as the version 31 blob
@@ -2070,6 +2070,53 @@ static void touch_off_survives_a_newer_blob(void) {
   TEST_ASSERT_EQUAL_UINT8(0, out.touchOff);
 }
 
+/* The PC Link sits in version 32's padding with the version left at 32. A
+ * blob written before it holds 0 there, since every struct starts zeroed, so
+ * it reads as off, and a stray byte reads as off rather than costing the
+ * struct. */
+static void the_pc_link_in_version_32_padding_reads_as_off(void) {
+  TEST_ASSERT_EQUAL_size_t(277, offsetof(Settings, pcLink));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_UINT16(32, SETTINGS_VERSION);
+  Settings source;
+  settingsDefaults(&source);
+  TEST_ASSERT_EQUAL_UINT8(0, source.pcLink);
+  source.keypadTimeoutS = 35;
+  uint8_t blob[V32_SIZE];
+  memcpy(blob, &source, V32_SIZE);
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.pcLink);
+  blob[277] = 1;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.pcLink);
+  blob[277] = 5;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.pcLink);
+  TEST_ASSERT_EQUAL_UINT8(35, out.keypadTimeoutS);
+}
+
+/* A newer firmware's blob keeps the PC Link on, and a stray byte there reads
+ * as off rather than refusing every setting. */
+static void the_pc_link_survives_a_newer_blob(void) {
+  Settings source;
+  settingsDefaults(&source);
+  source.pcLink = 1;
+  uint8_t blob[V32_SIZE + 8];
+  memset(blob, 0, sizeof(blob));
+  memcpy(blob, &source, V32_SIZE);
+  uint16_t version = SETTINGS_VERSION + 1;
+  uint16_t size = (uint16_t)sizeof(blob);
+  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, sizeof(blob), &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.pcLink);
+  blob[277] = 3;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, sizeof(blob), &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.pcLink);
+}
+
 /* A version 31 blob has no keypad timeout, so it gets the 20 s a new radio
  * starts with, and the rest of it is kept. */
 static void a_version_31_blob_gets_the_default_keypad_timeout(void) {
@@ -2414,6 +2461,8 @@ int main(int, char **) {
   RUN_TEST(the_update_check_is_off_and_takes_only_0_or_1);
   RUN_TEST(the_touch_switch_in_version_31_padding_reads_as_on);
   RUN_TEST(touch_off_survives_a_newer_blob);
+  RUN_TEST(the_pc_link_in_version_32_padding_reads_as_off);
+  RUN_TEST(the_pc_link_survives_a_newer_blob);
   RUN_TEST(touch_is_on_and_takes_only_0_or_1);
   RUN_TEST(a_version_31_blob_gets_the_default_keypad_timeout);
   RUN_TEST(the_keypad_timeout_is_5_to_60_seconds);

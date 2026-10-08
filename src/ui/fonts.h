@@ -111,6 +111,7 @@ LV_FONT_DECLARE(roboto_icons)
 #define ICON_CAMPAIGN "\xEE\xBD\x89"     /* U+EF49 campaign */
 #define ICON_MUSIC "\xEE\x90\x85"        /* U+E405 music_note */
 #define ICON_SPEECH "\xEE\xA4\x9F"       /* U+E91F record_voice_over */
+#define ICON_COMPUTER "\xEE\x8C\x8A"     /* U+E30A computer */
 #define ICON_EQ "\xEE\x86\xB8"           /* U+E1B8 graphic_eq */
 #define ICON_SLEEP "\xEE\x94\xBA"        /* U+E53A hotel, filled */
 

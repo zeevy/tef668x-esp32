@@ -27,7 +27,7 @@ SCREENS = [
     # The radio screen.
     "cap-fm-106400", "cap-fm-93500", "fm", "fm-memory", "fm-typing",
     "fm-squelched", "fm-logged", "fm-checking-updates", "mw", "sw", "oirt",
-    "touch-radio", "keypad", "touch-keypad",
+    "touch-radio", "keypad", "touch-keypad", "fm-pc-link",
     # The RDS pages.
     "rds-station", "touch-rds", "rds-text", "rds-networks", "rds-decoder",
     # DX mode.

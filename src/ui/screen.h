@@ -86,6 +86,8 @@ typedef struct {
   /* Touch is On and the chip answered: the menu symbol in the top left
    * corner, before the band name. */
   bool menuMark;
+  /* A PC is signed in over the PC Link: a laptop left of the Wi-Fi symbol. */
+  bool pcMark;
 
   /* ---- the frequency panel ---- */
   /*

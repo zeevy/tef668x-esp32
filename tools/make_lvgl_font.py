@@ -104,6 +104,8 @@ ICON_CODEPOINTS = (
                          " Station and Networks pages"),
     ("music_note", 0xE405, "the station says it is playing music"),
     ("record_voice_over", 0xE91F, "the station says it is speech"),
+    ("computer", 0xE30A, "a PC connected over the PC Link, in the radio"
+     " screen's header"),
     ("graphic_eq", 0xE1B8, "the station's decoder bits, DI, stereo or mono"),
 )
 ICONS = ",".join("0x%04X" % c for _, c, _ in ICON_CODEPOINTS)

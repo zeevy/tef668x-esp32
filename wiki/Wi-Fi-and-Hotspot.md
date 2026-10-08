@@ -67,6 +67,7 @@ Use On when you take the radio somewhere without your network, and want to reach
 
 - **Wi-Fi Off** stops the network and the hotspot. The web page, the API, updates over Wi-Fi and the network clock all stop with it.
 - **Web Server Off** keeps the radio on the network, so the clock still sets, but stops the web page, the API and updates over Wi-Fi.
+- **Wi-Fi Off** also closes the [PC Link](PC-Tools.md). Web Server Off does not: the PC Link has its own switch.
 
 Both can be turned off from the HTTP API (`wif=0` and `web=0` in `POST /api/settings`), but only the radio's menu turns them back on, or **Erase Settings** on the recovery screen. So turning either off from a script cuts the script off.
 

@@ -40,6 +40,7 @@ typedef struct {
   uint32_t memoryGeneration;
   const char *typed; /* Digits typed on the keypad so far, or NULL. */
   bool touchOn;      /* Touch is On and the chip answered: a finger can act. */
+  bool pcLink;       /* A PC is signed in over the PC Link. */
   ScreenWifi wifi;   /* What the network is doing. */
   bool rssiValid;    /* The link's strength below was read. */
   int8_t rssiDbm;    /* The link's strength, in dBm. */

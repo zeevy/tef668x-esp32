@@ -6,8 +6,13 @@
 #include "web_internal.h"
 #include "web_update.h"
 
+#include <mbedtls/sha1.h>
+#include <string.h>
+
+#include "core/xdr.h"
 #include "net/ota_service.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "settings_task.h"
 #include "sleep_task.h"
 
@@ -19,6 +24,10 @@ static WebContext *sWeb = NULL;
  * changes it through webPinChanged. */
 static uint32_t sAccessPin = 0;
 static AccessPinGate sGate;
+/* The PC Link's own tries, so a PC left with an old PIN, which FM-DX
+ * Webserver retries every 2 s, locks out only the link and never the sign
+ * in page. */
+static AccessPinGate sXdrGate;
 
 /* Hex session token, or empty when nobody is signed in. */
 static char sSessionToken[33] = "";
@@ -51,6 +60,10 @@ void webPinChanged(uint32_t pin) {
   otaSetPin(pin);
   dropSession();
   accessPinGateReset(&sGate);
+  accessPinGateReset(&sXdrGate);
+  /* The PCs signed in with the old PIN go too, as the browser's session
+   * does. */
+  xdrServerSignOutAll();
   Serial.println("[web] the access PIN was changed");
 }
 
@@ -187,9 +200,32 @@ static void handleSetPin(void) {
              accessPinIsDefault(wanted));
 }
 
+bool webAuthXdrLogin(const char *salt, const char *line) {
+  const uint32_t now = millis();
+  if (salt == NULL || line == NULL || accessPinGateLocked(&sXdrGate, now)) {
+    return false;
+  }
+  char joined[XDR_SALT_LEN + ACCESS_PIN_DIGITS + 1];
+  const size_t saltLen = strnlen(salt, XDR_SALT_LEN);
+  memcpy(joined, salt, saltLen);
+  accessPinFormat(sAccessPin, joined + saltLen);
+  uint8_t digest[XDR_DIGEST_LEN];
+  char expected[XDR_DIGEST_HEX + 1];
+  const bool hashed = mbedtls_sha1((const unsigned char *)joined,
+                                   saltLen + ACCESS_PIN_DIGITS, digest) == 0;
+  if (hashed) {
+    xdrHex(digest, expected);
+  }
+  const bool right = hashed && xdrDigestMatches(line, expected);
+  accessPinGateCheck(&sXdrGate, sAccessPin, right ? sAccessPin : sAccessPin + 1,
+                     now);
+  return right;
+}
+
 void webAuthBegin(uint32_t accessPin) {
   sAccessPin = accessPin;
   accessPinGateReset(&sGate);
+  accessPinGateReset(&sXdrGate);
   dropSession();
 }
 

@@ -295,6 +295,7 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
   state.clock = in->clock;
   state.date = in->date;
   state.menuMark = in->touchOn;
+  state.pcMark = in->pcLink;
 
   /* What the tuner last refused. Without it the screen can show a station the
    * radio is not actually on, with nothing to say so. */

@@ -29,6 +29,7 @@
 - [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md)
 - [Web Page](Web-Page.md)
 - [HTTP API](HTTP-API.md)
+- [PC Tools](PC-Tools.md)
 
 **Help**
 

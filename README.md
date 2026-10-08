@@ -6,7 +6,7 @@ The first supported radio is the **ATS-125**, a portable FM and AM receiver with
 
 ![The radio screen, the RDS station page and the DX band scope](assets/hero.png)
 
-> **Status:** it works as a full radio today. FM and AM, seek, squelch, RDS, 99 presets, band scan, logbook, DX mode, network clock, a three level menu, a browser page, an HTTP control API and over the air updates with rollback. Touch works on the radio screen, the frequency keypad, the bandwidth page, the RDS screen, DX mode and in the menu, apart from the update offer. Still to come: touch on the other screens, other screen layouts, live telemetry and a spectrum view.
+> **Status:** it works as a full radio today. FM and AM, seek, squelch, RDS, 99 presets, band scan, logbook, DX mode, network clock, a three level menu, a browser page, an HTTP control API, a PC Link for XDR-GTK and FM-DX Webserver, and over the air updates with rollback. Touch works on the radio screen, the frequency keypad, the bandwidth page, the RDS screen, DX mode and in the menu, apart from the update offer. Still to come: touch on the other screens, other screen layouts, live telemetry and a spectrum view.
 
 This is a ground up rewrite, not a fork. It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32), and shares no code with it, apart from the tuner's patch data listed under [Licence](#licence).
 
@@ -53,6 +53,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - Joins your Wi-Fi, or starts its own hotspot when it cannot.
 - A web page served by the radio itself, with no internet needed.
 - An HTTP control API for every control the radio has.
+- A PC Link for [XDR-GTK](https://github.com/kkonradpl/xdr-gtk) and [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver) over Wi-Fi, off until switched on, with the access PIN as its password; RDS Spy and StationList work through XDR-GTK.
 - Over the air updates with two firmware slots. A new image that fails to boot is rolled back on its own.
 - Optional update check: the radio looks for a newer GitHub release at start and installs it when you say yes, after checking its size and sha256.
 - Network time with a settable UTC offset.

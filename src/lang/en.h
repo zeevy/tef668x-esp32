@@ -94,6 +94,8 @@
   X(MENU_STATUS, "Connection Status", "Menu row name, Connectivity > Network Info, read only") \
   X(MENU_HOTSPOT, "Hotspot", "Menu row name, Connectivity group: Auto, On or Off for the radio's own access point") \
   X(MENU_WEB_SERVER, "Web Server", "Menu row name, Connectivity group: On or Off for the pages, the API and updates over Wi-Fi") \
+  X(MENU_PC_LINK, "PC Link", "Menu row name, Connectivity group: On or Off for XDR-GTK and FM-DX Webserver on port 7373; and the read only row in Connectivity > Network Info") \
+  X(MENU_FMT_PC_CONNECTED, "%u connected", "Value of the PC Link row in Network Info: how many PCs are signed in") \
   X(MENU_WIFI, "Wi-Fi", "Menu row name, Connectivity group: On or Off for Wi-Fi at all") \
   X(MENU_WEB_ADDRESS, "Web Address", "Menu row name, Connectivity > Network Info, read only: the radio's name and port to type in a browser, or its address while the name is not announced") \
   X(MENU_IP_ADDRESS, "IP Address", "Menu row name, Connectivity > Network Info, read only: the address the network gave the radio") \
