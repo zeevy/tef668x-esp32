@@ -472,6 +472,7 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
            (unsigned)(in->page + 1), (unsigned)(in->pages > 0 ? in->pages : 1));
   out->position = in->position != NULL ? in->position : keep->position;
   out->title = in->title;
+  out->am = in->am;
   out->marks = in->marks;
   out->markCount = in->markCount;
   out->catches = in->catches;
@@ -527,17 +528,25 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
     out->cursor =
         in->cursor < live->count ? in->cursor : (uint16_t)(live->count - 1);
 
-    oneDecimal(live->lowKHz, keep->from, sizeof(keep->from));
+    /* MHz with one decimal on FM, "87.5", and whole kHz on AM, "522". */
     const uint32_t high = dxSweepKHzOf(live, (uint16_t)(live->count - 1));
-    oneDecimal(live->lowKHz + (high - live->lowKHz) / 2, keep->mid,
-               sizeof(keep->mid));
-    oneDecimal(high, keep->to, sizeof(keep->to));
+    const uint32_t mid = live->lowKHz + (high - live->lowKHz) / 2;
+    if (in->am) {
+      snprintf(keep->from, sizeof(keep->from), "%u", (unsigned)live->lowKHz);
+      snprintf(keep->mid, sizeof(keep->mid), "%u", (unsigned)mid);
+      snprintf(keep->to, sizeof(keep->to), "%u", (unsigned)high);
+    } else {
+      oneDecimal(live->lowKHz, keep->from, sizeof(keep->from));
+      oneDecimal(mid, keep->mid, sizeof(keep->mid));
+      oneDecimal(high, keep->to, sizeof(keep->to));
+    }
     out->from = keep->from;
     out->mid = keep->mid;
     out->to = keep->to;
 
-    (void)bandFormatFrequency(BAND_FM, dxSweepKHzOf(live, out->cursor),
-                              keep->freq, sizeof(keep->freq));
+    (void)bandFormatFrequency(in->am ? BAND_MW : BAND_FM,
+                              dxSweepKHzOf(live, out->cursor), keep->freq,
+                              sizeof(keep->freq));
     out->cursorFreq = keep->freq;
     const int16_t level = live->level[out->cursor];
     if (level != DX_SWEEP_NO_READING) {

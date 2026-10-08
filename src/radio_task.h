@@ -501,7 +501,8 @@ RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
                                   uint32_t expectKHz, Tef668xQuality *out,
                                   bool *moved);
 
-/* What a sweep reads, and through which FM width. */
+/* What a sweep reads, and through which FM width: 0 on AM, which reads
+ * through the radio's own. */
 typedef struct {
   DxSweepRange range;
   uint16_t widthKHz;
@@ -512,24 +513,25 @@ typedef struct {
  * channel from the band's bottom edge in its default step at the width the
  * tuner has, as DX mode does; with a plan, the channels and the width it
  * names. Each channel is read DX_SWEEP_READS times from
- * DX_SWEEP_SETTLE_MS after its tune, and the readings averaged into `out`.
+ * DX_SWEEP_SETTLE_MS after its tune, DX_SWEEP_SETTLE_AM_MS on AM, and the
+ * readings averaged into `out`.
  * Muted, at the width the tuner has or the plan's, which `out` records with
  * how long it took, and the dial and its width put back at the end the way
  * any retune goes.
  *
  * Returns at once. The radio task runs it in its next round that took no
- * command, the whole band in one go, about 4 s. A command arriving
- * meanwhile, a key or a tune, or radioSweepCancel, ends it between two
- * channels and leaves `out` with no channels, so the radio answers within
- * a channel's time.
+ * command, the whole band in one go, about 4 s on FM and 7.5 s on MW. A
+ * command arriving meanwhile, a key or a tune, or radioSweepCancel, ends it
+ * between two channels and leaves `out` with no channels, so the radio
+ * answers within a channel's time.
  * `out` is the radio task's until radioSweepBusy says false, and the caller
  * leaves it alone until then. Its time is the caller's to fill in.
  *
  * Refused while a sweep or a check is waiting or running, while a band scan
- * or the update check runs, while a seek runs, while the radio is hushed, off
- * FM, and for a plan dxSweepRangeFits refuses or with a width FM does not
- * have. From the loop task, where every caller is: the plan is kept
- * until the radio task takes the sweep.
+ * or the update check runs, while a seek runs, while the radio is hushed,
+ * with no plan off FM, and for a plan dxSweepRangeFits refuses, with a width
+ * FM does not have, or with any width on AM. From the loop task, where every
+ * caller is: the plan is kept until the radio task takes the sweep.
  */
 bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan);
 

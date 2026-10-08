@@ -34,7 +34,7 @@ SCREENS = [
     "dx-station", "touch-dx", "dx-scope", "touch-scope", "dx-scan-run",
     "touch-scan", "dx-catches", "touch-catches",
     # The band scope.
-    "band-scope", "band-scope-span",
+    "band-scope", "band-scope-span", "band-scope-mw",
     # The menu.
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "touch-value",
     "menu-theme", "touch-picker", "menu-presets",

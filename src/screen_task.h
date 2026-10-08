@@ -143,13 +143,14 @@ const char *screenTaskShowing(uint8_t *page);
 void screenTaskRdsPage(int32_t clicks);
 
 /*
- * The band scope, over the radio screen: the band's levels from a sweep,
- * read through DX mode's width, with the stored channels and the stations
- * caught in DX mode marked. FM only for now. Opening it sweeps the band at
- * once; the knob moves the cursor, its press sweeps again or ends the sweep
- * running, and its hold tunes to the cursor; BAND switches between the whole
- * band and the span round the dial. False when the panel is busy or the
- * radio is not on FM.
+ * The band scope, over the radio screen: the levels of the band the radio is
+ * on from a sweep, FM read through DX mode's width and AM through the
+ * radio's own, with the stored channels and the stations caught in DX mode
+ * marked. Opening it sweeps the band at once; the knob moves the cursor, its
+ * press sweeps again or ends the sweep running, and its hold tunes to the
+ * cursor; BAND switches between the whole band and the span round the dial.
+ * Shortwave, too many channels for one sweep, has the span only. It closes
+ * when the band changes. False when the panel is busy.
  */
 bool screenTaskScopeOpen(void);
 void screenTaskScopeClose(void);

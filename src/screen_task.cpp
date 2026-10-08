@@ -1591,8 +1591,25 @@ bool screenTaskRdsIsOpen(void) {
 /* ------------------------------------------------------- the band scope */
 
 /* The span round the dial: the width the radio screen's scale shows, 37
- * marks of 100 kHz. */
+ * marks of 100 kHz on FM and of 10 kHz on AM. */
 #define SCOPE_SPAN_KHZ 3600
+#define SCOPE_SPAN_AM_KHZ 360
+
+/* The band the page opened on, whose sweeps it shows. */
+static BandId sScopeBand = BAND_FM;
+/* The span was taken because the whole band does not fit, as on SW, not
+ * chosen, so the page closing gives the choice back. */
+static bool sScopeSpanForced = false;
+
+static bool scopeAm(void) {
+  return bandModulation(sScopeBand) == MODULATION_AM;
+}
+
+/* The sweep the page shows: the latest, unless it is of another band, from
+ * before the page opened. */
+static const DxSweep *scopeShown(const ScopeView *v) {
+  return v->band == sScopeBand ? v->latest : NULL;
+}
 
 /* How many stored channels and caught stations are marked on the chart. */
 #define SCOPE_MARKS_MAX 32
@@ -1630,19 +1647,19 @@ static void scopeMarks(const DxSweep *live, BandId band) {
 }
 
 /* The page from the band scope's last sweep. Closes the page when the radio
- * has left FM, which it cannot sweep yet. */
+ * has left the band it opened on, whose channels it shows. */
 static void scopeDraw(void) {
   RadioSnapshot snap;
   if (!radioGetSnapshot(&snap)) {
     return;
   }
-  if (bandModulation(snap.settings.band) != MODULATION_FM) {
+  if (snap.settings.band != sScopeBand) {
     screenTaskScopeClose();
     return;
   }
   ScopeView v;
   scopeTaskView(&v);
-  const DxSweep *live = v.latest;
+  const DxSweep *live = scopeShown(&v);
   /* A new sweep puts the cursor on the dial's channel. */
   if (live != NULL && v.revision != sScopeRevision) {
     const int16_t dial = dxSweepChannelOf(live, snap.settings.freqKHz);
@@ -1654,12 +1671,21 @@ static void scopeDraw(void) {
   }
   char clockText[CLOCK_TEXT_LEN];
   char span[16];
-  snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN),
-           (unsigned long)(SCOPE_SPAN_KHZ / 1000),
-           (unsigned long)(SCOPE_SPAN_KHZ % 1000 / 100));
+  if (scopeAm()) {
+    snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN_KHZ),
+             (unsigned long)SCOPE_SPAN_AM_KHZ);
+  } else {
+    snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN),
+             (unsigned long)(SCOPE_SPAN_KHZ / 1000),
+             (unsigned long)(SCOPE_SPAN_KHZ % 1000 / 100));
+  }
+  char title[16];
+  snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE),
+           bandName(sScopeBand));
   ScreenScopeInputs in;
   memset(&in, 0, sizeof(in));
-  in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
+  in.levelOffsetDb = screenTaskLevelOffsetDb(sScopeBand);
+  in.am = scopeAm();
   in.live = live;
   in.revision = v.revision;
   in.sweeping = v.running;
@@ -1671,7 +1697,7 @@ static void scopeDraw(void) {
                  : NULL;
   in.confirm = screenTaskHeaderMessage();
   in.touchOn = inputTouchUsable();
-  in.title = txt(STR_SCOPE_TITLE_FM);
+  in.title = title;
   /* The span of the sweep on show, or before the first, of the one asked
    * for. */
   in.span = live != NULL ? !v.whole : sScopeSpan;
@@ -1701,14 +1727,11 @@ bool screenTaskScopeOpen(void) {
   if (!sReady) {
     return false;
   }
-  /* A sweep reads with the FM tune; the AM bands wait for their own settle
-   * time to be measured. */
   RadioSnapshot now;
-  if (radioGetSnapshot(&now) &&
-      bandModulation(now.settings.band) != MODULATION_FM) {
-    screenTaskLogConfirm(txt(STR_MENU_NOTE_SWITCH_TO_FM));
+  if (!radioGetSnapshot(&now)) {
     return false;
   }
+  sScopeBand = now.settings.band;
   screenEnd();
   sReady = false;
   if (!screenScopeBegin()) {
@@ -1729,6 +1752,10 @@ void screenTaskScopeClose(void) {
     return;
   }
   sScopeUp = false;
+  if (sScopeSpanForced) {
+    sScopeSpan = false;
+    sScopeSpanForced = false;
+  }
   /* A sweep left running would keep the radio muted with nothing on the
    * panel to say why. */
   ScopeView v;
@@ -1750,7 +1777,15 @@ bool screenTaskScopeIsOpen(void) {
 }
 
 ScopeStart screenTaskScopeSweep(void) {
-  const ScopeStart r = scopeTaskSweep(sScopeSpan ? SCOPE_SPAN_KHZ : 0);
+  const uint32_t span = scopeAm() ? SCOPE_SPAN_AM_KHZ : SCOPE_SPAN_KHZ;
+  ScopeStart r = scopeTaskSweep(sScopeSpan ? span : 0);
+  if (r == SCOPE_TOO_WIDE && !sScopeSpan) {
+    /* The whole of shortwave is more channels than a sweep holds, so it
+     * shows the span round the dial. */
+    sScopeSpan = true;
+    sScopeSpanForced = true;
+    r = scopeTaskSweep(span);
+  }
   if (r != SCOPE_STARTED) {
     screenTaskLogConfirm(
         txt(r == SCOPE_NO_MEMORY ? STR_DX_NO_MEMORY : STR_DX_NOT_STARTED));
@@ -1770,17 +1805,19 @@ void screenTaskScopeSpanToggle(void) {
 void screenTaskScopeTurn(int32_t clicks) {
   ScopeView v;
   scopeTaskView(&v);
-  if (!sScopeUp || v.latest == NULL || clicks == 0) {
+  const DxSweep *shown = scopeShown(&v);
+  if (!sScopeUp || shown == NULL || clicks == 0) {
     return;
   }
   sScopeAt =
-      (uint16_t)std::clamp<int32_t>(sScopeAt + clicks, 0, v.latest->count - 1);
+      (uint16_t)std::clamp<int32_t>(sScopeAt + clicks, 0, shown->count - 1);
 }
 
 void screenTaskScopeSet(uint16_t channel) {
   ScopeView v;
   scopeTaskView(&v);
-  if (sScopeUp && v.latest != NULL && channel < v.latest->count) {
+  const DxSweep *shown = scopeShown(&v);
+  if (sScopeUp && shown != NULL && channel < shown->count) {
     sScopeAt = channel;
   }
 }
@@ -1788,10 +1825,11 @@ void screenTaskScopeSet(uint16_t channel) {
 bool screenTaskScopeCursorKHz(uint32_t *khz) {
   ScopeView v;
   scopeTaskView(&v);
-  if (!sScopeUp || v.latest == NULL || khz == NULL) {
+  const DxSweep *shown = scopeShown(&v);
+  if (!sScopeUp || shown == NULL || khz == NULL) {
     return false;
   }
-  *khz = dxSweepKHzOf(v.latest, sScopeAt);
+  *khz = dxSweepKHzOf(shown, sScopeAt);
   return true;
 }
 

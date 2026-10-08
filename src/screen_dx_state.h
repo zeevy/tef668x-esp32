@@ -190,6 +190,7 @@ typedef struct {
   const char *title;
   const char *position;
   bool span;
+  bool am; /* The sweep is of an AM band: frequencies in kHz. */
   const uint16_t *marks;
   uint8_t markCount;
   const uint16_t *catches;

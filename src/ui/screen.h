@@ -805,6 +805,7 @@ typedef struct {
    * cursor and a Sweep button, and the rise moves up into the chart. */
   bool buttons;
   const char *title; /* The header's title, or NULL for DX mode's "Scope". */
+  bool am;           /* An AM band's sweep: the frequency in kHz. */
   /* Channels to mark at the top of the chart: the stored channels, and the
    * stations caught in DX mode. NULL with none. */
   const uint16_t *marks;

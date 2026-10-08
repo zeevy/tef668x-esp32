@@ -358,9 +358,9 @@ void webLoop(void) {
   if (!sListening) {
     return;
   }
-  /* Nothing is served while a level sweep runs, about 4 s: a reply going
-   * out raises the channel being read by up to 25 dB, and a request made
-   * then is answered just after, inside the pages' 4 s wait. */
+  /* Nothing is served while a level sweep runs, about 4 s on FM and 7.5 s on
+   * MW: a reply going out raises the channel being read by up to 25 dB, and a
+   * request made then is answered just after, inside the pages' 10 s wait. */
   if (radioSweepBusy()) {
     return;
   }

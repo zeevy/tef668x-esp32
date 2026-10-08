@@ -1,8 +1,8 @@
 /*
  * The band scope's sweeps, outside DX mode: the whole band the radio is on,
- * or a span round the dial. Read through DX mode's width, the width the sweep
- * was measured at, so a level means here what it means on DX mode's Scope
- * page.
+ * or a span round the dial. FM is read through DX mode's width, the width the
+ * sweep was measured at, so a level means here what it means on DX mode's
+ * Scope page; AM through the radio's own width.
  *
  * Loop task only.
  */
@@ -22,6 +22,7 @@ typedef enum {
   SCOPE_STARTED = 0,
   SCOPE_NO_MEMORY, /* No room on the heap for the two sweeps. */
   SCOPE_REFUSED,   /* The radio cannot sweep now, see radioSweepStart. */
+  SCOPE_TOO_WIDE,  /* More channels than a sweep holds: the whole of SW. */
 } ScopeStart;
 
 /* Start a sweep of the band the radio is on: `spanKHz` 0 for the whole band,
@@ -35,6 +36,7 @@ typedef struct {
   bool abandoned;        /* The last one asked for ended early, by a key or a
                           * tune, and `latest` is the one before it. */
   uint16_t revision;     /* Moves whenever `latest` changes. */
+  BandId band;           /* The band `latest` was swept on. */
 } ScopeView;
 
 /* The band scope as it stands, with a sweep that has just finished taken

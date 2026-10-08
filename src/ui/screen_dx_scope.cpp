@@ -314,7 +314,6 @@ bool screenScopeBegin(void) {
   uiShowIf(sUi->levelTile, false);
   sUi->freq = uiLabel(sUi->root, &roboto_text, t->radio);
   sUi->freqUnit = uiLabel(sUi->root, &roboto_label, t->dead);
-  uiSetTextStatic(sUi->freqUnit, txt(STR_COMMON_UNIT_MHZ));
   sUi->level = uiLabel(sUi->root, &roboto_text, t->measurement);
   sUi->levelUnit = uiLabel(sUi->root, &roboto_label, t->dead);
   uiSetTextStatic(sUi->levelUnit, txt(STR_COMMON_UNIT_DBUV));
@@ -423,6 +422,8 @@ static void showTile(const ScreenScope *s, const Theme *t) {
   const int16_t in = (int16_t)(tileX + UI_PAD);
   const int16_t right = (int16_t)(tileX + tileW - UI_PAD);
   uiSetOrHide(sUi->freq, s->cursorFreq);
+  uiSetTextStatic(sUi->freqUnit,
+                  txt(s->am ? STR_COMMON_UNIT_KHZ : STR_COMMON_UNIT_MHZ));
   uiShowIf(sUi->freqUnit, s->cursorFreq != NULL && !s->buttons);
   if (s->cursorFreq != NULL) {
     const int16_t fw = uiTextWidth(sUi->freq, &roboto_text);
