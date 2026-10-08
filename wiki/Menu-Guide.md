@@ -21,7 +21,7 @@ The group list shows how many rows each group has. A row that opens a sub-group 
 
 Press a row to change it. Depending on the row you get a bar with its two ends, a list with a tick on the saved choice, the Web PIN's digit editor, or a question with No and Yes.
 
-- Most rows act at once as you turn, so you hear or see the result. Some act only when you press to save the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN.
+- Most rows act at once as you turn, so you hear or see the result. Some act only when you press to save the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server, PC Link and Web PIN.
 - Press to save the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
 - Rows marked **after restart** below show `Applies after restart`, and take effect the next time the radio starts.
 
@@ -163,9 +163,10 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Wi-Fi | Off, On | On | Off stops Wi-Fi and the hotspot, and with them the web page and the API. Only this row, or Erase Settings on the recovery screen, turns it back on |
 | Hotspot | Auto, On, Off | Auto | Auto: the radio's own hotspot only when your network cannot be joined or none is stored. On: always, in place of your network. Off: never |
 | Web Server | Off, On | On | The web page, the API and updates over Wi-Fi |
+| PC Link | Off, On | Off | XDR-GTK and FM-DX Webserver on port 7373, with the Web PIN as the password. See [PC Tools](PC-Tools.md) |
 | Web PIN | Six digits | 000000 | The access PIN. The row shows the six digits. Turn to set a digit, press for the next one, or type the digits on the keypad or on the screen's keys while Touch is On, where a backspace key goes back a digit. Saved on the sixth digit |
 | Network Time | Off, -12:00 to +14:00 in steps of 15 minutes | +00:00 | Sets the clock from the network, at this offset from UTC |
-| Network Info | Read only | | Connection Status, Web Address, IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address |
+| Network Info | Read only | | Connection Status, Web Address, PC Link (Off, the address to type in XDR-GTK, or how many PCs are connected), IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address |
 
 ## Controls
 

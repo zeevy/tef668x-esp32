@@ -98,6 +98,7 @@ Numbers are whole numbers. A value with a fraction is sent in tenths: `"sig":168
 | `net`, `rssi`, `bars`, `ip` | The network state (`station`, `joining`, `ap` for the hotspot, `offline`), the Wi-Fi signal in dBm and in bars, the address |
 | `rst` | Why the radio last started, for example `power` or `software (update)` |
 | `dpn` | True while the access PIN is still `000000` |
+| `pcl` | The [PC Link](PC-Tools.md): `on` while port 7373 is open, `cli` how many PCs are signed in, `ips` their addresses, `ref` how many were turned away because three were in |
 | `hep`, `hmn`, `hmp`, `hlb` | Free memory now, the least since start, the least in the start before, and the largest free block, in bytes |
 | `up`, `slp` | Seconds since start, and seconds until Auto Off, or null when it is off |
 | `pnl` | The screen: `lit` the light in per cent, `dim` whether it is dimmed, and LVGL memory figures |
@@ -418,6 +419,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `upc` | 0, 1 | Check for Updates. Turned on, the radio looks in this start too |
 | `tof` | 0, 1 | Touch off: 1 stops the radio reading the touch screen, 0 reads it. Controls > Touch shows 0 as On |
 | `kpt` | 5 to 60 | Keypad Timeout: seconds a part typed number waits for the next key |
+| `pcl` | 0, 1 | PC Link: 1 opens port 7373 for XDR-GTK and FM-DX Webserver |
 | `enc`, `edr` | 0, 1 | Encoder type and direction. After a restart |
 | `dst`, `dsc` | 0 to 2 | DX stop condition; DX scan range |
 | `dmf`, `dml` | 1 to 99 | DX preset range |

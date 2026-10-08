@@ -53,6 +53,7 @@ static PanelRect sAt;
 static lv_obj_t *sBand;
 static lv_obj_t *sMeterBand;
 static lv_obj_t *sSleep;
+static lv_obj_t *sPc;
 static lv_obj_t *sWifi;
 static lv_obj_t *sWifiBars;
 static lv_obj_t *sBattText;
@@ -77,6 +78,8 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
   sSleep = uiLabel(parent, &roboto_icons, t->dead);
   uiSetTextStatic(sSleep, ICON_SLEEP);
   sWifi = uiLabel(parent, &roboto_icons, t->dead);
+  sPc = uiLabel(parent, &roboto_icons, t->good);
+  uiSetTextStatic(sPc, ICON_COMPUTER);
   /* Drawn after sWifi, so it sits on top: the lit arcs over the outline. */
   sWifiBars = uiLabel(parent, &roboto_icons, t->good);
   sBattText = uiLabel(parent, &roboto_small, t->dead);
@@ -163,6 +166,13 @@ static void show(const ScreenState *s) {
                                : s->wifiBars == 2 ? ICON_WIFI_2_BAR
                                                   : ICON_WIFI_1_BAR);
     lv_obj_set_pos(sWifiBars, wifiX, iconTop());
+  }
+
+  /* A PC signed in over the PC Link: beside the network it came over, in
+   * good, and gone when the last one leaves. */
+  uiShowIf(sPc, s->pcMark);
+  if (s->pcMark) {
+    placeIcon(sPc, &right, UI_GAP);
   }
 
   /* The battery as a per cent is the shape alone, filled to it: the fill

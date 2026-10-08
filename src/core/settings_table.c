@@ -84,6 +84,7 @@ static const SettingRow kRows[] = {
     ROW("tof", touchOff, 0, 1, NOW),
     ROW("kpt", keypadTimeoutS, SETTINGS_KEYPAD_TIMEOUT_MIN_S,
         SETTINGS_KEYPAD_TIMEOUT_MAX_S, NOW),
+    ROW("pcl", pcLink, 0, 1, NOW),
 };
 
 size_t settingsTableCount(void) {

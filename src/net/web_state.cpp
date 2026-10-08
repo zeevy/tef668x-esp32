@@ -26,6 +26,7 @@
 #include "net/rollback.h"
 #include "net/update_check.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "radio_task.h"
 #include "screen_task.h"
 #include "settings_task.h"
@@ -810,6 +811,8 @@ static const char *netStateText(void) {
  *   `rst`   Why the radio last started.
  *   `ip`    Address it can be reached on.
  *   `dpn`   The access PIN is still 000000.
+ *   `pcl`   The PC Link: `on` the port is open, `cli` PCs signed in, `ips`
+ *           their addresses, `ref` PCs turned away because three were in.
  *   `hep`   Free heap, bytes.
  *   `hmn`   The lowest the free heap has been since boot, bytes.
  *   `hmp`   The lowest it went in the boot before, bytes, when that boot
@@ -939,6 +942,21 @@ String buildState(void) {
    * its own builder cannot take the quote with it. */
   out += F("\",\"dpn\":");
   out += webPinIsDefault() ? F("true") : F("false");
+  out += F(",\"pcl\":{\"on\":");
+  out += xdrServerListening() ? F("true") : F("false");
+  jsonNum(out, "cli", xdrServerClients());
+  out += F(",\"ips\":[");
+  for (uint8_t i = 0; i < xdrServerClients(); i++) {
+    char ip[16];
+    if (xdrServerClientAddress(i, ip, sizeof(ip))) {
+      out += i > 0 ? F(",\"") : F("\"");
+      out += ip;
+      out += F("\"");
+    }
+  }
+  out += F("]");
+  jsonNum(out, "ref", xdrServerRefused());
+  out += F("}");
   jsonNum(out, "hep", systemHeapFree());
   /* The heap's worst case, not only where it is now: the lowest it has
    * been since boot, and the largest piece left, which is what a big

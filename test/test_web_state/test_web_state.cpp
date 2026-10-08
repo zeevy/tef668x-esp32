@@ -255,6 +255,25 @@ bool webPinIsDefault(void) {
   return false;
 }
 
+/* The PC Link: two PCs signed in, one turned away. */
+static uint8_t pcClients = 2;
+bool xdrServerListening(void) {
+  return true;
+}
+uint8_t xdrServerClients(void) {
+  return pcClients;
+}
+bool xdrServerClientAddress(uint8_t index, char *out, size_t cap) {
+  if (index >= pcClients) {
+    return false;
+  }
+  snprintf(out, cap, "192.168.1.%u", 20u + index);
+  return true;
+}
+uint32_t xdrServerRefused(void) {
+  return 1;
+}
+
 uint32_t systemHeapFree(void) {
   return 112000;
 }
@@ -582,6 +601,22 @@ static void the_band_and_the_frequency_are_reported(void) {
   TEST_ASSERT_EQUAL_STRING("106400", at(tun, "khz").text.c_str());
 }
 
+/* The PC Link: open, who is in by address, and how many were turned away. */
+static void the_pc_link_says_who_is_signed_in(void) {
+  const Json doc = state();
+  const Json &pcl = at(doc, "pcl");
+  TEST_ASSERT_EQUAL_INT('t', at(pcl, "on").kind);
+  TEST_ASSERT_EQUAL_STRING("2", at(pcl, "cli").text.c_str());
+  TEST_ASSERT_EQUAL_UINT32(2, at(pcl, "ips").items.size());
+  TEST_ASSERT_EQUAL_STRING("192.168.1.21",
+                           at(pcl, "ips").items[1].text.c_str());
+  TEST_ASSERT_EQUAL_STRING("1", at(pcl, "ref").text.c_str());
+  pcClients = 0;
+  const Json none = state();
+  TEST_ASSERT_EQUAL_UINT32(0, at(at(none, "pcl"), "ips").items.size());
+  pcClients = 2;
+}
+
 /* The last scan's counts, the stations with no free slot among them, so a
  * full store reads differently from a band with nothing new on it. */
 static void the_last_scan_says_how_many_found_no_room(void) {
@@ -685,6 +720,7 @@ int main(int argc, char **argv) {
   RUN_TEST(the_reader_refuses_broken_json);
   RUN_TEST(the_whole_document_parses_as_one_object);
   RUN_TEST(the_band_and_the_frequency_are_reported);
+  RUN_TEST(the_pc_link_says_who_is_signed_in);
   RUN_TEST(the_last_scan_says_how_many_found_no_room);
   RUN_TEST(station_text_with_quotes_and_control_characters_comes_back_whole);
   RUN_TEST(the_image_check_and_the_stack_marks_are_reported);

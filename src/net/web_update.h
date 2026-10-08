@@ -46,4 +46,12 @@ void webLoop(void);
  */
 void webPinChanged(uint32_t pin);
 
+/*
+ * The PC Link's login: whether `line` is the SHA-1 of `salt` and the access
+ * PIN, as 40 hex characters. A wrong one counts against five tries and a
+ * one minute lock of the link's own, the sign in page's rules, and while that
+ * lock holds every line is wrong.
+ */
+bool webAuthXdrLogin(const char *salt, const char *line);
+
 #endif /* NET_WEB_UPDATE_H */

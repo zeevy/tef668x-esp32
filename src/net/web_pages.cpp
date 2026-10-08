@@ -26,6 +26,7 @@
 #include "net/rollback.h"
 #include "net/update_check.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "radio_task.h"
 #include "screen_task.h"
 #include "settings_task.h"
@@ -1920,6 +1921,27 @@ static void handleNetworkPage(void) {
                           WIFI_HOTSPOT_COUNT, sWeb->settings->hotspot,
                           autoAttrs("/api/settings"));
     out += formClose();
+    out += cardClose();
+    /* The PC Link, saved the moment one is chosen, as the hotspot is. */
+    static const char *const kPcLinkNames[] = {"Off", "On"};
+    static const long kPcLinkValues[] = {0, 1};
+    out += cardOpen("PC Link");
+    out +=
+        F("<p>XDR-GTK and FM-DX Webserver run the radio from a PC on port "
+          "7373, with the access PIN as the password. Off, nothing "
+          "listens.</p>");
+    out += formOpen("/api/settings");
+    out += formRadioGroup("pcl", "", kPcLinkNames, kPcLinkValues, 2,
+                          sWeb->settings->pcLink, autoAttrs("/api/settings"));
+    out += formClose();
+    for (uint8_t i = 0; i < xdrServerClients(); i++) {
+      char ip[16];
+      if (xdrServerClientAddress(i, ip, sizeof(ip))) {
+        out += F("<p>Connected: ");
+        out += ip;
+        out += F("</p>");
+      }
+    }
     out += cardClose();
     out += cardOpen("Access PIN");
     out +=

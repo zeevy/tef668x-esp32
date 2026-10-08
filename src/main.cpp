@@ -44,6 +44,7 @@
 #include "net/update_check.h"
 #include "net/web_update.h"
 #include "net/wifi_manager.h"
+#include "net/xdr_server.h"
 #include "radio_task.h"
 #include "recovery.h"
 #include "screen_task.h"
@@ -547,6 +548,7 @@ void setup() {
   ntpApply(&gSettings);
 
   webBegin(&gSettings, gAccessPin);
+  xdrServerBegin(&gSettings);
   updateCheckBegin(&gSettings);
 
   printBanner();
@@ -595,6 +597,7 @@ void loop() {
   wifiLoop();
   otaLoop(gSettings.webEnabled != 0);
   webLoop();
+  xdrServerLoop();
   {
     /* A newer release is offered once the radio screen is up on its own,
      * worked out here in the same pass that opens it, so nothing can open in

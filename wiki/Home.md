@@ -37,6 +37,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md): how the radio picks its network, and the Wi-Fi, Hotspot and Web Server switches.
 - [Web Page](Web-Page.md): each page of the radio's own web page, with pictures.
 - [HTTP API](HTTP-API.md): every route, with curl examples and real answers from the radio.
+- [PC Tools](PC-Tools.md): XDR-GTK and FM-DX Webserver over Wi-Fi, and RDS Spy and StationList through XDR-GTK.
 
 ## Help
 

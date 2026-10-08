@@ -445,6 +445,12 @@ typedef struct {
    * number part typed on the keys or the touch keypad waits for the next
    * key before it is dropped and the keypad closes. */
   uint8_t keypadTimeoutS;
+
+  /* In the padding version 32 leaves after `keypadTimeoutS`, with the version
+   * left at 32 for the same reason as `updateCheck`. 1 for the PC Link on:
+   * the radio listens on TCP port 7373 for XDR-GTK and FM-DX Webserver. 0,
+   * the default, for nothing listening. */
+  uint8_t pcLink;
 } Settings;
 
 /* Keypad Timeout's limits and the value a new radio starts with. Five
