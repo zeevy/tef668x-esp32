@@ -155,7 +155,7 @@ curl -s -b jar -d k=MODE -d e=long $R/api/key # press a control, as a person wou
 curl -s $R/api/screen                        # what the screen shows, text by text
 ```
 
-Other endpoints: `/api/touch`, `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/scan`, `/api/beep`, `/api/presets`, `/api/presets.csv`, `/api/presets/import`, `/api/log`, `/api/log.csv`, `/api/settings`, `/api/save`, `/api/sleep`, `/api/dx`, `/api/dx.csv` and `/api/rds/raw`, plus a few more used for measuring.
+Other endpoints: `/api/touch`, `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/scan`, `/api/beep`, `/api/presets`, `/api/presets.csv`, `/api/presets/import`, `/api/log`, `/api/log.csv`, `/api/settings`, `/api/save`, `/api/sleep`, `/api/dx`, `/api/dx.csv`, `/api/scope` and `/api/rds/raw`, plus a few more used for measuring.
 
 To import presets, send the CSV as the body with `Content-Type: text/csv`:
 

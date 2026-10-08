@@ -8,7 +8,7 @@ In the pictures on this page the network name and address are placeholders.
 
 ## Pages
 
-The buttons at the top lead to seven pages:
+The buttons at the top lead to eight pages:
 
 | Page | Address | Needs the PIN | What it is for |
 |---|---|---|---|
@@ -18,9 +18,10 @@ The buttons at the top lead to seven pages:
 | Settings | `/settings` | Yes | Seek, sound, display, themes, and the settings read at start up |
 | Network | `/network` | To save, except on the setup hotspot | Wi-Fi, the hotspot and the access PIN |
 | DX | `/dx` | Yes | RDS as it arrives, the band sweep chart and the DX catches |
+| Band Scope | `/scope` | Yes | The level of every channel of the band you are on, live, with a waterfall of the sweeps |
 | System | `/system` | Yes | The firmware, updates and reboot |
 
-On the Radio, FM & RDS, Settings and DX pages, and for the Hotspot and the PC Link on the Network page, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. If the radio refuses a change, for example because your sign in has run out, the note is red and says why, and the field goes back to what the radio has. The Wi-Fi, PIN, firmware and reboot buttons, and a refused sign in, open a short result page instead.
+On the Radio, FM & RDS, Settings, DX and Band Scope pages, and for the Hotspot and the PC Link on the Network page, a change takes effect the moment you make it, and the radio's answer shows in a small note at the bottom of the screen. If the radio refuses a change, for example because your sign in has run out, the note is red and says why, and the field goes back to what the radio has. The Wi-Fi, PIN, firmware and reboot buttons, and a refused sign in, open a short result page instead.
 
 ## Signing in
 
@@ -100,6 +101,20 @@ Not signed in, the page shows the Wi-Fi form and the sign in box.
 - **Catches**: the DX catches, with a NEW mark, the level, how many times heard and when. **Log** writes a catch to the station log, **Log again** writes it again, and `✓ logged` marks one already written. **Download CSV** gives the file for FMLIST. It updates every 5 seconds.
 
 See [DX Mode](DX-Mode.md). The page asks nothing while its browser tab is hidden.
+
+## Band Scope
+
+![The Band Scope page](images/web-scope.png)
+
+The [band scope](Band-Scope.md) in the browser, on every band.
+
+- **Whole band** or the span round the dial, **3.6 MHz** on FM or **360 kHz** on AM, then **Sweep now**. SW is too wide for one sweep, so it has the span only.
+- **Repeat** asks for the next sweep each time one ends, to watch the band change. Each sweep mutes the radio for its seconds, so Repeat is off when the page opens, and stops when you switch to another tab or a key on the radio stops a sweep.
+- **The chart**: the level of every channel, your presets of that band as small ticks along the top, DX catches as blue squares with their PI and name, and the dial as the green mark. Point at a channel to read it; click to tune there.
+- **The waterfall** under it: every sweep this page has seen of the same channels, newest at the top, one row a sweep, brighter where it is stronger. Click a row to see that sweep in the chart, and the top row for the newest. The browser keeps them only while the page is open.
+- **PNG** saves the chart, the waterfall and the line under them as a picture. **CSV** saves the sweep in the chart: each frequency in kHz and its level in dBµV.
+
+It also follows sweeps started elsewhere: on the radio, from a PC's [spectral scan](PC-Tools.md#spectral-scan), or over the [HTTP API](HTTP-API.md#band-scope). The page asks nothing while its browser tab is hidden.
 
 ## System
 
