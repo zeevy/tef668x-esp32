@@ -29,6 +29,7 @@
 #include "core/xdr.h"
 #include "net/web_update.h"
 #include "radio_task.h"
+#include "screen_task.h"
 #include "sleep_task.h"
 
 /* How long after a command to send what is then in force. The radio task
@@ -418,8 +419,17 @@ static void act(Pc *pc, const XdrCommand *c, const RadioSettings *r) {
       }
       break;
     case XDR_WIDTH:
-      cmd.kind = RADIO_SET_BANDWIDTH;
       cmd.bandwidthKHz = xdrWidthKHz(r->band, c->value, r->bandwidthKHz);
+      if (screenTaskDxWidth() != 0) {
+        /* DX mode's own fixed width is in force, so the PC sets that, as the
+         * bandwidth page does there. Automatic is refused: DX mode is a
+         * fixed width, and the echo says so. */
+        if (screenTaskDxSetWidth(cmd.bandwidthKHz)) {
+          sleepTaskUsed();
+        }
+        break;
+      }
+      cmd.kind = RADIO_SET_BANDWIDTH;
       post(&cmd);
       break;
     case XDR_DEEMPHASIS:

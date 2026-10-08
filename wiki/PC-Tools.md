@@ -44,7 +44,7 @@ A PC changes the radio the same way the knob or the web page does, and is told b
 |---|---|
 | Frequency | Tunes there, changing band when the frequency is in another. FM goes to the nearest 10 kHz |
 | FM or AM | FM, or medium wave |
-| Bandwidth | The nearest width the band has. Auto is the FM automatic width |
+| Bandwidth | The nearest width the band has. Auto is the FM automatic width. In DX mode it sets DX mode's width, which is never automatic |
 | De-emphasis | 50 µs, 75 µs or off |
 | cEQ and iMS | The channel equalizer and multipath suppression |
 | Mono | Forced mono on or off. The MPX output is not on this radio |
