@@ -395,6 +395,7 @@ typedef enum {
   TOP_DX,
   TOP_TOUCH_CAL,
   TOP_KEYPAD,
+  TOP_SCOPE,
   TOP_COUNT
 } InputTop;
 
@@ -431,6 +432,9 @@ static InputTop inputTop(bool *dxUnder) {
   }
   if (screenTaskKeypadIsOpen()) {
     return TOP_KEYPAD;
+  }
+  if (screenTaskScopeIsOpen()) {
+    return TOP_SCOPE;
   }
   if (screenTaskBwIsOpen()) {
     *dxUnder = dx;
@@ -1117,8 +1121,12 @@ static void dialDrag(TouchGestureEvent event, int32_t dxPx) {
 static void radioTouch(TouchGestureEvent event, int zone, TouchPoint start,
                        TouchPoint last, bool dxUnder) {
   if (zone == RADIO_ZONE_SCALE) {
+    /* A drag tunes; a tap opens the band scope, the scale's own picture of
+     * the band. */
     if (event == TOUCH_DRAG || event == TOUCH_DRAG_END) {
       dialDrag(event, last.x - start.x);
+    } else if (event == TOUCH_TAP) {
+      note(screenTaskScopeOpen() ? "band scope" : "band scope not opened");
     }
     return;
   }
@@ -1397,6 +1405,107 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
 }
 #endif
 
+/* -------------------------------------------------------- the band scope */
+
+/*
+ * The band scope works as DX mode's Scope page does: the knob moves the
+ * cursor a channel a click, its press, or ENTER, sweeps or ends the sweep
+ * running, and its hold tunes to the cursor. BAND switches between the whole
+ * band and the span round the dial, and MODE closes it, held the menu. By
+ * touch the chart moves the cursor and a hold tunes there, the foot tile
+ * tunes, the title closes it and the page position is BAND. The number keys
+ * do nothing, since a typed number would not show.
+ */
+static void scopeTurn(int32_t clicks, uint32_t, bool) {
+  screenTaskScopeTurn(clicks);
+}
+
+static void scopePress(ButtonEvent event, bool) {
+  if (event == BUTTON_SHORT) {
+    ScopeView v;
+    scopeTaskView(&v);
+    if (v.running) {
+      radioSweepCancel();
+      note("scope sweep stopped");
+    } else {
+      note(screenTaskScopeSweep() == SCOPE_STARTED ? "scope sweep running"
+                                                   : "scope sweep not started");
+    }
+    return;
+  }
+  uint32_t khz = 0;
+  if (event == BUTTON_LONG && screenTaskScopeCursorKHz(&khz)) {
+    RadioCommand tune = {};
+    tune.kind = RADIO_TUNE;
+    tune.freqKHz = khz;
+    radioPost(&tune);
+    note("tune to the scope cursor");
+  }
+}
+
+static void scopeBand(ButtonEvent event, bool) {
+  if (event == BUTTON_SHORT) {
+    screenTaskScopeSpanToggle();
+    note("scope span");
+  }
+}
+
+static void scopeMode(ButtonEvent event, bool) {
+  if (event == BUTTON_SHORT) {
+    screenTaskScopeClose();
+  } else if (event == BUTTON_LONG) {
+    menuTaskOpen();
+  }
+}
+
+static void scopeEnter(ButtonEvent event, uint32_t, bool dxUnder) {
+  scopePress(event, dxUnder);
+}
+
+static void scopeKey(int8_t, uint32_t, bool) {
+  note("key ignored on the band scope");
+}
+
+#if FEATURE_TOUCH
+static void scopeTouch(TouchGestureEvent event, int zone, TouchPoint start,
+                       TouchPoint last, bool dxUnder) {
+  if (zone == DX_ZONE_CHART) {
+    const int32_t channel =
+        screenScopeChannelAt(event == TOUCH_TAP ? start.x : last.x);
+    if (channel >= 0) {
+      screenTaskScopeSet((uint16_t)channel);
+    }
+    if (event == TOUCH_HOLD) {
+      scopePress(BUTTON_LONG, dxUnder);
+    }
+    return;
+  }
+  if (event != TOUCH_TAP) {
+    return;
+  }
+  switch (zone) {
+    case DX_ZONE_BACK:
+      scopeMode(BUTTON_SHORT, dxUnder);
+      break;
+    case DX_ZONE_NEXT:
+      scopeBand(BUTTON_SHORT, dxUnder);
+      break;
+    case DX_ZONE_FOOT:
+      scopePress(BUTTON_LONG, dxUnder);
+      break;
+    case DX_ZONE_LEFT:
+    case DX_ZONE_RIGHT:
+      screenTaskScopeTurn(zone == DX_ZONE_LEFT ? -1 : 1);
+      break;
+    case DX_ZONE_SWEEP:
+      scopePress(BUTTON_SHORT, dxUnder);
+      break;
+    default:
+      break;
+  }
+}
+#endif
+
 /* ------------------------------------------------------------ the table */
 
 /* What each screen does with each control. A button's slot may be NULL, a
@@ -1468,6 +1577,13 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #if FEATURE_TOUCH
      ,
      keypadTouch, screenKeypadZones, screenKeypadZoneName, 0
+#endif
+    },
+    /* TOP_SCOPE */
+    {scopeTurn, scopePress, scopeBand, NULL, scopeMode, scopeEnter, scopeKey
+#if FEATURE_TOUCH
+     ,
+     scopeTouch, screenScopeZones, screenDxZoneName, DX_ZONE_CHART
 #endif
     },
 };

@@ -155,6 +155,7 @@ typedef enum {
   ROW_GOTO_BANDWIDTH,
   ROW_GOTO_RDS,
   ROW_GOTO_DX,
+  ROW_GOTO_SCOPE,
   ROW_GOTO_LOG,
   ROW_GOTO_SLEEP,
   ROW_PRESET_ENTRY,
@@ -315,6 +316,7 @@ static const MenuRow kGotoRows[] = {
     ACTION(STR_MENU_GO_TO_BANDWIDTH, ROW_GOTO_BANDWIDTH),
     ACTION(STR_MENU_GO_TO_RDS, ROW_GOTO_RDS),
     ACTION(STR_MENU_GO_TO_DX, ROW_GOTO_DX),
+    ACTION(STR_MENU_GO_TO_SCOPE, ROW_GOTO_SCOPE),
     ACTION(STR_MENU_GO_TO_LOG, ROW_GOTO_LOG),
     ACTION(STR_MENU_GO_TO_SLEEP, ROW_GOTO_SLEEP),
 };
@@ -2633,6 +2635,19 @@ static void fire(const MenuRow *row) {
       menuTaskClose();
       if (screenTaskDxOpen() != SCREEN_DX_OPEN) {
         Serial.println(F("[menu] DX mode did not open"));
+      }
+      return;
+    }
+    case ROW_GOTO_SCOPE: {
+      /* Refused here off FM, as DX Mode is, so the note shows in the menu. */
+      RadioSettings now;
+      if (radioGetSettings(&now) && bandModulation(now.band) != MODULATION_FM) {
+        sNote = txt(STR_MENU_NOTE_SWITCH_TO_FM);
+        return;
+      }
+      menuTaskClose();
+      if (!screenTaskScopeOpen()) {
+        Serial.println(F("[menu] the band scope did not open"));
       }
       return;
     }

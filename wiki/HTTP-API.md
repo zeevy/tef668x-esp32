@@ -374,7 +374,7 @@ The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value pe
 
 ### Band scope
 
-A level sweep outside DX mode too, through DX mode's width, of the whole band or of a span round the dial. FM only for now. The sound is muted while it runs, about 4 s for the whole FM band and under a second for a span, and the web server answers nothing until it ends.
+The sweep of the [band scope](Band-Scope.md), outside DX mode, through DX mode's width, of the whole band or of a span round the dial. FM only for now. The sound is muted while it runs, about 4 s for the whole FM band and under a second for a span, and the web server answers nothing until it ends.
 
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|

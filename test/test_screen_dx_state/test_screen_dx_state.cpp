@@ -1453,6 +1453,38 @@ static void the_scope_buttons_follow_the_touch_setting(void) {
   TEST_ASSERT_TRUE(pv.buttons);
 }
 
+/* The band scope's page: its own title and span in the header, the marks
+ * passed through, and no noise floor for a span, which is not the band. */
+static void the_band_scope_has_its_title_span_and_marks(void) {
+  static const uint16_t kMarks[2] = {3, 194};
+  static const uint16_t kCatch[1] = {50};
+  ScreenScopeInputs in = realScope();
+  buildScope(&in);
+  TEST_ASSERT_NULL(pv.title);
+  TEST_ASSERT_EQUAL_STRING("2/4", pv.position);
+  TEST_ASSERT_NOT_EQUAL(SCREEN_SCOPE_NONE, pv.floor);
+  in.title = "FM Scope";
+  in.position = "Full";
+  in.marks = kMarks;
+  in.markCount = 2;
+  in.catches = kCatch;
+  in.catchCount = 1;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("FM Scope", pv.title);
+  TEST_ASSERT_EQUAL_STRING("Full", pv.position);
+  TEST_ASSERT_EQUAL_PTR(kMarks, pv.marks);
+  TEST_ASSERT_EQUAL_UINT8(2, pv.markCount);
+  TEST_ASSERT_EQUAL_PTR(kCatch, pv.catches);
+  TEST_ASSERT_EQUAL_UINT8(1, pv.catchCount);
+  TEST_ASSERT_NOT_EQUAL(SCREEN_SCOPE_NONE, pv.floor);
+  in.span = true;
+  in.position = "3.6 MHz";
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("3.6 MHz", pv.position);
+  TEST_ASSERT_EQUAL_INT16(SCREEN_SCOPE_NONE, pv.floor);
+  TEST_ASSERT_NULL(pv.floorText);
+}
+
 static void scope_builder_leaves_everything_alone_on_null_inputs(void) {
   const ScreenScopeInputs in = realScope();
   FILL(pv);
@@ -1674,6 +1706,7 @@ int main(void) {
   RUN_TEST(a_baseline_or_peak_on_other_channels_is_left_out);
   RUN_TEST(the_age_shows_only_when_both_times_are_known);
   RUN_TEST(the_scope_buttons_follow_the_touch_setting);
+  RUN_TEST(the_band_scope_has_its_title_span_and_marks);
   RUN_TEST(scope_builder_leaves_everything_alone_on_null_inputs);
   RUN_TEST(a_message_takes_the_header_while_it_shows);
   RUN_TEST(the_offset_holds_through_small_moves_and_follows_a_real_one);

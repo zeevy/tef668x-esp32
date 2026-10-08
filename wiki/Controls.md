@@ -98,6 +98,19 @@ The tuning knob does something different on each page:
 
 While the scanner runs, any key or turn only stops it, and so does a touch while the screen is lit.
 
+## On the band scope
+
+Open it from Go To in the menu, or with a tap on the scale. See [Band Scope](Band-Scope.md).
+
+| Control | Tap or turn | Hold |
+|---|---|---|
+| Tuning knob, turn | Moves the cursor one channel | |
+| Tuning knob, press | Sweeps again, or stops the sweep that is running | Tunes to the cursor's channel |
+| ENTER | The same as the knob press | The same as the knob hold |
+| BAND | The whole band or 3.6 MHz round the dial, and sweeps again | Nothing |
+| MODE | Closes the band scope | The menu |
+| BW, keypad | Nothing | |
+
 ## On the bandwidth page
 
 Hold BW to open it. It shows a tile for each filter width of the band, and on FM also **iMS** and **EQ**. See [Sound and Bandwidth](Sound-and-Bandwidth.md).

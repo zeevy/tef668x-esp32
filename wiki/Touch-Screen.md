@@ -17,6 +17,7 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
 | Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
 | The scale | Drag | Tunes as the scale moves with your finger: one mark for every 8 pixels, 100 kHz on FM and 10 kHz on AM, onto the nearest channel of the band, and never onto another band where two bands overlap. Drag to the left to go up, as when you slide a dial strip under a fixed pointer. Past the end of the band it goes round to the other end |
+| The scale | Tap | Opens the [band scope](Band-Scope.md), on FM only |
 | The tuning mode tile | Tap | The next tuning mode, as a tap of MODE |
 | The SQ tile | Tap | Opens **Squelch Mode** straight away. Save a choice with the knob, or go back, and you are on the radio screen again |
 | The BW tile | Tap | Opens the bandwidth page, as BW held |

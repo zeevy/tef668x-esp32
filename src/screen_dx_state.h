@@ -184,6 +184,16 @@ typedef struct {
   const char *confirm;  /* A moment's message for the header, or NULL. */
   int8_t levelOffsetDb; /* The FM level offset, whole dB. */
   bool touchOn; /* Touch is On and the chip answered: the touch buttons. */
+  /* The band scope's: its title, its span in place of the page position, and
+   * a span is not the whole band, so it has no noise floor. NULL and false
+   * on DX mode's page. */
+  const char *title;
+  const char *position;
+  bool span;
+  const uint16_t *marks;
+  uint8_t markCount;
+  const uint16_t *catches;
+  uint8_t catchCount;
 } ScreenScopeInputs;
 
 /*
