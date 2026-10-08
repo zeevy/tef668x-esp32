@@ -501,8 +501,8 @@ RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
                                   uint32_t expectKHz, Tef668xQuality *out,
                                   bool *moved);
 
-/* What a sweep reads, and through which FM width: 0 on AM, which reads
- * through the radio's own. */
+/* What a sweep reads, and through which FM width: 0 for the radio's own,
+ * which AM always reads through. */
 typedef struct {
   DxSweepRange range;
   uint16_t widthKHz;
@@ -530,7 +530,7 @@ typedef struct {
  * Refused while a sweep or a check is waiting or running, while a band scan
  * or the update check runs, while a seek runs, while the radio is hushed,
  * with no plan off FM, and for a plan dxSweepRangeFits refuses, with a width
- * FM does not have, or with any width on AM. From the loop task, where every
+ * FM does not have, or with any width but 0 on AM. From the loop task, where every
  * caller is: the plan is kept until the radio task takes the sweep.
  */
 bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan);

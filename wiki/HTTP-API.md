@@ -374,7 +374,7 @@ The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value pe
 
 ### Band scope
 
-The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band the radio is on or of a span round the dial: FM and OIRT through DX mode's width, AM through the radio's own AM width, each AM channel read 40 ms after its tune. The sound is muted while it runs, about 4 s for the whole FM band, 7.5 s for MW and under a second for a 3.6 MHz span on FM, and the web server answers nothing until it ends. The whole of SW is more channels than a sweep holds, so on SW ask for a span.
+The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band the radio is on or of a span round the dial: FM and OIRT through DX mode's width, AM through the radio's own AM width, each AM channel read 40 ms after its tune. A PC's [spectral scan](PC-Tools.md#spectral-scan) is the same sweep over the range the PC asks for, FM through the width it asks for, and shows here too. The sound is muted while it runs, about 4 s for the whole FM band, 7.5 s for MW and under a second for a 3.6 MHz span on FM, and the web server answers nothing until it ends. The whole of SW is more channels than a sweep holds, so on SW ask for a span.
 
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|

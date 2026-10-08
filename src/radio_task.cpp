@@ -840,10 +840,10 @@ static uint32_t sweepBand(DxSweep *out, const RadioSettings *at,
   const uint32_t startMs = millis();
   (void)tef668xSetMute(true);
   /* The retune back to the dial after the sweep sends the radio's own width
-   * again, so a width for the sweep alone needs no undoing. AM has none of
-   * its own and reads through the radio's. */
+   * again, so a width for the sweep alone needs no undoing. A plan with
+   * none, and AM always, reads through the radio's own. */
   const bool fm = bandModulation(at->band) == MODULATION_FM;
-  if (sSweepPlanned && fm &&
+  if (sSweepPlanned && fm && sSweepPlan.widthKHz != 0 &&
       tef668xSetFmBandwidth(sSweepPlan.widthKHz) == TEF668X_OK) {
     out->widthKHz = sSweepPlan.widthKHz;
   }
@@ -2436,9 +2436,8 @@ bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan) {
   }
   if (plan != NULL) {
     const bool widthFits =
-        fm ? plan->widthKHz != 0 &&
-                 bandBandwidthAllowed(BAND_FM, plan->widthKHz)
-           : plan->widthKHz == 0;
+        plan->widthKHz == 0 ||
+        (fm && bandBandwidthAllowed(BAND_FM, plan->widthKHz));
     if (!dxSweepRangeFits(now.settings.band, &sPlan, &plan->range) ||
         !widthFits) {
       return false;

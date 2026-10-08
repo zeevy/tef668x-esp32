@@ -27,14 +27,34 @@ void scopeTaskBegin(const Settings *settings) {
   sSettings = settings;
 }
 
-ScopeStart scopeTaskSweep(uint32_t spanKHz) {
-  scopeTaskPoll();
+/* Start `sweep` on the band `now` is on. */
+static ScopeStart start(const RadioSettings *now, const BandPlanConfig *plan,
+                        RadioSweepPlan *sweep) {
   if (sScope == NULL) {
     sScope = static_cast<Scope *>(calloc(1, sizeof(Scope)));
     if (sScope == NULL) {
       return SCOPE_NO_MEMORY;
     }
   }
+  if (bandModulation(now->band) != MODULATION_FM) {
+    sweep->widthKHz = 0;
+  }
+  if (!radioSweepStart(&sScope->next, sweep)) {
+    return SCOPE_REFUSED;
+  }
+  DxSweepRange whole;
+  sNextWhole = dxSweepRange(now->band, plan, now->freqKHz, 0, &whole) &&
+               whole.lowKHz == sweep->range.lowKHz &&
+               whole.stepKHz == sweep->range.stepKHz &&
+               whole.count == sweep->range.count;
+  sNextBand = now->band;
+  sRunning = true;
+  sAbandoned = false;
+  return SCOPE_STARTED;
+}
+
+ScopeStart scopeTaskSweep(uint32_t spanKHz) {
+  scopeTaskPoll();
   RadioSettings now;
   BandPlanConfig plan;
   RadioSweepPlan sweep = {};
@@ -45,18 +65,20 @@ ScopeStart scopeTaskSweep(uint32_t spanKHz) {
   if (!dxSweepRange(now.band, &plan, now.freqKHz, spanKHz, &sweep.range)) {
     return SCOPE_TOO_WIDE;
   }
-  sweep.widthKHz =
-      bandModulation(now.band) == MODULATION_FM ? sSettings->dxWidthKHz : 0;
-  if (!radioSweepStart(&sScope->next, &sweep)) {
+  sweep.widthKHz = sSettings->dxWidthKHz;
+  return start(&now, &plan, &sweep);
+}
+
+ScopeStart scopeTaskSweepRange(const DxSweepRange *range, uint16_t widthKHz) {
+  scopeTaskPoll();
+  RadioSettings now;
+  BandPlanConfig plan;
+  if (range == NULL || sRunning || !radioGetSettings(&now) ||
+      !radioTaskPlan(&plan)) {
     return SCOPE_REFUSED;
   }
-  DxSweepRange whole;
-  sNextWhole = dxSweepRange(now.band, &plan, now.freqKHz, 0, &whole) &&
-               whole.count == sweep.range.count;
-  sNextBand = now.band;
-  sRunning = true;
-  sAbandoned = false;
-  return SCOPE_STARTED;
+  RadioSweepPlan sweep = {*range, widthKHz};
+  return start(&now, &plan, &sweep);
 }
 
 void scopeTaskPoll(void) {

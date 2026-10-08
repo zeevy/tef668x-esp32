@@ -41,6 +41,19 @@ Its sound comes from a sound input on the PC it runs on, not over this link. The
 
 Checked with FM-DX Webserver 1.4.0b: tuning and the width from its page, the RDS, the signal and a tune made on the radio.
 
+## Spectral scan
+
+XDR-GTK's **Spectral scan** window and the **Spectrum Graph** plugin for FM-DX Webserver both ask the radio to sweep a range and draw the level of every point. The radio does it with the same sweep as its own [band scope](Band-Scope.md), so the scan also shows on the radio's Band Scope page and in `GET /api/scope`.
+
+- **The range is in the band the radio is on.** On FM, tune to FM first; for medium wave, tune to MW and ask for, for example, 522 to 1710 in steps of 9. A range partly outside the band is cut to it, and one of more than 431 points to its first 431. On FM a start or a step between whole tens of kHz goes up to the next. A range wholly outside the band is not swept: the PC gets an empty answer, and XDR-GTK's scan window then has to be closed and opened again before it scans.
+- **A scan asked for while the radio is busy**, with its own band scope, a DX sweep, a seek or the update check, starts when that ends.
+- **The width.** On FM the width the PC asks for; Auto, or `Sw0`, is the radio's own width. On AM the radio's own AM width, with each channel read 40 ms after its tune.
+- **Each point** is the average of four readings, sent in dBf with one decimal, as the signal is. A point the tuner could not read is left out.
+- **Stop works.** XDR-GTK's stop, a key on the radio, or a tune ends a sweep within one channel. XDR-GTK offers its stop only after the first answer; if a key or a tune on the radio stops its very first sweep, close and open its scan window.
+- **Continuous works.** XDR-GTK's continuous mode sweeps again and again until stopped, or until the PC that asked leaves. Each sweep mutes the sound, so this is near silence.
+- **Two PCs** both get every scan's answer. A scan asked for while another PC's runs is answered by that one. When the last PC leaves, a sweep under way stops.
+- The sound is muted while a sweep runs: about 4 s for FM 87.5 to 108 in 100 kHz, and about 7.5 s for MW.
+
 ## What the radio does with each setting
 
 A PC changes the radio the same way the knob or the web page does, and is told back what is really in force. A control the radio cannot follow goes back to the radio's value after a moment.
@@ -57,7 +70,7 @@ A PC changes the radio the same way the knob or the web page does, and is told b
 | Squelch | 0 turns the squelch off. A level turns Off into Auto; a squelch already on stays as it is. The PC shows where the squelch opens, in dBf |
 | AGC, antenna, attenuation, rotator | Fixed on this radio: the highest AGC start, one aerial, no attenuation, no rotator |
 | Sampling interval | How often the signal is sent, from 66 ms, the usual, to 1000 ms. Back to 66 ms when every PC has left |
-| Spectral scan | Not yet |
+| Spectral scan | See [Spectral scan](#spectral-scan) |
 
 The signal is sent in dBf, which is dBµV plus 11.25; XDR-GTK and FM-DX Webserver show it in dBµV again.
 
@@ -66,7 +79,7 @@ The signal is sent in dBf, which is dBµV plus 11.25; XDR-GTK and FM-DX Webserve
 - **Three PCs at most.** A fourth is closed at once; XDR-GTK then says `Authentication error.`, though the PIN is right. `ref` in `/api/state` counts them.
 - **Five wrong PINs** lock the link for a minute, and only the link: the web page's sign in is not touched. A PC still set to an old PIN keeps the link locked this way, so after changing the Web PIN, change it in XDR-GTK and FM-DX Webserver too.
 - **Changing the Web PIN** signs every PC out, as it signs out the web page.
-- **A DX level sweep** stops the link for its 3 to 4 seconds; the lines start again after it.
+- **A level sweep**, DX mode's, the band scope's or a spectral scan, stops the link's lines for its seconds; they start again after it. The radio still reads what a PC sends, so a stop arrives.
 - A PC that connects and does not start within 10 seconds is closed, so a lost connection cannot hold one of the three places.
 
 `GET /api/state` shows the link under `pcl`; see [HTTP API](HTTP-API.md).

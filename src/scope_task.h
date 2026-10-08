@@ -29,6 +29,11 @@ typedef enum {
  * or that span round the dial. */
 ScopeStart scopeTaskSweep(uint32_t spanKHz);
 
+/* Start a sweep of `range` of the band the radio is on, which the caller has
+ * checked, as a PC's spectral scan asks: FM through `widthKHz`, 0 for the
+ * radio's own width, and AM always through the radio's own. */
+ScopeStart scopeTaskSweepRange(const DxSweepRange *range, uint16_t widthKHz);
+
 typedef struct {
   const DxSweep *latest; /* The last sweep that finished, or NULL. */
   bool whole;            /* `latest` is the whole band, not a span. */

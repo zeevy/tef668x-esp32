@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "band_plan.h"
+#include "dx_sweep.h"
 #include "squelch.h"
 
 #ifdef __cplusplus
@@ -52,7 +53,7 @@ extern "C" {
 
 /* What a line from a PC asks for. */
 typedef enum {
-  XDR_IGNORE = 0,  /* Taken, and nothing to do: a bare F, T0, a scan line. */
+  XDR_IGNORE = 0,  /* Taken, and nothing to do: a bare F, T0, Sz. */
   XDR_START,       /* x: start a session. */
   XDR_END,         /* X: end this PC's session. */
   XDR_TUNE,        /* T: `value` in kHz. */
@@ -68,6 +69,16 @@ typedef enum {
   XDR_ATTENUATION, /* V: 0 to 127. */
   XDR_ROTATOR,     /* C: 0 to 2, an aerial rotator. */
   XDR_INTERVAL,    /* I: `value` ms between signal lines, 0 for the usual. */
+  /* The spectral scan. A PC sets the range, the step and the width, then asks
+   * for one sweep or for sweeps one after another, and an empty line ends
+   * it. */
+  XDR_SCAN_FROM,  /* Sa: `value` the first frequency, kHz. */
+  XDR_SCAN_TO,    /* Sb: `value` the last, kHz. */
+  XDR_SCAN_STEP,  /* Sc: `value` the step, kHz. */
+  XDR_SCAN_WIDTH, /* Sw, or Sf through PE5PVB's filter numbers: `value` Hz,
+                   * 0 for the radio's own. */
+  XDR_SCAN_RUN,   /* S: `value` 0 for one sweep; Sm: 1, again and again. */
+  XDR_SCAN_STOP,  /* An empty line. */
 } XdrKind;
 
 typedef struct {
@@ -83,6 +94,30 @@ typedef struct {
  * understood and ignored, as xdrd does, so a newer PC program still works.
  */
 const char *xdrParse(const char *line, XdrCommand *out);
+
+/*
+ * A PC's scan range as the channels of a sweep of `band`: from `fromKHz` to
+ * `toKHz` in steps of `stepKHz`, either way round, cut to the band's edges
+ * with the first channel kept on the PC's own grid, and to the first
+ * DX_SWEEP_MAX points. On FM the start and the step go up to whole tens of
+ * kHz, the tuner's grid. NULL, and `out` filled in, when it can be swept;
+ * otherwise a plain reason: no step, or a range wholly outside the band.
+ */
+const char *xdrScanRange(BandId band, const BandPlanConfig *plan,
+                         int32_t fromKHz, int32_t toKHz, int32_t stepKHz,
+                         DxSweepRange *out);
+
+/*
+ * The scan's answer, written a part at a time: U, then a pair a channel,
+ * "87500=12.3,", the level in dBf with one decimal as on the signal line, and
+ * a space and the line end after the last comma. XDR-GTK reads as many pairs
+ * as the line has commas, and the Spectrum Graph plugin takes a line ending in
+ * a comma and a space as a radio's. A channel with no reading is left out.
+ * Writes from channel `*next`, U first when it is 0, as many whole pairs as
+ * fit in `cap`, and moves `*next` on; it is past the count once the line end
+ * is written. Returns the bytes written, 0 when nothing fits or `s` is NULL.
+ */
+size_t xdrScanPart(char *out, size_t cap, const DxSweep *s, uint16_t *next);
 
 /*
  * A level in tenths of a dBuV as tenths of a dBf, the unit the protocol

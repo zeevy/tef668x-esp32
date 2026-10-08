@@ -77,4 +77,4 @@ By touch, with Touch On:
 
 It stays open after a tune, so you can step from station to station. It closes when you open the menu or another screen, and when the band leaves FM. A sweep that is running stops when it closes. The check for new firmware waits while it is open.
 
-From a PC, `POST /api/scope` makes the same sweep, see [HTTP API](HTTP-API.md#band-scope).
+From a PC, `POST /api/scope` makes the same sweep, see [HTTP API](HTTP-API.md#band-scope). A spectral scan from XDR-GTK or FM-DX Webserver shows here too, labelled with its own width; see [PC Tools](PC-Tools.md#spectral-scan).
