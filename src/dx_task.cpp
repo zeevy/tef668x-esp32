@@ -592,7 +592,7 @@ static DxSweepStart sweepStart(void) {
     return DX_SWEEP_BUSY;
   }
   /* The update check's transmitting would raise every level read. */
-  if (updateCheckRunning() || !radioSweepStart(&sSweep->next)) {
+  if (updateCheckRunning() || !radioSweepStart(&sSweep->next, NULL)) {
     return DX_SWEEP_REFUSED;
   }
   sSweep->running = true;

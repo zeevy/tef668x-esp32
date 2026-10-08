@@ -261,3 +261,52 @@ bool dxSweepDecode(const uint8_t *in, size_t len, DxSweepHistory *out) {
   out->count = n;
   return true;
 }
+
+bool dxSweepRange(BandId band, const BandPlanConfig *plan, uint32_t dialKHz,
+                  uint32_t spanKHz, DxSweepRange *out) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  if (plan == NULL || out == NULL || !bandLimits(band, plan, &lo, &hi) ||
+      hi < lo) {
+    return false;
+  }
+  const uint16_t step = bandDefaultStep(band, plan);
+  if (step == 0) {
+    return false;
+  }
+  uint32_t all = (hi - lo) / step + 1;
+  if (all > DX_SWEEP_MAX) {
+    all = DX_SWEEP_MAX;
+  }
+  out->lowKHz = lo;
+  out->stepKHz = step;
+  out->count = (uint16_t)all;
+  const uint32_t want = spanKHz / step + 1;
+  if (spanKHz == 0 || want >= all) {
+    return true;
+  }
+  const uint32_t dial = dialKHz < lo ? 0 : (dialKHz - lo + step / 2) / step;
+  uint32_t first = dial > want / 2 ? dial - want / 2 : 0;
+  if (first + want > all) {
+    first = all - want;
+  }
+  out->lowKHz = lo + first * step;
+  out->count = (uint16_t)want;
+  return true;
+}
+
+bool dxSweepRangeFits(BandId band, const BandPlanConfig *plan,
+                      const DxSweepRange *r) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  if (plan == NULL || r == NULL || r->count == 0 || r->count > DX_SWEEP_MAX ||
+      r->stepKHz == 0 || !bandLimits(band, plan, &lo, &hi)) {
+    return false;
+  }
+  const uint32_t last = r->lowKHz + (uint32_t)(r->count - 1u) * r->stepKHz;
+  if (r->lowKHz < lo || last > hi) {
+    return false;
+  }
+  return bandModulation(band) != MODULATION_FM ||
+         ((r->lowKHz % 10) == 0 && (r->stepKHz % 10) == 0);
+}

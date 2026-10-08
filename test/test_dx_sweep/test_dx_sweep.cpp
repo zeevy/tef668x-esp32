@@ -293,6 +293,91 @@ static void the_age_is_in_whole_units(void) {
   TEST_ASSERT_FALSE(dxSweepAge(1000, 2000, t, 0));
 }
 
+/* The whole band in its default step, and a span round the dial on the same
+ * channels, kept inside the band's edges. */
+static void a_range_is_the_band_or_a_span_inside_it(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  DxSweepRange r;
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 106400, 0, &r));
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(100, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(206, r.count);
+  /* 3.6 MHz round 106.4: 37 channels, 104.6 to 108.2 would cross the top,
+   * so it ends on 108.0. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 106400, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT16(37, r.count);
+  TEST_ASSERT_EQUAL_UINT32(104400, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT32(108000, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* In the middle of the band it is centred on the dial. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98300, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT32(96500, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT32(100100, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* At the bottom edge it starts on the band's first channel. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 87500, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(37, r.count);
+  /* A dial between channels goes to the nearest: 98.36 is 98.4. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98360, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT32(96600, r.lowKHz);
+  /* As wide as the band or wider, it is the band. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98300, 20500, &r));
+  TEST_ASSERT_EQUAL_UINT16(206, r.count);
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  /* Medium wave in its 9 kHz channels. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_MW, &plan, 738, 0, &r));
+  TEST_ASSERT_EQUAL_UINT32(522, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(9, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(142, r.count);
+  /* A dial outside the band, after a band change, keeps it inside. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 80000, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 110000, 3600, &r));
+  TEST_ASSERT_EQUAL_UINT32(108000, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* OIRT in its 30 kHz channels. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_OIRT, &plan, 70000, 900, &r));
+  TEST_ASSERT_EQUAL_UINT16(30, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(31, r.count);
+  /* The nearest OIRT channel to 70.00 MHz is 70.01, the span's middle. */
+  TEST_ASSERT_EQUAL_UINT32(69560, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT32(70010, r.lowKHz + 15u * r.stepKHz);
+  /* A span narrower than a step is the dial's own channel. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98300, 50, &r));
+  TEST_ASSERT_EQUAL_UINT16(1, r.count);
+  TEST_ASSERT_EQUAL_UINT32(98300, r.lowKHz);
+  /* Nothing to fill in, or no plan. */
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_FM, NULL, 98300, 0, &r));
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_FM, &plan, 98300, 0, NULL));
+}
+
+/* A range fits when every channel is in the band, and on FM on its 10 kHz
+ * grid. */
+static void a_range_fits_only_inside_the_band(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  DxSweepRange r = {87500, 100, 206};
+  TEST_ASSERT_TRUE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r.count = 207; /* One past 108.0. */
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){87400, 100, 10}; /* Starts below the band. */
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){98305, 100, 10}; /* Off the 10 kHz grid. */
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){98300, 55, 10};
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){98300, 100, 0};
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){87500, 0, 10};
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_FM, &plan, &r));
+  r = (DxSweepRange){65000, 10, DX_SWEEP_MAX + 1};
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_OIRT, &plan, &r));
+  /* Medium wave's 9 kHz channels need no 10 kHz grid. */
+  r = (DxSweepRange){522, 9, 142};
+  TEST_ASSERT_TRUE(dxSweepRangeFits(BAND_MW, &plan, &r));
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_MW, NULL, &r));
+  TEST_ASSERT_FALSE(dxSweepRangeFits(BAND_MW, &plan, NULL));
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -311,5 +396,7 @@ int main(int argc, char **argv) {
   RUN_TEST(the_same_channels_needs_channels);
   RUN_TEST(a_channel_is_found_only_on_the_sweep);
   RUN_TEST(the_age_is_in_whole_units);
+  RUN_TEST(a_range_is_the_band_or_a_span_inside_it);
+  RUN_TEST(a_range_fits_only_inside_the_band);
   return UNITY_END();
 }
