@@ -412,10 +412,12 @@ static void handleApiDxSweepGet(void) {
 
 /*
  * POST /api/scope sweep=1: a sweep of the band the radio is on for the band
- * scope, outside DX mode too, through DX mode's width. `span` in kHz, 0 or
- * left out for the whole band, else that span round the dial. It returns at
- * once; GET /api/scope has it once `running` is false. Muted while it runs,
- * about 4 s for the whole FM band, and the web server answers nothing then.
+ * scope, outside DX mode too, FM through DX mode's width and AM through the
+ * radio's own. `span` in kHz, 0 or left out for the whole band, else that
+ * span round the dial; the whole of SW is too many channels, so SW takes a
+ * span. It returns at once; GET /api/scope has it once `running` is false.
+ * Muted while it runs, about 4 s for the whole FM band and 7.5 s for MW, and
+ * the web server answers nothing then.
  */
 static void handleApiScopePost(void) {
   if (!requireAuth(false)) {
@@ -434,19 +436,24 @@ static void handleApiScopePost(void) {
     case SCOPE_NO_MEMORY:
       apiFail(503, "There is no memory for the sweeps.");
       return;
+    case SCOPE_TOO_WIDE:
+      apiFail(400,
+              "More channels than a sweep holds, 431. On SW ask for a span, "
+              "for example span=360.");
+      return;
     default:
       apiFail(409,
               "Not started: a sweep, a check, a band scan or the update check "
-              "is under way, a seek runs, or the radio is off FM.");
+              "is under way, or a seek runs.");
       return;
   }
 }
 
 /* GET /api/scope: the band scope's last sweep, as GET /api/dx/sweep gives
- * DX mode's, with no baseline: `time` is UTC seconds when `real`, `level`
- * in tenths of a dBuV, null for a channel with no reading. `floor` only for
- * the whole band, where a quarter of the channels is the noise. Open to
- * read. */
+ * DX mode's, with no baseline: `band` the band it was swept on, `time` UTC
+ * seconds when `real`, `level` in tenths of a dBuV, null for a channel with
+ * no reading, and `lvo` that band's level offset. `floor` only for the whole
+ * band, where a quarter of the channels is the noise. Open to read. */
 static void handleApiScopeGet(void) {
   ScopeView v;
   scopeTaskView(&v);
@@ -471,13 +478,13 @@ static void handleApiScopeGet(void) {
              "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":%u,"
              "\"real\":%s,\"took_ms\":%u,\"width\":%u,\"low\":%u,"
              "\"step\":%u,\"count\":%u,\"whole\":%s,\"floor\":%s,"
-             "\"lvo\":%d",
+             "\"band\":\"%s\",\"lvo\":%d",
              (unsigned)v.revision, v.running ? "true" : "false",
              v.abandoned ? "true" : "false", (unsigned)s->at,
              s->timeKnown ? "true" : "false", (unsigned)s->tookMs,
              (unsigned)s->widthKHz, (unsigned)s->lowKHz, (unsigned)s->stepKHz,
              (unsigned)s->count, v.whole ? "true" : "false", floorText,
-             (int)screenTaskLevelOffsetDb(BAND_FM));
+             bandName(v.band), (int)screenTaskLevelOffsetDb(v.band));
     sWeb->server.sendContent(head);
     sendSweepLevels("level", s, NULL);
   }

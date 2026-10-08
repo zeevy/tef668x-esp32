@@ -107,7 +107,7 @@ Open it from Go To in the menu, or with a tap on the scale. See [Band Scope](Ban
 | Tuning knob, turn | Moves the cursor one channel | |
 | Tuning knob, press | Sweeps again, or stops the sweep that is running | Tunes to the cursor's channel |
 | ENTER | The same as the knob press | The same as the knob hold |
-| BAND | The whole band or 3.6 MHz round the dial, and sweeps again | Nothing |
+| BAND | The whole band or the span round the dial, and sweeps again. On SW, the span again | Nothing |
 | MODE | Closes the band scope | The menu |
 | BW, keypad | Nothing | |
 

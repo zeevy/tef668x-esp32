@@ -345,6 +345,27 @@ static void a_range_is_the_band_or_a_span_inside_it(void) {
   TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98300, 50, &r));
   TEST_ASSERT_EQUAL_UINT16(1, r.count);
   TEST_ASSERT_EQUAL_UINT32(98300, r.lowKHz);
+  /* Shortwave is 5061 channels: no whole band, and a span round the dial
+   * wherever it is, 73 channels of 5 kHz round 9500. */
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 9500, 0, &r));
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, 9500, 360, &r));
+  TEST_ASSERT_EQUAL_UINT16(5, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(73, r.count);
+  TEST_ASSERT_EQUAL_UINT32(9320, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT32(9680, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* At the top of shortwave it ends on the band's last channel. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, 26990, 360, &r));
+  TEST_ASSERT_EQUAL_UINT32(27000, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* A span of more channels than a sweep holds is refused, and one of
+   * exactly that many taken. */
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 9500, DX_SWEEP_MAX * 5, &r));
+  TEST_ASSERT_TRUE(
+      dxSweepRange(BAND_SW, &plan, 9500, (DX_SWEEP_MAX - 1) * 5, &r));
+  TEST_ASSERT_EQUAL_UINT16(DX_SWEEP_MAX, r.count);
+  /* Long wave in its 9 kHz channels. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_LW, &plan, 225, 0, &r));
+  TEST_ASSERT_EQUAL_UINT32(144, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(42, r.count);
   /* Nothing to fill in, or no plan. */
   TEST_ASSERT_FALSE(dxSweepRange(BAND_FM, NULL, 98300, 0, &r));
   TEST_ASSERT_FALSE(dxSweepRange(BAND_FM, &plan, 98300, 0, NULL));

@@ -40,6 +40,7 @@
  * below uses it for its channel count. Nothing here reads the first. */
 #undef CAPTURE_COUNT
 #include "../test/test_dx_sweep/capture.h"
+#include "../test/test_dx_sweep/capture_mw.h"
 #include "core/band_plan.h"
 #include "core/battery.h"
 #include "core/bw_page.h"
@@ -1117,7 +1118,8 @@ static uint8_t channelsOf(const DxSweep *s, const uint32_t *khz, size_t n,
  * The band scope, the same page over the radio screen, on the same sweep: the
  * whole band with the stored channels and two DX catches marked, then the span
  * round the dial, cut from it the way a span sweep reads it, then the same
- * with Touch On.
+ * with Touch On. Then medium wave, a sweep off the radio with one station
+ * heard, 738, stored.
  */
 static void renderBandScopes(const char *dir) {
   static DxSweep whole;
@@ -1140,7 +1142,9 @@ static void renderBandScopes(const char *dir) {
   in.nowKnown = true;
   in.nowUtc = now;
   in.clock = "17:43";
-  in.title = txt(STR_SCOPE_TITLE_FM);
+  char title[16];
+  snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE), "FM");
+  in.title = title;
   in.position = txt(STR_SCOPE_FULL);
   in.marks = marks;
   in.markCount = channelsOf(&whole, kPresetKHz, presets, marks);
@@ -1175,6 +1179,32 @@ static void renderBandScopes(const char *dir) {
   in.touchOn = true;
   in.revision++;
   renderScopeView(dir, "band-scope-touch", &in);
+
+  static DxSweep mw;
+  memset(&mw, 0, sizeof(mw));
+  mw.timeKnown = true;
+  mw.at = now - 60;
+  mw.lowKHz = CAPTURE_MW_LOW_KHZ;
+  mw.stepKHz = CAPTURE_MW_STEP_KHZ;
+  mw.count = CAPTURE_MW_COUNT;
+  mw.widthKHz = 4;
+  memcpy(mw.level, kMw, sizeof(kMw));
+  static const uint32_t kMwPresetKHz[] = {738};
+  memset(&in, 0, sizeof(in));
+  in.live = &mw;
+  in.am = true;
+  in.revision = 100;
+  in.dialKHz = 738;
+  in.cursor = (uint16_t)dxSweepChannelOf(&mw, 738);
+  in.nowKnown = true;
+  in.nowUtc = now;
+  in.clock = "21:12";
+  snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE), "MW");
+  in.title = title;
+  in.position = txt(STR_SCOPE_FULL);
+  in.marks = marks;
+  in.markCount = channelsOf(&mw, kMwPresetKHz, 1, marks);
+  renderScopeView(dir, "band-scope-mw", &in);
 }
 
 /* The sweep a fresh scan starts with, running. */

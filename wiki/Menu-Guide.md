@@ -50,7 +50,7 @@ Each row does one thing and closes the menu. When it cannot, for example DX Mode
 | Bandwidth | Opens the bandwidth page, as a hold of BW |
 | RDS | Opens the RDS pages, as a hold of BAND |
 | DX Mode | Opens DX mode. FM and OIRT only |
-| Band Scope | Opens the [band scope](Band-Scope.md). FM and OIRT only |
+| Band Scope | Opens the [band scope](Band-Scope.md) of the band you are on |
 | Log Current Station | Writes the station to the station log |
 | Sleep | The radio fades and sleeps until the knob is pressed. See [Sleep and Auto Off](Sleep-and-Auto-Off.md) |
 

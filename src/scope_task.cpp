@@ -18,6 +18,8 @@ static Scope *sScope = NULL;
 static bool sRunning = false;
 static bool sNextWhole = false;
 static bool sWhole = false;
+static BandId sNextBand = BAND_FM;
+static BandId sBand = BAND_FM;
 static bool sAbandoned = false;
 static uint16_t sRevision = 0;
 
@@ -37,17 +39,21 @@ ScopeStart scopeTaskSweep(uint32_t spanKHz) {
   BandPlanConfig plan;
   RadioSweepPlan sweep = {};
   if (sRunning || sSettings == NULL || !radioGetSettings(&now) ||
-      !radioTaskPlan(&plan) ||
-      !dxSweepRange(now.band, &plan, now.freqKHz, spanKHz, &sweep.range)) {
+      !radioTaskPlan(&plan)) {
     return SCOPE_REFUSED;
   }
-  sweep.widthKHz = sSettings->dxWidthKHz;
+  if (!dxSweepRange(now.band, &plan, now.freqKHz, spanKHz, &sweep.range)) {
+    return SCOPE_TOO_WIDE;
+  }
+  sweep.widthKHz =
+      bandModulation(now.band) == MODULATION_FM ? sSettings->dxWidthKHz : 0;
   if (!radioSweepStart(&sScope->next, &sweep)) {
     return SCOPE_REFUSED;
   }
   DxSweepRange whole;
   sNextWhole = dxSweepRange(now.band, &plan, now.freqKHz, 0, &whole) &&
                whole.count == sweep.range.count;
+  sNextBand = now.band;
   sRunning = true;
   sAbandoned = false;
   return SCOPE_STARTED;
@@ -67,6 +73,7 @@ void scopeTaskPoll(void) {
   sScope->next.at = sScope->next.timeKnown ? utc : 0;
   sScope->latest = sScope->next;
   sWhole = sNextWhole;
+  sBand = sNextBand;
   sRevision++;
 }
 
@@ -78,4 +85,5 @@ void scopeTaskView(ScopeView *out) {
   out->running = sRunning;
   out->abandoned = sAbandoned;
   out->revision = sRevision;
+  out->band = sBand;
 }

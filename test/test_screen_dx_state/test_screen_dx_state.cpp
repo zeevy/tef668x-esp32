@@ -14,6 +14,7 @@
 
 #include "../test_dx/captures.h"
 #include "../test_dx_sweep/capture.h"
+#include "../test_dx_sweep/capture_mw.h"
 #include "../test_meter/captures.h"
 #include "core/band_plan.h"
 #include "core/rds.h"
@@ -1485,6 +1486,38 @@ static void the_band_scope_has_its_title_span_and_marks(void) {
   TEST_ASSERT_NULL(pv.floorText);
 }
 
+/* A medium wave sweep off the radio: the axis and the cursor in whole kHz,
+ * with the noise floor of the whole band. */
+static void an_am_scope_reads_in_khz(void) {
+  memset(&live, 0, sizeof(live));
+  live.lowKHz = CAPTURE_MW_LOW_KHZ;
+  live.stepKHz = CAPTURE_MW_STEP_KHZ;
+  live.count = CAPTURE_MW_COUNT;
+  memcpy(live.level, kMw, sizeof(kMw));
+  ScreenScopeInputs in;
+  memset(&in, 0, sizeof(in));
+  in.live = &live;
+  in.am = true;
+  in.title = "MW Scope";
+  in.position = "Full";
+  in.dialKHz = 738;
+  in.cursor = (uint16_t)dxSweepChannelOf(&live, 738);
+  buildScope(&in);
+  TEST_ASSERT_TRUE(pv.am);
+  TEST_ASSERT_EQUAL_STRING("522", pv.from);
+  TEST_ASSERT_EQUAL_STRING("1156", pv.mid);
+  TEST_ASSERT_EQUAL_STRING("1791", pv.to);
+  TEST_ASSERT_EQUAL_STRING("738", pv.cursorFreq);
+  TEST_ASSERT_EQUAL_STRING("32.0", pv.cursorLevel);
+  TEST_ASSERT_EQUAL_UINT16(24, pv.dial);
+  TEST_ASSERT_NOT_EQUAL(SCREEN_SCOPE_NONE, pv.floor);
+  /* The same sweep on FM's terms is not what the page shows. */
+  in.am = false;
+  buildScope(&in);
+  TEST_ASSERT_FALSE(pv.am);
+  TEST_ASSERT_EQUAL_STRING("0.5", pv.from);
+}
+
 static void scope_builder_leaves_everything_alone_on_null_inputs(void) {
   const ScreenScopeInputs in = realScope();
   FILL(pv);
@@ -1707,6 +1740,7 @@ int main(void) {
   RUN_TEST(the_age_shows_only_when_both_times_are_known);
   RUN_TEST(the_scope_buttons_follow_the_touch_setting);
   RUN_TEST(the_band_scope_has_its_title_span_and_marks);
+  RUN_TEST(an_am_scope_reads_in_khz);
   RUN_TEST(scope_builder_leaves_everything_alone_on_null_inputs);
   RUN_TEST(a_message_takes_the_header_while_it_shows);
   RUN_TEST(the_offset_holds_through_small_moves_and_follows_a_real_one);

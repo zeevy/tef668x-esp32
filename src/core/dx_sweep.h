@@ -37,6 +37,18 @@ extern "C" {
 #define DX_SWEEP_SETTLE_MS 5
 #define DX_SWEEP_READS 4
 
+/*
+ * The wait on AM, from LW and MW sweeps on this radio at 3, 4 and 8 kHz, each
+ * reading against the same channel's once long settled. Read at 5 to 15 ms an
+ * AM level is 1.6 to 1.9 dB high on average and 1 reading in 20 is off by 6 to
+ * 9 dB; a channel just above a strong station reads 5 dB low and climbs. From
+ * 40 ms a reading is as near as one at 90 ms or later, within 0.4 dB at the
+ * 95th percentile, at every width. The chip's own time stamp says settled
+ * from about 32 ms. The four readings stay: AM noise comes in bursts of 12 to
+ * 18 dB, and one alone would make a peak. MW's 142 channels take about 7.5 s.
+ */
+#define DX_SWEEP_SETTLE_AM_MS 40
+
 /* How many sweeps are kept. */
 #define DX_SWEEP_KEEP 8
 
@@ -70,11 +82,12 @@ typedef struct {
 
 /*
  * The channels a sweep of `band` reads, on the band's own channels from its
- * bottom edge in its default step. `spanKHz` 0 is the whole band, up to
- * DX_SWEEP_MAX channels. Otherwise it is `spanKHz` wide, centred on the
- * channel nearest `dialKHz`, and moved inside the band where it would cross an
- * edge; a span as wide as the band or wider is the whole band. False when the
- * band has no edges or no step, or `plan` or `out` is NULL.
+ * bottom edge in its default step. `spanKHz` 0 is the whole band. Otherwise it
+ * is `spanKHz` wide, centred on the channel nearest `dialKHz`, and moved
+ * inside the band where it would cross an edge; a span as wide as the band or
+ * wider is the whole band. False when it would be more than DX_SWEEP_MAX
+ * channels, as the whole of shortwave is, when the band has no edges or no
+ * step, or `plan` or `out` is NULL.
  */
 bool dxSweepRange(BandId band, const BandPlanConfig *plan, uint32_t dialKHz,
                   uint32_t spanKHz, DxSweepRange *out);

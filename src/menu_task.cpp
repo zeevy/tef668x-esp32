@@ -2638,19 +2638,12 @@ static void fire(const MenuRow *row) {
       }
       return;
     }
-    case ROW_GOTO_SCOPE: {
-      /* Refused here off FM, as DX Mode is, so the note shows in the menu. */
-      RadioSettings now;
-      if (radioGetSettings(&now) && bandModulation(now.band) != MODULATION_FM) {
-        sNote = txt(STR_MENU_NOTE_SWITCH_TO_FM);
-        return;
-      }
+    case ROW_GOTO_SCOPE:
       menuTaskClose();
       if (!screenTaskScopeOpen()) {
         Serial.println(F("[menu] the band scope did not open"));
       }
       return;
-    }
     case ROW_DX_START_SCAN: {
       /* What `POST /api/dx` with on=1 and scan=1 does: DX mode open, the
        * scanner's own press, and its page up once it runs. The menu closes

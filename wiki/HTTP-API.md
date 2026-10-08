@@ -374,12 +374,12 @@ The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value pe
 
 ### Band scope
 
-The sweep of the [band scope](Band-Scope.md), outside DX mode, through DX mode's width, of the whole band or of a span round the dial. FM only for now. The sound is muted while it runs, about 4 s for the whole FM band and under a second for a span, and the web server answers nothing until it ends.
+The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band the radio is on or of a span round the dial: FM and OIRT through DX mode's width, AM through the radio's own AM width, each AM channel read 40 ms after its tune. The sound is muted while it runs, about 4 s for the whole FM band, 7.5 s for MW and under a second for a 3.6 MHz span on FM, and the web server answers nothing until it ends. The whole of SW is more channels than a sweep holds, so on SW ask for a span.
 
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
-| `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band | `sweeping` |
-| `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `lvo` and `level`, as above |
+| `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band. 400 for more than 431 channels, the whole of SW | `sweeping` |
+| `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `band` (the band it was swept on), `lvo` (that band's level offset) and `level`, as above |
 
 ```
 $ curl -s -OJ $R/api/dx.csv

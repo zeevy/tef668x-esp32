@@ -242,6 +242,8 @@ static std::atomic<bool> sSweepCancel{false};
  * and read by the radio task only after. */
 static RadioSweepPlan sSweepPlan;
 static bool sSweepPlanned = false;
+/* The band the sweep was asked for on, which its plan was checked against. */
+static BandId sSweepBand = BAND_FM;
 
 /* The AF_Update checks: the caller's series while one runs, NULL once it has
  * ended. The rest is the radio task's own. */
@@ -838,8 +840,10 @@ static uint32_t sweepBand(DxSweep *out, const RadioSettings *at,
   const uint32_t startMs = millis();
   (void)tef668xSetMute(true);
   /* The retune back to the dial after the sweep sends the radio's own width
-   * again, so a width for the sweep alone needs no undoing. */
-  if (sSweepPlanned &&
+   * again, so a width for the sweep alone needs no undoing. AM has none of
+   * its own and reads through the radio's. */
+  const bool fm = bandModulation(at->band) == MODULATION_FM;
+  if (sSweepPlanned && fm &&
       tef668xSetFmBandwidth(sSweepPlan.widthKHz) == TEF668X_OK) {
     out->widthKHz = sSweepPlan.widthKHz;
   }
@@ -855,14 +859,19 @@ static uint32_t sweepBand(DxSweep *out, const RadioSettings *at,
       out->count = 0;
       break;
     }
+    /* Fed a channel at a time: an AM span of 431 channels takes about 23 s,
+     * near the watchdog's limit for a whole round. */
+    esp_task_wdt_reset();
     khz = lo + (uint32_t)i * step;
     int16_t reads[DX_SWEEP_READS] = {};
     uint8_t n = 0;
-    if (tef668xTuneFm(khz) == TEF668X_OK) {
-      vTaskDelay(pdMS_TO_TICKS(DX_SWEEP_SETTLE_MS));
+    const Tef668xError tuned = fm ? tef668xTuneFm(khz) : tef668xTuneAm(khz);
+    if (tuned == TEF668X_OK) {
+      vTaskDelay(
+          pdMS_TO_TICKS(fm ? DX_SWEEP_SETTLE_MS : DX_SWEEP_SETTLE_AM_MS));
       for (uint8_t r = 0; r < DX_SWEEP_READS; r++) {
         int16_t level = 0;
-        if (tef668xReadLevel(true, &level) == TEF668X_OK) {
+        if (tef668xReadLevel(fm, &level) == TEF668X_OK) {
           reads[n++] = level;
         }
       }
@@ -1570,9 +1579,9 @@ static void roundSweep(RadioRound *r) {
   if (r->sweepOut == NULL) {
     return;
   }
-  if (bandModulation(r->settings.band) != MODULATION_FM) {
-    /* Asked for on FM, and a command since has left it. The sweep tunes
-     * with the FM tune, so it ends with nothing kept, as one ended by a key
+  if (r->settings.band != sSweepBand) {
+    /* A command since has left the band it was asked for on, whose channels
+     * its plan holds, so it ends with nothing kept, as one ended by a key
      * does. */
     r->sweepOut->count = 0;
     r->sweepOut->tookMs = 0;
@@ -2411,8 +2420,12 @@ bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan) {
     return false;
   }
   RadioSnapshot now;
-  if (!radioGetSnapshot(&now) || now.seeking ||
-      bandModulation(now.settings.band) != MODULATION_FM) {
+  if (!radioGetSnapshot(&now) || now.seeking) {
+    return false;
+  }
+  /* DX mode's sweep, with no plan, is FM's. */
+  const bool fm = bandModulation(now.settings.band) == MODULATION_FM;
+  if (plan == NULL && !fm) {
     return false;
   }
   /* A band scan's probes would wait behind the sweep, and the update
@@ -2422,13 +2435,18 @@ bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan) {
     return false;
   }
   if (plan != NULL) {
+    const bool widthFits =
+        fm ? plan->widthKHz != 0 &&
+                 bandBandwidthAllowed(BAND_FM, plan->widthKHz)
+           : plan->widthKHz == 0;
     if (!dxSweepRangeFits(now.settings.band, &sPlan, &plan->range) ||
-        !bandBandwidthAllowed(BAND_FM, plan->widthKHz) || plan->widthKHz == 0) {
+        !widthFits) {
       return false;
     }
     sSweepPlan = *plan;
   }
   sSweepPlanned = plan != NULL;
+  sSweepBand = now.settings.band;
   sSweepCancel.store(false);
   DxSweep *none = nullptr;
   return sSweepOut.compare_exchange_strong(none, out);

@@ -1793,7 +1793,7 @@ function esc(t){return String(t).replace(/[&<>"']/g,function(c){return '&#'+c.ch
 function two(n){return (n<10?'0':'')+n}
 /* The body too, not only the headers: a reply cut off halfway would
  * otherwise never settle and the next round would never be asked for. */
-function get(p,json){var c=new AbortController(),t=setTimeout(function(){c.abort()},4000);return fetch(p,{signal:c.signal}).then(function(r){
+function get(p,json){var c=new AbortController(),t=setTimeout(function(){c.abort()},10000);return fetch(p,{signal:c.signal}).then(function(r){
  if(!r.ok)return r.text().then(function(x){var e=new Error(x.trim()||'The radio said '+r.status+'.');e.said=true;throw e});return json?r.json():r.text()}).finally(function(){clearTimeout(t)})}
 /* What to say for a failed ask: the radio's own reason when it gave one. */
 function why(e){return e&&e.said?e.message:'The radio did not answer.'}

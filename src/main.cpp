@@ -227,10 +227,11 @@ extern "C" bool verifyRollbackLater(void) {
  * Twice the longest a healthy loop pass can take. The network library waits
  * up to ten seconds on one send to a phone that has dropped off the network,
  * ten tries of one second each, and up to five more for a request that
- * arrives slowly. The radio task's longest round is a level sweep of the FM
- * band, about 4 s for 211 channels and about twice that for the widest band
- * plan's 431. The framework's own 5 s would restart the radio whenever a
- * phone went out of range in the middle of a reply.
+ * arrives slowly. The radio task's longest round is a level sweep, about 4 s
+ * for the 211 channels of FM and 7.5 s for MW's 142; it feeds the watchdog a
+ * channel at a time, so a longer one is not taken for a hung task. The
+ * framework's own 5 s would restart the radio whenever a phone went out of
+ * range in the middle of a reply.
  */
 #define TASK_WATCHDOG_MS 30000
 
