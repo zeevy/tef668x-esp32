@@ -1670,14 +1670,20 @@ static void scopeDraw(void) {
     scopeMarks(live, snap.settings.band);
   }
   char clockText[CLOCK_TEXT_LEN];
+  /* How wide the sweep on show is, which a PC's scan sets as it likes, or
+   * before the first the span asked for. */
+  const uint32_t spanKHz = live != NULL
+                               ? (uint32_t)(live->count - 1u) * live->stepKHz
+                           : scopeAm() ? SCOPE_SPAN_AM_KHZ
+                                       : SCOPE_SPAN_KHZ;
   char span[16];
   if (scopeAm()) {
     snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN_KHZ),
-             (unsigned long)SCOPE_SPAN_AM_KHZ);
+             (unsigned long)spanKHz);
   } else {
     snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN),
-             (unsigned long)(SCOPE_SPAN_KHZ / 1000),
-             (unsigned long)(SCOPE_SPAN_KHZ % 1000 / 100));
+             (unsigned long)(spanKHz / 1000),
+             (unsigned long)(spanKHz % 1000 / 100));
   }
   char title[16];
   snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE),

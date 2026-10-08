@@ -1,6 +1,7 @@
 /* Tests for the XDR protocol's lines. Runs on a PC. */
 #include <unity.h>
 
+#include "../test_dx_sweep/capture.h"
 #include "core/xdr.h"
 
 #include <string.h>
@@ -100,13 +101,180 @@ static void a_session_starts_with_x_and_ends_with_capital_x(void) {
 }
 
 static void what_the_radio_does_not_offer_is_ignored(void) {
-  /* F comes with its width as W after it; N, S and newer letters are not
+  /* F comes with its width as W after it; N and newer letters are not
    * offered. Ignored rather than refused, as xdrd does. */
   TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("F").kind);
   TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("F-1").kind);
   TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("N").kind);
-  TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("Sa87500").kind);
-  TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("").kind);
+  TEST_ASSERT_EQUAL_INT(XDR_IGNORE, parse("Sz0").kind);
+}
+
+/* The scan lines as XDR-GTK and the Spectrum Graph plugin send them. */
+static void the_scan_lines_are_read(void) {
+  XdrCommand c = parse("Sa87500");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_FROM, c.kind);
+  TEST_ASSERT_EQUAL_INT32(87500, c.value);
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_TO, parse("Sb108000").kind);
+  c = parse("Sc100");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_STEP, c.kind);
+  TEST_ASSERT_EQUAL_INT32(100, c.value);
+  c = parse("Sw114000");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_WIDTH, c.kind);
+  TEST_ASSERT_EQUAL_INT32(114000, c.value);
+  TEST_ASSERT_EQUAL_INT32(0, parse("Sw0").value);
+  /* PE5PVB's filter numbers: 3 is 114 kHz, 26 is 64, 0 is 56. */
+  c = parse("Sf3");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_WIDTH, c.kind);
+  TEST_ASSERT_EQUAL_INT32(114000, c.value);
+  TEST_ASSERT_EQUAL_INT32(64000, parse("Sf26").value);
+  TEST_ASSERT_EQUAL_INT32(56000, parse("Sf0").value);
+  TEST_ASSERT_EQUAL_INT32(311000, parse("Sf15").value);
+  c = parse("S");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_RUN, c.kind);
+  TEST_ASSERT_EQUAL_INT32(0, c.value);
+  c = parse("Sm");
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_RUN, c.kind);
+  TEST_ASSERT_EQUAL_INT32(1, c.value);
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_STOP, parse("").kind);
+  TEST_ASSERT_EQUAL_INT(XDR_SCAN_STOP, parse("\r").kind);
+  refused("Sa0");
+  refused("Sa");
+  refused("Sc-100");
+  refused("Sb200001");
+  refused("Sw-1");
+  refused("Sw400001");
+  refused("Sf2");
+  refused("Sf");
+  refused("Smm");
+}
+
+/* A PC's range as the sweep's channels: cut to the band, on the PC's grid,
+ * and refused with a reason when it cannot be swept. */
+static void a_scan_range_is_cut_to_the_band(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  DxSweepRange r;
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 108000, 100, &r));
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(100, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(206, r.count);
+  /* Either way round. */
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 108000, 87500, 100, &r));
+  TEST_ASSERT_EQUAL_UINT16(206, r.count);
+  /* 87.0 is under this band plan's 87.5: it starts on the PC's first
+   * channel inside, and stops at the top. */
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87050, 110000, 100, &r));
+  TEST_ASSERT_EQUAL_UINT32(87550, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT32(107950, r.lowKHz + (r.count - 1u) * r.stepKHz);
+  /* 431 points fit, and more are cut to the first 431, as the Spectrum
+   * Graph plugin's 86 to 108 MHz in 50 kHz would be on a band from 76. */
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 91800, 10, &r));
+  TEST_ASSERT_EQUAL_UINT16(DX_SWEEP_MAX, r.count);
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 108000, 10, &r));
+  TEST_ASSERT_EQUAL_UINT16(DX_SWEEP_MAX, r.count);
+  TEST_ASSERT_EQUAL_UINT32(87500, r.lowKHz);
+  /* Off FM's 10 kHz grid, the start and the step go up to it. */
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 88000, 5, &r));
+  TEST_ASSERT_EQUAL_UINT16(10, r.stepKHz);
+  TEST_ASSERT_EQUAL_UINT16(51, r.count);
+  TEST_ASSERT_NULL(xdrScanRange(BAND_FM, &plan, 87505, 88005, 100, &r));
+  TEST_ASSERT_EQUAL_UINT32(87510, r.lowKHz);
+  /* Outside the band, no step, too wide a step. */
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_FM, &plan, 65750, 74000, 30, &r));
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 108000, 0, &r));
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 108000, 70000, &r));
+  /* 65535 is a step on AM, but on FM it goes up past the most there is. */
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_FM, &plan, 87500, 108000, 65535, &r));
+  /* Inside the band, but none of the PC's own channels is. */
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_FM, &plan, 87000, 108000, 65000, &r));
+  /* Medium wave in 9 kHz. */
+  TEST_ASSERT_NULL(xdrScanRange(BAND_MW, &plan, 522, 1710, 9, &r));
+  TEST_ASSERT_EQUAL_UINT16(133, r.count);
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_MW, &plan, 87500, 108000, 100, &r));
+  TEST_ASSERT_NOT_NULL(xdrScanRange(BAND_MW, &plan, 522, 1710, 9, NULL));
+}
+
+/* The U line: a pair a channel with a comma after each, the level in dBf, a
+ * channel with no reading left out, and a space before the line end. */
+static void the_scan_answer_is_one_line_of_pairs(void) {
+  DxSweep s;
+  memset(&s, 0, sizeof(s));
+  s.lowKHz = 87500;
+  s.stepKHz = 100;
+  s.count = 3;
+  s.level[0] = 100;
+  s.level[1] = DX_SWEEP_NO_READING;
+  s.level[2] = -150;
+  char out[64];
+  uint16_t next = 0;
+  size_t len = xdrScanPart(out, sizeof(out), &s, &next);
+  out[len] = '\0';
+  TEST_ASSERT_EQUAL_STRING("U87500=21.3,87700=-3.8, \n", out);
+  TEST_ASSERT_EQUAL_UINT16(4, next);
+  TEST_ASSERT_EQUAL_size_t(0, xdrScanPart(out, sizeof(out), &s, &next));
+  /* In parts too small for the whole line, whole pairs only. */
+  next = 0;
+  len = xdrScanPart(out, 14, &s, &next);
+  out[len] = '\0';
+  TEST_ASSERT_EQUAL_STRING("U87500=21.3,", out);
+  len = xdrScanPart(out, 14, &s, &next);
+  out[len] = '\0';
+  TEST_ASSERT_EQUAL_STRING("87700=-3.8, \n", out);
+  TEST_ASSERT_EQUAL_size_t(0, xdrScanPart(out, 14, &s, &next));
+  /* The line end in a part of its own when the last pair fills one. */
+  next = 0;
+  (void)xdrScanPart(out, 12, &s, &next);
+  len = xdrScanPart(out, 12, &s, &next);
+  out[len] = '\0';
+  TEST_ASSERT_EQUAL_STRING("87700=-3.8,", out);
+  len = xdrScanPart(out, 12, &s, &next);
+  out[len] = '\0';
+  TEST_ASSERT_EQUAL_STRING(" \n", out);
+  next = 0;
+  TEST_ASSERT_EQUAL_size_t(0, xdrScanPart(out, 1, &s, &next));
+  TEST_ASSERT_EQUAL_size_t(0, xdrScanPart(out, sizeof(out), NULL, &next));
+}
+
+/* A whole band off the radio, 211 channels, in the parts the server sends:
+ * as many commas as pairs, and the ending both PC programs look for. */
+static void a_real_sweep_makes_a_line_both_programs_read(void) {
+  static DxSweep s;
+  memset(&s, 0, sizeof(s));
+  s.lowKHz = CAPTURE_LOW_KHZ;
+  s.stepKHz = CAPTURE_STEP_KHZ;
+  s.count = CAPTURE_COUNT;
+  for (uint16_t i = 0; i < CAPTURE_COUNT; i++) {
+    s.level[i] = dxSweepMean(kPass1[i], CAPTURE_READS);
+  }
+  static char line[8192];
+  size_t len = 0;
+  uint16_t next = 0;
+  for (size_t n; (n = xdrScanPart(line + len, 512, &s, &next)) > 0;) {
+    len += n;
+  }
+  line[len] = '\0';
+  size_t commas = 0;
+  for (size_t i = 0; i < len; i++) {
+    commas += line[i] == ',';
+  }
+  TEST_ASSERT_EQUAL_size_t(CAPTURE_COUNT, commas);
+  TEST_ASSERT_EQUAL_INT(0, strncmp(line, "U87000=", 7));
+  TEST_ASSERT_EQUAL_INT(0, strcmp(line + len - 3, ", \n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",108000="));
+  /* The longest line, 431 six digit frequencies at a level of four digits,
+   * is under the 5744 bytes a socket takes at once. */
+  s.lowKHz = 103700;
+  s.stepKHz = 10;
+  s.count = DX_SWEEP_MAX;
+  for (uint16_t i = 0; i < DX_SWEEP_MAX; i++) {
+    s.level[i] = 1200;
+  }
+  len = 0;
+  next = 0;
+  for (size_t n; (n = xdrScanPart(line + len, 512, &s, &next)) > 0;) {
+    len += n;
+  }
+  TEST_ASSERT_TRUE(len > 5000 && len < 5744);
 }
 
 static void a_carriage_return_is_dropped(void) {
@@ -319,6 +487,10 @@ int main(int, char **) {
   RUN_TEST(i_is_an_interval_and_an_optional_mode);
   RUN_TEST(a_session_starts_with_x_and_ends_with_capital_x);
   RUN_TEST(what_the_radio_does_not_offer_is_ignored);
+  RUN_TEST(the_scan_lines_are_read);
+  RUN_TEST(a_scan_range_is_cut_to_the_band);
+  RUN_TEST(the_scan_answer_is_one_line_of_pairs);
+  RUN_TEST(a_real_sweep_makes_a_line_both_programs_read);
   RUN_TEST(a_carriage_return_is_dropped);
   RUN_TEST(a_line_one_over_the_limit_is_refused);
   RUN_TEST(a_ten_digit_number_is_refused);

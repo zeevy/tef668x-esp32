@@ -29,6 +29,7 @@
 #include "core/xdr.h"
 #include "net/web_update.h"
 #include "radio_task.h"
+#include "scope_task.h"
 #include "screen_task.h"
 #include "sleep_task.h"
 
@@ -62,6 +63,11 @@ typedef struct {
   bool overlong;
   uint8_t len;
   uint32_t sinceMs; /* When it connected. */
+  /* Its spectral scan: the range and step in kHz, and the width in Hz. */
+  int32_t scanFrom;
+  int32_t scanTo;
+  int32_t scanStep;
+  int32_t scanWidthHz;
   char salt[XDR_SALT_LEN + 1];
   char line[XDR_READ_MAX];
 } Pc;
@@ -115,6 +121,14 @@ static uint32_t sPass = 0;
 /* When that mute was asked for: a snapshot from before the radio task took
  * it still shows the radio playing. */
 static uint32_t sMutedAtMs = 0;
+/* The spectral scan under way: the place of the PC that asked, -1 for none,
+ * whether it repeats, whether it waits for another sweep to end, and the band
+ * scope's count of sweeps when it started, so a sweep that ended early is
+ * told from one that finished. */
+static int sScanBy = -1;
+static bool sScanRepeat = false;
+static bool sScanWaiting = false;
+static uint16_t sScanRev = 0;
 
 void xdrServerBegin(const Settings *settings) {
   sSettings = settings;
@@ -170,6 +184,10 @@ static void unmuteIfPcMuted(void) {
 static void drop(Pc *pc) {
   if (pc->fd >= 0) {
     close(pc->fd);
+  }
+  /* The sweep under way still answers the others; it is not repeated. */
+  if (sLink != NULL && pc - sLink->pc == sScanBy) {
+    sScanRepeat = false;
   }
   if (pc->signedIn) {
     sUsersChanged = true;
@@ -239,6 +257,13 @@ static void closePort(void) {
   free(sLink);
   sLink = NULL;
   sUsersChanged = false;
+  /* Nobody is left to answer, and the sweep keeps the radio muted. */
+  if (sScanBy >= 0 && !sScanWaiting) {
+    radioSweepCancel();
+  }
+  sScanBy = -1;
+  sScanRepeat = false;
+  sScanWaiting = false;
   unmuteIfPcMuted();
   Serial.println(F("[xdr] closed"));
 }
@@ -267,6 +292,10 @@ static void takeNewPcs(void) {
     pc->fd = fd;
     pc->ip = from.sin_addr.s_addr;
     pc->sinceMs = millis();
+    pc->scanFrom = 0;
+    pc->scanTo = 0;
+    pc->scanStep = 0;
+    pc->scanWidthHz = 0;
     uint8_t random[XDR_SALT_LEN];
     esp_fill_random(random, sizeof(random));
     xdrSalt(random, pc->salt);
@@ -419,12 +448,138 @@ static void tune(int32_t khz) {
   post(&cmd);
 }
 
+/*
+ * Start the scan `pc` set up, of the band the radio is on. One that cannot be
+ * swept is answered with an empty U line, so a PC that takes it stops
+ * waiting, and its reason goes to the log. While another sweep, a seek or the
+ * update check holds the tuner, it waits and starts when they end.
+ */
+static void startScan(Pc *pc, bool repeat) {
+  sScanBy = (int)(pc - sLink->pc);
+  sScanRepeat = repeat;
+  sScanWaiting = false;
+  RadioSettings r;
+  BandPlanConfig plan;
+  DxSweepRange range;
+  const char *why = !radioGetSettings(&r) || !radioTaskPlan(&plan)
+                        ? "The radio did not answer."
+                        : xdrScanRange(r.band, &plan, pc->scanFrom, pc->scanTo,
+                                       pc->scanStep, &range);
+  if (why != NULL) {
+    Serial.printf("[xdr] scan not started: %s\n", why);
+    sendAll(pc, "U\n", 2);
+    sScanBy = -1;
+    sScanRepeat = false;
+    return;
+  }
+  ScopeView v;
+  scopeTaskView(&v);
+  sScanRev = v.revision;
+  sScanWaiting =
+      scopeTaskSweepRange(&range, xdrWidthKHz(BAND_FM, pc->scanWidthHz, 0)) !=
+      SCOPE_STARTED;
+}
+
+/* The scan's U line to every started PC, in parts the size of the pass's
+ * output; a PC that cannot take a part is dropped, as for any line. */
+static void sendScan(const DxSweep *s) {
+  uint16_t next = 0;
+  size_t len = 0;
+  while ((len = xdrScanPart(sLink->out, XDR_OUT_MAX, s, &next)) > 0) {
+    for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+      if (sLink->pc[i].started) {
+        sendAll(&sLink->pc[i], sLink->out, len);
+      }
+    }
+  }
+}
+
+/*
+ * A scan that has ended: answered, and started again at once when it repeats,
+ * so no signal line goes out between two sweeps and XDR-GTK keeps its scan
+ * on. One ended early, by an empty line, a key or a tune, is not answered
+ * and not repeated.
+ */
+static bool anyStarted(void);
+
+static void scanPoll(void) {
+  if (sScanBy < 0) {
+    return;
+  }
+  if (!anyStarted()) {
+    /* Nobody left to answer, and the sweep keeps the radio muted. */
+    if (!sScanWaiting) {
+      radioSweepCancel();
+    }
+    sScanBy = -1;
+    sScanRepeat = false;
+    sScanWaiting = false;
+    return;
+  }
+  Pc *by = &sLink->pc[sScanBy];
+  if (sScanWaiting) {
+    if (!by->started) {
+      sScanBy = -1;
+    } else if (!radioSweepBusy()) {
+      startScan(by, sScanRepeat);
+    }
+    return;
+  }
+  ScopeView v;
+  scopeTaskView(&v);
+  if (v.running) {
+    return;
+  }
+  const bool finished = v.revision != sScanRev && v.latest != NULL;
+  if (finished) {
+    sendScan(v.latest);
+  }
+  if (finished && sScanRepeat && by->started) {
+    startScan(by, true);
+    return;
+  }
+  sScanBy = -1;
+  sScanRepeat = false;
+}
+
 /* Carry out one understood command. The answer is the echo the next pass
  * sends, from what the radio then has. */
 static void act(Pc *pc, const XdrCommand *c, const RadioSettings *r) {
   RadioCommand cmd = {};
   const bool am = bandModulation(r->band) == MODULATION_AM;
   switch (c->kind) {
+    case XDR_SCAN_FROM:
+      pc->scanFrom = c->value;
+      return;
+    case XDR_SCAN_TO:
+      pc->scanTo = c->value;
+      return;
+    case XDR_SCAN_STEP:
+      pc->scanStep = c->value;
+      return;
+    case XDR_SCAN_WIDTH:
+      pc->scanWidthHz = c->value;
+      return;
+    case XDR_SCAN_RUN:
+      if (sScanBy < 0) {
+        startScan(pc, c->value == 1);
+      } else if (pc - sLink->pc == sScanBy) {
+        /* Its own scan under way: this only says whether it goes on. Another
+         * PC's answers this one too. */
+        sScanRepeat = c->value == 1;
+      }
+      return;
+    case XDR_SCAN_STOP:
+      if (sScanBy >= 0 && pc - sLink->pc == sScanBy) {
+        sScanRepeat = false;
+        if (sScanWaiting) {
+          sScanBy = -1;
+          sScanWaiting = false;
+        } else {
+          radioSweepCancel();
+        }
+      }
+      return;
     case XDR_START:
       start(pc);
       return;
@@ -701,6 +856,7 @@ void xdrServerLoop(void) {
   if (sUsersChanged) {
     tellUsers();
   }
+  scanPoll();
   /* Nothing goes out while a level sweep reads the band: a send there would
    * raise the channel being read, as a web reply does. */
   if (radioSweepBusy()) {

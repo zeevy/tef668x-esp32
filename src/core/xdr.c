@@ -35,6 +35,64 @@ static bool oneNumber(const char *s, int32_t min, int32_t max, int32_t *out) {
   return readNumber(s, &end, out) && *end == '\0' && *out >= min && *out <= max;
 }
 
+/* PE5PVB's filter numbers and the FM widths they stand for, in kHz: the
+ * Spectrum Graph plugin sends these to a radio it takes for PE5PVB's. */
+static const struct {
+  uint8_t number;
+  uint16_t khz;
+} kPe5pvbFilters[] = {{0, 56},   {26, 64},  {1, 72},   {28, 84},
+                      {29, 97},  {3, 114},  {4, 133},  {5, 151},
+                      {7, 168},  {8, 184},  {9, 200},  {10, 217},
+                      {11, 236}, {12, 254}, {13, 287}, {15, 311}};
+
+/* The scan lines, after the S. */
+static const char *parseScan(const char *rest, XdrCommand *out) {
+  int32_t value = 0;
+  switch (rest[0]) {
+    case '\0':
+    case 'm':
+      if (rest[0] == 'm' && rest[1] != '\0') {
+        return "Sm takes nothing after it.";
+      }
+      out->kind = XDR_SCAN_RUN;
+      out->value = rest[0] == 'm';
+      return NULL;
+    case 'a':
+    case 'b':
+    case 'c':
+      if (!oneNumber(rest + 1, 1, 200000, &value)) {
+        return "Sa, Sb and Sc are kHz, 1 to 200000.";
+      }
+      out->kind = rest[0] == 'a'   ? XDR_SCAN_FROM
+                  : rest[0] == 'b' ? XDR_SCAN_TO
+                                   : XDR_SCAN_STEP;
+      out->value = value;
+      return NULL;
+    case 'w':
+      if (!oneNumber(rest + 1, 0, 400000, &value)) {
+        return "Sw is a width in Hz, 0 for the radio's own.";
+      }
+      out->kind = XDR_SCAN_WIDTH;
+      out->value = value;
+      return NULL;
+    case 'f':
+      if (oneNumber(rest + 1, 0, 255, &value)) {
+        for (size_t i = 0;
+             i < sizeof(kPe5pvbFilters) / sizeof(kPe5pvbFilters[0]); i++) {
+          if (kPe5pvbFilters[i].number == value) {
+            out->kind = XDR_SCAN_WIDTH;
+            out->value = (int32_t)kPe5pvbFilters[i].khz * 1000;
+            return NULL;
+          }
+        }
+      }
+      return "Sf is one of PE5PVB's filter numbers.";
+    default:
+      /* Sz, the aerial: this radio has one. */
+      return NULL;
+  }
+}
+
 typedef struct {
   char letter;
   XdrKind kind;
@@ -78,12 +136,15 @@ const char *xdrParse(const char *line, XdrCommand *out) {
   memcpy(text, line, len);
   text[len] = '\0';
   if (len == 0) {
-    return NULL; /* An empty line ends a scan; there is none to end. */
+    out->kind = XDR_SCAN_STOP;
+    return NULL;
   }
   const char letter = text[0];
   const char *rest = text + 1;
   int32_t value = 0;
   switch (letter) {
+    case 'S':
+      return parseScan(rest, out);
     case 'x':
       out->kind = XDR_START;
       return NULL;
@@ -140,7 +201,7 @@ const char *xdrParse(const char *line, XdrCommand *out) {
     return NULL;
   }
   /* F, the old filter index, comes with the width it means as W after it;
-   * N, S and anything newer are not offered. */
+   * N and anything newer are not offered. */
   return NULL;
 }
 
@@ -158,6 +219,94 @@ static int tenths(char *out, size_t cap, int32_t t) {
 
 static size_t done(int n, size_t cap) {
   return n < 0 ? 0 : (size_t)n >= cap ? cap - 1 : (size_t)n;
+}
+
+const char *xdrScanRange(BandId band, const BandPlanConfig *plan,
+                         int32_t fromKHz, int32_t toKHz, int32_t stepKHz,
+                         DxSweepRange *out) {
+  uint32_t lo = 0;
+  uint32_t hi = 0;
+  if (out == NULL || !bandLimits(band, plan, &lo, &hi)) {
+    return "No band to scan.";
+  }
+  if (stepKHz <= 0 || stepKHz > UINT16_MAX) {
+    return "Sc, the step, is 1 to 65535 kHz.";
+  }
+  if (fromKHz > toKHz) {
+    const int32_t t = fromKHz;
+    fromKHz = toKHz;
+    toKHz = t;
+  }
+  if (fromKHz <= 0 || toKHz < (int32_t)lo || fromKHz > (int32_t)hi) {
+    return "The range is not in the band the radio is on.";
+  }
+  /* FM tunes in whole tens of kHz, so a start or a step between them goes
+   * up to the next. */
+  if (bandModulation(band) == MODULATION_FM) {
+    fromKHz = (fromKHz + 9) / 10 * 10;
+    stepKHz = (stepKHz + 9) / 10 * 10;
+    if (stepKHz > UINT16_MAX) {
+      return "Sc, the step, is 1 to 65535 kHz.";
+    }
+  }
+  /* The first of the PC's own channels inside the band. */
+  int32_t first = fromKHz;
+  if (first < (int32_t)lo) {
+    first += ((int32_t)lo - first + stepKHz - 1) / stepKHz * stepKHz;
+  }
+  const int32_t last = toKHz < (int32_t)hi ? toKHz : (int32_t)hi;
+  if (first > last) {
+    return "The range is not in the band the radio is on.";
+  }
+  /* XDR-GTK allows 700 points, and the Spectrum Graph plugin asks for 441
+   * when the band starts below 86 MHz. XDR-GTK answered with no points cannot
+   * scan again until its window is opened again, so a longer range is cut to
+   * the first 431 points rather than refused. */
+  int32_t count = (last - first) / stepKHz + 1;
+  if (count > DX_SWEEP_MAX) {
+    count = DX_SWEEP_MAX;
+  }
+  out->lowKHz = (uint32_t)first;
+  out->stepKHz = (uint16_t)stepKHz;
+  out->count = (uint16_t)count;
+  return NULL;
+}
+
+size_t xdrScanPart(char *out, size_t cap, const DxSweep *s, uint16_t *next) {
+  if (out == NULL || s == NULL || next == NULL || cap == 0 ||
+      *next > s->count) {
+    return 0;
+  }
+  size_t len = 0;
+  if (*next == 0) {
+    if (cap < 2) {
+      return 0;
+    }
+    out[len++] = 'U';
+  }
+  for (; *next < s->count; (*next)++) {
+    const int16_t level = s->level[*next];
+    if (level == DX_SWEEP_NO_READING) {
+      continue;
+    }
+    char pair[24];
+    int n = snprintf(pair, sizeof(pair),
+                     "%lu=", (unsigned long)dxSweepKHzOf(s, *next));
+    n += tenths(pair + n, sizeof(pair) - (size_t)n, xdrDbfTenths(level));
+    pair[n++] = ',';
+    if (len + (size_t)n > cap) {
+      return len;
+    }
+    memcpy(out + len, pair, (size_t)n);
+    len += (size_t)n;
+  }
+  if (len + 2 > cap) {
+    return len;
+  }
+  out[len++] = ' ';
+  out[len++] = '\n';
+  (*next)++;
+  return len;
 }
 
 size_t xdrSignal(char *out, size_t cap, int16_t levelTenthsDbuV, bool pilot,
