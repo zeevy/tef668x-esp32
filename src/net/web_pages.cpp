@@ -261,11 +261,14 @@ static void pageHead(ChunkedReply &out, const char *title, const char *active) {
   out += F("</p></hgroup>");
   if (active != NULL) {
     out += F("<nav><ul>");
-    static const char *const kPages[][2] = {
-        {"/", "Home"},           {"/radio", "Radio"},
-        {"/fm", "FM &amp; RDS"}, {"/settings", "Settings"},
-        {"/network", "Network"}, {"/dx", "DX"},
-        {"/system", "System"}};
+    static const char *const kPages[][2] = {{"/", "Home"},
+                                            {"/radio", "Radio"},
+                                            {"/fm", "FM &amp; RDS"},
+                                            {"/settings", "Settings"},
+                                            {"/network", "Network"},
+                                            {"/dx", "DX"},
+                                            {"/scope", "Band Scope"},
+                                            {"/system", "System"}};
     for (size_t i = 0; i < sizeof(kPages) / sizeof(kPages[0]); i++) {
       out += F("<li><a href='");
       out += kPages[i][0];
@@ -1444,12 +1447,12 @@ static String signInForm(const char *next) {
 /*
  * Where a sign in may send the browser afterwards.
  *
- * Only the seven pages this firmware serves. Anything else, including an
+ * Only the eight pages this firmware serves. Anything else, including an
  * absolute URL somebody put in the form, comes back as the home page.
  */
 const char *safeNext(const String &want) {
   static const char *kPages[] = {"/",        "/radio", "/fm",    "/settings",
-                                 "/network", "/dx",    "/system"};
+                                 "/network", "/dx",    "/scope", "/system"};
   for (size_t i = 0; i < sizeof(kPages) / sizeof(kPages[0]); i++) {
     if (want == kPages[i]) {
       return kPages[i];
@@ -1878,6 +1881,190 @@ static void handleDxPage(void) {
   out += pageTail();
 }
 
+/*
+ * The Band Scope page: the band scope's sweep, drawn by the browser from
+ * GET /api/scope as the DX page draws its own, for any band and the span.
+ * The chart is the level as a line over a shaded area, with the presets of
+ * the band as ticks, DX mode's catches as squares with their PI and name,
+ * and the dial's mark. Under it a waterfall of the sweeps this page has
+ * seen of the same channels, newest at the top, which the browser keeps and
+ * the radio does not; a click on a row shows that sweep. Repeat asks for
+ * the next sweep as each one ends. The picture and the numbers are saved
+ * by the browser, from what it already has.
+ */
+static const char kScopePageBody[] =
+    "<style>"
+    ".rd{font-variant-numeric:tabular-nums;margin-bottom:.4rem;"
+    "min-height:1.6em}.rd b{font-size:1.25rem}.meta{color:"
+    "var(--pico-muted-color);font-size:.85rem}"
+    "#chart,#wf{width:100%;height:auto;display:block;cursor:crosshair}"
+    "#chart text{fill:var(--pico-muted-color);font-size:13px}"
+    ".tools{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;"
+    "margin:.2rem 0 .7rem}.tools button{width:auto;margin:0;"
+    "padding:.3rem .8rem;font-size:.85rem}.tools label{margin:0;"
+    "font-size:.85rem}.seg{display:inline-flex}.seg button{border-radius:0}"
+    ".seg button:first-child{border-radius:var(--pico-border-radius) 0 0 "
+    "var(--pico-border-radius)}.seg button:last-child{border-radius:0 "
+    "var(--pico-border-radius) var(--pico-border-radius) 0}"
+    "</style>"
+    "<div class=section-head><h2>Band Scope</h2><hr></div>"
+    "<article class=hero><div class=tools><span class=seg>"
+    "<button id=whole type=button>Whole band</button>"
+    "<button id=span type=button class=outline>Span</button></span>"
+    "<button id=sweep type=button>Sweep now</button>"
+    "<label><input id=rep type=checkbox role=switch> Repeat</label>"
+    "<button id=png type=button class=outline>PNG</button>"
+    "<button id=csv type=button class=outline>CSV</button></div>"
+    "<div class=rd id=rd></div>"
+    "<svg id=chart viewBox='0 0 1000 300'></svg>"
+    "<canvas id=wf width=1000 height=120></canvas>"
+    "<p class=meta id=meta></p><p class=meta id=serr></p>"
+    "<p class=meta>Each sweep mutes the radio for its seconds: about 4 s for "
+    "the whole FM band, 7.5 s for MW. The waterfall keeps the sweeps this "
+    "page has seen, newest at the top; a click on a row shows that one. "
+    "A click on the chart tunes there.</p></article>";
+
+static const char kScopePageScript[] = R"JS(<script>
+(function(){
+var W=1000,H=300,L=44,R=8,T=22,B=26,PW=W-L-R,PH=H-T-B,WH=120;
+var HIST=[],PICK=null,cur=null,DIAL=0,BAND='',SPAN=false,PRE=[],CAT=[],lo=0,hi=1,LAST=null,WANT=false,POSTING=false,MISS='';
+function g(i){return document.getElementById(i)}
+function toast(text,bad){g('toastMsg').textContent=text;g('toast').className=bad?'bad show':'good show'}
+g('toastx').onclick=function(){g('toast').classList.remove('show')};
+function post(path,args){return fetch(path,{method:'POST',body:new URLSearchParams(args)}).then(function(r){return r.text().then(function(t){toast(t.trim(),!r.ok);return r})})}
+/* The body too, not only the headers: a reply cut off halfway would
+ * otherwise never settle and the next round would never be asked for. */
+function get(p,json){var c=new AbortController(),t=setTimeout(function(){c.abort()},10000);return fetch(p,{signal:c.signal}).then(function(r){
+ if(!r.ok)return r.text().then(function(x){var e=new Error(x.trim()||'The radio said '+r.status+'.');e.said=true;throw e});return json?r.json():r.text()}).finally(function(){clearTimeout(t)})}
+function why(e){return e&&e.said?e.message:'The radio did not answer.'}
+function esc(t){return String(t).replace(/[&<>"']/g,function(c){return '&#'+c.charCodeAt(0)+';'})}
+function am(b){return b==='LW'||b==='MW'||b==='SW'}
+/* The sweep in the chart: the one picked in the waterfall, or the newest. */
+function shown(){return PICK!==null&&HIST[PICK]?HIST[PICK]:HIST[0]||null}
+function khz(s,i){return s.low+i*s.step}
+function freq(s,k){return am(s.band)?k+'</b> kHz':(k/1000).toFixed(2)+'</b> MHz'}
+/* A level as shown, with the level offset the sweep came with. */
+function lv(s,t){return t===null||t===undefined?'-':(t/10+(s.lvo||0)).toFixed(1)}
+function same(a,b){return a&&b&&a.low===b.low&&a.step===b.step&&a.count===b.count&&a.band===b.band}
+function X(s,i){return L+(i+.5)*PW/s.count}
+function Y(t){t=Math.max(lo,Math.min(hi,t));return T+PH-(t-lo)*PH/(hi-lo)}
+function scale(s){var top=-1000,bot=1000;s.level.forEach(function(v){if(v!==null){if(v>top)top=v;if(v<bot)bot=v}});
+ var f=s.floor!==null?s.floor:bot;lo=Math.floor((f-50)/100)*100;hi=Math.max(lo+100,Math.ceil((top+30)/100)*100)}
+function draw(){var s=shown(),c=g('chart');
+ if(!s){c.innerHTML='';wf();g('rd').textContent=WANT?'Sweeping...':'No sweep yet. Press Sweep now.';return}
+ scale(s);var o='',v,n=s.count,a=am(s.band);
+ for(v=lo;v<=hi;v+=100)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(v)+' y2='+Y(v)+' stroke="var(--pico-muted-border-color)"/><text x='+(L-6)+' y='+(Y(v)+4)+' text-anchor=end>'+(v/10+(s.lvo||0))+'</text>';
+ o+='<text x='+(L+4)+' y='+(T+12)+'>dB&micro;V</text><text x='+(L-6)+' y='+(H-6)+' text-anchor=end>'+(a?'kHz':'MHz')+'</text>';
+ var span=khz(s,n-1)-s.low,tick=a?(span>600?100:span>200?50:20):(span>6000?2000:span>2000?500:200);
+ for(var k=Math.ceil(s.low/tick)*tick;k<=khz(s,n-1);k+=tick)o+='<text x='+X(s,(k-s.low)/s.step)+' y='+(H-6)+' text-anchor=middle>'+(a?k:k/1000)+'</text>';
+ if(s.floor!==null)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(s.floor)+' y2='+Y(s.floor)+' stroke="var(--pico-muted-color)" stroke-dasharray="4 4"/>';
+ var col=WANT&&PICK===null?'var(--pico-muted-color)':'var(--pico-primary)',d='',up=false,j;
+ for(j=0;j<n;j++){if(s.level[j]===null){up=false;continue}d+=(up?'L':'M')+X(s,j).toFixed(1)+','+Y(s.level[j]).toFixed(1);up=true}
+ if(d)o+='<path d="M'+L+','+(T+PH)+d.replace(/M/g,'L')+'L'+(W-R)+','+(T+PH)+'Z" fill="'+col+'" fill-opacity=.22 /><path d="'+d+'" fill=none stroke="'+col+'" stroke-width=1.6 />';
+ PRE.forEach(function(p){var i=(p.khz-s.low)/s.step;if(p.band===s.band&&i>=0&&i<n&&i%1===0)o+='<rect x='+(X(s,i)-1.5)+' y='+(T-14)+' width=3 height=9 fill="var(--pico-color)"/>'});
+ CAT.forEach(function(c){var i=(c.khz-s.low)/s.step;if(c.band===s.band&&i>=0&&i<n&&i%1===0){var r=X(s,i)>W-160;
+  o+='<rect x='+(X(s,i)+3)+' y='+(T-14)+' width=9 height=9 fill="#3a8fd9"/><text x='+(r?X(s,i)-4:X(s,i)+15)+' y='+(T-6)+(r?' text-anchor=end':'')+'>'+esc(c.pi+(c.name?' '+c.name:''))+'</text>'}});
+ var di=(DIAL-s.low)/s.step;
+ if(BAND===s.band&&di>=0&&di<n&&di%1===0)o+='<path d="M'+(X(s,di)-6)+','+(T+PH)+' l6,-9 l6,9 z" fill="var(--pico-ins-color)"/>';
+ if(cur!==null)o+='<line x1='+X(s,cur)+' x2='+X(s,cur)+' y1='+T+' y2='+(T+PH)+' stroke="var(--pico-color)"/>';
+ c.innerHTML=o;wf();
+ var at=cur!==null?cur:(BAND===s.band&&di>=0&&di<n&&di%1===0?di:null);
+ if(at===null){g('rd').textContent='Point at a channel.';return}
+ var f=khz(s,at),t='<b>'+freq(s,f)+' &middot; <b>'+lv(s,s.level[at])+'</b> dB&micro;V';
+ var sl=PRE.filter(function(p){return p.band===s.band&&p.khz===f}).map(function(p){return p.slot});
+ if(sl.length)t+=' &middot; preset'+(sl.length>1?'s ':' ')+sl.join(', ');
+ CAT.forEach(function(c){if(c.band===s.band&&c.khz===f)t+=' &middot; caught '+esc(c.pi+(c.name?' '+c.name:''))});
+ g('rd').innerHTML=t+' <small class=meta>'+(cur===null?'the dial':'click to tune')+'</small>'}
+/* One row a sweep of the same channels as the one shown, newest at the
+ * top, brighter for stronger on the chart's own scale. */
+function rows(){var s=shown();return s?HIST.filter(function(h){return same(h,s)}).slice(0,WH/4):[]}
+function wf(){var cv=g('wf'),x=cv.getContext('2d'),s=shown(),rs=rows();x.clearRect(0,0,W,WH);
+ /* The waterfall's own area, so it shows before it fills. */
+ x.fillStyle='rgba(127,127,127,.1)';x.fillRect(L,0,PW,WH);
+ rs.forEach(function(h,y){h.level.forEach(function(v,i){if(v===null)return;var q=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  x.fillStyle='rgb('+Math.round(20+q*235)+','+Math.round(20+q*170)+',30)';x.fillRect(Math.floor(X(h,i)-PW/h.count/2),y*4,Math.ceil(PW/h.count),h===s?4:3)})})}
+function meta(){var s=shown(),p=[];
+ if(!s){g('meta').textContent=MISS;return}
+ p.push(s.band+' Scope',s.whole?'whole band, '+s.count+' channels':(am(s.band)?(khz(s,s.count-1)-s.low)+' kHz':((khz(s,s.count-1)-s.low)/1000).toFixed(1)+' MHz')+', '+s.count+' channels');
+ if(s.real){var a=Math.floor(Date.now()/1000)-s.time;p.push('swept at '+new Date(s.time*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(a>=0&&a<60?' (now)':''))}
+ else p.push('swept with the clock unset');
+ p.push('width '+s.width+' kHz','took '+(s.took_ms/1000).toFixed(1)+' s');
+ if(s.floor!==null)p.push('floor '+lv(s,s.floor)+' dBµV');
+ if(PICK!==null)p.push('an older sweep: click the top row for the newest');
+ if(WANT)p.push('sweeping now');
+ if(MISS)p.push(MISS);
+ g('meta').textContent=p.join(' · ')}
+/* A new sweep goes to the top of the waterfall. A sweep picked in it
+ * stays in the chart while it is kept and has the same channels; else the
+ * chart goes back to the newest. Repeat asks for the next sweep when a
+ * new one has arrived, and stops when the one it waited for was stopped. */
+function take(a){var was=WANT,fresh=false;WANT=a.running||POSTING;MISS=a.abandoned&&!a.running?'the last sweep was stopped before the end':'';
+ if(a.count&&(!HIST.length||HIST[0].rev!==a.rev)){HIST.unshift(a);fresh=true;if(HIST.length>60)HIST.pop();
+  if(PICK!==null&&(++PICK>=HIST.length||!same(HIST[PICK],a)))PICK=null}
+ if(was&&!WANT&&a.abandoned&&a.rev===LAST)g('rep').checked=false;
+ LAST=a.rev;draw();meta();
+ if(fresh&&!WANT&&!a.abandoned&&g('rep').checked&&!document.hidden)sweep()}
+function load(){return get('/api/scope',true).then(function(a){g('serr').textContent='';take(a);return a}).catch(function(e){g('serr').textContent=why(e);return null})}
+/* One sweep at a time: a second asked for while one runs would be held
+ * by the radio until the first ends, then mute it for a second one. */
+function sweep(){if(WANT||POSTING)return;if(BAND==='SW')SPAN=true;tools();POSTING=WANT=true;draw();meta();
+ function no(){WANT=false;g('rep').checked=false;draw();meta()}
+ post('/api/scope',SPAN?{sweep:1,span:am(BAND)?360:3600}:{sweep:1}).then(function(r){POSTING=false;if(!r.ok)no()},function(){POSTING=false;no()})}
+/* One loop: a round a second while a sweep runs, else every 3 s. Nothing
+ * is asked while the tab is hidden, and Repeat stops then, so a hidden
+ * page never keeps the radio muted. */
+function round(){if(document.hidden){g('rep').checked=false;setTimeout(round,1000);return}
+ load().then(function(){setTimeout(round,WANT?1000:3000)})}
+function tools(){var a=am(BAND);g('span').textContent=a?'360 kHz':'3.6 MHz';g('whole').disabled=BAND==='SW';
+ g('whole').className=SPAN?'outline':'';g('span').className=SPAN?'':'outline'}
+g('whole').onclick=function(){SPAN=false;tools()};
+g('span').onclick=function(){SPAN=true;tools()};
+g('sweep').onclick=sweep;
+g('rep').onchange=function(){if(this.checked&&!WANT)sweep()};
+function at(e){var s=shown();if(!s)return null;var r=g('chart').getBoundingClientRect(),x=(e.clientX-r.left)*W/r.width,i=Math.floor((x-L)*s.count/PW);return i<0||i>=s.count?null:i}
+g('chart').addEventListener('mousemove',function(e){cur=at(e);draw()});
+g('chart').addEventListener('mouseleave',function(){cur=null;draw()});
+g('chart').addEventListener('click',function(e){var s=shown(),i=at(e);if(i===null)return;
+ post('/api/tune',{khz:khz(s,i)}).then(function(r){if(r.ok){DIAL=khz(s,i);BAND=s.band;draw()}})});
+g('wf').addEventListener('click',function(e){var r=g('wf').getBoundingClientRect(),y=Math.floor((e.clientY-r.top)*WH/r.height/4),rs=rows();
+ if(y<rs.length){PICK=y===0&&HIST.indexOf(rs[0])===0?null:HIST.indexOf(rs[y]);cur=null;draw();meta()}});
+function stamp(){var d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2)}
+function save(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
+g('csv').onclick=function(){var s=shown();if(!s)return;var t='khz,dbuv\n';
+ for(var i=0;i<s.count;i++)t+=khz(s,i)+','+(s.level[i]===null?'':lv(s,s.level[i]))+'\n';
+ save(new Blob([t],{type:'text/csv'}),'band-scope-'+s.band+'-'+stamp()+'.csv')};
+/* The chart's colours are the page's own variables, which an image of it
+ * does not have, so they are put in first. */
+g('png').onclick=function(){var s=shown();if(!s)return;var cs=getComputedStyle(document.documentElement),
+ vv=function(v){return cs.getPropertyValue(v).trim()||'#888'},bg=vv('--pico-background-color'),
+ svg=g('chart').outerHTML.replace(/var\((--[a-z-]+)\)/g,function(m,v){return vv(v)}).replace('>','><style>text{fill:'+vv('--pico-muted-color')+';font:13px sans-serif}</style>').replace('<svg','<svg xmlns="http://www.w3.org/2000/svg"'),
+ img=new Image();img.onload=function(){var c=document.createElement('canvas');c.width=W;c.height=H+WH+30;var x=c.getContext('2d');
+  x.fillStyle=bg;x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,W,H);x.drawImage(g('wf'),0,H);x.fillStyle=vv('--pico-muted-color');x.font='13px sans-serif';x.fillText(g('meta').textContent,L,H+WH+20);
+  c.toBlob(function(b){save(b,'band-scope-'+s.band+'-'+stamp()+'.png')})};
+ img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)};
+/* The dial, the band, and what to mark: the presets from their CSV and
+ * DX mode's catches, read once a while; the dial every 2 s. */
+function state(){(document.hidden?Promise.resolve():get('/api/state',true).then(function(d){var t=d.tun||{};
+ if(t.khz&&(t.khz!==DIAL||t.bnd!==BAND)){DIAL=t.khz;BAND=t.bnd;tools();draw()}}).catch(function(){})).then(function(){setTimeout(state,2000)})}
+function marks(){if(document.hidden){setTimeout(marks,5000);return}
+ get('/api/presets.csv').then(function(t){PRE=[];t.split('\n').slice(1).forEach(function(l){var c=l.split(',');if(c.length>2&&+c[2])PRE.push({slot:+c[0],band:c[1],khz:+c[2]})})}).catch(function(){})
+ .then(function(){return get('/api/dx')}).then(function(t){CAT=[];(t||'').split('\n').slice(1).forEach(function(l){try{var k=JSON.parse(l);CAT.push({band:k.band,khz:k.khz,pi:k.pi,name:k.name})}catch(e){}})}).catch(function(){})
+ .then(function(){draw();setTimeout(marks,30000)})}
+tools();state();marks();round();
+})();
+</script>)JS";
+
+static void handleScopePage(void) {
+  ChunkedReply out(sWeb->server);
+  if (!pageOpen(out, "Band Scope", "/scope")) {
+    return;
+  }
+  out += pageToast();
+  out += kScopePageBody;
+  out += kScopePageScript;
+  out += pageTail();
+}
+
 /* The Settings page: everything about how the radio behaves. */
 static void handleSettingsPage(void) {
   ChunkedReply out(sWeb->server);
@@ -2163,6 +2350,7 @@ void webPagesRegisterRoutes(WebContext *web) {
   sWeb->server.on("/settings", HTTP_GET, handleSettingsPage);
   sWeb->server.on("/network", HTTP_GET, handleNetworkPage);
   sWeb->server.on("/dx", HTTP_GET, handleDxPage);
+  sWeb->server.on("/scope", HTTP_GET, handleScopePage);
   sWeb->server.on("/system", HTTP_GET, handleSystemPage);
   sWeb->server.on("/wifi", HTTP_POST, handleWifi);
 }
