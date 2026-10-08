@@ -568,17 +568,17 @@ void setup() {
 /*
  * Something a person is using that the update offer would close, or a scan
  * or a sweep reading the tuner while the check's traffic goes out: the menu,
- * DX mode, the RDS pages, the bandwidth page or the touch calibration, or a
- * screen that is saying something. The check, and its offer, wait until the
- * radio screen is up on its own.
+ * DX mode, the RDS pages, the bandwidth page, the band scope or the touch
+ * calibration, or a screen that is saying something. The check, and its
+ * offer, wait until the radio screen is up on its own.
  */
 static bool updateWouldInterrupt(void) {
   return bandScanActive() || dxTaskScan()->state == DX_SCAN_RUNNING ||
          radioSweepBusy() || menuTaskIsOpen() || screenTaskDxIsOpen() ||
          screenTaskRdsIsOpen() || screenTaskBwIsOpen() ||
-         screenTaskKeypadIsOpen() || screenTaskTouchCalIsOpen() ||
-         screenTaskSleepShowing() || screenTaskBootShowing() ||
-         screenTaskUpdateHolding();
+         screenTaskScopeIsOpen() || screenTaskKeypadIsOpen() ||
+         screenTaskTouchCalIsOpen() || screenTaskSleepShowing() ||
+         screenTaskBootShowing() || screenTaskUpdateHolding();
 }
 
 /*

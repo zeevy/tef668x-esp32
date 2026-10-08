@@ -26,6 +26,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - [Station Log](Station-Log.md): writing down the stations you hear, and exporting the log.
 - [RDS](RDS.md): the station data on the radio screen and the four RDS pages.
 - [DX Mode](DX-Mode.md): the DX, Scope, Scanner and Catches pages for finding far away stations.
+- [Band Scope](Band-Scope.md): the level of every channel of the FM band, with your presets and catches marked.
 - [Sound and Bandwidth](Sound-and-Bandwidth.md): filter width, volume, squelch, the volume AGC and the reception settings.
 - [Display and Themes](Display-and-Themes.md): the themes, brightness and dimming, rotation and the battery mark.
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md): the sleep timer, and putting the radio to sleep.

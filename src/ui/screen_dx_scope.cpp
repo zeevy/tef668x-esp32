@@ -55,6 +55,10 @@
 #define FLOOR_DASH_PITCH 4
 #define DIAL_MARK_W 5
 #define DIAL_MARK_H 3
+/* The stored channels' and the caught stations' marks. */
+#define MARK_W 3
+#define CATCH_W 5
+#define MARK_H 5
 
 /* The tile at the foot, ending at y 228 on the bottom margin. */
 #define TILE_Y 198
@@ -131,6 +135,12 @@ static int16_t columnW(uint16_t i, uint16_t n, int16_t inner) {
   return w > 0 ? w : 1;
 }
 
+/* The middle of channel `i`, where its marks and the cursor go: a span has
+ * few enough channels for a column to be many pixels wide. */
+static int16_t columnMid(uint16_t i, uint16_t n, int16_t inner) {
+  return (int16_t)(columnX(i, n, inner) + columnW(i, n, inner) / 2);
+}
+
 static void drawBox(lv_layer_t *layer, const lv_area_t *a, const Theme *t) {
   lv_draw_rect_dsc_t d;
   lv_draw_rect_dsc_init(&d);
@@ -145,13 +155,13 @@ static void drawMarks(lv_layer_t *layer, const lv_area_t *a, const Theme *t,
                       int16_t inner, int16_t h, int16_t top) {
   const ScreenScope *s = &sUi->shown;
   if (s->dial < s->count) {
-    const int16_t x = columnX(s->dial, s->count, inner);
+    const int16_t x = columnMid(s->dial, s->count, inner);
     uiFillRect(layer, a, (int16_t)(x - DIAL_MARK_W / 2),
                (int16_t)(h - DIAL_MARK_H), DIAL_MARK_W, DIAL_MARK_H,
                uiColour(t->good));
   }
   if (s->cursor < s->count) {
-    uiFillRect(layer, a, columnX(s->cursor, s->count, inner), top, 1,
+    uiFillRect(layer, a, columnMid(s->cursor, s->count, inner), top, 1,
                (int16_t)(h - 1 - top), uiColour(t->measurement));
   }
 }
@@ -196,6 +206,23 @@ static void onChartDraw(lv_event_t *e) {
     }
   }
   drawMarks(layer, &a, t, inner, h, (int16_t)(INSET + LABEL_BAND));
+  /* The stored channels as small ticks and the caught stations as squares,
+   * under the label band: a peak with neither is something new. */
+  const int16_t top = (int16_t)(INSET + LABEL_BAND);
+  for (uint8_t i = 0; s->marks != NULL && i < s->markCount; i++) {
+    if (s->marks[i] < s->count) {
+      const int16_t x = columnMid(s->marks[i], s->count, inner);
+      uiFillRect(layer, &a, (int16_t)(x - MARK_W / 2), top, MARK_W, MARK_H,
+                 uiColour(t->measurement));
+    }
+  }
+  for (uint8_t i = 0; s->catches != NULL && i < s->catchCount; i++) {
+    if (s->catches[i] < s->count) {
+      const int16_t x = columnMid(s->catches[i], s->count, inner);
+      uiFillRect(layer, &a, (int16_t)(x - CATCH_W / 2), top, CATCH_W, MARK_H,
+                 uiColour(t->broadcast));
+    }
+  }
 }
 
 static void onStripDraw(lv_event_t *e) {
@@ -450,19 +477,23 @@ void screenScopeShow(const ScreenScope *s) {
       s->cursor != sUi->shown.cursor || s->dial != sUi->shown.dial ||
       s->sweeping != sUi->shown.sweeping || s->floor != sUi->shown.floor ||
       (s->base == NULL) != (sUi->shown.base == NULL) ||
-      (s->peak == NULL) != (sUi->shown.peak == NULL);
+      (s->peak == NULL) != (sUi->shown.peak == NULL) ||
+      s->markCount != sUi->shown.markCount ||
+      s->catchCount != sUi->shown.catchCount;
   sUi->shown = *s;
   sUi->bottom = s->floor != SCREEN_SCOPE_NONE
                     ? (int16_t)(s->floor - UNDER_FLOOR_TENTHS)
                     : (int16_t)NO_FLOOR_BOTTOM_TENTHS;
   /* No next page mark after a moment's message. */
   uiFrameMarks(&sUi->frame, true, !s->positionIsMessage);
+  /* The title first, since the position is fitted to the room after it. */
+  const char *title = s->title != NULL ? s->title : txt(STR_DX_TITLE_SCOPE);
+  uiSetText(sUi->frame.title, title);
   char fit[40];
   const char *position = uiFitHeaderText(
       s->position, SCOPE_W, (int16_t)(uiFrameTitleEnd(&sUi->frame) + UI_GAP),
       fit, sizeof(fit));
-  uiFrameShow(&sUi->frame, txt(STR_DX_TITLE_SCOPE), s->context, position,
-              s->clock, NULL, NULL);
+  uiFrameShow(&sUi->frame, title, s->context, position, s->clock, NULL, NULL);
   uiSetColour(sUi->frame.position, s->positionIsMessage ? themeCurrent()->radio
                                                         : themeCurrent()->dead);
   if (redraw) {

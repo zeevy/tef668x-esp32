@@ -37,6 +37,8 @@
 #include "net/wifi_manager.h"
 #include "net/xdr_server.h"
 #include "radio_task.h"
+#include "scope_task.h"
+#include "screen_dx_state.h"
 #include "ui/draw.h"
 #include "ui/panel.h"
 #include "ui/screen.h"
@@ -187,6 +189,13 @@ static bool sMenuUp = false;
 /* The RDS screen owns it instead. The menu, the bandwidth page and the RDS
  * screen are never up together; the last two can be up over DX mode. */
 static bool sRdsUp = false;
+/* The band scope, over the radio screen: up, showing the span round the dial
+ * rather than the whole band, and its cursor, a channel of the sweep shown,
+ * set from the dial whenever a new sweep arrives. */
+static bool sScopeUp = false;
+static bool sScopeSpan = false;
+static uint16_t sScopeAt = 0;
+static uint16_t sScopeRevision = UINT16_MAX;
 
 /* The bandwidth page: its tiles, its cursor and its text, on the heap while it
  * is up, and NULL when it is down. */
@@ -528,6 +537,7 @@ void screenTaskUpdateBegin(void) {
    * screen held over it without building the DX page back for one frame. */
   screenTaskDxClose();
   screenTaskRdsClose();
+  screenTaskScopeClose();
   screenTaskTouchCalClose();
   screenTaskKeypadClose();
   /*
@@ -568,6 +578,7 @@ void screenTaskSleepShow(bool on) {
   }
   screenTaskDxClose();
   screenTaskRdsClose();
+  screenTaskScopeClose();
   screenTaskBwClose();
   screenTaskTouchCalClose();
   screenTaskKeypadClose();
@@ -732,6 +743,7 @@ bool screenTaskMenuBegin(void) {
   screenTaskDxClose();
   screenTaskBwClose();
   screenTaskRdsClose();
+  screenTaskScopeClose();
   screenTaskTouchCalClose();
   screenTaskKeypadClose();
   if (!sReady) {
@@ -815,6 +827,7 @@ ScreenDxOpenResult screenTaskDxOpen(void) {
   }
   screenTaskBwClose();
   screenTaskRdsClose();
+  screenTaskScopeClose();
   screenTaskKeypadClose();
   if (!sReady || sMenuUp || sSwap != BOOT_SWAP_NONE) {
     return SCREEN_DX_PANEL_BUSY;
@@ -1159,8 +1172,8 @@ bool screenTaskKeypadOpen(void) {
   if (sKeypadUp) {
     return true;
   }
-  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL || sCal != NULL ||
-      sSwap != BOOT_SWAP_NONE) {
+  if (!sReady || sMenuUp || sDxUp || sRdsUp || sScopeUp || sBw != NULL ||
+      sCal != NULL || sSwap != BOOT_SWAP_NONE) {
     return false;
   }
   screenEnd();
@@ -1210,6 +1223,7 @@ bool screenTaskBwOpen(void) {
     return false;
   }
   screenTaskRdsClose();
+  screenTaskScopeClose();
   screenTaskKeypadClose();
   if (!sReady && !sDxUp) {
     return false;
@@ -1349,8 +1363,8 @@ bool screenTaskTouchCalOpen(void) {
   if (sCal != NULL) {
     return true;
   }
-  if (!sReady || sMenuUp || sDxUp || sRdsUp || sBw != NULL || sKeypadUp ||
-      sSwap != BOOT_SWAP_NONE) {
+  if (!sReady || sMenuUp || sDxUp || sRdsUp || sScopeUp || sBw != NULL ||
+      sKeypadUp || sSwap != BOOT_SWAP_NONE) {
     return false;
   }
   CalStore *c = (CalStore *)calloc(1, sizeof(*c));
@@ -1493,6 +1507,7 @@ void screenTaskRdsToggle(void) {
     return;
   }
   screenTaskBwClose();
+  screenTaskScopeClose();
   screenTaskKeypadClose();
   if ((!sReady && !sDxUp) || sMenuUp || sSwap != BOOT_SWAP_NONE) {
     /* The panel belongs to something else, or is part way through a change.
@@ -1573,6 +1588,213 @@ bool screenTaskRdsIsOpen(void) {
   return sRdsUp;
 }
 
+/* ------------------------------------------------------- the band scope */
+
+/* The span round the dial: the width the radio screen's scale shows, 37
+ * marks of 100 kHz. */
+#define SCOPE_SPAN_KHZ 3600
+
+/* How many stored channels and caught stations are marked on the chart. */
+#define SCOPE_MARKS_MAX 32
+
+/* The marks, found again on every redraw: the stored channels and the
+ * catches can change while the page is up. */
+static uint16_t sScopeMarks[SCOPE_MARKS_MAX];
+static uint8_t sScopeMarkN = 0;
+static uint16_t sScopeCatches[SCOPE_MARKS_MAX];
+static uint8_t sScopeCatchN = 0;
+
+static void scopeMarks(const DxSweep *live, BandId band) {
+  const DxCatches *caught = dxTaskCatches();
+  const uint8_t catchCount = caught != NULL ? caught->count : 0;
+  sScopeMarkN = 0;
+  sScopeCatchN = 0;
+  for (int slot = 0; slot < MEMORY_SLOT_COUNT && sScopeMarkN < SCOPE_MARKS_MAX;
+       slot++) {
+    MemoryChannel ch;
+    if (memoryStoreRead(slot, &ch) && ch.freqKHz != 0 && ch.band == band) {
+      const int16_t at = dxSweepChannelOf(live, ch.freqKHz);
+      if (at >= 0) {
+        sScopeMarks[sScopeMarkN++] = (uint16_t)at;
+      }
+    }
+  }
+  for (uint8_t i = 0; i < catchCount && sScopeCatchN < SCOPE_MARKS_MAX; i++) {
+    if (caught->item[i].band == band) {
+      const int16_t at = dxSweepChannelOf(live, caught->item[i].khz);
+      if (at >= 0) {
+        sScopeCatches[sScopeCatchN++] = (uint16_t)at;
+      }
+    }
+  }
+}
+
+/* The page from the band scope's last sweep. Closes the page when the radio
+ * has left FM, which it cannot sweep yet. */
+static void scopeDraw(void) {
+  RadioSnapshot snap;
+  if (!radioGetSnapshot(&snap)) {
+    return;
+  }
+  if (bandModulation(snap.settings.band) != MODULATION_FM) {
+    screenTaskScopeClose();
+    return;
+  }
+  ScopeView v;
+  scopeTaskView(&v);
+  const DxSweep *live = v.latest;
+  /* A new sweep puts the cursor on the dial's channel. */
+  if (live != NULL && v.revision != sScopeRevision) {
+    const int16_t dial = dxSweepChannelOf(live, snap.settings.freqKHz);
+    sScopeAt = dial >= 0 ? (uint16_t)dial : 0;
+    sScopeRevision = v.revision;
+  }
+  if (live != NULL) {
+    scopeMarks(live, snap.settings.band);
+  }
+  char clockText[CLOCK_TEXT_LEN];
+  char span[16];
+  snprintf(span, sizeof(span), txt(STR_SCOPE_FMT_SPAN),
+           (unsigned long)(SCOPE_SPAN_KHZ / 1000),
+           (unsigned long)(SCOPE_SPAN_KHZ % 1000 / 100));
+  ScreenScopeInputs in;
+  memset(&in, 0, sizeof(in));
+  in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
+  in.live = live;
+  in.revision = v.revision;
+  in.sweeping = v.running;
+  in.cursor = sScopeAt;
+  in.dialKHz = snap.settings.freqKHz;
+  in.nowKnown = ntpEpochUtc(&in.nowUtc);
+  in.clock = clockFormat(ntpLocalTime(), clockText, sizeof(clockText))
+                 ? clockText
+                 : NULL;
+  in.confirm = screenTaskHeaderMessage();
+  in.touchOn = inputTouchUsable();
+  in.title = txt(STR_SCOPE_TITLE_FM);
+  /* The span of the sweep on show, or before the first, of the one asked
+   * for. */
+  in.span = live != NULL ? !v.whole : sScopeSpan;
+  in.position = in.span ? span : txt(STR_SCOPE_FULL);
+  if (live != NULL) {
+    in.marks = sScopeMarks;
+    in.markCount = sScopeMarkN;
+    in.catches = sScopeCatches;
+    in.catchCount = sScopeCatchN;
+  }
+  static ScreenScopeKeep keep;
+  ScreenScope view;
+  screenScopeStateBuild(&in, &keep, &view);
+  screenScopeShow(&view);
+}
+
+bool screenTaskScopeOpen(void) {
+  if (sScopeUp) {
+    return true;
+  }
+  if (sMenuUp || sDxUp || sCal != NULL || sSwap != BOOT_SWAP_NONE) {
+    return false;
+  }
+  screenTaskBwClose();
+  screenTaskRdsClose();
+  screenTaskKeypadClose();
+  if (!sReady) {
+    return false;
+  }
+  /* A sweep reads with the FM tune; the AM bands wait for their own settle
+   * time to be measured. */
+  RadioSnapshot now;
+  if (radioGetSnapshot(&now) &&
+      bandModulation(now.settings.band) != MODULATION_FM) {
+    screenTaskLogConfirm(txt(STR_MENU_NOTE_SWITCH_TO_FM));
+    return false;
+  }
+  screenEnd();
+  sReady = false;
+  if (!screenScopeBegin()) {
+    sReady = screenBegin();
+    return false;
+  }
+  sScopeUp = true;
+  sScopeRevision = UINT16_MAX;
+  /* Opened to look at the band, so it looks at once. */
+  (void)screenTaskScopeSweep();
+  scopeDraw();
+  lvglPortRefreshNow();
+  return true;
+}
+
+void screenTaskScopeClose(void) {
+  if (!sScopeUp) {
+    return;
+  }
+  sScopeUp = false;
+  /* A sweep left running would keep the radio muted with nothing on the
+   * panel to say why. */
+  ScopeView v;
+  scopeTaskView(&v);
+  if (v.running) {
+    radioSweepCancel();
+  }
+  screenScopeEnd();
+  sReady = screenBegin();
+  if (!sReady) {
+    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    return;
+  }
+  sLastPollMs = millis() - SCREEN_POLL_MS;
+}
+
+bool screenTaskScopeIsOpen(void) {
+  return sScopeUp;
+}
+
+ScopeStart screenTaskScopeSweep(void) {
+  const ScopeStart r = scopeTaskSweep(sScopeSpan ? SCOPE_SPAN_KHZ : 0);
+  if (r != SCOPE_STARTED) {
+    screenTaskLogConfirm(
+        txt(r == SCOPE_NO_MEMORY ? STR_DX_NO_MEMORY : STR_DX_NOT_STARTED));
+  }
+  return r;
+}
+
+void screenTaskScopeSpanToggle(void) {
+  sScopeSpan = !sScopeSpan;
+  /* The page names the span of the sweep on show, so a refused one leaves
+   * the choice as it was. */
+  if (screenTaskScopeSweep() != SCOPE_STARTED) {
+    sScopeSpan = !sScopeSpan;
+  }
+}
+
+void screenTaskScopeTurn(int32_t clicks) {
+  ScopeView v;
+  scopeTaskView(&v);
+  if (!sScopeUp || v.latest == NULL || clicks == 0) {
+    return;
+  }
+  sScopeAt =
+      (uint16_t)std::clamp<int32_t>(sScopeAt + clicks, 0, v.latest->count - 1);
+}
+
+void screenTaskScopeSet(uint16_t channel) {
+  ScopeView v;
+  scopeTaskView(&v);
+  if (sScopeUp && v.latest != NULL && channel < v.latest->count) {
+    sScopeAt = channel;
+  }
+}
+
+bool screenTaskScopeCursorKHz(uint32_t *khz) {
+  ScopeView v;
+  scopeTaskView(&v);
+  if (!sScopeUp || v.latest == NULL || khz == NULL) {
+    return false;
+  }
+  *khz = dxSweepKHzOf(v.latest, sScopeAt);
+  return true;
+}
+
 const char *screenTaskShowing(uint8_t *page) {
   uint8_t p = 0;
   const char *name = "radio";
@@ -1589,6 +1811,8 @@ const char *screenTaskShowing(uint8_t *page) {
   } else if (sRdsUp) {
     name = "rds";
     p = sRdsPage;
+  } else if (sScopeUp) {
+    name = "band-scope";
   } else if (screenTaskDxIsOpen()) {
     name = "dx";
     p = screenTaskDxPage();
@@ -1690,6 +1914,16 @@ static void reopenForTheme(void) {
     }
     return;
   }
+  if (sScopeUp) {
+    screenScopeEnd();
+    if (screenScopeBegin()) {
+      scopeDraw();
+    } else {
+      /* Back to the radio screen, the sweep stopped with it. */
+      screenTaskScopeClose();
+    }
+    return;
+  }
   if (sRdsUp) {
     screenRdsEnd();
     if (screenRdsBegin()) {
@@ -1755,8 +1989,8 @@ void screenTaskPoll(void) {
   /* `sReady` means the radio layout exists, and it does not while another
    * screen owns the panel. So every screen counts as ready here, or the fade
    * back in and the redraw below would never run for it. */
-  if (!sReady && !sMenuUp && !sRdsUp && !sDxUp && sBw == NULL && sCal == NULL &&
-      !sKeypadUp) {
+  if (!sReady && !sMenuUp && !sRdsUp && !sScopeUp && !sDxUp && sBw == NULL &&
+      sCal == NULL && !sKeypadUp) {
     return;
   }
   uint32_t nowMs = millis();
@@ -1901,6 +2135,15 @@ void screenTaskPoll(void) {
         return;
       }
       screenTaskRdsDraw(sRdsPage);
+    }
+    return;
+  }
+
+  if (sScopeUp) {
+    /* Redrawn on the same cadence: a sweep runs and ends while it is up. */
+    if ((uint32_t)(nowMs - sLastPollMs) >= SCREEN_POLL_MS) {
+      sLastPollMs = nowMs;
+      scopeDraw();
     }
     return;
   }

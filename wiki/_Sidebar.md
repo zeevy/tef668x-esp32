@@ -18,6 +18,7 @@
 - [Station Log](Station-Log.md)
 - [RDS](RDS.md)
 - [DX Mode](DX-Mode.md)
+- [Band Scope](Band-Scope.md)
 - [Sound and Bandwidth](Sound-and-Bandwidth.md)
 - [Display and Themes](Display-and-Themes.md)
 - [Sleep and Auto Off](Sleep-and-Auto-Off.md)

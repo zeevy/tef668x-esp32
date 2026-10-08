@@ -470,7 +470,12 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
   memset(out, 0, sizeof(*out));
   snprintf(keep->position, sizeof(keep->position), "%u/%u",
            (unsigned)(in->page + 1), (unsigned)(in->pages > 0 ? in->pages : 1));
-  out->position = keep->position;
+  out->position = in->position != NULL ? in->position : keep->position;
+  out->title = in->title;
+  out->marks = in->marks;
+  out->markCount = in->markCount;
+  out->catches = in->catches;
+  out->catchCount = in->catchCount;
   out->clock = in->clock;
   out->revision = in->revision;
   out->sweeping = in->sweeping;
@@ -509,7 +514,7 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
     if (dxSweepSameChannels(in->peak, live)) {
       out->peak = in->peak->level;
     }
-    out->floor = dxSweepFloor(live);
+    out->floor = in->span ? SCREEN_SCOPE_NONE : dxSweepFloor(live);
     if (out->floor != SCREEN_SCOPE_NONE) {
       char floor[8];
       tenths(out->floor, floor, sizeof(floor));

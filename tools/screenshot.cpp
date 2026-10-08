@@ -1023,7 +1023,7 @@ static void renderScopeView(const char *dir, const char *name,
   uiSetTouchMarks(in->touchOn);
   screenScopeStateBuild(in, &keep, &view);
   screenScopeShow(&view);
-  saveShot("%s/dx-%s.bmp", dir, name);
+  saveShot("%s/%s.bmp", dir, name);
   uiSetTouchMarks(true);
 }
 
@@ -1061,42 +1061,120 @@ static void renderScopes(const char *dir) {
   in.page = SCREEN_DX_PAGE_SCOPE;
   in.pages = SCREEN_DX_PAGES;
   in.clock = "17:43";
-  renderScopeView(dir, "scope", &in);
+  renderScopeView(dir, "dx-scope", &in);
   {
     /* With Touch On: the buttons in the foot row, the rise up in the chart,
      * and the touch zones over it; then the same while a sweep runs. */
     in.touchOn = true;
-    renderScopeView(dir, "scope-touch", &in);
+    renderScopeView(dir, "dx-scope-touch", &in);
     char path[512];
     TouchZone zones[TOUCH_ZONES_MAX];
     snprintf(path, sizeof(path), "%s/touch-scope.bmp", dir);
     saveZones(zones, screenScopeZones(zones, TOUCH_ZONES_MAX), path);
     in.sweeping = true;
     in.revision++;
-    renderScopeView(dir, "scope-touch-sweeping", &in);
+    renderScopeView(dir, "dx-scope-touch-sweeping", &in);
     in.sweeping = false;
     in.touchOn = false;
     in.revision++;
   }
   uiSetSleepMark(UI_SLEEP_SOON);
-  renderScopeView(dir, "scope-sleep", &in);
+  renderScopeView(dir, "dx-scope-sleep", &in);
   uiSetSleepMark(UI_SLEEP_NONE);
   in.cursor = (uint16_t)dxSweepChannelOf(&live, 99500);
   in.revision++;
-  renderScopeView(dir, "scope-empty-channel", &in);
+  renderScopeView(dir, "dx-scope-empty-channel", &in);
   in.cursor = (uint16_t)dxSweepChannelOf(&live, 98300);
   in.sweeping = true;
   in.revision++;
-  renderScopeView(dir, "scope-sweeping", &in);
+  renderScopeView(dir, "dx-scope-sweeping", &in);
   in.sweeping = false;
   in.base = NULL;
   in.baseN = 0;
   in.peak = NULL;
   in.revision++;
-  renderScopeView(dir, "scope-first", &in);
+  renderScopeView(dir, "dx-scope-first", &in);
   in.live = NULL;
   in.revision++;
-  renderScopeView(dir, "scope-none", &in);
+  renderScopeView(dir, "dx-scope-none", &in);
+}
+
+/* The channels of `s` that the `n` frequencies at `khz` fall on, into `out`;
+ * returns how many. */
+static uint8_t channelsOf(const DxSweep *s, const uint32_t *khz, size_t n,
+                          uint16_t *out) {
+  uint8_t found = 0;
+  for (size_t i = 0; i < n; i++) {
+    const int16_t at = dxSweepChannelOf(s, khz[i]);
+    if (at >= 0) {
+      out[found++] = (uint16_t)at;
+    }
+  }
+  return found;
+}
+
+/*
+ * The band scope, the same page over the radio screen, on the same sweep: the
+ * whole band with the stored channels and two DX catches marked, then the span
+ * round the dial, cut from it the way a span sweep reads it, then the same
+ * with Touch On.
+ */
+static void renderBandScopes(const char *dir) {
+  static DxSweep whole;
+  static DxSweep span;
+  const uint32_t now = 1790511689u;
+  sweepFromCapture(&whole, kPass1, now - 60);
+  static const uint32_t kPresetKHz[] = {91100,  93500,  94300, 98300,
+                                        101900, 102800, 106400};
+  static const uint32_t kCatchKHz[] = {96000, 104000, 107800};
+  const size_t presets = sizeof(kPresetKHz) / sizeof(kPresetKHz[0]);
+  const size_t caught = sizeof(kCatchKHz) / sizeof(kCatchKHz[0]);
+  uint16_t marks[presets];
+  uint16_t catches[caught];
+  ScreenScopeInputs in;
+  memset(&in, 0, sizeof(in));
+  in.live = &whole;
+  in.revision = 1;
+  in.cursor = (uint16_t)dxSweepChannelOf(&whole, 98300);
+  in.dialKHz = 106400;
+  in.nowKnown = true;
+  in.nowUtc = now;
+  in.clock = "17:43";
+  in.title = txt(STR_SCOPE_TITLE_FM);
+  in.position = txt(STR_SCOPE_FULL);
+  in.marks = marks;
+  in.markCount = channelsOf(&whole, kPresetKHz, presets, marks);
+  in.catches = catches;
+  in.catchCount = channelsOf(&whole, kCatchKHz, caught, catches);
+  renderScopeView(dir, "band-scope", &in);
+
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  DxSweepRange r;
+  if (!dxSweepRange(BAND_FM, &plan, 106400, 3600, &r)) {
+    return;
+  }
+  span = whole;
+  span.lowKHz = r.lowKHz;
+  span.stepKHz = r.stepKHz;
+  span.count = r.count;
+  for (uint16_t i = 0; i < r.count; i++) {
+    const int16_t at = dxSweepChannelOf(&whole, r.lowKHz + i * r.stepKHz);
+    span.level[i] = at >= 0 ? whole.level[at] : DX_SWEEP_NO_READING;
+  }
+  in.markCount = channelsOf(&span, kPresetKHz, presets, marks);
+  in.catchCount = channelsOf(&span, kCatchKHz, caught, catches);
+  in.live = &span;
+  in.span = true;
+  char spanText[16];
+  snprintf(spanText, sizeof(spanText), txt(STR_SCOPE_FMT_SPAN), 3ul, 6ul);
+  in.position = spanText;
+  in.cursor = (uint16_t)dxSweepChannelOf(&span, 106400);
+  in.revision++;
+  renderScopeView(dir, "band-scope-span", &in);
+  in.touchOn = true;
+  in.revision++;
+  renderScopeView(dir, "band-scope-touch", &in);
 }
 
 /* The sweep a fresh scan starts with, running. */
@@ -2195,6 +2273,7 @@ int main(int argc, char **argv) {
 
   if (screenScopeBegin()) {
     renderScopes(dir);
+    renderBandScopes(dir);
     screenScopeEnd();
   }
 

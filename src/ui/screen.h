@@ -804,6 +804,13 @@ typedef struct {
   /* Touch is On: the foot row gives room to a button each way for the
    * cursor and a Sweep button, and the rise moves up into the chart. */
   bool buttons;
+  const char *title; /* The header's title, or NULL for DX mode's "Scope". */
+  /* Channels to mark at the top of the chart: the stored channels, and the
+   * stations caught in DX mode. NULL with none. */
+  const uint16_t *marks;
+  uint8_t markCount;
+  const uint16_t *catches;
+  uint8_t catchCount;
 } ScreenScope;
 
 bool screenScopeBegin(void);

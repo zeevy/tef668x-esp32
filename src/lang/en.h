@@ -167,6 +167,7 @@
   X(MENU_GO_TO_BANDWIDTH, "Bandwidth", "Menu row name, Go To group: opens the bandwidth page") \
   X(MENU_GO_TO_RDS, "RDS", "Menu row name, Go To group: opens the RDS screen") \
   X(MENU_GO_TO_DX, "DX Mode", "Menu row name, Go To group: opens DX mode, FM only") \
+  X(MENU_GO_TO_SCOPE, "Band Scope", "Menu row name, Go To group: opens the band scope, FM only for now") \
   X(MENU_GO_TO_BAND, "Next Band", "Menu row name, Go To group: steps to the next band, as BAND does") \
   X(MENU_GO_TO_LOG, "Log Current Station", "Menu row name, Go To group: writes the station to the logbook") \
   X(MENU_GO_TO_SLEEP, "Sleep", "Menu row name, Go To group: the radio fades and sleeps until the knob is pressed") \
@@ -340,6 +341,9 @@
   X(DX_FMT_STEP_OF, "%u / %u", "Step text under the Scanner bar, passed of total") \
   X(DX_CONTEXT_SWEEPING, "sweeping", "Header context on the Scope page during a sweep") \
   X(DX_PRESS_TO_SWEEP, "Press to Sweep", "Middle text on an empty Scope page") \
+  X(SCOPE_TITLE_FM, "FM Scope", "Band scope page title on FM") \
+  X(SCOPE_FULL, "Full", "Band scope header, in place of the page position: the whole band is shown") \
+  X(SCOPE_FMT_SPAN, "%lu.%lu MHz", "Band scope header, in place of the page position: the span round the dial; MHz and tenths") \
   X(DX_FIXED, "FIXED", "Base line label on the Scope page") \
   X(DX_FMT_MEDIAN_OF, "MEDIAN OF %u", "Base line label on the Scope page, sweep count") \
   X(DX_FMT_FLOOR, "FLOOR %s", "Floor label on the Scope page, %s is the level in tenths") \

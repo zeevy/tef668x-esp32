@@ -18,6 +18,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "scope_task.h"
+
 #include "core/touch_cal.h"
 #include "ui/screen.h"
 
@@ -134,11 +136,29 @@ bool screenTaskRdsIsOpen(void);
 
 /*
  * Which screen is up, for GET /api/screen: "boot", "menu", "bandwidth", "rds",
- * "dx" or "radio", and in `page`, when not NULL, the page counted from 0 on the
- * RDS and DX screens and 0 on the rest.
+ * "band-scope", "dx" or "radio", and in `page`, when not NULL, the page
+ * counted from 0 on the RDS and DX screens and 0 on the rest.
  */
 const char *screenTaskShowing(uint8_t *page);
 void screenTaskRdsPage(int32_t clicks);
+
+/*
+ * The band scope, over the radio screen: the band's levels from a sweep,
+ * read through DX mode's width, with the stored channels and the stations
+ * caught in DX mode marked. FM only for now. Opening it sweeps the band at
+ * once; the knob moves the cursor, its press sweeps again or ends the sweep
+ * running, and its hold tunes to the cursor; BAND switches between the whole
+ * band and the span round the dial. False when the panel is busy or the
+ * radio is not on FM.
+ */
+bool screenTaskScopeOpen(void);
+void screenTaskScopeClose(void);
+bool screenTaskScopeIsOpen(void);
+ScopeStart screenTaskScopeSweep(void);
+void screenTaskScopeSpanToggle(void);
+void screenTaskScopeTurn(int32_t clicks);
+void screenTaskScopeSet(uint16_t channel);
+bool screenTaskScopeCursorKHz(uint32_t *khz);
 
 /*
  * The bandwidth page, reached by holding BW and left with a tap of BW or of
