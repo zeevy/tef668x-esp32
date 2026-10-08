@@ -1971,13 +1971,16 @@ function draw(){var s=shown(),c=g('chart');
  var at=cur!==null?cur:(BAND===s.band&&di>=0&&di<n&&di%1===0?di:null);
  if(at===null){g('rd').textContent='Point at a channel.';return}
  var f=khz(s,at),t='<b>'+freq(s,f)+' &middot; <b>'+lv(s,s.level[at])+'</b> dB&micro;V';
- PRE.forEach(function(p){if(p.band===s.band&&p.khz===f)t+=' &middot; preset '+p.slot});
+ var sl=PRE.filter(function(p){return p.band===s.band&&p.khz===f}).map(function(p){return p.slot});
+ if(sl.length)t+=' &middot; preset'+(sl.length>1?'s ':' ')+sl.join(', ');
  CAT.forEach(function(c){if(c.band===s.band&&c.khz===f)t+=' &middot; caught '+esc(c.pi+(c.name?' '+c.name:''))});
  g('rd').innerHTML=t+' <small class=meta>'+(cur===null?'the dial':'click to tune')+'</small>'}
 /* One row a sweep of the same channels as the one shown, newest at the
  * top, brighter for stronger on the chart's own scale. */
 function rows(){var s=shown();return s?HIST.filter(function(h){return same(h,s)}).slice(0,WH/4):[]}
 function wf(){var cv=g('wf'),x=cv.getContext('2d'),s=shown(),rs=rows();x.clearRect(0,0,W,WH);
+ /* The waterfall's own area, so it shows before it fills. */
+ x.fillStyle='rgba(127,127,127,.1)';x.fillRect(L,0,PW,WH);
  rs.forEach(function(h,y){h.level.forEach(function(v,i){if(v===null)return;var q=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
   x.fillStyle='rgb('+Math.round(20+q*235)+','+Math.round(20+q*170)+',30)';x.fillRect(Math.floor(X(h,i)-PW/h.count/2),y*4,Math.ceil(PW/h.count),h===s?4:3)})})}
 function meta(){var s=shown(),p=[];
