@@ -372,6 +372,15 @@ $ curl -s $R/api/dx/sweep
 
 The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading.
 
+### Band scope
+
+A level sweep outside DX mode too, through DX mode's width, of the whole band or of a span round the dial. FM only for now. The sound is muted while it runs, about 4 s for the whole FM band and under a second for a span, and the web server answers nothing until it ends.
+
+| Route | PIN | Fields | Sample answer |
+|---|---|---|---|
+| `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band | `sweeping` |
+| `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `lvo` and `level`, as above |
+
 ```
 $ curl -s -OJ $R/api/dx.csv
 Date,Time,Frequency,PI,Signal,Stereo,TA,TP,PTY,ECC,PS,Radiotext

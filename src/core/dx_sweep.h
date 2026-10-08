@@ -13,6 +13,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "band_plan.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,6 +59,31 @@ typedef struct {
   uint8_t count;
   DxSweep item[DX_SWEEP_KEEP];
 } DxSweepHistory;
+
+/* The channels a sweep reads: the first, the distance between them, and how
+ * many. */
+typedef struct {
+  uint32_t lowKHz;
+  uint16_t stepKHz;
+  uint16_t count;
+} DxSweepRange;
+
+/*
+ * The channels a sweep of `band` reads, on the band's own channels from its
+ * bottom edge in its default step. `spanKHz` 0 is the whole band, up to
+ * DX_SWEEP_MAX channels. Otherwise it is `spanKHz` wide, centred on the
+ * channel nearest `dialKHz`, and moved inside the band where it would cross an
+ * edge; a span as wide as the band or wider is the whole band. False when the
+ * band has no edges or no step, or `plan` or `out` is NULL.
+ */
+bool dxSweepRange(BandId band, const BandPlanConfig *plan, uint32_t dialKHz,
+                  uint32_t spanKHz, DxSweepRange *out);
+
+/* Whether a range can be swept on `band`: one channel or more, no more than
+ * DX_SWEEP_MAX, every channel inside the band, and on FM on the tuner's 10
+ * kHz grid. */
+bool dxSweepRangeFits(BandId band, const BandPlanConfig *plan,
+                      const DxSweepRange *r);
 
 /* The average of `n` readings in tenths, rounded to the nearest, or
  * DX_SWEEP_NO_READING for none. */

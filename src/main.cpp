@@ -47,6 +47,7 @@
 #include "net/xdr_server.h"
 #include "radio_task.h"
 #include "recovery.h"
+#include "scope_task.h"
 #include "screen_task.h"
 #include "settings_task.h"
 #include "sleep_task.h"
@@ -549,6 +550,7 @@ void setup() {
 
   webBegin(&gSettings, gAccessPin);
   xdrServerBegin(&gSettings);
+  scopeTaskBegin(&gSettings);
   updateCheckBegin(&gSettings);
 
   printBanner();
@@ -598,6 +600,7 @@ void loop() {
   otaLoop(gSettings.webEnabled != 0);
   webLoop();
   xdrServerLoop();
+  scopeTaskPoll();
   {
     /* A newer release is offered once the radio screen is up on its own,
      * worked out here in the same pass that opens it, so nothing can open in

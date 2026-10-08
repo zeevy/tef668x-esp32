@@ -13,6 +13,7 @@
 #include "dx_task.h"
 #include "net/ntp.h"
 #include "reply_times.h"
+#include "scope_task.h"
 #include "screen_task.h"
 
 /* The server, the settings and the counts, handed over as the routes are
@@ -410,6 +411,81 @@ static void handleApiDxSweepGet(void) {
 }
 
 /*
+ * POST /api/scope sweep=1: a sweep of the band the radio is on for the band
+ * scope, outside DX mode too, through DX mode's width. `span` in kHz, 0 or
+ * left out for the whole band, else that span round the dial. It returns at
+ * once; GET /api/scope has it once `running` is false. Muted while it runs,
+ * about 4 s for the whole FM band, and the web server answers nothing then.
+ */
+static void handleApiScopePost(void) {
+  if (!requireAuth(false)) {
+    return;
+  }
+  long sweep = 0;
+  long span = 0;
+  if (!apiNumber("sweep", &sweep, 1, 1) ||
+      (sWeb->server.hasArg("span") && !apiNumber("span", &span, 0, 30000))) {
+    return;
+  }
+  switch (scopeTaskSweep((uint32_t)span)) {
+    case SCOPE_STARTED:
+      sWeb->server.send(200, "text/plain", "sweeping\n");
+      return;
+    case SCOPE_NO_MEMORY:
+      apiFail(503, "There is no memory for the sweeps.");
+      return;
+    default:
+      apiFail(409,
+              "Not started: a sweep, a check, a band scan or the update check "
+              "is under way, a seek runs, or the radio is off FM.");
+      return;
+  }
+}
+
+/* GET /api/scope: the band scope's last sweep, as GET /api/dx/sweep gives
+ * DX mode's, with no baseline: `time` is UTC seconds when `real`, `level`
+ * in tenths of a dBuV, null for a channel with no reading. `floor` only for
+ * the whole band, where a quarter of the channels is the noise. Open to
+ * read. */
+static void handleApiScopeGet(void) {
+  ScopeView v;
+  scopeTaskView(&v);
+  sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  sWeb->server.send(200, "application/json", "");
+  char head[256];
+  const DxSweep *s = v.latest;
+  if (s == NULL) {
+    snprintf(head, sizeof(head),
+             "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":null,"
+             "\"real\":false,\"count\":0",
+             (unsigned)v.revision, v.running ? "true" : "false",
+             v.abandoned ? "true" : "false");
+    sWeb->server.sendContent(head);
+  } else {
+    const int16_t floor = v.whole ? dxSweepFloor(s) : DX_SWEEP_NO_READING;
+    char floorText[8] = "null";
+    if (floor != DX_SWEEP_NO_READING) {
+      snprintf(floorText, sizeof(floorText), "%d", (int)floor);
+    }
+    snprintf(head, sizeof(head),
+             "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":%u,"
+             "\"real\":%s,\"took_ms\":%u,\"width\":%u,\"low\":%u,"
+             "\"step\":%u,\"count\":%u,\"whole\":%s,\"floor\":%s,"
+             "\"lvo\":%d",
+             (unsigned)v.revision, v.running ? "true" : "false",
+             v.abandoned ? "true" : "false", (unsigned)s->at,
+             s->timeKnown ? "true" : "false", (unsigned)s->tookMs,
+             (unsigned)s->widthKHz, (unsigned)s->lowKHz, (unsigned)s->stepKHz,
+             (unsigned)s->count, v.whole ? "true" : "false", floorText,
+             (int)screenTaskLevelOffsetDb(BAND_FM));
+    sWeb->server.sendContent(head);
+    sendSweepLevels("level", s, NULL);
+  }
+  sWeb->server.sendContent("}\n");
+  sWeb->server.sendContent("");
+}
+
+/*
  * GET /api/dx. DX mode as the panel has it: whether it is open, the page
  * and the Catches cursor, then this session's catches, newest first, one
  * compact JSON object a line as GET /api/log does. `i` is the place POST
@@ -678,4 +754,6 @@ void webApiDxRoutes(WebContext *web) {
   sWeb->server.on("/api/afcheck", HTTP_POST, handleApiAfCheckPost);
   sWeb->server.on("/api/afcheck", HTTP_GET, handleApiAfCheckGet);
   sWeb->server.on("/api/dx/timing.csv", HTTP_GET, handleApiDxTimingCsv);
+  sWeb->server.on("/api/scope", HTTP_POST, handleApiScopePost);
+  sWeb->server.on("/api/scope", HTTP_GET, handleApiScopeGet);
 }

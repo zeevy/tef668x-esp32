@@ -1,11 +1,13 @@
 /* Implementation of the radio task, its queue and its snapshot. */
 #include "radio_task.h"
 
+#include "band_scan_task.h"
 #include "core/agc.h"
 #include "core/auto_off.h"
 #include "core/radio_round.h"
 #include "core/signal.h"
 #include "memory_store.h"
+#include "net/update_check.h"
 
 #include <Arduino.h>
 #include <esp_task_wdt.h>
@@ -235,6 +237,11 @@ static void probeAnswered(uint32_t seq) {
  * whether the caller wants it ended. */
 static std::atomic<DxSweep *> sSweepOut{nullptr};
 static std::atomic<bool> sSweepCancel{false};
+/* The plan of the sweep waiting or running; `sSweepPlanned` false for DX
+ * mode's whole band at the tuner's width. Written before `sSweepOut` is set
+ * and read by the radio task only after. */
+static RadioSweepPlan sSweepPlan;
+static bool sSweepPlanned = false;
 
 /* The AF_Update checks: the caller's series while one runs, NULL once it has
  * ended. The rest is the radio task's own. */
@@ -815,20 +822,27 @@ static uint32_t sweepBand(DxSweep *out, const RadioSettings *at,
        waited++) {
     vTaskDelay(pdMS_TO_TICKS(1));
   }
-  uint32_t lo = 0;
-  uint32_t hi = 0;
-  const uint16_t step = bandDefaultStep(at->band, &sPlan);
+  DxSweepRange range;
   out->count = 0;
   out->widthKHz = widthKHz;
-  if (step == 0 || !bandLimits(at->band, &sPlan, &lo, &hi) || hi < lo) {
+  if (sSweepPlanned) {
+    range = sSweepPlan.range;
+  } else if (!dxSweepRange(at->band, &sPlan, at->freqKHz, 0, &range)) {
     return at->freqKHz;
   }
-  const uint32_t count = (hi - lo) / step + 1;
+  const uint32_t lo = range.lowKHz;
+  const uint16_t step = range.stepKHz;
   out->lowKHz = lo;
   out->stepKHz = step;
-  out->count = (uint16_t)(count < DX_SWEEP_MAX ? count : DX_SWEEP_MAX);
+  out->count = range.count;
   const uint32_t startMs = millis();
   (void)tef668xSetMute(true);
+  /* The retune back to the dial after the sweep sends the radio's own width
+   * again, so a width for the sweep alone needs no undoing. */
+  if (sSweepPlanned &&
+      tef668xSetFmBandwidth(sSweepPlan.widthKHz) == TEF668X_OK) {
+    out->widthKHz = sSweepPlan.widthKHz;
+  }
   uint32_t khz = at->freqKHz;
   for (uint16_t i = 0; i < out->count; i++) {
     /* A command waiting, a key or a tune, ends it, so the radio never
@@ -2392,7 +2406,7 @@ bool radioTaskPlan(BandPlanConfig *out) {
   return true;
 }
 
-bool radioSweepStart(DxSweep *out) {
+bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan) {
   if (out == NULL || sLock == NULL || sTask == NULL || sHushed) {
     return false;
   }
@@ -2401,9 +2415,20 @@ bool radioSweepStart(DxSweep *out) {
       bandModulation(now.settings.band) != MODULATION_FM) {
     return false;
   }
-  if (sSweepOut.load() != nullptr || sAfOut.load() != nullptr) {
+  /* A band scan's probes would wait behind the sweep, and the update
+   * check's transmitting would raise every level read. */
+  if (sSweepOut.load() != nullptr || sAfOut.load() != nullptr ||
+      bandScanActive() || updateCheckRunning()) {
     return false;
   }
+  if (plan != NULL) {
+    if (!dxSweepRangeFits(now.settings.band, &sPlan, &plan->range) ||
+        !bandBandwidthAllowed(BAND_FM, plan->widthKHz) || plan->widthKHz == 0) {
+      return false;
+    }
+    sSweepPlan = *plan;
+  }
+  sSweepPlanned = plan != NULL;
   sSweepCancel.store(false);
   DxSweep *none = nullptr;
   return sSweepOut.compare_exchange_strong(none, out);

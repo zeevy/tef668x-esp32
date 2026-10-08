@@ -501,12 +501,21 @@ RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
                                   uint32_t expectKHz, Tef668xQuality *out,
                                   bool *moved);
 
+/* What a sweep reads, and through which FM width. */
+typedef struct {
+  DxSweepRange range;
+  uint16_t widthKHz;
+} RadioSweepPlan;
+
 /*
- * Sweep the band the radio is on for its level: every channel from the band's
- * bottom edge in its default step, each read DX_SWEEP_READS times from
+ * Sweep the band the radio is on for its level: with a NULL `plan`, every
+ * channel from the band's bottom edge in its default step at the width the
+ * tuner has, as DX mode does; with a plan, the channels and the width it
+ * names. Each channel is read DX_SWEEP_READS times from
  * DX_SWEEP_SETTLE_MS after its tune, and the readings averaged into `out`.
- * Muted, at the width the tuner has, which `out` records with how long it took,
- * and the dial put back where it was at the end the way any retune goes.
+ * Muted, at the width the tuner has or the plan's, which `out` records with
+ * how long it took, and the dial and its width put back at the end the way
+ * any retune goes.
  *
  * Returns at once. The radio task runs it in its next round that took no
  * command, the whole band in one go, about 4 s. A command arriving
@@ -516,10 +525,13 @@ RadioProbeResult radioSettleProbe(uint32_t khz, uint16_t settleMs,
  * `out` is the radio task's until radioSweepBusy says false, and the caller
  * leaves it alone until then. Its time is the caller's to fill in.
  *
- * Refused while a sweep is waiting or running, while a seek runs, while the
- * radio is hushed, and off FM. Safe from any task except the radio task.
+ * Refused while a sweep or a check is waiting or running, while a band scan
+ * or the update check runs, while a seek runs, while the radio is hushed, off
+ * FM, and for a plan dxSweepRangeFits refuses or with a width FM does not
+ * have. From the loop task, where every caller is: the plan is kept
+ * until the radio task takes the sweep.
  */
-bool radioSweepStart(DxSweep *out);
+bool radioSweepStart(DxSweep *out, const RadioSweepPlan *plan);
 
 /* A sweep is waiting or running. */
 bool radioSweepBusy(void);
