@@ -21,6 +21,8 @@ The password is the radio's **Web PIN**, the six digits you sign in to the web p
 2. Host: `tef668x.local`, or the radio's IP address from Network Info. Port: `7373`. Password: the Web PIN.
 3. Connect. The laptop mark shows in the radio's header.
 
+When it is the only PC, XDR-GTK sends its own last frequency, volume and settings as it connects, and the radio takes them, so the first time it tunes to 87.50 MHz. Tune where you want from XDR-GTK; it remembers that for the next time.
+
 XDR-GTK's own code after its v1.2 release has a **TEF668X mode** in its settings, under Interface. Turn it on there: the bandwidth list then has the TEF668x filters, 56 to 311 kHz, and the two toggles read cEQ and iMS. Release v1.2 has no such mode; it still works, and a width it asks for goes to the nearest one the radio has.
 
 ### RDS Spy and StationList through XDR-GTK
