@@ -168,8 +168,7 @@ What the screen shows now, one JSON object per line. The first line names the sc
 ```
 {"screen":"radio","page":0,"dim":false,"theme":"Nightwatch"}
 {"zone":"menu","x":0,"y":0,"w":38,"h":28}
-{"zone":"band","x":38,"y":0,"w":122,"h":28}
-{"zone":"menu","x":160,"y":0,"w":160,"h":28}
+{"zone":"band","x":38,"y":0,"w":42,"h":28}
 {"zone":"name","x":0,"y":32,"w":320,"h":34}
 {"zone":"freq","x":0,"y":66,"w":320,"h":54}
 {"zone":"scale","x":0,"y":144,"w":320,"h":56}

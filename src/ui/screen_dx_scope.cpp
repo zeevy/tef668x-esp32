@@ -67,10 +67,10 @@
 #define SMALL_UNIT_GAP 3
 /* With Touch On the foot row is five blocks: a button for the cursor to the
  * left, the frequency, Sweep in the middle of the screen, the level, and a
- * button for the cursor to the right. Each button 38 wide, the narrowest
- * target measured to hold a tap, the two tiles sharing what is left, all 4
- * apart and the tile's height. */
-#define BUTTON_W 38
+ * button for the cursor to the right. Each button as narrow as a target is
+ * made, the two tiles sharing what is left, all 4 apart and the tile's
+ * height. */
+#define BUTTON_W TOUCH_ZONE_MIN_W
 #define FOOT_GAP 4
 #define BUTTONS 3
 #define FOOT_TILE_W ((BOX_W - BUTTONS * BUTTON_W - 4 * FOOT_GAP) / 2)
