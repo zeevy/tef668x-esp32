@@ -115,6 +115,34 @@ static const XdrRange kRanges[] = {
     {'C', XDR_ROTATOR, 0, 2, "C is 0, 1 or 2."},
 };
 
+bool xdrCableFeed(XdrCableLine *line, int ch) {
+  if (line == NULL) {
+    return false;
+  }
+  if (ch != '\n' && ch != '\r' && (ch < 0x20 || ch >= 0x7F)) {
+    if (line->len > 0) {
+      line->bad = true;
+    } else {
+      line->junk = true;
+    }
+    return false;
+  }
+  if (ch != '\n') {
+    if (line->len < sizeof(line->text) - 1) {
+      line->text[line->len++] = (char)ch;
+    } else {
+      line->bad = true;
+    }
+    return false;
+  }
+  line->text[line->len] = '\0';
+  const bool whole = !line->bad && (line->len > 0 || !line->junk);
+  line->len = 0;
+  line->bad = false;
+  line->junk = false;
+  return whole;
+}
+
 const char *xdrParse(const char *line, XdrCommand *out) {
   if (out == NULL) {
     return "Nothing to put it in.";

@@ -145,9 +145,7 @@ static bool sScanRepeat = false;
 static bool sScanWaiting = false;
 static uint16_t sScanRev = 0;
 /* The cable's line as it comes in, before a session has a place for it. */
-static char sCableLine[XDR_READ_MAX];
-static uint8_t sCableLen = 0;
-static bool sCableOverlong = false;
+static XdrCableLine sCable;
 
 void xdrServerBegin(const Settings *settings) {
   sSettings = settings;
@@ -625,12 +623,6 @@ static void act(Pc *pc, const XdrCommand *c, const RadioSettings *r) {
         }
       }
       return;
-    case XDR_START:
-      start(pc);
-      return;
-    case XDR_END:
-      drop(pc);
-      return;
     case XDR_TUNE:
       tune(c->value);
       break;
@@ -740,6 +732,16 @@ static void handleLine(Pc *pc, const char *line) {
   if (xdrParse(line, &c) != NULL || c.kind == XDR_IGNORE) {
     return;
   }
+  /* These two need nothing from the radio, so a busy lock never loses them:
+   * XDR-GTK sends each once. */
+  if (c.kind == XDR_START) {
+    start(pc);
+    return;
+  }
+  if (c.kind == XDR_END) {
+    drop(pc);
+    return;
+  }
   RadioSettings r;
   if (!radioGetSettings(&r)) {
     return;
@@ -782,26 +784,13 @@ static void readPc(Pc *pc) {
  */
 static void cablePoll(void) {
   for (int n = 0; n < 64 && Serial.available() > 0; n++) {
-    const int ch = Serial.read();
-    if (ch != '\n') {
-      if (sCableLen < XDR_READ_MAX - 1) {
-        sCableLine[sCableLen++] = (char)ch;
-      } else {
-        sCableOverlong = true;
-      }
-      continue;
-    }
-    sCableLine[sCableLen] = '\0';
-    const bool whole = !sCableOverlong;
-    sCableLen = 0;
-    sCableOverlong = false;
-    if (!whole) {
+    if (!xdrCableFeed(&sCable, Serial.read())) {
       continue;
     }
     Pc *pc = sLink != NULL ? &sLink->pc[XDR_CABLE] : NULL;
     if (pc == NULL || !pc->signedIn) {
       XdrCommand first;
-      if (xdrParse(sCableLine, &first) != NULL || first.kind != XDR_START ||
+      if (xdrParse(sCable.text, &first) != NULL || first.kind != XDR_START ||
           !ensureLink()) {
         continue;
       }
@@ -810,7 +799,7 @@ static void cablePoll(void) {
       pc->signedIn = true;
       sUsersChanged = true;
     }
-    handleLine(pc, sCableLine);
+    handleLine(pc, sCable.text);
   }
 }
 
@@ -927,6 +916,13 @@ void xdrServerLoop(void) {
   }
   if (sListen >= 0) {
     takeNewPcs();
+  }
+  /* A network PC that is not started is cut off after a while, but the cable
+   * sends x once and has no other way to ask again, so its x is answered on a
+   * later pass when the radio's state could not be had for it. */
+  Pc *cable = &sLink->pc[XDR_CABLE];
+  if (cable->signedIn && !cable->started) {
+    start(cable);
   }
   for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
     Pc *pc = &sLink->pc[i];
