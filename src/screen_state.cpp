@@ -115,12 +115,8 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
     meterPeakReset(&b->modulationPeak);
     b->modulationReads = snap.qualityReads;
   }
-  /* The offset goes on after the hold, so the number still moves a whole dB at
-   * a time, and the scale's peak below is drawn from the level as shown. */
-  state.signalDbuV =
-      (int16_t)(signalDisplayLevel(&b->signalDisplay, snap.levelSmoothedTenths,
-                                   snap.levelSmoothedValid) +
-                in->levelOffsetDb);
+  state.signalDbuV = signalDisplayLevel(
+      &b->signalDisplay, snap.levelSmoothedTenths, snap.levelSmoothedValid);
   state.signalValid = snap.qualityValid;
   /*
    * Why there is no sound, rather than only whether there is.

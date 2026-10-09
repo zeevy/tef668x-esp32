@@ -475,6 +475,16 @@ bool settingsValid(const Settings *s) {
   return true;
 }
 
+/* Fields this firmware does not read, put back on every load to what this
+ * firmware does, and stored so with the next save, so an older one that
+ * reads them after a rollback does the same: no level offset, and the panel
+ * faded up at start. */
+static void keepUnused(Settings *s) {
+  s->levelOffsetFmDb = 0;
+  s->levelOffsetAmDb = 0;
+  s->backlightFade = 1;
+}
+
 bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
   settingsDefaults(out);
   if (blob == NULL || len < sizeof(uint16_t) * 2) {
@@ -515,6 +525,7 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     if (out->pcLink > 1) {
       out->pcLink = 0;
     }
+    keepUnused(out);
     if (!settingsValid(out)) {
       settingsDefaults(out);
       return false;
@@ -595,6 +606,7 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
   if (out->pcLink > 1) {
     out->pcLink = 0;
   }
+  keepUnused(out);
 
   if (!settingsValid(out)) {
     settingsDefaults(out);

@@ -7,7 +7,6 @@
 
 #include "drivers/logbook_fs.h"
 #include "input_task.h"
-#include "screen_task.h"
 
 /* The server, the settings and the counts, handed over as the routes are
  * registered. */
@@ -72,9 +71,6 @@ static void handleApiLogGet(void) {
     if (!logbookFsEntryAt(i, &e)) {
       continue;
     }
-    /* With the offset in force for its band, as log.csv. */
-    e.levelDbuVTenths = signalShownTenths(
-        e.levelDbuVTenths, screenTaskLevelOffsetDb((BandId)e.band));
     /* Escaped: a station's name is whatever it broadcast, and a quote or a
      * backslash in it written raw ends the string early and breaks the line
      * for any JSON reader. Six bytes a character at worst, plus the quotes. */
@@ -140,10 +136,6 @@ static void handleApiLogCsv(void) {
     if (!logbookFsEntryAt(i, &e)) {
       continue;
     }
-    /* Kept as the radio read it, written with the offset in force for its
-     * band, as the time goes out in the zone in force. */
-    e.levelDbuVTenths = signalShownTenths(
-        e.levelDbuVTenths, screenTaskLevelOffsetDb((BandId)e.band));
     size_t need = logbookCsvLine(&e, offsetMinutes, line, sizeof(line));
     if (need == 0 || need >= sizeof(line)) {
       continue;

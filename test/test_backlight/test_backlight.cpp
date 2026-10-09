@@ -271,7 +271,6 @@ static void the_settings_come_through_unchanged(void) {
   s.backlightPercent = 70;
   s.backlightDimPercent = 15;
   s.backlightDimAfterS = 30;
-  s.backlightFade = 1;
 
   BacklightConfig c;
   backlightFromSettings(&s, &c);
@@ -281,13 +280,14 @@ static void the_settings_come_through_unchanged(void) {
   TEST_ASSERT_EQUAL_UINT16(BACKLIGHT_FADE_UP_MS, c.fadeUpMs);
 }
 
-static void the_fade_switched_off_leaves_no_fade(void) {
+/* The panel always fades up at start, whatever the stored byte says. */
+static void the_fade_at_start_is_always_on(void) {
   Settings s;
   settingsDefaults(&s);
   s.backlightFade = 0;
   BacklightConfig c;
   backlightFromSettings(&s, &c);
-  TEST_ASSERT_EQUAL_UINT16(0, c.fadeUpMs);
+  TEST_ASSERT_EQUAL_UINT16(BACKLIGHT_FADE_UP_MS, c.fadeUpMs);
 }
 
 static void the_radio_ships_with_the_dim_off(void) {
@@ -388,7 +388,7 @@ int main(void) {
   RUN_TEST(switching_the_dim_off_brings_a_dimmed_panel_back);
 
   RUN_TEST(the_settings_come_through_unchanged);
-  RUN_TEST(the_fade_switched_off_leaves_no_fade);
+  RUN_TEST(the_fade_at_start_is_always_on);
   RUN_TEST(the_radio_ships_with_the_dim_off);
 
   RUN_TEST(null_is_safe_everywhere);

@@ -33,7 +33,6 @@ typedef struct {
   const char *key; /* The name the API uses. */
   uint16_t offset; /* Where it sits in Settings. */
   uint8_t size;    /* 1 or 2 bytes. */
-  bool isSigned;
   int32_t low;
   /* The highest the field may hold. For the two themes this is the widest a
    * byte holds: the caller bounds them by how many themes ship, the saved
@@ -50,7 +49,7 @@ const SettingRow *settingsTableAt(size_t i);
 /* The row with this key, or NULL. */
 const SettingRow *settingsTableFind(const char *key);
 
-/* The value of `row` in `s`, read at its own width and sign. */
+/* The value of `row` in `s`, read at its own width. Every row is unsigned. */
 int32_t settingsTableGet(const Settings *s, const SettingRow *row);
 
 /* Write `value` into `row` in `s`, at its own width. The caller has checked

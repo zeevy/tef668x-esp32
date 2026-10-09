@@ -83,7 +83,9 @@ typedef struct {
    */
   uint8_t dimPercent;
   uint32_t dimAfterMs; /* How long with no input before it dims. 0 never. */
-  uint16_t fadeUpMs;   /* How long the fade at boot takes. 0 snaps on. */
+  /* How long the fade at boot takes: BACKLIGHT_FADE_UP_MS on the radio.
+   * 0 snaps on, which only the tests use. */
+  uint16_t fadeUpMs;
 } BacklightConfig;
 
 /* Where the fade has got to. Zero it before first use. */

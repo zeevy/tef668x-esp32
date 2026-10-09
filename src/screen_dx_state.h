@@ -29,8 +29,7 @@ typedef struct {
   uint8_t pages;             /* How many DX pages there are. */
   /* What a log just did, shown in the header for a moment, or NULL. */
   const char *confirm;
-  RdsRegion region;     /* Whether a PI is read as call letters. */
-  int8_t levelOffsetDb; /* The FM level offset, whole dB. */
+  RdsRegion region; /* Whether a PI is read as call letters. */
   /* The stored PI of the preset the dial is on, `snap->memorySlot`, or 0
    * when it is on none or the preset has learnt none. */
   uint16_t presetPi;
@@ -93,7 +92,6 @@ typedef struct {
   uint8_t pages;         /* and how many pages there are. */
   const char *clock;     /* The local clock, or NULL. */
   int16_t offsetMinutes; /* The local offset the times are shown in. */
-  int8_t levelOffsetDb;  /* The FM level offset the levels are shown with. */
   /* What a hold on a row just did, shown in the header for a moment, or
    * NULL. */
   const char *confirm;
@@ -139,8 +137,7 @@ typedef struct {
   uint8_t pages;
   const char *clock; /* Local, or NULL. */
   uint32_t nowMs;
-  const char *confirm;  /* A moment's message for the header, or NULL. */
-  int8_t levelOffsetDb; /* The FM level offset, whole dB. */
+  const char *confirm; /* A moment's message for the header, or NULL. */
 } ScreenScanInputs;
 
 /*
@@ -180,9 +177,8 @@ typedef struct {
   uint32_t nowUtc;
   uint8_t page;
   uint8_t pages;
-  const char *clock;    /* Local, or NULL. */
-  const char *confirm;  /* A moment's message for the header, or NULL. */
-  int8_t levelOffsetDb; /* The FM level offset, whole dB. */
+  const char *clock;   /* Local, or NULL. */
+  const char *confirm; /* A moment's message for the header, or NULL. */
   bool touchOn; /* Touch is On and the chip answered: the touch buttons. */
   /* The band scope's: its title, its span in place of the page position, and
    * a span is not the whole band, so it has no noise floor. NULL and false

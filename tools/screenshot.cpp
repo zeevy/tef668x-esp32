@@ -1619,7 +1619,7 @@ int main(int argc, char **argv) {
       menu.rows[i].selected = i == 1;
       menu.rows[i].opens = i == 0;
     }
-    menu.total = 8; /* Display's rows, six shown. */
+    menu.total = 6; /* Display's rows, all shown. */
     screenMenuShow(&menu);
     saveShot("%s/menu-screen.bmp", dir);
     /* With Touch Off: no back mark, the title at the margin. */

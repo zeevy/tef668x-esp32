@@ -264,12 +264,8 @@ static void a_value_outside_its_table_range_is_rejected(void) {
   TEST_ASSERT_TRUE(settingsValid(&s));
   for (size_t i = 0; i < settingsTableCount(); i++) {
     const SettingRow *row = settingsTableAt(i);
-    const int32_t least =
-        !row->isSigned ? 0 : (row->size == 2 ? INT16_MIN : INT8_MIN);
-    const int32_t most = row->size == 2
-                             ? (row->isSigned ? INT16_MAX : UINT16_MAX)
-                             : (row->isSigned ? INT8_MAX : UINT8_MAX);
-    if (row->low > least) {
+    const int32_t most = row->size == 2 ? UINT16_MAX : UINT8_MAX;
+    if (row->low > 0) {
       settingsDefaults(&s);
       settingsTableSet(&s, row, row->low - 1);
       TEST_ASSERT_FALSE_MESSAGE(settingsValid(&s), row->key);
@@ -1219,10 +1215,6 @@ static void the_panel_light_settings_have_ranges(void) {
   TEST_ASSERT_TRUE(settingsValid(&s));
   s.backlightDimAfterS = BACKLIGHT_DIM_AFTER_MAX_S + 1;
   TEST_ASSERT_FALSE(settingsValid(&s));
-
-  settingsDefaults(&s);
-  s.backlightFade = 2;
-  TEST_ASSERT_FALSE(settingsValid(&s));
 }
 
 static void the_soft_mute_and_beep_settings_have_ranges(void) {
@@ -1838,44 +1830,31 @@ static void a_version_25_blob_keeps_the_watch_off(void) {
   TEST_ASSERT_EQUAL_UINT8(0, out.dxWatch);
 }
 
-/* The offsets went into version 25's padding, so a version 25 blob is as
- * long as a version 26 one, and those bytes must not be read as offsets. */
-static void a_version_25_blob_gets_no_level_offset(void) {
-  TEST_ASSERT_EQUAL_size_t(265, offsetof(Settings, levelOffsetFmDb));
-  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
-  Settings source;
-  settingsDefaults(&source);
-  source.dxWatch = 0;
-  uint8_t blob[V25_SIZE];
-  memcpy(blob, &source, V25_SIZE);
-  /* Values that would be legal offsets if they leaked through. */
-  blob[265] = 5;
-  blob[266] = (uint8_t)-7;
-  uint16_t version = 25;
-  uint16_t size = V25_SIZE;
-  memcpy(blob + offsetof(Settings, version), &version, sizeof(version));
-  memcpy(blob + offsetof(Settings, size), &size, sizeof(size));
-  Settings out;
-  TEST_ASSERT_TRUE(settingsFromBlob(blob, V25_SIZE, &out));
-  TEST_ASSERT_EQUAL_UINT8(0, out.dxWatch);
-  TEST_ASSERT_EQUAL_INT8(0, out.levelOffsetFmDb);
-  TEST_ASSERT_EQUAL_INT8(0, out.levelOffsetAmDb);
-  TEST_ASSERT_TRUE(settingsValid(&out));
-}
-
-/* Not the default, and negative, so it proves the fields are copied from a
- * version 26 blob whole. */
-static void a_version_26_blob_keeps_its_offsets(void) {
+/* The level offsets and the fade switch are not read, and each load puts
+ * them back to no offset and the fade on, so an older firmware that reads
+ * them after a rollback does what this one does. Both load paths. */
+static void a_blob_loads_with_no_offset_and_the_fade_on(void) {
   Settings written;
   settingsDefaults(&written);
   written.version = 26;
   written.size = V25_SIZE;
   written.levelOffsetFmDb = -12;
   written.levelOffsetAmDb = 9;
+  written.backlightFade = 0;
   Settings out;
   TEST_ASSERT_TRUE(settingsFromBlob(&written, V25_SIZE, &out));
-  TEST_ASSERT_EQUAL_INT8(-12, out.levelOffsetFmDb);
-  TEST_ASSERT_EQUAL_INT8(9, out.levelOffsetAmDb);
+  TEST_ASSERT_EQUAL_INT8(0, out.levelOffsetFmDb);
+  TEST_ASSERT_EQUAL_INT8(0, out.levelOffsetAmDb);
+  TEST_ASSERT_EQUAL_UINT8(1, out.backlightFade);
+
+  settingsDefaults(&written);
+  written.version = SETTINGS_VERSION + 1;
+  written.size = (uint16_t)sizeof(Settings);
+  written.levelOffsetFmDb = 5;
+  written.backlightFade = 0;
+  TEST_ASSERT_TRUE(settingsFromBlob(&written, sizeof(Settings), &out));
+  TEST_ASSERT_EQUAL_INT8(0, out.levelOffsetFmDb);
+  TEST_ASSERT_EQUAL_UINT8(1, out.backlightFade);
 }
 
 /* The night theme went into version 26's last padding byte, so a version 26
@@ -2228,20 +2207,6 @@ static void new_network_details_turn_a_hotspot_on_back_to_auto(void) {
   TEST_ASSERT_EQUAL_UINT8(WIFI_HOTSPOT_ON, s.hotspot);
 }
 
-/* Each on its edge and one past it. */
-static void a_level_offset_outside_its_range_is_refused(void) {
-  Settings s;
-  settingsDefaults(&s);
-  s.levelOffsetFmDb = SIGNAL_LEVEL_OFFSET_MIN_DB;
-  s.levelOffsetAmDb = SIGNAL_LEVEL_OFFSET_MAX_DB;
-  TEST_ASSERT_TRUE(settingsValid(&s));
-  s.levelOffsetFmDb = SIGNAL_LEVEL_OFFSET_MIN_DB - 1;
-  TEST_ASSERT_FALSE(settingsValid(&s));
-  s.levelOffsetFmDb = 0;
-  s.levelOffsetAmDb = SIGNAL_LEVEL_OFFSET_MAX_DB + 1;
-  TEST_ASSERT_FALSE(settingsValid(&s));
-}
-
 static void a_watch_switch_past_on_is_refused(void) {
   Settings s;
   settingsDefaults(&s);
@@ -2448,8 +2413,7 @@ int main(int, char **) {
   RUN_TEST(a_version_24_blob_gets_the_watch_on);
   RUN_TEST(a_version_25_blob_keeps_the_watch_off);
   RUN_TEST(a_watch_switch_past_on_is_refused);
-  RUN_TEST(a_version_25_blob_gets_no_level_offset);
-  RUN_TEST(a_version_26_blob_keeps_its_offsets);
+  RUN_TEST(a_blob_loads_with_no_offset_and_the_fade_on);
   RUN_TEST(a_version_26_blob_keeps_its_theme_at_night);
   RUN_TEST(a_version_27_blob_keeps_its_night_theme);
   RUN_TEST(a_version_27_blob_gets_the_hotspot_on_auto);
@@ -2469,7 +2433,6 @@ int main(int, char **) {
   RUN_TEST(an_auto_off_time_nobody_can_choose_is_refused);
   RUN_TEST(a_switch_past_one_is_refused);
   RUN_TEST(new_network_details_turn_a_hotspot_on_back_to_auto);
-  RUN_TEST(a_level_offset_outside_its_range_is_refused);
   RUN_TEST(an_am_start_level_outside_its_range_is_refused);
 
   return UNITY_END();

@@ -393,13 +393,13 @@ static void handleApiDxSweepGet(void) {
              "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":%u,"
              "\"real\":%s,\"took_ms\":%u,\"width\":%u,\"low\":%u,"
              "\"step\":%u,\"count\":%u,\"floor\":%s,\"baseline\":%s,"
-             "\"baseline_sweeps\":%u,\"lvo\":%d",
+             "\"baseline_sweeps\":%u",
              (unsigned)v.revision, v.running ? "true" : "false",
              v.abandoned ? "true" : "false", (unsigned)v.live->at,
              v.live->timeKnown ? "true" : "false", (unsigned)v.live->tookMs,
              (unsigned)v.live->widthKHz, (unsigned)v.live->lowKHz,
              (unsigned)v.live->stepKHz, (unsigned)v.live->count, floorText,
-             base, (unsigned)v.baseN, (int)screenTaskLevelOffsetDb(BAND_FM));
+             base, (unsigned)v.baseN);
     sWeb->server.sendContent(head);
     sendSweepLevels("level", v.live, NULL);
     sendSweepLevels("baseline_level", v.base, NULL);
@@ -451,8 +451,8 @@ static void handleApiScopePost(void) {
 
 /* GET /api/scope: the band scope's last sweep, as GET /api/dx/sweep gives
  * DX mode's, with no baseline: `band` the band it was swept on, `time` UTC
- * seconds when `real`, `level` in tenths of a dBuV, null for a channel with
- * no reading, and `lvo` that band's level offset. `floor` only for the whole
+ * seconds when `real`, and `level` in tenths of a dBuV, null for a channel
+ * with no reading. `floor` only for the whole
  * band, where a quarter of the channels is the noise. Open to read. */
 static void handleApiScopeGet(void) {
   ScopeView v;
@@ -478,13 +478,13 @@ static void handleApiScopeGet(void) {
              "{\"rev\":%u,\"running\":%s,\"abandoned\":%s,\"time\":%u,"
              "\"real\":%s,\"took_ms\":%u,\"width\":%u,\"low\":%u,"
              "\"step\":%u,\"count\":%u,\"whole\":%s,\"floor\":%s,"
-             "\"band\":\"%s\",\"lvo\":%d",
+             "\"band\":\"%s\"",
              (unsigned)v.revision, v.running ? "true" : "false",
              v.abandoned ? "true" : "false", (unsigned)s->at,
              s->timeKnown ? "true" : "false", (unsigned)s->tookMs,
              (unsigned)s->widthKHz, (unsigned)s->lowKHz, (unsigned)s->stepKHz,
              (unsigned)s->count, v.whole ? "true" : "false", floorText,
-             bandName(v.band), (int)screenTaskLevelOffsetDb(v.band));
+             bandName(v.band));
     sWeb->server.sendContent(head);
     sendSweepLevels("level", s, NULL);
   }
@@ -518,15 +518,14 @@ static void handleApiDxGet(void) {
            "{\"on\":%s,\"page\":%u,\"cursor\":%u,\"n\":%u,"
            "\"dropped\":%u,\"sweeping\":%s,\"sweep_rev\":%u,"
            "\"scan\":\"%s\",\"scan_khz\":%u,"
-           "\"scan_found\":%u,\"scan_passed\":%u,\"scan_total\":%u,"
-           "\"lvo\":%d",
+           "\"scan_found\":%u,\"scan_passed\":%u,\"scan_total\":%u",
            screenTaskDxIsOpen() ? "true" : "false",
            (unsigned)screenTaskDxPage(), (unsigned)screenTaskDxCursor(),
            (unsigned)n, list != NULL ? (unsigned)list->dropped : 0u,
            dxTaskSweepRunning() ? "true" : "false",
            (unsigned)dxTaskSweepRevision(), scanState, (unsigned)scanKHz,
            (unsigned)scan->found, (unsigned)dxScanPassed(scan),
-           (unsigned)dxScanTotal(scan), (int)screenTaskLevelOffsetDb(BAND_FM));
+           (unsigned)dxScanTotal(scan));
   sWeb->server.sendContent(line);
   /* The preset watch, in the same object. */
   uint8_t watched = 0;
@@ -607,16 +606,8 @@ static void handleApiDxCsv(void) {
   const DxCatches *list = dxTaskCatches();
   const uint8_t n = dxCatchesByTime(list, order);
   char line[128];
-  const int8_t levelOffset = screenTaskLevelOffsetDb(BAND_FM);
   for (uint8_t i = 0; i < n; i++) {
-    /* The level as shown, with the FM offset; the catch keeps
-     * the radio's own. Both readings, since the line takes the timed one
-     * or, with none, the strongest. */
-    DxCatch k = list->item[order[i]];
-    k.timed.levelDbuVTenths =
-        signalShownTenths(k.timed.levelDbuVTenths, levelOffset);
-    k.best.levelDbuVTenths =
-        signalShownTenths(k.best.levelDbuVTenths, levelOffset);
+    const DxCatch &k = list->item[order[i]];
     size_t need = dxCatchCsvLine(&k, line, sizeof(line));
     if (need == 0 || need >= sizeof(line)) {
       continue;

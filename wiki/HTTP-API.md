@@ -83,7 +83,7 @@ curl -s $R/api/state
 <details><summary>A sample answer</summary>
 
 ```json
-{"brd":"ats125","ver":"0.2.0","bid":"0550092+","slt":"app0","cnf":true,"upd":{"st":"none","ver":null,"sz":null},"net":"station","rssi":-63,"bars":1,"rst":"software","ip":"192.168.1.40","dpn":true,"hep":122360,"hmn":52524,"hmp":null,"hlb":77812,"stk":{"rad":2352,"lop":7340},"up":90,"slp":null,"pnl":{"lit":90,"dim":false,"sdb":25,"swp":35,"lvu":11488,"lvt":22064,"lvp":53,"lvb":10228,"lvm":13124,"psh":{"n":57,"px":247288,"us":126889,"max":2807,"ref":28047}},"bat":{"fit":true,"mv":null,"boot":3732},"clk":{"syn":true,"age":82,"now":"07:06"},"asv":{"n":0,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":16,"bad":false,"lost":0},"log":{"fit":true,"n":75},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":1837,"pdb":-19,"tch":{"on":true,"pen":false,"dn":5,"rd":23,"cal":"stored","px":166,"py":153,"x":2631,"y":2090,"z1":371,"z2":3531}},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-19,"mut":false,"tmd":"Auto","pst":9,"seq":2773,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":18,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":202,"sav":242,"usn":126,"wam":138,"off":55,"bw":184,"mod":56,"st":true,"plt":true,"qst":1000,"lvo":0,"agc":{"on":true,"gn":0,"avg":456,"set":true},"rds":{"syn":false,"pi":"1064","psp":"1064","pim":"match","pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"rt":"HAI RE HAI - SINDHOORAM - SRINIVAS CHAKRAVARTHI - MAGICFM","min":{"ms":55765,"grp":630,"blk":[[605,6,19],[567,31,32],[563,38,29],[563,43,24]],"typ":{"0A":283,"2A":284}},"grp":984,"use":961,"cor":135,"bad":115},"scn":false,"scd":0,"sct":0,"scf":0,"sca":0,"scr":0,"scc":null}}
+{"brd":"ats125","ver":"0.2.0","bid":"0550092+","slt":"app0","cnf":true,"upd":{"st":"none","ver":null,"sz":null},"net":"station","rssi":-63,"bars":1,"rst":"software","ip":"192.168.1.40","dpn":true,"hep":122360,"hmn":52524,"hmp":null,"hlb":77812,"stk":{"rad":2352,"lop":7340},"up":90,"slp":null,"pnl":{"lit":90,"dim":false,"sdb":25,"swp":35,"lvu":11488,"lvt":22064,"lvp":53,"lvb":10228,"lvm":13124,"psh":{"n":57,"px":247288,"us":126889,"max":2807,"ref":28047}},"bat":{"fit":true,"mv":null,"boot":3732},"clk":{"syn":true,"age":82,"now":"07:06"},"asv":{"n":0,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":16,"bad":false,"lost":0},"log":{"fit":true,"n":75},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":1837,"pdb":-19,"tch":{"on":true,"pen":false,"dn":5,"rd":23,"cal":"stored","px":166,"py":153,"x":2631,"y":2090,"z1":371,"z2":3531}},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-19,"mut":false,"tmd":"Auto","pst":9,"seq":2773,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":18,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":202,"sav":242,"usn":126,"wam":138,"off":55,"bw":184,"mod":56,"st":true,"plt":true,"qst":1000,"agc":{"on":true,"gn":0,"avg":456,"set":true},"rds":{"syn":false,"pi":"1064","psp":"1064","pim":"match","pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"rt":"HAI RE HAI - SINDHOORAM - SRINIVAS CHAKRAVARTHI - MAGICFM","min":{"ms":55765,"grp":630,"blk":[[605,6,19],[567,31,32],[563,38,29],[563,43,24]],"typ":{"0A":283,"2A":284}},"grp":984,"use":961,"cor":135,"bad":115},"scn":false,"scd":0,"sct":0,"scf":0,"sca":0,"scr":0,"scc":null}}
 ```
 
 </details>
@@ -140,7 +140,6 @@ The `tun` object:
 | `off`, `bw`, `mod` | The offset in tenths of a kHz, the filter width the tuner reports in kHz, and the modulation in per cent |
 | `snr` | Signal to noise in dB, worked out by the firmware |
 | `st`, `plt` | Stereo heard, and the stereo pilot |
-| `lvo` | The level offset in dB, to add to the levels to match the screen |
 | `sql`, `sqo` | The squelch mode, and whether the squelch is open |
 | `skg`, `skf` | A seek is running, and the last seek found a station |
 | `agc` | The volume AGC: `on`, `gn` the gain now in dB |
@@ -156,7 +155,7 @@ curl -s -b jar $R/api/settings
 ```
 
 ```json
-{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":2,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":0,"bds":90,"blf":1,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"fof":0,"aof":0,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"kpt":20,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
+{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":3,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":10,"bds":90,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"kpt":15,"pcl":0,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
 ```
 
 Most keys are the same as for [POST /api/settings](#post-apisettings) below. `sid` is the network name and `pss` says whether a passphrase is stored; the passphrase itself is never sent. `tzo` is the UTC offset and `cst` the custom theme's colours. The rest (`sql`, `sbd`, `sfq`, `svl`, `ims` and the other reception keys, `abw`) are the stored radio settings, which are changed with the tuning and sound routes and kept with `/api/save`.
@@ -360,13 +359,13 @@ See [DX Mode](DX-Mode.md).
 
 ```
 $ curl -s $R/api/dx
-{"on":true,"page":0,"cursor":0,"n":1,"dropped":0,"sweeping":false,"sweep_rev":10597,"scan":"idle","scan_khz":0,"scan_found":0,"scan_passed":0,"scan_total":0,"lvo":0,"watch":true,"watch_n":0,"watch_up":null}
+{"on":true,"page":0,"cursor":0,"n":1,"dropped":0,"sweeping":false,"sweep_rev":10597,"scan":"idle","scan_khz":0,"scan_found":0,"scan_passed":0,"scan_total":0,"watch":true,"watch_n":0,"watch_up":null}
 {"i":0,"id":17592,"time":1791130887,"real":true,"band":"FM","khz":106400,"pi":"1064","name":" MAGIC  ","country":null,"new":false,"count":1,"level_dbuv":364,"logged":false,"due":true}
 ```
 
 ```
 $ curl -s $R/api/dx/sweep
-{"rev":10598,"running":false,"abandoned":false,"time":1791130892,"real":true,"took_ms":3247,"width":114,"low":87000,"step":100,"count":211,"floor":-72,"baseline":"fixed","baseline_sweeps":1,"lvo":0,"level":[-68,-67,-58,...],...}
+{"rev":10598,"running":false,"abandoned":false,"time":1791130892,"real":true,"took_ms":3247,"width":114,"low":87000,"step":100,"count":211,"floor":-72,"baseline":"fixed","baseline_sweeps":1,"level":[-68,-67,-58,...],...}
 ```
 
 The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading.
@@ -378,7 +377,7 @@ The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
 | `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band. 400 for more than 431 channels, the whole of SW | `sweeping` |
-| `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `band` (the band it was swept on), `lvo` (that band's level offset) and `level`, as above |
+| `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `band` (the band it was swept on) and `level`, as above |
 
 ```
 $ curl -s -OJ $R/api/dx.csv
@@ -414,12 +413,11 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `agt`, `agb` | 0 or 30 to 80; 0 to 8 | Volume AGC target in per cent (0 for off), and boost in dB |
 | `smu` | 0 to 500 | Mute ramp in ms |
 | `bpk`, `bpe`, `bps` | 0 to 3; 0, 1; 0, 1 | Key beeps, band edge beep, start chime (after a restart) |
-| `blt`, `bdm`, `bds`, `blf` | 5 to 100; 0 to 100; 0 to 240; 0, 1 | Brightness, dim level, seconds before dimming (0 never), start up fade (after a restart) |
+| `blt`, `bdm`, `bds` | 5 to 100; 0 to 100; 0 to 240 | Brightness, dim level, seconds before dimming (0 never) |
 | `thm`, `thn` | 0 to 15 | Day and night theme: 0 Nightwatch, 1 Daylight, 2 Red Night, 3 Phosphor, 4 Clear, 5 Custom, 6 Slate, 7 Paper, 8 LCD, 9 Ember, 10 Clear Day, 11 High Contrast, 12 Mono, 13 Hi-Fi, 14 Violet, 15 Blossom |
 | `tc0` to `tc8` | `#rrggbb` | The custom theme's colours |
 | `rot` | 0, 180 | Screen rotation |
 | `bat` | 0 to 2 | Battery mark: off, per cent, volts |
-| `fof`, `aof` | -25 to 15 | FM and AM level offset in dB |
 | `rds`, `rrg` | 0, 1 | RDS decoder; RDS region Europe or North America |
 | `hsp` | 0 to 2 | Hotspot: Auto, On, Off |
 | `web`, `wif` | 0, 1 | Web server and Wi-Fi. 0 can only be undone from the radio's menu, or by Erase Settings on the recovery screen |

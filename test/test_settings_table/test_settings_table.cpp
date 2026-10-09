@@ -56,11 +56,9 @@ static void every_range_fits_its_field(void) {
   for (size_t i = 0; i < settingsTableCount(); i++) {
     const SettingRow *row = settingsTableAt(i);
     TEST_ASSERT_TRUE_MESSAGE(row->low <= row->high, row->key);
-    const int32_t most = row->size == 2 ? (row->isSigned ? 32767 : 65535)
-                                        : (row->isSigned ? 127 : 255);
-    const int32_t least = row->isSigned ? (row->size == 2 ? -32768 : -128) : 0;
+    const int32_t most = row->size == 2 ? 65535 : 255;
     TEST_ASSERT_TRUE_MESSAGE(row->high <= most, row->key);
-    TEST_ASSERT_TRUE_MESSAGE(row->low >= least, row->key);
+    TEST_ASSERT_TRUE_MESSAGE(row->low >= 0, row->key);
   }
 }
 
@@ -124,13 +122,10 @@ static void the_legal_values_of_the_outer_bound_rows_are_valid(void) {
   }
 }
 
-/* A signed byte reads back below zero, and a two byte field whole. */
+/* A two byte field is written and read whole, a byte as a byte. */
 static void a_row_writes_its_own_field_at_its_own_width(void) {
   Settings s;
   settingsDefaults(&s);
-  settingsTableSet(&s, settingsTableFind("fof"), -25);
-  TEST_ASSERT_EQUAL_INT8(-25, s.levelOffsetFmDb);
-  TEST_ASSERT_EQUAL_INT32(-25, settingsTableGet(&s, settingsTableFind("fof")));
   settingsTableSet(&s, settingsTableFind("slp"), 600);
   TEST_ASSERT_EQUAL_UINT16(600, s.autoOffMinutes);
   settingsTableSet(&s, settingsTableFind("ddw"), 300);
@@ -142,7 +137,6 @@ static void a_row_writes_its_own_field_at_its_own_width(void) {
 static void when_each_acts_is_on_the_row(void) {
   TEST_ASSERT_EQUAL(SETTING_ACTS_AT_START, settingsTableFind("rgn")->acts);
   TEST_ASSERT_EQUAL(SETTING_ACTS_AT_START, settingsTableFind("bps")->acts);
-  TEST_ASSERT_EQUAL(SETTING_ACTS_AT_START, settingsTableFind("blf")->acts);
   TEST_ASSERT_EQUAL(SETTING_ACTS_NEXT_DX, settingsTableFind("dbw")->acts);
   TEST_ASSERT_EQUAL(SETTING_ACTS_NEXT_DX, settingsTableFind("dmf")->acts);
   TEST_ASSERT_EQUAL(SETTING_ACTS_NOW, settingsTableFind("thm")->acts);
