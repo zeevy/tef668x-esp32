@@ -294,14 +294,6 @@ void screenTaskSetBatteryShow(uint8_t show);
  */
 void screenTaskSetRdsRegion(uint8_t region);
 
-/*
- * The level offsets: whole dB added to every level the panel shows, FM for FM
- * and OIRT, AM for LW, MW and SW. Given, like the battery, and acts at once;
- * out of range is ignored. screenTaskLevelOffsetDb gives the one for `band`,
- * for the other screens and the web pages.
- */
-void screenTaskSetLevelOffsets(int8_t fmDb, int8_t amDb);
-int8_t screenTaskLevelOffsetDb(BandId band);
 RdsRegion screenTaskRdsRegion(void);
 
 void screenTaskSetBacklight(const BacklightConfig *cfg);

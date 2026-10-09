@@ -147,7 +147,6 @@ void backlightFromSettings(const Settings *s, BacklightConfig *out) {
   out->fullPercent = s->backlightPercent;
   out->dimPercent = s->backlightDimPercent;
   out->dimAfterMs = (uint32_t)s->backlightDimAfterS * 1000;
-  out->fadeUpMs = s->backlightFade != 0 ? BACKLIGHT_FADE_UP_MS : 0;
 }
 
 void backlightInit(Backlight *b, const BacklightConfig *cfg, uint32_t nowMs) {

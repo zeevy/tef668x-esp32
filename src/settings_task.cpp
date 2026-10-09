@@ -164,7 +164,6 @@ void settingsApplyScreen(const Settings *s) {
   }
   screenTaskSetBatteryShow(s->batteryShow);
   screenTaskSetRdsRegion(s->rdsRegion);
-  screenTaskSetLevelOffsets(s->levelOffsetFmDb, s->levelOffsetAmDb);
   /* The DX SETUP menu: the next scan and the next DX mode read them, and a scan
    * running now takes the mute and the auto log at once. */
   dxTaskApplySettings(s);

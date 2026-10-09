@@ -121,8 +121,8 @@ void settingsApplyLive(const Settings *s);
  * built. */
 void settingsApplyTheme(const Settings *s);
 
-/* What the panel shows from the settings: the battery, the RDS region, the
- * level offsets and the DX setup. Once the panel task has begun. */
+/* What the panel shows from the settings: the battery, the RDS region and
+ * the DX setup. Once the panel task has begun. */
 void settingsApplyScreen(const Settings *s);
 
 /* The radio half: seek, soft mute, band edge beep, squelch floor, RDS and

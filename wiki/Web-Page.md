@@ -76,7 +76,7 @@ The frequency and band update when the page opens, after each change you make on
 |---|---|
 | Seek | Seek sensitivity for FM and for AM, from 1 (strong only) to 6 (finds weak ones), and the squelch floor |
 | Sound | The volume AGC target and boost. The mute and squelch ramp, which presses beep, the band edge beep, and the chime at start up |
-| Display | Brightness, the dimmed level, how many seconds before it dims, and the fade at start. Touch, on or off, and the keypad timeout. The day and night themes, and **Custom's colours**, eight of the custom theme's colours (a ninth, for a header, is stored but drawn nowhere) |
+| Display | Brightness, the dimmed level and how many seconds before it dims. Touch, on or off, and the keypad timeout. The day and night themes, and **Custom's colours**, eight of the custom theme's colours (a ninth, for a header, is stored but drawn nowhere) |
 | Updates | **Check for updates**: Off or On. See [Updating](Updating.md#from-github-on-the-radio) |
 | Advanced, needs a reboot | The FM band plan, the medium wave steps, the encoder type and the knob direction. These take effect after a reboot |
 | The volume knob | **Measure**, **Done** and **Cancel** teach the radio the two ends of the volume knob's travel |
@@ -128,6 +128,6 @@ It also follows sweeps started elsewhere: on the radio, from a PC's [spectral sc
 
 ## What the web page does not do
 
-These are on the radio or the [HTTP API](HTTP-API.md) only: presets and their CSV files, viewing the station log, station scans, sleep, the FM filter width, the DX Scanner settings, the screen rotation, the level offsets, Auto Off, and turning Wi-Fi or the web server off.
+These are on the radio or the [HTTP API](HTTP-API.md) only: presets and their CSV files, viewing the station log, station scans, sleep, the FM filter width, the DX Scanner settings, the screen rotation, Auto Off, and turning Wi-Fi or the web server off.
 
 The web server answers nothing during a DX level sweep, about 4 seconds. A request made then is answered when the sweep ends.

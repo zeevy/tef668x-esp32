@@ -69,7 +69,6 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     screenDxStateFeed(&sKeep, &snap, millis());
     ScreenScanInputs in;
     memset(&in, 0, sizeof(in));
-    in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
     /* The band's edges: the walk's once one has started, and before that
      * the band the dial is on. */
     BandPlanConfig plan;
@@ -127,7 +126,6 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     }
     ScreenScopeInputs in;
     memset(&in, 0, sizeof(in));
-    in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
     in.live = live;
     in.base = sweep.base;
     in.baseN = sweep.baseN;
@@ -159,7 +157,6 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     in.pages = SCREEN_DX_PAGES;
     in.clock = clock;
     in.offsetMinutes = ntpOffsetMinutes();
-    in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
     in.confirm = screenTaskHeaderMessage();
     screenCatchesStateBuild(&in, &sCatchesKeep, &view);
     screenCatchesShow(&view);
@@ -167,7 +164,6 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
   }
   ScreenDxInputs in;
   in.snap = &snap;
-  in.levelOffsetDb = screenTaskLevelOffsetDb(BAND_FM);
   in.rdsEnabled = radioRdsEnabled();
   in.clock = clock;
   in.nowMs = millis();

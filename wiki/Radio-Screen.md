@@ -35,7 +35,7 @@ From top to bottom:
 | Preset | `P12` above the unit, when the frequency is a stored preset |
 | Unit | `MHz` or `kHz` |
 | Modulation meter | 14 bars with a peak mark: how loud the broadcast is modulated, not the signal strength. Hidden while there is no reading |
-| Level | The signal level in dBµV, as a whole number. Display > Level Offset is added to it |
+| Level | The signal level in dBµV, as a whole number |
 
 While you type a frequency, the digits show in place of the frequency, for example `104-`, and the preset number and unit are hidden.
 

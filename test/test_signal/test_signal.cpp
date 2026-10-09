@@ -536,20 +536,6 @@ static void a_strong_station_opens_the_wide_filter_and_noise_does_not(void) {
   TEST_ASSERT_FALSE(signalWantsWideBandwidth(150, signalSnrDb(150, 400, true)));
 }
 
-/* The offset moves what is shown, a tenth of a dB per step of ten, and never
- * wraps. */
-static void the_shown_level_is_the_reading_plus_the_offset(void) {
-  TEST_ASSERT_EQUAL_INT16(355, signalShownTenths(355, 0));
-  TEST_ASSERT_EQUAL_INT16(505,
-                          signalShownTenths(355, SIGNAL_LEVEL_OFFSET_MAX_DB));
-  TEST_ASSERT_EQUAL_INT16(105,
-                          signalShownTenths(355, SIGNAL_LEVEL_OFFSET_MIN_DB));
-  TEST_ASSERT_EQUAL_INT16(-255,
-                          signalShownTenths(-5, SIGNAL_LEVEL_OFFSET_MIN_DB));
-  TEST_ASSERT_EQUAL_INT16(INT16_MAX, signalShownTenths(INT16_MAX - 10, 15));
-  TEST_ASSERT_EQUAL_INT16(INT16_MIN, signalShownTenths(INT16_MIN + 10, -25));
-}
-
 int main(int, char **) {
   UNITY_BEGIN();
 
@@ -606,7 +592,6 @@ int main(int, char **) {
   RUN_TEST(the_fm_scale_top_separates_a_station_from_an_empty_channel);
   RUN_TEST(the_wide_filter_needs_both_limits_passed);
   RUN_TEST(a_strong_station_opens_the_wide_filter_and_noise_does_not);
-  RUN_TEST(the_shown_level_is_the_reading_plus_the_offset);
 
   return UNITY_END();
 }

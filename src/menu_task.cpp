@@ -97,13 +97,10 @@ typedef enum {
   ROW_BACKLIGHT,
   ROW_BACKLIGHT_DIM,
   ROW_DIM_AFTER,
-  ROW_FADE_AT_START,
   ROW_BATTERY,
   ROW_THEME,
   ROW_NIGHT_THEME,
   ROW_DISPLAY_ROTATION,
-  ROW_LEVEL_OFFSET_FM,
-  ROW_LEVEL_OFFSET_AM,
   ROW_CHIME,
   ROW_KEY_BEEPS,
   ROW_EDGE_BEEP,
@@ -579,17 +576,6 @@ static const MenuRow kThemeRows[] = {
 };
 static const MenuGroup kThemeGroup = GROUP(STR_MENU_THEME, kThemeRows);
 
-/* Added to every level shown or exported, so the readings can match another
- * receiver's; no threshold reads it. */
-static const MenuRow kLevelOffsetRows[] = {
-    {STR_MENU_LEVEL_OFFSET_FM, ROW_LEVEL_OFFSET_FM, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, true, false, false, NULL, "fof"},
-    {STR_MENU_LEVEL_OFFSET_AM, ROW_LEVEL_OFFSET_AM, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, true, false, false, NULL, "aof"},
-};
-static const MenuGroup kLevelOffsetGroup =
-    GROUP(STR_MENU_LEVEL_OFFSET, kLevelOffsetRows);
-
 static const MenuRow kDisplayRows[] = {
     SUB(STR_MENU_THEME, kThemeGroup),
     {STR_MENU_BRIGHTNESS, ROW_BACKLIGHT, SRC_STORED, TABLE_RANGE, 5, NOLIST,
@@ -608,9 +594,6 @@ static const MenuRow kDisplayRows[] = {
      false, false, false},
     {STR_COMMON_BATTERY, ROW_BATTERY, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
      false, false, NULL, "bat"},
-    SUB(STR_MENU_LEVEL_OFFSET, kLevelOffsetGroup),
-    {STR_MENU_FADE_AT_START, ROW_FADE_AT_START, SRC_STORED, TABLE_RANGE, 1,
-     NOLIST, false, true, false, NULL, "blf"},
 };
 
 /* Network Time's step below -12:00, which reads Off: the two settings,
@@ -1890,12 +1873,6 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     case ROW_BACKLIGHT_DIM:
       snprintf(out, len, txt(STR_MENU_FMT_PERCENT), (int)v);
       return;
-    case ROW_LEVEL_OFFSET_FM:
-    case ROW_LEVEL_OFFSET_AM:
-      /* A sign on every offset but none, so +3 and -3 read apart. */
-      snprintf(out, len, txt(v == 0 ? STR_MENU_FMT_DB : STR_MENU_FMT_SIGNED_DB),
-               (int)v);
-      return;
     case ROW_DIM_AFTER:
       /* Zero is not "zero seconds", it is "never", and the two read as
        * opposite things on a panel. */
@@ -2197,11 +2174,10 @@ static void drawPicker(const MenuRow *row, ScreenMenuValue *view) {
  * are in the way the value above them does. */
 static void limitText(const MenuRow *row, int32_t v, char *out, size_t len) {
   /* Rows whose value is not a plain number: the ends are written the way
-   * the value is, "+14:00" not the 840 minutes it is stored as, "+15 dB"
-   * with its sign, and Off rather than 0 min. */
+   * the value is, "+14:00" not the 840 minutes it is stored as, and Off
+   * rather than 0 min. */
   if (row->id == ROW_DX_DWELL || row->id == ROW_DX_WIDTH ||
-      row->id == ROW_NETWORK_TIME || row->id == ROW_LEVEL_OFFSET_FM ||
-      row->id == ROW_LEVEL_OFFSET_AM || row->id == ROW_AUTO_OFF) {
+      row->id == ROW_NETWORK_TIME || row->id == ROW_AUTO_OFF) {
     textOf(row, v, out, len);
     return;
   }

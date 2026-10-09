@@ -33,9 +33,8 @@ static Rds decoder;
 /* The Catches builder with its inputs in the order the page reads them. */
 static void catchesBuild(const DxCatches *list, uint8_t cursor, uint8_t page,
                          uint8_t pages, const char *clock,
-                         int16_t offsetMinutes, int8_t levelOffsetDb,
-                         const char *confirm, ScreenCatchesKeep *keep,
-                         ScreenCatches *out) {
+                         int16_t offsetMinutes, const char *confirm,
+                         ScreenCatchesKeep *keep, ScreenCatches *out) {
   ScreenCatchesInputs in;
   memset(&in, 0, sizeof(in));
   in.list = list;
@@ -44,7 +43,6 @@ static void catchesBuild(const DxCatches *list, uint8_t cursor, uint8_t page,
   in.pages = pages;
   in.clock = clock;
   in.offsetMinutes = offsetMinutes;
-  in.levelOffsetDb = levelOffsetDb;
   in.confirm = confirm;
   screenCatchesStateBuild(&in, keep, out);
 }
@@ -460,15 +458,6 @@ static void readings_are_formatted_with_sign_rounding_and_offset(void) {
   readAt(412, -5);
   buildDx(&in);
   TEST_ASSERT_EQUAL_STRING("-1", dx.offset);
-
-  /* The level offset moves the level shown, and can take it below 0. */
-  in.levelOffsetDb = -3;
-  readAt(412, 61);
-  buildDx(&in);
-  TEST_ASSERT_EQUAL_STRING("38.2", dx.level);
-  readAt(10, 61);
-  buildDx(&in);
-  TEST_ASSERT_EQUAL_STRING("-2.0", dx.level);
 }
 
 static void no_reading_leaves_the_six_readings_empty(void) {
@@ -643,13 +632,13 @@ static void hearMany(uint8_t n) {
 }
 
 static void buildCatches(uint8_t cursor, const char *confirm) {
-  catchesBuild(&catches, cursor, 3, 4, "07:39", kIstMinutes, 0, confirm,
+  catchesBuild(&catches, cursor, 3, 4, "07:39", kIstMinutes, confirm,
                &catchKeep, &cv);
 }
 
 static void an_empty_catches_list_shows_no_rows(void) {
   dxCatchesReset(&catches);
-  catchesBuild(&catches, 0, 0, 0, NULL, kIstMinutes, 0, NULL, &catchKeep, &cv);
+  catchesBuild(&catches, 0, 0, 0, NULL, kIstMinutes, NULL, &catchKeep, &cv);
   TEST_ASSERT_EQUAL_UINT8(0, cv.rows);
   TEST_ASSERT_NULL(cv.range);
   TEST_ASSERT_EQUAL_STRING("1/1", cv.position);
@@ -657,8 +646,7 @@ static void an_empty_catches_list_shows_no_rows(void) {
 
   /* No list at all looks the same, and a message still shows in the
    * header. */
-  catchesBuild(NULL, 0, 3, 4, "07:39", kIstMinutes, 0, "Logged", &catchKeep,
-               &cv);
+  catchesBuild(NULL, 0, 3, 4, "07:39", kIstMinutes, "Logged", &catchKeep, &cv);
   TEST_ASSERT_EQUAL_UINT8(0, cv.rows);
   TEST_ASSERT_NULL(cv.range);
   TEST_ASSERT_EQUAL_STRING("Logged", cv.position);
@@ -735,11 +723,11 @@ static void a_catch_row_shows_time_frequency_pi_name_country_and_level(void) {
   TEST_ASSERT_TRUE(b->isNew);
   TEST_ASSERT_EQUAL_STRING("48.2", b->level);
 
-  /* The level offset and the clock offset are the caller's. */
-  catchesBuild(&catches, 1, 3, 4, "07:39", 0, -3, "Logged", &catchKeep, &cv);
+  /* The clock offset is the caller's. */
+  catchesBuild(&catches, 1, 3, 4, "07:39", 0, "Logged", &catchKeep, &cv);
   TEST_ASSERT_EQUAL_STRING("01:46", cv.row[1].time);
-  TEST_ASSERT_EQUAL_STRING("45.2", cv.row[1].level);
-  TEST_ASSERT_EQUAL_STRING("-4.8", cv.row[0].level);
+  TEST_ASSERT_EQUAL_STRING("48.2", cv.row[1].level);
+  TEST_ASSERT_EQUAL_STRING("-1.8", cv.row[0].level);
   TEST_ASSERT_EQUAL_STRING("Logged", cv.position);
 }
 
@@ -780,7 +768,7 @@ static void a_catch_with_a_bad_band_or_clock_offset_leaves_those_empty(void) {
   dxCatchesReset(&catches);
   hear(98300, 0x26FF, NULL, NULL, 482, kMorningUtc, false);
   catches.item[0].band = (uint8_t)BAND_COUNT;
-  catchesBuild(&catches, 0, 3, 4, NULL, 2000, 0, NULL, &catchKeep, &cv);
+  catchesBuild(&catches, 0, 3, 4, NULL, 2000, NULL, &catchKeep, &cv);
   TEST_ASSERT_NULL(cv.row[0].frequency);
   TEST_ASSERT_NULL(cv.row[0].time);
   TEST_ASSERT_EQUAL_STRING("26FF", cv.row[0].pi);
@@ -789,10 +777,10 @@ static void a_catch_with_a_bad_band_or_clock_offset_leaves_those_empty(void) {
 static void catches_builder_leaves_everything_alone_on_null_keep_or_out(void) {
   hearMany(3);
   FILL(cv);
-  catchesBuild(&catches, 0, 3, 4, NULL, 0, 0, NULL, NULL, &cv);
+  catchesBuild(&catches, 0, 3, 4, NULL, 0, NULL, NULL, &cv);
   TEST_ASSERT_TRUE(stillFilled(&cv, sizeof(cv)));
   FILL(catchKeep);
-  catchesBuild(&catches, 0, 3, 4, NULL, 0, 0, NULL, &catchKeep, NULL);
+  catchesBuild(&catches, 0, 3, 4, NULL, 0, NULL, &catchKeep, NULL);
   screenCatchesStateBuild(NULL, &catchKeep, &cv); /* Must not crash. */
   TEST_ASSERT_TRUE(stillFilled(&catchKeep, sizeof(catchKeep)));
 }
@@ -1031,11 +1019,10 @@ static void a_running_scan_shows_the_tile_only_once_the_dial_has_landed(void) {
   snap.rds.hasPi = true;
   snap.rds.pi = 0x63B2;
   snap.rds.piUnsureNibbles = 0;
-  in.levelOffsetDb = 2;
   buildScan(&in);
   TEST_ASSERT_EQUAL_STRING("63B2", sv.pi);
   TEST_ASSERT_TRUE(sv.piSure);
-  TEST_ASSERT_EQUAL_STRING("14.7", sv.level);
+  TEST_ASSERT_EQUAL_STRING("12.7", sv.level);
   TEST_ASSERT_FALSE(sv.stationOn);
 
   /* Nothing heard and no reading: no station, and while the scan runs it
@@ -1367,13 +1354,6 @@ static void the_rise_has_a_sign_only_when_it_is_above_the_baseline(void) {
   buildScope(&in);
   TEST_ASSERT_EQUAL_STRING("-0.4", pv.cursorRise);
   TEST_ASSERT_FALSE(pv.riseUp);
-
-  /* The level offset moves the level shown, not the rise. */
-  in.cursor = 0;
-  in.levelOffsetDb = 2;
-  buildScope(&in);
-  TEST_ASSERT_EQUAL_STRING("12.0", pv.cursorLevel);
-  TEST_ASSERT_EQUAL_STRING("+0.4", pv.cursorRise);
 }
 
 static void a_baseline_or_peak_on_other_channels_is_left_out(void) {

@@ -75,21 +75,6 @@ bool signalWantsWideBandwidth(int16_t levelTenths, int16_t snrDb);
 void signalFormatLevel(int16_t tenths, char *out, size_t outLen);
 
 /*
- * The level offset a person can set so this radio's readings match another
- * receiver's: FM and AM each, in whole dB.
- */
-#define SIGNAL_LEVEL_OFFSET_MIN_DB (-25)
-#define SIGNAL_LEVEL_OFFSET_MAX_DB 15
-
-/*
- * A level as a person is shown it: the radio's own reading plus the offset
- * of its side, FM or AM, in tenths of a dBuV. Only what is shown and
- * exported takes it; every threshold compares the radio's own reading,
- * since each was measured on that scale. Held inside the int16 range.
- */
-int16_t signalShownTenths(int16_t rawTenths, int8_t offsetDb);
-
-/*
  * A running average. Zero it before first use.
  *
  * One reading of this tuner jumps about far more than the signal does, and a

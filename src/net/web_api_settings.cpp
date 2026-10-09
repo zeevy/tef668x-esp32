@@ -147,7 +147,6 @@ static void handleApiSettingsGet(void) {
  * | `blt` | 5 to 100 | at once | Panel brightness, per cent |
  * | `bdm` | 0 to 100 | at once | Panel brightness once left alone |
  * | `bds` | 0 to 240 | at once | Seconds before it dims. 0 never |
- * | `blf` | 0 or 1 | at start | Fade the panel up rather than snap it on |
  * | `rds` | 0 or 1 | at once | Run the RDS decoder. Off gives the radio task back two thirds of its wakeups on FM |
  * | `ntp` | 0 or 1 | at once | Ask the network for the time. Off takes the clock off the panel |
  * | `bat` | 0 to 2 | at once | The battery in the header: 0 off, 1 per cent, 2 volts |
@@ -175,7 +174,6 @@ static void handleApiSettingsGet(void) {
  * | `rrg` | 0 or 1 | at once | The RDS region: 0 Europe and the rest of the world, 1 North America, where the PI is read as call letters |
  * | `drt` | 0 or 1 | at once | Put the station's radio text in each log entry |
  * | `dwt` | 0 or 1 | at once | Watch the presets in DX mode's range |
- * | `fof`, `aof` | -25 to 15 | at once | FM and AM level offset, whole dB added to every level shown or exported |
  * | `tzo` | `-12:00` to `+14:00` | at once | How far local time is from UTC, written `+05:30`. Not in the table: it is text, so it is read on its own |
  * | `tc0` to `tc8` | `#rrggbb` | at once if Custom is the active theme | The Custom slot's own nine colours, in the order ui/theme.h's Theme struct lists them. Not in the table either, for the same reason `tzo` is not |
  *

@@ -151,9 +151,6 @@ See [Display and Themes](Display-and-Themes.md).
 | Dim After | Never, 5 to 240 s in steps of 5 | Never | How long with no input before the screen dims |
 | Display Rotation | Normal, Upside Down | Normal | Turns the screen over. Acts when saved, no restart |
 | Battery | Off, Percent, Volts | Off | How the battery shows in the header |
-| Level Offset > FM Level Offset | -25 to +15 dB | 0 dB | Added to every FM and OIRT level shown |
-| Level Offset > AM Level Offset | -25 to +15 dB | 0 dB | Added to every LW, MW and SW level shown |
-| Startup Fade | Off, On | On | Fades the screen up at start. **After restart** |
 
 ## Connectivity
 

@@ -626,20 +626,13 @@ static bool liveOrExcuse(ChunkedReply &out, bool live) {
  * requests, which a page built fresh on every load does not keep.
  */
 
-/* The level as a person is shown it, with the band's offset.
- * The bar is drawn from it too, as on the panel. */
-static int16_t shownLevel(const RadioSnapshot &now) {
-  return signalShownTenths(now.quality.levelDbuVTenths,
-                           screenTaskLevelOffsetDb(now.settings.band));
-}
-
 static String signalMeter(const RadioSnapshot &now) {
   if (!now.qualityValid) {
     return String();
   }
   bool onFm = bandModulation(now.settings.band) == MODULATION_FM;
   uint8_t fullDbuV = onFm ? SIGNAL_FULL_FM_DBUV : SIGNAL_FULL_AM_DBUV;
-  uint8_t percent = signalBarPercent(shownLevel(now), fullDbuV);
+  uint8_t percent = signalBarPercent(now.quality.levelDbuVTenths, fullDbuV);
   uint8_t lit = meterSegmentsLit(percent, WEB_METER_BLOCKS);
 
   String out;
@@ -649,7 +642,7 @@ static String signalMeter(const RadioSnapshot &now) {
     out += i < lit ? F("<i class=on></i>") : F("<i></i>");
   }
   char level[12];
-  signalFormatLevel(shownLevel(now), level, sizeof(level));
+  signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
   out += F("</div><div class=meter-label><span>0</span><span>Signal, ");
   out += level;
   out += F(" dBuV</span><span>");
@@ -739,7 +732,7 @@ static String receptionLevelsCard(const RadioSnapshot &now) {
   out += F("<table><tr><td>Signal</td><td>");
   if (now.qualityValid) {
     char level[12];
-    signalFormatLevel(shownLevel(now), level, sizeof(level));
+    signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
     out += level;
     out += F(" dBuV");
   } else {
@@ -851,7 +844,7 @@ static void radioDialForms(ChunkedReply &out, const RadioSnapshot &now,
   out += F("<div class=pill-row>");
   if (now.qualityValid) {
     char level[12];
-    signalFormatLevel(shownLevel(now), level, sizeof(level));
+    signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
     out += F("<span class=status-pill><small>");
     out += level;
     out += F(" dBuV</small></span>");
@@ -1253,8 +1246,6 @@ static void settingsForms(ChunkedReply &out, const Settings *st) {
   out += formSetting(st, "blt", "Brightness, per cent", kAuto);
   out += formSetting(st, "bdm", "Dimmed, per cent", kAuto);
   out += formSetting(st, "bds", "Dim after, seconds", kAuto);
-  out += formSelect("blf", "Fade up at start", offOn, zeroOne, 2,
-                    st->backlightFade, kAuto);
   out +=
       F("</div><p><small>Dim after 0 never dims. The knob, a button "
         "and a key all bring it straight back.</small></p>");
@@ -1554,7 +1545,7 @@ static void handleRoot(void) {
     out += F("<div class=pill-row>");
     if (now.qualityValid) {
       char level[12];
-      signalFormatLevel(shownLevel(now), level, sizeof(level));
+      signalFormatLevel(now.quality.levelDbuVTenths, level, sizeof(level));
       out += F("<span class=status-pill><small>");
       out += level;
       out += F(" dBuV</small></span>");
@@ -1720,10 +1711,6 @@ function post(path,args){return fetch(path,{method:'POST',body:new URLSearchPara
 function khz(i){return D.low+i*D.step}
 function mhz(k){return (k/1000).toFixed(2)}
 function db(t){return t===null||t===undefined?'-':(t/10).toFixed(1)}
-/* A level as shown, with the FM level offset the radio gives;
- * db alone is for a difference, which the offset does not move. */
-var LVO=0;
-function lv(t){return t===null||t===undefined?'-':(t/10+LVO).toFixed(1)}
 function X(i){return L+i*PW/D.count}
 function Y(t){t=Math.max(lo,Math.min(hi,t));return T+PH-(t-lo)*PH/(hi-lo)}
 function scale(){var top=-1000;D.level.concat(D.peak||[]).forEach(function(v){if(v!==null&&v>top)top=v});
@@ -1732,7 +1719,7 @@ function draw(){
  var c=g('chart'),s=g('strip');
  if(!D||!D.count){c.innerHTML='';s.innerHTML='';g('rd').textContent=D&&D.running?'Sweeping...':'No sweep yet. Open DX mode and press Sweep now.';return}
  var o='',i,v,bw=PW/D.count,w=Math.max(bw-.6,.6);
- for(v=lo;v<=hi;v+=100)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(v)+' y2='+Y(v)+' stroke="var(--pico-muted-border-color)"/><text x='+(L-6)+' y='+(Y(v)+4)+' text-anchor=end>'+(v/10+LVO)+'</text>';
+ for(v=lo;v<=hi;v+=100)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(v)+' y2='+Y(v)+' stroke="var(--pico-muted-border-color)"/><text x='+(L-6)+' y='+(Y(v)+4)+' text-anchor=end>'+(v/10)+'</text>';
  o+='<text x='+(L+4)+' y='+(T+12)+'>dB&micro;V</text>';
  var first=Math.ceil(D.low/2000)*2,last=Math.floor(khz(D.count-1)/1000);
  for(var m=first;m<=last;m+=2)o+='<text x='+(X((m*1000-D.low)/D.step)+bw/2)+' y='+(H-6)+' text-anchor=middle>'+m+'</text>';
@@ -1759,7 +1746,7 @@ function draw(){
  var k=cur!==null?cur:(di>=0&&di<D.count&&di%1===0?di:null);
  if(k===null){g('rd').textContent='The dial is not on the sweep. Point at a channel.';return}
  var rs=D.rise?D.rise[k]:null;
- g('rd').innerHTML='<b>'+mhz(khz(k))+'</b> MHz &middot; <b>'+lv(D.level[k])+'</b> dB&micro;V'+(rs===null?'':' &middot; rise <span class='+(rs>0?'up':'dn')+'>'+(rs>0?'+':'')+db(rs)+' dB</span>')+(D.peak?' &middot; peak '+lv(D.peak[k]):'')+(D.baseline_level?' &middot; base '+lv(D.baseline_level[k]):'')+' <small class=meta>'+(cur===null?'the dial':'click to tune')+'</small>'}
+ g('rd').innerHTML='<b>'+mhz(khz(k))+'</b> MHz &middot; <b>'+db(D.level[k])+'</b> dB&micro;V'+(rs===null?'':' &middot; rise <span class='+(rs>0?'up':'dn')+'>'+(rs>0?'+':'')+db(rs)+' dB</span>')+(D.peak?' &middot; peak '+db(D.peak[k]):'')+(D.baseline_level?' &middot; base '+db(D.baseline_level[k]):'')+' <small class=meta>'+(cur===null?'the dial':'click to tune')+'</small>'}
 function meta(){if(!D||!D.count){g('meta').textContent=D&&D.abandoned?'The last sweep was stopped before the top.':'';return}
  var p=[];
  if(D.running)p.push('Sweeping now, this is the last whole sweep');
@@ -1768,11 +1755,11 @@ function meta(){if(!D||!D.count){g('meta').textContent=D&&D.abandoned?'The last 
  else p.push('Swept with the clock unset');
  p.push('width '+D.width+' kHz','took '+(D.took_ms/1000).toFixed(1)+' s');
  p.push(D.baseline==='fixed'?'baseline: fixed by hand':D.baseline==='median'?'baseline: median of '+D.baseline_sweeps+' sweeps':'no baseline yet');
- if(D.floor!==null)p.push('floor '+lv(D.floor)+' dBµV');
+ if(D.floor!==null)p.push('floor '+db(D.floor)+' dBµV');
  if(D.abandoned&&!D.running)p.push('the last sweep was stopped before the top');
  g('meta').textContent=p.join(' · ')}
 function load(){return get('/api/dx/sweep',true).then(function(a){
- D=a;LVO=a.lvo||0;buttons();
+ D=a;buttons();
  g('serr').textContent='';if(D.count)scale();draw();meta();return D}).catch(function(e){g('serr').textContent=why(e)+(D?' The chart is the last sweep it gave.':'')})}
 /* One loop at a time. Each round waits for the last, and a failed round is
  * tried again after 2 s. It ends on an answer that says no sweep is running,
@@ -1840,7 +1827,7 @@ function buttons(){if(DX){g('open').hidden=!!DX.on;g('sweep').disabled=!DX.on||!
 function dxList(txt){var lines=txt.split('\n'),dx=null,rows=[],bad=false;try{dx=JSON.parse(lines[0])}catch(e){}
  lines.slice(1).forEach(function(l){if(l)try{rows.push(JSON.parse(l))}catch(e){bad=true}});
  if(!dx||bad){missed({said:true,message:'The last answer was cut short.'});return}
- DX=dx;LVO=dx.lvo||0;buttons();
+ DX=dx;buttons();
  /* A sweep started on the panel or over the API, or a baseline changed
   * there, is followed too, and a chart never read is tried again. The
   * number compared is the one the loaded sweep came with, so a load that
@@ -1853,7 +1840,7 @@ function dxList(txt){var lines=txt.split('\n'),dx=null,rows=[],bad=false;try{dx=
  var o='<p>No catches this session. Open DX mode on the radio, then tune or scan.</p>';
  if(rows.length){o='<table><thead><tr><th>MHz</th><th>PI</th><th>Name</th><th>Country</th><th>dB&micro;V</th><th>Heard</th><th>Last</th><th></th></tr></thead><tbody>';
  rows.forEach(function(k){var d=new Date(k.time*1000);
-  o+='<tr><td>'+mhz(k.khz)+'</td><td>'+k.pi+(k.new?'<span class=new>NEW</span>':'')+'</td><td class=mono>'+(k.name===null?'-':esc(k.name))+'</td><td>'+(k.country===null?'-':esc(k.country))+'</td><td>'+lv(k.level_dbuv)+'</td><td>&times;'+k.count+'</td><td>'+(k.real?two(d.getUTCDate())+' '+MON[d.getUTCMonth()]+' '+two(d.getUTCHours())+':'+two(d.getUTCMinutes()):'clock unset')+'</td><td>'+(k.logged?'<span class=tick>&#10003; logged</span> ':'')+(!k.logged||k.due?'<button type=button class=outline data-id='+k.id+(SENT[k.id]?' disabled':'')+'>'+(k.logged?'Log again':'Log')+'</button>':'')+'</td></tr>'});
+  o+='<tr><td>'+mhz(k.khz)+'</td><td>'+k.pi+(k.new?'<span class=new>NEW</span>':'')+'</td><td class=mono>'+(k.name===null?'-':esc(k.name))+'</td><td>'+(k.country===null?'-':esc(k.country))+'</td><td>'+db(k.level_dbuv)+'</td><td>&times;'+k.count+'</td><td>'+(k.real?two(d.getUTCDate())+' '+MON[d.getUTCMonth()]+' '+two(d.getUTCHours())+':'+two(d.getUTCMinutes()):'clock unset')+'</td><td>'+(k.logged?'<span class=tick>&#10003; logged</span> ':'')+(!k.logged||k.due?'<button type=button class=outline data-id='+k.id+(SENT[k.id]?' disabled':'')+'>'+(k.logged?'Log again':'Log')+'</button>':'')+'</td></tr>'});
   o+='</tbody></table>'}
  put('catches',o)}
 /* A button is off while its log is on the way, so a double click writes
@@ -1944,8 +1931,8 @@ function am(b){return b==='LW'||b==='MW'||b==='SW'}
 function shown(){return PICK!==null&&HIST[PICK]?HIST[PICK]:HIST[0]||null}
 function khz(s,i){return s.low+i*s.step}
 function freq(s,k){return am(s.band)?k+'</b> kHz':(k/1000).toFixed(2)+'</b> MHz'}
-/* A level as shown, with the level offset the sweep came with. */
-function lv(s,t){return t===null||t===undefined?'-':(t/10+(s.lvo||0)).toFixed(1)}
+/* A level in dBuV, from the tenths the radio sends. */
+function lv(t){return t===null||t===undefined?'-':(t/10).toFixed(1)}
 function same(a,b){return a&&b&&a.low===b.low&&a.step===b.step&&a.count===b.count&&a.band===b.band}
 function X(s,i){return L+(i+.5)*PW/s.count}
 function Y(t){t=Math.max(lo,Math.min(hi,t));return T+PH-(t-lo)*PH/(hi-lo)}
@@ -1954,7 +1941,7 @@ function scale(s){var top=-1000,bot=1000;s.level.forEach(function(v){if(v!==null
 function draw(){var s=shown(),c=g('chart');
  if(!s){c.innerHTML='';wf();g('rd').textContent=WANT?'Sweeping...':'No sweep yet. Press Sweep now.';return}
  scale(s);var o='',v,n=s.count,a=am(s.band);
- for(v=lo;v<=hi;v+=100)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(v)+' y2='+Y(v)+' stroke="var(--pico-muted-border-color)"/><text x='+(L-6)+' y='+(Y(v)+4)+' text-anchor=end>'+(v/10+(s.lvo||0))+'</text>';
+ for(v=lo;v<=hi;v+=100)o+='<line x1='+L+' x2='+(W-R)+' y1='+Y(v)+' y2='+Y(v)+' stroke="var(--pico-muted-border-color)"/><text x='+(L-6)+' y='+(Y(v)+4)+' text-anchor=end>'+(v/10)+'</text>';
  o+='<text x='+(L+4)+' y='+(T+12)+'>dB&micro;V</text><text x='+(L-6)+' y='+(H-6)+' text-anchor=end>'+(a?'kHz':'MHz')+'</text>';
  var span=khz(s,n-1)-s.low,tick=a?(span>600?100:span>200?50:20):(span>6000?2000:span>2000?500:200);
  for(var k=Math.ceil(s.low/tick)*tick;k<=khz(s,n-1);k+=tick)o+='<text x='+X(s,(k-s.low)/s.step)+' y='+(H-6)+' text-anchor=middle>'+(a?k:k/1000)+'</text>';
@@ -1971,7 +1958,7 @@ function draw(){var s=shown(),c=g('chart');
  c.innerHTML=o;wf();
  var at=cur!==null?cur:(BAND===s.band&&di>=0&&di<n&&di%1===0?di:null);
  if(at===null){g('rd').textContent='Point at a channel.';return}
- var f=khz(s,at),t='<b>'+freq(s,f)+' &middot; <b>'+lv(s,s.level[at])+'</b> dB&micro;V';
+ var f=khz(s,at),t='<b>'+freq(s,f)+' &middot; <b>'+lv(s.level[at])+'</b> dB&micro;V';
  var sl=PRE.filter(function(p){return p.band===s.band&&p.khz===f}).map(function(p){return p.slot});
  if(sl.length)t+=' &middot; preset'+(sl.length>1?'s ':' ')+sl.join(', ');
  CAT.forEach(function(c){if(c.band===s.band&&c.khz===f)t+=' &middot; caught '+esc(c.pi+(c.name?' '+c.name:''))});
@@ -1990,7 +1977,7 @@ function meta(){var s=shown(),p=[];
  if(s.real){var a=Math.floor(Date.now()/1000)-s.time;p.push('swept at '+new Date(s.time*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(a>=0&&a<60?' (now)':''))}
  else p.push('swept with the clock unset');
  p.push('width '+s.width+' kHz','took '+(s.took_ms/1000).toFixed(1)+' s');
- if(s.floor!==null)p.push('floor '+lv(s,s.floor)+' dBµV');
+ if(s.floor!==null)p.push('floor '+lv(s.floor)+' dBµV');
  if(PICK!==null)p.push('an older sweep: click the top row for the newest');
  if(WANT)p.push('sweeping now');
  if(MISS)p.push(MISS);
@@ -2032,7 +2019,7 @@ g('wf').addEventListener('click',function(e){var r=g('wf').getBoundingClientRect
 function stamp(){var d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)+'-'+('0'+d.getHours()).slice(-2)+('0'+d.getMinutes()).slice(-2)}
 function save(blob,name){var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
 g('csv').onclick=function(){var s=shown();if(!s)return;var t='khz,dbuv\n';
- for(var i=0;i<s.count;i++)t+=khz(s,i)+','+(s.level[i]===null?'':lv(s,s.level[i]))+'\n';
+ for(var i=0;i<s.count;i++)t+=khz(s,i)+','+(s.level[i]===null?'':lv(s.level[i]))+'\n';
  save(new Blob([t],{type:'text/csv'}),'band-scope-'+s.band+'-'+stamp()+'.csv')};
 /* The chart's colours are the page's own variables, which an image of it
  * does not have, so they are put in first. */

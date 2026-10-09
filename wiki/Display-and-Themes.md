@@ -1,6 +1,6 @@
 # Display and Themes
 
-The colours, the brightness and dimming, the screen rotation, the battery mark and the level offset. All of these are in the menu's **Display** group.
+The colours, the brightness and dimming, the screen rotation and the battery mark. All of these are in the menu's **Display** group.
 
 ## Themes
 
@@ -45,7 +45,7 @@ The contrast test does not cover the custom theme, so check that your colours ca
 
 Brightness changes as you turn the knob, so you can see the result. The lowest Brightness is 5 % because that is the lowest that can still be read in daylight.
 
-The screen dims over 750 ms. It does not dim when Dim Level is at or above Brightness. Any input brings full brightness back at once. The first key press or knob turn on a dimmed screen only wakes it, and does nothing else. The volume knob wakes it and also changes the volume.
+The screen light fades up over 750 ms when the radio starts, and dims over 750 ms. It does not dim when Dim Level is at or above Brightness. Any input brings full brightness back at once. The first key press or knob turn on a dimmed screen only wakes it, and does nothing else. The volume knob wakes it and also changes the volume.
 
 ## Display Rotation
 
@@ -64,11 +64,3 @@ The screen dims over 750 ms. It does not dim when Dim Level is at or above Brigh
 The mark turns to the theme's fault colour, red in most themes, at 20 % or less. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
 
 The battery is read once, at start up, because the ESP32's Wi-Fi uses the same part of the chip that reads it. While Wi-Fi is off it is read every second. **Menu > Diagnostics > Battery Voltage** shows the reading, with `at start` after it when it is the reading from start up.
-
-## Level Offset
-
-**Display > Level Offset** has two rows, **FM Level Offset** and **AM Level Offset**: -25 to +15 dB in steps of 1, 0 dB at the start. The offset is added to every signal level the radio shows on its screen, the web page, and the station log and DX exports, so the readings can match another receiver's. In the HTTP API, `/api/state` and `/api/dx` send the level as read, with the offset in a separate field, `lvo`. The station log exports include the offset. The FM value is for FM and OIRT, the AM value for LW, MW and SW. Seek, squelch and the other limits do not use it.
-
-## Startup Fade
-
-**Startup Fade**, On at the start, fades the screen light up over 750 ms when the radio starts. Off makes it come on at once. It takes effect after a restart.

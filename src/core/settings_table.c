@@ -12,17 +12,13 @@
 #include "memory.h"
 #include "rds_country.h"
 #include "seek.h"
-#include "signal.h"
 #include "squelch.h"
 #include "wifi_join.h"
 
 /* The width and place of a field come from the struct itself, so a field
  * that is widened cannot be written at its old width. */
 #define FIELD(name) offsetof(Settings, name), sizeof(((Settings *)0)->name)
-#define ROW(key, name, low, high, acts) \
-  {key, FIELD(name), false, low, high, acts}
-#define SIGNED_ROW(key, name, low, high, acts) \
-  {key, FIELD(name), true, low, high, acts}
+#define ROW(key, name, low, high, acts) {key, FIELD(name), low, high, acts}
 
 #define NOW SETTING_ACTS_NOW
 #define AT_START SETTING_ACTS_AT_START
@@ -46,7 +42,6 @@ static const SettingRow kRows[] = {
     ROW("blt", backlightPercent, BACKLIGHT_MIN_AWAKE, 100, NOW),
     ROW("bdm", backlightDimPercent, 0, 100, NOW),
     ROW("bds", backlightDimAfterS, 0, BACKLIGHT_DIM_AFTER_MAX_S, NOW),
-    ROW("blf", backlightFade, 0, 1, AT_START),
     ROW("rds", rdsEnabled, 0, 1, NOW),
     ROW("ntp", ntpEnabled, 0, 1, NOW),
     ROW("bat", batteryShow, 0, BATTERY_SHOW_COUNT - 1, NOW),
@@ -72,10 +67,6 @@ static const SettingRow kRows[] = {
     ROW("rrg", rdsRegion, 0, RDS_REGION_COUNT - 1, NOW),
     ROW("drt", dxLogRt, 0, 1, NOW),
     ROW("dwt", dxWatch, 0, 1, NOW),
-    SIGNED_ROW("fof", levelOffsetFmDb, SIGNAL_LEVEL_OFFSET_MIN_DB,
-               SIGNAL_LEVEL_OFFSET_MAX_DB, NOW),
-    SIGNED_ROW("aof", levelOffsetAmDb, SIGNAL_LEVEL_OFFSET_MIN_DB,
-               SIGNAL_LEVEL_OFFSET_MAX_DB, NOW),
     ROW("hsp", hotspot, 0, WIFI_HOTSPOT_COUNT - 1, NOW),
     ROW("web", webEnabled, 0, 1, NOW),
     ROW("wif", wifiEnabled, 0, 1, NOW),
@@ -115,9 +106,9 @@ int32_t settingsTableGet(const Settings *s, const SettingRow *row) {
   if (row->size == 2) {
     uint16_t v;
     memcpy(&v, at, sizeof(v));
-    return row->isSigned ? (int32_t)(int16_t)v : (int32_t)v;
+    return (int32_t)v;
   }
-  return row->isSigned ? (int32_t)(int8_t)at[0] : (int32_t)at[0];
+  return (int32_t)at[0];
 }
 
 void settingsTableSet(Settings *s, const SettingRow *row, int32_t value) {

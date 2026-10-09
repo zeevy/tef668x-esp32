@@ -162,7 +162,9 @@ typedef struct {
    * looks like a fault, so a person switches it on for themselves.
    */
   uint8_t backlightDimAfterS;
-  /* Fade the panel up at start up rather than snapping it on. 0 or 1. */
+  /* Not read by this firmware, which always fades the panel up at start.
+   * Put back to 1 on every load and stored with the next save, so a
+   * firmware that reads it after a rollback fades too. */
   uint8_t backlightFade;
 
   /* Version 8. What each band was left set to, so coming back to a band
@@ -397,9 +399,10 @@ typedef struct {
   uint8_t dxWatch; /* Watch the presets in DX mode's range. */
 
   /* Version 26. In the padding version 25 left after `dxWatch`, so the
-   * struct did not grow. Added to every level shown or exported, FM for FM
-   * and OIRT, AM for LW, MW and SW, in whole dB, SIGNAL_LEVEL_OFFSET_MIN_DB
-   * to SIGNAL_LEVEL_OFFSET_MAX_DB. */
+   * struct did not grow. Not read by this firmware, which shows every level
+   * as the radio reads it. Put back to 0 on every load and stored with the
+   * next save, so a firmware that adds them to the levels it shows, after a
+   * rollback, adds nothing. */
   int8_t levelOffsetFmDb;
   int8_t levelOffsetAmDb;
 
