@@ -157,9 +157,6 @@ bool tef668xLastIdentification(uint16_t *device, uint16_t *hardware,
   return true;
 }
 
-int8_t screenTaskLevelOffsetDb(BandId) {
-  return 0;
-}
 bool screenTaskBacklightState(uint8_t *percent) {
   *percent = 80;
   return false;

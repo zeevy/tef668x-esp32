@@ -142,9 +142,6 @@ static uint32_t sBatteryPollMs = 0;
  * displayed is not that. */
 static BatteryShow sBatteryShow = BATTERY_SHOW_OFF;
 static RdsRegion sRdsRegion = RDS_REGION_EUROPE;
-/* The level offsets, added to each level shown. */
-static int8_t sLevelOffsetFmDb = 0;
-static int8_t sLevelOffsetAmDb = 0;
 
 /* The panel light, and what it was last set to, so it is not rewritten. */
 static Backlight sBacklight;
@@ -398,23 +395,6 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees) {
 void screenTaskSetBatteryShow(uint8_t show) {
   sBatteryShow =
       show < (uint8_t)BATTERY_SHOW_COUNT ? (BatteryShow)show : BATTERY_SHOW_OFF;
-}
-
-void screenTaskSetLevelOffsets(int8_t fmDb, int8_t amDb) {
-  /* Out of range is ignored, as for the signal scale, so a caller that has
-   * not checked leaves the offsets as the settings last said. */
-  if (fmDb >= SIGNAL_LEVEL_OFFSET_MIN_DB &&
-      fmDb <= SIGNAL_LEVEL_OFFSET_MAX_DB &&
-      amDb >= SIGNAL_LEVEL_OFFSET_MIN_DB &&
-      amDb <= SIGNAL_LEVEL_OFFSET_MAX_DB) {
-    sLevelOffsetFmDb = fmDb;
-    sLevelOffsetAmDb = amDb;
-  }
-}
-
-int8_t screenTaskLevelOffsetDb(BandId band) {
-  return bandModulation(band) == MODULATION_FM ? sLevelOffsetFmDb
-                                               : sLevelOffsetAmDb;
 }
 
 void screenTaskSetRdsRegion(uint8_t region) {
@@ -1691,7 +1671,6 @@ static void scopeDraw(void) {
            bandName(sScopeBand));
   ScreenScopeInputs in;
   memset(&in, 0, sizeof(in));
-  in.levelOffsetDb = screenTaskLevelOffsetDb(sScopeBand);
   in.am = scopeAm();
   in.live = live;
   in.revision = v.revision;
@@ -2293,7 +2272,6 @@ void screenTaskPoll(void) {
   in.notice = updateCheckState() == UPDATE_STATE_CHECKING
                   ? txt(STR_RADIO_CHECKING_UPDATES)
                   : NULL;
-  in.levelOffsetDb = screenTaskLevelOffsetDb(snap.settings.band);
   in.nowMs = millis();
 
   ScreenState state;

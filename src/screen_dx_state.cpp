@@ -210,8 +210,7 @@ void screenDxStateBuild(const ScreenDxInputs *in, ScreenDxKeep *keep,
   if (snap.qualityValid) {
     const Tef668xQuality &q = snap.quality;
 
-    tenths(signalShownTenths(q.levelDbuVTenths, in->levelOffsetDb), keep->level,
-           sizeof(keep->level));
+    tenths(q.levelDbuVTenths, keep->level, sizeof(keep->level));
     /* The noise and the offset held, since raw the offset takes over a
      * hundred values in half a minute and cannot be read. Until the new
      * station's first read, each as it is. */
@@ -258,7 +257,6 @@ static void catchRows(const ScreenCatchesInputs *in, ScreenCatchesKeep *keep,
   const DxCatches *list = in->list;
   uint8_t cursor = in->cursor;
   const int16_t offsetMinutes = in->offsetMinutes;
-  const int8_t levelOffsetDb = in->levelOffsetDb;
   if (list == NULL || list->count == 0) {
     return;
   }
@@ -300,8 +298,7 @@ static void catchRows(const ScreenCatchesInputs *in, ScreenCatchesKeep *keep,
     row->country = k->hasCountry ? k->country : NULL;
     row->countryUnsure = !k->hasCountry;
     row->isNew = k->isNew;
-    tenths(signalShownTenths(k->best.levelDbuVTenths, levelOffsetDb),
-           keep->level[i], sizeof(keep->level[i]));
+    tenths(k->best.levelDbuVTenths, keep->level[i], sizeof(keep->level[i]));
     row->level = keep->level[i];
     /* Past 99 it would run into the level, so it says only that. */
     if (k->count > 99) {
@@ -436,8 +433,7 @@ void screenScanStateBuild(const ScreenScanInputs *in, ScreenScanKeep *keep,
     }
   }
   if (onChannel && snap.qualityValid) {
-    tenths(signalShownTenths(snap.quality.levelDbuVTenths, in->levelOffsetDb),
-           keep->level, sizeof(keep->level));
+    tenths(snap.quality.levelDbuVTenths, keep->level, sizeof(keep->level));
     out->level = keep->level;
   }
   if (out->pi == NULL) {
@@ -550,8 +546,7 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
     out->cursorFreq = keep->freq;
     const int16_t level = live->level[out->cursor];
     if (level != DX_SWEEP_NO_READING) {
-      tenths(signalShownTenths(level, in->levelOffsetDb), keep->level,
-             sizeof(keep->level));
+      tenths(level, keep->level, sizeof(keep->level));
       out->cursorLevel = keep->level;
       if (base != NULL && base->level[out->cursor] != DX_SWEEP_NO_READING) {
         const int rise = (int)level - (int)base->level[out->cursor];

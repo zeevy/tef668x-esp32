@@ -223,18 +223,6 @@ static void a_change_of_band_starts_the_hold_again(void) {
   TEST_ASSERT_EQUAL_INT(BAND_OIRT, build.shownBand);
 }
 
-static void the_level_offset_moves_the_number_and_the_scale_peak(void) {
-  in.levelOffsetDb = -5;
-  buildNow();
-  TEST_ASSERT_EQUAL_INT16(32, state.signalDbuV);
-  TEST_ASSERT_EQUAL_UINT8(signalBarPercent(320, SIGNAL_FULL_FM_DBUV),
-                          state.signalPercent);
-  in.levelOffsetDb = 10;
-  buildNow();
-  TEST_ASSERT_EQUAL_INT16(47, state.signalDbuV);
-  TEST_ASSERT_EQUAL_UINT8(78, state.signalPercent);
-}
-
 /* The strongest medium wave channel in a night sweep off the radio,
  * against the AM top of the scale peak. */
 static void am_bands_use_their_own_top_of_the_scale_peak(void) {
@@ -788,7 +776,6 @@ int main(void) {
   RUN_TEST(the_level_is_held_still_for_small_changes);
   RUN_TEST(a_change_of_frequency_starts_the_hold_again);
   RUN_TEST(a_change_of_band_starts_the_hold_again);
-  RUN_TEST(the_level_offset_moves_the_number_and_the_scale_peak);
   RUN_TEST(am_bands_use_their_own_top_of_the_scale_peak);
   RUN_TEST(a_failed_reading_leaves_the_peak_and_the_meter_empty);
 

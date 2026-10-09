@@ -74,10 +74,6 @@
   X(MENU_DIM_AFTER, "Dim After", "Menu row name, Display group") \
   X(MENU_ROTATION, "Display Rotation", "Menu row name, Display group") \
   X(COMMON_BATTERY, "Battery", "Menu row name, Display group; boot screen step name") \
-  X(MENU_LEVEL_OFFSET_FM, "FM Level Offset", "Menu row name, Display > Level Offset") \
-  X(MENU_LEVEL_OFFSET_AM, "AM Level Offset", "Menu row name, Display > Level Offset") \
-  X(MENU_LEVEL_OFFSET, "Level Offset", "Sub-group name, Display > Level Offset") \
-  X(MENU_FADE_AT_START, "Startup Fade", "Menu row name, Display group") \
   X(MENU_ENCODER, "Encoder Type", "Menu row name, Controls > Encoder") \
   X(MENU_DIRECTION, "Encoder Direction", "Menu row name, Controls > Encoder") \
   X(MENU_ENCODER_GROUP, "Encoder", "Sub-group name, Controls > Encoder") \
@@ -224,8 +220,7 @@
   X(MENU_FMT_MS, "%d ms", "Menu, value of the Mute ramp row") \
   X(MENU_FMT_PERCENT, "%d %%", "Menu, value of the Volume AGC row, per cent; value of the Brightness and Dim level rows; value of the Noise blanker rows; value of the CPU Core rows") \
   X(MENU_CUT_ONLY, "Cut Only", "Menu, value of the AGC boost row at zero") \
-  X(MENU_FMT_DB, "%d dB", "Menu, value of the AGC boost row; value of a level offset row at 0") \
-  X(MENU_FMT_SIGNED_DB, "%+d dB", "Menu, value of the FM and AM Level Offset rows, with the sign") \
+  X(MENU_FMT_DB, "%d dB", "Menu, value of the AGC boost row") \
   X(MENU_NEVER, "Never", "Menu, value of the Dim after row at zero") \
   X(MENU_FMT_SECONDS, "%d s", "Menu, value of the Dim After and Keypad Timeout rows, seconds") \
   X(MENU_BATTERY_PER_CENT, "Percent", "Menu, value of the Battery row") \

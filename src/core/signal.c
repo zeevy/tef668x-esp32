@@ -116,13 +116,6 @@ void signalFormatLevel(int16_t tenths, char *out, size_t outLen) {
            (unsigned)(magnitude % 10));
 }
 
-int16_t signalShownTenths(int16_t rawTenths, int8_t offsetDb) {
-  const int32_t shown = (int32_t)rawTenths + (int32_t)offsetDb * 10;
-  return (int16_t)(shown > INT16_MAX   ? INT16_MAX
-                   : shown < INT16_MIN ? INT16_MIN
-                                       : shown);
-}
-
 bool signalWantsWideBandwidth(int16_t levelTenths, int16_t snrDb) {
   return snrDb > SIGNAL_WIDE_MIN_SNR_DB &&
          levelTenths > SIGNAL_WIDE_MIN_LEVEL_TENTHS;

@@ -49,7 +49,7 @@ curl -s -o logbook.csv http://tef668x.local:8080/api/log.csv
 
 The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt`. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
 
-`level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths: `452` means 45.2 dBµV. The level includes the band's Level Offset.
+`level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths: `452` means 45.2 dBµV.
 
 As JSON, one station per line, oldest first, after a first line with the count:
 

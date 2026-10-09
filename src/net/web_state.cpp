@@ -423,7 +423,6 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
  *   `plt`  The station is transmitting a stereo pilot.
  *   `qst`  The quality status word as the chip sent it, which carries the
  *          time stamp saying whether the readings have settled.
- *   `lvo`  The level offset in force on this band, whole dB.
  *   `agc`  The volume AGC: `on`, `gn`, `avg` and `set`, described where it
  *          is built.
  *   `rds`  The RDS decoder, FM only, described on appendRdsState.
@@ -565,14 +564,6 @@ static void appendRadioState(String &out) {
                (q.stereo && !snap.settings.forcedMono) ? "true" : "false",
                q.stereo ? "true" : "false", (unsigned)q.status);
       out += sig;
-    }
-    /* The level offset in force on this band, whole dB. `sig` and `sav`
-     * are the radio's own; a page shows them with this added. */
-    if (haveSnap) {
-      char lvo[16];
-      snprintf(lvo, sizeof(lvo), ",\"lvo\":%d",
-               (int)screenTaskLevelOffsetDb(snap.settings.band));
-      out += lvo;
     }
 
     /*
