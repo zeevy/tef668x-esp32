@@ -1,5 +1,6 @@
 /* Implementation of the LVGL port. */
 #include "lvgl_port.h"
+#include "debug_log.h"
 
 #include "net/restart_reason.h"
 
@@ -160,7 +161,7 @@ bool lvglPortPushes(PushSecond *out) {
  * and without it the one line saying why is the line that gets lost.
  */
 extern "C" void lvglAssertFailed(void) {
-  Serial.println(F("[lvgl] assertion failed, restarting"));
+  DebugLog.println(F("[lvgl] assertion failed, restarting"));
   Serial.flush();
   restartReasonNote(RESTART_WHY_DISPLAY);
   esp_restart();

@@ -96,6 +96,28 @@ typedef struct {
 const char *xdrParse(const char *line, XdrCommand *out);
 
 /*
+ * A line from the USB cable, read a byte at a time. Zero it before first use.
+ *
+ * Every protocol line is printable ASCII and a line end. A byte outside that
+ * before a line's first, such as a 0 or a 255 from a glitch as the cable is
+ * plugged in, is dropped, so it cannot hide the command after it: XDR-GTK
+ * sends x only once. One inside a line, or a line too long, refuses the whole
+ * line, since dropping a byte there can leave another command, T87500 read
+ * as T8500. A line of nothing but such bytes is refused too, rather than read
+ * as the empty line that stops a scan.
+ */
+typedef struct {
+  char text[XDR_LINE_MAX + 2]; /* The line, a carriage return and a 0. */
+  uint8_t len;
+  bool bad;  /* A byte no line has, or one too many, inside it. */
+  bool junk; /* Bytes no line has came before its first. */
+} XdrCableLine;
+
+/* Feed one byte read from the cable. True when it ended a whole line, which
+ * is then in `text` without its line feed. False for a NULL line. */
+bool xdrCableFeed(XdrCableLine *line, int ch);
+
+/*
  * A PC's scan range as the channels of a sweep of `band`: from `fromKHz` to
  * `toKHz` in steps of `stepKHz`, either way round, cut to the band's edges
  * with the first channel kept on the PC's own grid, and to the first

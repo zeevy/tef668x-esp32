@@ -1,5 +1,6 @@
 /* Implementation of the screen glue. */
 #include "screen_task.h"
+#include "debug_log.h"
 #include "drivers/settings_nvs.h"
 #include "dx_task.h"
 #include "screen_bw_state.h"
@@ -327,7 +328,7 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees) {
   }
 
   if (!displayBegin()) {
-    Serial.println(F("[screen] the panel did not come up"));
+    DebugLog.println(F("[screen] the panel did not come up"));
     return false;
   }
   /* Before the first pixel. A MADCTL change only affects what is written
@@ -337,7 +338,7 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees) {
   /* Then LVGL, because the screens are built out of its objects and there is
    * nothing to build them on until it has a display. */
   if (!lvglPortBegin()) {
-    Serial.println(F("[screen] LVGL did not start"));
+    DebugLog.println(F("[screen] LVGL did not start"));
     return false;
   }
   /*
@@ -369,7 +370,7 @@ bool screenTaskBegin(const BacklightConfig *cfg, uint16_t rotationDegrees) {
      * it can. A panel with nothing on it reads as broken hardware. */
     sReady = screenBegin();
     if (!sReady) {
-      Serial.println(F("[screen] the screens could not be built"));
+      DebugLog.println(F("[screen] the screens could not be built"));
       return false;
     }
     screenMessage(txt(STR_RADIO_PRODUCT_NAME),
@@ -524,7 +525,7 @@ static void menuDownNow(void) {
   screenMenuEnd();
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sSwapActMs = (uint16_t)(millis() - began);
@@ -728,7 +729,7 @@ static void bootHandOver(void) {
   screenBootEnd();
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the screens could not be built"));
+    DebugLog.println(F("[screen] the screens could not be built"));
   }
 }
 
@@ -891,7 +892,7 @@ static void dxLeaveToRadioScreen(void) {
   dxTaskLeave();
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1197,7 +1198,7 @@ void screenTaskKeypadClose(void) {
   screenKeypadEnd();
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1234,7 +1235,7 @@ bool screenTaskBwOpen(void) {
   }
   BwStore *s = (BwStore *)calloc(1, sizeof(*s));
   if (s == NULL) {
-    Serial.println(F("[screen] no memory for the bandwidth page"));
+    DebugLog.println(F("[screen] no memory for the bandwidth page"));
     return false;
   }
   s->band = now.settings.band;
@@ -1285,7 +1286,7 @@ void screenTaskBwClose(void) {
   }
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1369,7 +1370,7 @@ bool screenTaskTouchCalOpen(void) {
   }
   CalStore *c = (CalStore *)calloc(1, sizeof(*c));
   if (c == NULL) {
-    Serial.println(F("[screen] no memory for the touch calibration"));
+    DebugLog.println(F("[screen] no memory for the touch calibration"));
     return false;
   }
   if (!calStart(c)) {
@@ -1451,7 +1452,7 @@ void screenTaskTouchCalClose(void) {
   sCal = NULL;
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1559,7 +1560,7 @@ void screenTaskRdsClose(void) {
   }
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1772,7 +1773,7 @@ void screenTaskScopeClose(void) {
   screenScopeEnd();
   sReady = screenBegin();
   if (!sReady) {
-    Serial.println(F("[screen] the radio screen could not be rebuilt"));
+    DebugLog.println(F("[screen] the radio screen could not be rebuilt"));
     return;
   }
   sLastPollMs = millis() - SCREEN_POLL_MS;
@@ -1903,8 +1904,8 @@ static void presetLearnPoll(uint32_t nowMs) {
   }
   channel.pi = pi;
   if (memoryStoreWrite(snap.memorySlot, &channel)) {
-    Serial.printf("[memory] P%02d learnt PI %04X\n", snap.memorySlot + 1,
-                  (unsigned)pi);
+    DebugLog.printf("[memory] P%02d learnt PI %04X\n", snap.memorySlot + 1,
+                    (unsigned)pi);
   }
 }
 

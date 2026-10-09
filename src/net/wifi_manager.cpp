@@ -1,5 +1,6 @@
 /* Implementation of the join and access point fallback. */
 #include "wifi_manager.h"
+#include "debug_log.h"
 
 #include "board/board.h"
 #include "drivers/device_id.h"
@@ -64,7 +65,7 @@ static void startAccessPoint(void) {
   if (!WiFi.softAP(sApSsid)) {
     /* Nothing is reachable. Say so, because the rollback self check reads
      * this and an image with no working Wi-Fi must not be marked good. */
-    Serial.println(F("[wifi] the access point did not start"));
+    DebugLog.println(F("[wifi] the access point did not start"));
     snprintf(sAddress, sizeof(sAddress), "0.0.0.0");
     snprintf(sNetwork, sizeof(sNetwork), "none");
     /*
@@ -78,7 +79,7 @@ static void startAccessPoint(void) {
        * there is no fourth state for a driver that will not do either job.
        * Said here so it is not a silent second failure on top of the one
        * above. */
-      Serial.println(F("[wifi] could not turn the radio off either"));
+      DebugLog.println(F("[wifi] could not turn the radio off either"));
     }
     /*
      * Back to OFFLINE rather than left claiming an access point that is not
@@ -113,7 +114,7 @@ static void startResponder(void) {
     return;
   }
   if (!MDNS.begin(BOARD_HOSTNAME)) {
-    Serial.println(F("[mdns] could not start, use the address instead"));
+    DebugLog.println(F("[mdns] could not start, use the address instead"));
     return;
   }
   sNameAnnounced = true;
@@ -163,7 +164,7 @@ static void step(bool retryNow) {
       beginStation(sSettings);
       break;
     case WIFI_DO_START_AP:
-      Serial.println(F("[wifi] no network, serving the setup page"));
+      DebugLog.println(F("[wifi] no network, serving the setup page"));
       startAccessPoint();
       /* The responder runs on the access point too. Somebody who has never
        * seen this radio before is being asked to find it, and the name is
@@ -181,15 +182,15 @@ static void step(bool retryNow) {
        * still running, so this pass is the first moment the address is known,
        * and a person at the bench has nothing else to read it from.
        */
-      Serial.printf(
+      DebugLog.printf(
           "[wifi] joined %s, at http://%s:%u/ and http://%s.local:%u/\n",
           sNetwork, sAddress, (unsigned)WEB_PORT, BOARD_HOSTNAME,
           (unsigned)WEB_PORT);
 #if FEATURE_OTA
-      Serial.printf("[wifi] flash it over the air with --upload-port %s\n",
-                    sAddress);
+      DebugLog.printf("[wifi] flash it over the air with --upload-port %s\n",
+                      sAddress);
 #else
-      Serial.printf(
+      DebugLog.printf(
           "[wifi] flash it over the air: sign in at http://%s:%u/auth, "
           "then post the image to /update\n",
           sAddress, (unsigned)WEB_PORT);
@@ -199,12 +200,12 @@ static void step(bool retryNow) {
       captureStationAddress();
       break;
     case WIFI_DO_TURN_OFF:
-      Serial.println(
+      DebugLog.println(
           F("[wifi] off: switched off, or no network and no "
             "hotspot"));
       MDNS.end();
       if (!WiFi.mode(WIFI_MODE_NULL)) {
-        Serial.println(F("[wifi] could not turn the radio off"));
+        DebugLog.println(F("[wifi] could not turn the radio off"));
       }
       snprintf(sAddress, sizeof(sAddress), "0.0.0.0");
       sNetwork[0] = '\0';

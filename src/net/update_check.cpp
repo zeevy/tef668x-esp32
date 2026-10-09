@@ -1,4 +1,5 @@
 #include "update_check.h"
+#include "debug_log.h"
 
 #include "band_scan_task.h"
 #include "board/board.h"
@@ -130,7 +131,8 @@ static int openFollowing(HTTPClient &http, NetworkClientSecure &client,
   static const char *kKeep[] = {"Location"};
   for (int hop = 0; hop <= UPDATE_MAX_REDIRECTS; hop++) {
     if (!updateUrlAllowed(url.c_str())) {
-      Serial.println(F("[update] refused an address outside GitHub releases"));
+      DebugLog.println(
+          F("[update] refused an address outside GitHub releases"));
       return -100;
     }
     feedIfLoop();
@@ -153,7 +155,7 @@ static int openFollowing(HTTPClient &http, NetworkClientSecure &client,
     }
     return code;
   }
-  Serial.println(F("[update] too many redirects"));
+  DebugLog.println(F("[update] too many redirects"));
   return -102;
 }
 
@@ -197,30 +199,30 @@ static UpdateState check(UpdateManifest *found) {
 
   if (code == 404) {
     /* No release yet, or none with a manifest for this board. */
-    Serial.println(F("[update] no release for this board"));
+    DebugLog.println(F("[update] no release for this board"));
     return UPDATE_STATE_NONE;
   }
   if (!read) {
-    Serial.printf("[update] check failed, status %d, after %lu ms\n", code,
-                  (unsigned long)(millis() - started));
+    DebugLog.printf("[update] check failed, status %d, after %lu ms\n", code,
+                    (unsigned long)(millis() - started));
     return UPDATE_STATE_FAILED;
   }
 
   const UpdateManifestResult result =
       updateParseManifest(body, len, BOARD_NAME, slotBytes(), found);
   if (result != UPDATE_MANIFEST_OK) {
-    Serial.printf("[update] manifest refused, reason %d\n", (int)result);
+    DebugLog.printf("[update] manifest refused, reason %d\n", (int)result);
     return UPDATE_STATE_FAILED;
   }
   UpdateVersion mine;
   if (!updateParseVersion(FIRMWARE_VERSION, &mine) ||
       updateCompareVersions(&found->version, &mine) <= 0) {
-    Serial.printf("[update] %s is the latest, nothing newer\n",
-                  found->versionText);
+    DebugLog.printf("[update] %s is the latest, nothing newer\n",
+                    found->versionText);
     return UPDATE_STATE_NONE;
   }
-  Serial.printf("[update] %s found after %lu ms\n", found->versionText,
-                (unsigned long)(millis() - started));
+  DebugLog.printf("[update] %s found after %lu ms\n", found->versionText,
+                  (unsigned long)(millis() - started));
   return UPDATE_STATE_FOUND;
 }
 
@@ -237,7 +239,7 @@ static void startCheck(void) {
   if (xTaskCreatePinnedToCore(checkTask, "update", UPDATE_TASK_STACK, NULL,
                               UPDATE_TASK_PRIORITY, NULL,
                               UPDATE_TASK_CORE) != pdPASS) {
-    Serial.println(F("[update] no memory for the check"));
+    DebugLog.println(F("[update] no memory for the check"));
     sState = UPDATE_STATE_FAILED;
     return;
   }
@@ -312,9 +314,9 @@ static bool download(HTTPClient &http, uint8_t *buf) {
     snprintf(hex + i * 2, 3, "%02x", digest[i]);
   }
   if (broken || got != size || strcmp(hex, sManifest.sha256) != 0) {
-    Serial.printf("[update] image refused: %lu of %lu bytes, sha256 %s\n",
-                  (unsigned long)got, (unsigned long)size,
-                  strcmp(hex, sManifest.sha256) == 0 ? "matches" : "differs");
+    DebugLog.printf("[update] image refused: %lu of %lu bytes, sha256 %s\n",
+                    (unsigned long)got, (unsigned long)size,
+                    strcmp(hex, sManifest.sha256) == 0 ? "matches" : "differs");
     Update.abort();
     return false;
   }
@@ -325,10 +327,10 @@ static void install(void) {
   if (sState != UPDATE_STATE_FOUND || rollbackPending() || bandScanActive()) {
     return;
   }
-  Serial.printf("[update] installing %s\n", sManifest.versionText);
+  DebugLog.printf("[update] installing %s\n", sManifest.versionText);
   uint8_t *buf = (uint8_t *)malloc(UPDATE_CHUNK_BYTES);
   if (buf == NULL) {
-    Serial.println(F("[update] no memory for the download"));
+    DebugLog.println(F("[update] no memory for the download"));
     return;
   }
   firmwareWriteBegin();
@@ -342,7 +344,7 @@ static void install(void) {
     const int code = openFollowing(http, client, sManifest.url);
     ok = code == 200 && download(http, buf);
     if (code != 200) {
-      Serial.printf("[update] download failed, status %d\n", code);
+      DebugLog.printf("[update] download failed, status %d\n", code);
     }
     http.end();
     client.stop();
@@ -355,7 +357,7 @@ static void install(void) {
      * so it can be tried again. */
     return;
   }
-  Serial.println(F("[update] written, restarting into it"));
+  DebugLog.println(F("[update] written, restarting into it"));
   restartReasonNote(RESTART_WHY_UPDATE);
   settingsTaskRestart();
 }

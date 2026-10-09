@@ -2,6 +2,7 @@
  * The control API's shared reply helpers, and the call that registers every
  * `/api` route. The handlers are in one web_api_<resource>.cpp file each.
  */
+#include "debug_log.h"
 #include "web_api_internal.h"
 #include "web_internal.h"
 
@@ -120,7 +121,7 @@ void apiSubmit(const RadioCommand *command, const String &said, ApiSay say) {
         break;
     }
   }
-  Serial.printf("[api] %s\n", answer.c_str());
+  DebugLog.printf("[api] %s\n", answer.c_str());
   sWeb->server.send(200, "text/plain", answer + "\n");
 }
 

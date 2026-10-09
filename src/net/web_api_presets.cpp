@@ -2,6 +2,7 @@
  * The control API: the presets: setting and recalling them, and their CSV both
  * ways.
  */
+#include "debug_log.h"
 #include "web_api_internal.h"
 #include "web_internal.h"
 
@@ -206,7 +207,7 @@ static void handleApiMemoryImport(void) {
                 " lines imported, " + result.skipped + " refused, " +
                 result.kept + " already taken, " + result.truncated +
                 " names cut short";
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 

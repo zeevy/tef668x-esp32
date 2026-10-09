@@ -1,5 +1,6 @@
 /* Implementation of the shared I2C bus lock. */
 #include "i2c_bus.h"
+#include "debug_log.h"
 
 #include "board/board.h"
 
@@ -25,7 +26,7 @@ void i2cBusBegin(uint32_t hz) {
     gpio_set_drive_capability((gpio_num_t)PIN_I2C_SDA, GPIO_DRIVE_CAP_0);
     gpio_set_drive_capability((gpio_num_t)PIN_I2C_SCL, GPIO_DRIVE_CAP_0);
     if (sLock == NULL) {
-      Serial.println(F("[i2c] no lock, the bus cannot be shared safely"));
+      DebugLog.println(F("[i2c] no lock, the bus cannot be shared safely"));
     }
     sStarted = true;
   }

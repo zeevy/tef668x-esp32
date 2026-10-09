@@ -7,6 +7,7 @@
  * and there are no globals outside this file.
  */
 #include "tef668x.h"
+#include "debug_log.h"
 #include "tef668x_decode.h"
 
 #include <Arduino.h>
@@ -432,7 +433,7 @@ static Tef668xError setClock(void) {
   }
   sDiag.xtalAdc = (uint16_t)adc;
   sDiag.xtal = which;
-  Serial.printf("[tuner] crystal sense %d, using %s\n", adc, which);
+  DebugLog.printf("[tuner] crystal sense %d, using %s\n", adc, which);
 
   uint8_t activate[3] = {0x14, 0x00, 0x01};
   Tef668xError err = writeRaw(activate, sizeof(activate));
@@ -775,8 +776,8 @@ Tef668xError tef668xBegin(void) {
    * what the caller can do anything about. */
   Tef668xError quality = applyReceptionDefaults();
   if (quality != TEF668X_OK) {
-    Serial.printf("[tuner] reception defaults failed: %s\n",
-                  tef668xErrorText(quality));
+    DebugLog.printf("[tuner] reception defaults failed: %s\n",
+                    tef668xErrorText(quality));
   }
 
   /* Quiet until somebody tunes it.
@@ -788,8 +789,8 @@ Tef668xError tef668xBegin(void) {
    * what the settings say, so this only covers the gap. */
   Tef668xError quiet = tef668xSetMute(true);
   if (quiet != TEF668X_OK) {
-    Serial.printf("[tuner] could not mute at start up: %s\n",
-                  tef668xErrorText(quiet));
+    DebugLog.printf("[tuner] could not mute at start up: %s\n",
+                    tef668xErrorText(quiet));
   }
 
   uint16_t device = 0;

@@ -3,6 +3,7 @@
  * width, step size, sleep, volume, mute, mode, the volume pot, beep, seek,
  * scan, save and cycle.
  */
+#include "debug_log.h"
 #include "web_api_internal.h"
 #include "web_internal.h"
 
@@ -322,7 +323,7 @@ static void handleApiPot(void) {
 
   String said =
       String("The knob runs ") + rawMin + " to " + rawMax + ", stored.";
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 
@@ -400,7 +401,7 @@ static void handleApiSeek(void) {
     return;
   }
   String said = String("seeking ") + (up ? "up" : "down");
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 
@@ -444,7 +445,7 @@ static void handleApiScan(void) {
             "already running.");
     return;
   }
-  Serial.printf("[api] scan: %s started\n", bandName(band));
+  DebugLog.printf("[api] scan: %s started\n", bandName(band));
   sWeb->server.send(200, "text/plain",
                     String("scanning ") + bandName(band) + "\n");
 }
@@ -506,7 +507,7 @@ static void handleApiSave(void) {
   bandFormatWithUnit(saved, pending.startFreqKHz, text, sizeof(text));
   String said = String("Saved. It will come up on ") + text + ", squelch " +
                 squelchModeName((SquelchMode)pending.squelchMode) + ".";
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 

@@ -1,5 +1,6 @@
 /* Implementation of the ArduinoOTA listener. */
 #include "ota_service.h"
+#include "debug_log.h"
 
 #include "board/board.h"
 
@@ -49,7 +50,7 @@ void otaBegin(uint32_t pin) {
     accessPinGateReset(&sGate);
     const char *what =
         ArduinoOTA.getCommand() == U_FLASH ? "firmware" : "filesystem";
-    Serial.printf("[ota] update started, writing the %s\n", what);
+    DebugLog.printf("[ota] update started, writing the %s\n", what);
   });
 
   ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
@@ -62,7 +63,7 @@ void otaBegin(uint32_t pin) {
     firmwareWriteProgress(percent);
     if (percent != sLastPercent && percent % 10 == 0) {
       sLastPercent = percent;
-      Serial.printf("[ota] %d%%\n", percent);
+      DebugLog.printf("[ota] %d%%\n", percent);
     }
   });
 
@@ -74,7 +75,7 @@ void otaBegin(uint32_t pin) {
      * certain to have caused reports the same bare "software" as the ones
      * they are trying to explain. */
     restartReasonNote(RESTART_WHY_UPDATE);
-    Serial.println("[ota] update written, rebooting into it");
+    DebugLog.println("[ota] update written, rebooting into it");
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
@@ -114,7 +115,7 @@ void otaBegin(uint32_t pin) {
       default:
         break;
     }
-    Serial.printf("[ota] update failed: %s\n", reason);
+    DebugLog.printf("[ota] update failed: %s\n", reason);
   });
 
   ArduinoOTA.begin();
@@ -141,7 +142,7 @@ void otaSetPin(uint32_t pin) {
   accessPinGateReset(&sGate);
   sClosed = false;
   ArduinoOTA.begin();
-  Serial.println(F("[ota] the password is now the new PIN"));
+  DebugLog.println(F("[ota] the password is now the new PIN"));
 }
 
 void otaAdvertise(void) {
@@ -159,11 +160,11 @@ void otaLoop(bool open) {
     sClosed = locked;
     if (locked) {
       ArduinoOTA.end();
-      Serial.println(open ? F("[ota] five wrong PINs, closed for a minute")
-                          : F("[ota] closed, the web server is off"));
+      DebugLog.println(open ? F("[ota] five wrong PINs, closed for a minute")
+                            : F("[ota] closed, the web server is off"));
     } else {
       ArduinoOTA.begin();
-      Serial.println(F("[ota] open again"));
+      DebugLog.println(F("[ota] open again"));
     }
   }
   /* Does nothing while closed: `end` leaves ArduinoOTA uninitialised. */

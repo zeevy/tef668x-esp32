@@ -2,6 +2,7 @@
  * The control API: the tuner's own controls and readings: squelch, the FM
  * processing, the seek settle readings and raw RDS.
  */
+#include "debug_log.h"
 #include "web_api_internal.h"
 #include "web_internal.h"
 
@@ -260,7 +261,7 @@ static void handleApiSquelch(void) {
   if (now == SQUELCH_MANUAL) {
     said += F(", the knob sets the threshold");
   }
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 
@@ -559,7 +560,7 @@ static void handleApiFm(void) {
   }
 
   String said = apiFmState();
-  Serial.printf("[api] %s\n", said.c_str());
+  DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }
 

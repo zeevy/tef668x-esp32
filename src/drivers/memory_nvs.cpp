@@ -1,5 +1,6 @@
 /* NVS backing for the channel list. */
 #include "memory_nvs.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 #include <Preferences.h>
@@ -49,8 +50,8 @@ bool memoryNvsLoad(MemoryStore *out, int *clearedOut) {
     *clearedOut = lost;
   }
   if (lost != 0) {
-    Serial.printf("[memory] %d stored channels were not valid, cleared\n",
-                  lost);
+    DebugLog.printf("[memory] %d stored channels were not valid, cleared\n",
+                    lost);
   }
   return true;
 }

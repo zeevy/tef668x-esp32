@@ -277,6 +277,58 @@ static void a_real_sweep_makes_a_line_both_programs_read(void) {
   TEST_ASSERT_TRUE(len > 5000 && len < 5744);
 }
 
+static bool feedCable(XdrCableLine *line, const char *bytes, size_t n) {
+  bool whole = false;
+  for (size_t i = 0; i < n; i++) {
+    whole = xdrCableFeed(line, (unsigned char)bytes[i]);
+  }
+  return whole;
+}
+
+static void a_cable_line_ends_at_the_line_feed(void) {
+  XdrCableLine line = {};
+  TEST_ASSERT_FALSE(xdrCableFeed(&line, 'x'));
+  TEST_ASSERT_TRUE(xdrCableFeed(&line, '\n'));
+  TEST_ASSERT_EQUAL_STRING("x", line.text);
+  TEST_ASSERT_TRUE(feedCable(&line, "T87500\r\n", 8));
+  TEST_ASSERT_EQUAL_STRING("T87500\r", line.text);
+  TEST_ASSERT_TRUE(feedCable(&line, "\n", 1));
+  TEST_ASSERT_EQUAL_STRING("", line.text);
+}
+
+static void a_glitch_before_a_cable_line_is_dropped(void) {
+  XdrCableLine line = {};
+  TEST_ASSERT_TRUE(feedCable(&line, "\x00\xffx\n", 4));
+  TEST_ASSERT_EQUAL_STRING("x", line.text);
+}
+
+static void a_bad_byte_inside_a_cable_line_refuses_it(void) {
+  XdrCableLine line = {};
+  TEST_ASSERT_FALSE(feedCable(&line,
+                              "T87\xb7"
+                              "00\n",
+                              7));
+  TEST_ASSERT_TRUE(feedCable(&line, "T87500\n", 7));
+  TEST_ASSERT_EQUAL_STRING("T87500", line.text);
+}
+
+static void a_cable_line_of_glitches_is_not_an_empty_line(void) {
+  XdrCableLine line = {};
+  TEST_ASSERT_FALSE(feedCable(&line, "\x00\n", 2));
+  TEST_ASSERT_TRUE(feedCable(&line, "\n", 1));
+}
+
+static void a_cable_line_too_long_is_refused(void) {
+  XdrCableLine line = {};
+  char longer[XDR_LINE_MAX + 3];
+  memset(longer, 'A', sizeof(longer) - 1);
+  longer[sizeof(longer) - 1] = '\n';
+  TEST_ASSERT_FALSE(feedCable(&line, longer, sizeof(longer)));
+  TEST_ASSERT_TRUE(feedCable(&line, "x\n", 2));
+  TEST_ASSERT_EQUAL_STRING("x", line.text);
+  TEST_ASSERT_FALSE(xdrCableFeed(NULL, 'x'));
+}
+
 static void a_carriage_return_is_dropped(void) {
   TEST_ASSERT_EQUAL_INT32(87500, parse("T87500\r").value);
 }
@@ -491,6 +543,11 @@ int main(int, char **) {
   RUN_TEST(a_scan_range_is_cut_to_the_band);
   RUN_TEST(the_scan_answer_is_one_line_of_pairs);
   RUN_TEST(a_real_sweep_makes_a_line_both_programs_read);
+  RUN_TEST(a_cable_line_ends_at_the_line_feed);
+  RUN_TEST(a_glitch_before_a_cable_line_is_dropped);
+  RUN_TEST(a_bad_byte_inside_a_cable_line_refuses_it);
+  RUN_TEST(a_cable_line_of_glitches_is_not_an_empty_line);
+  RUN_TEST(a_cable_line_too_long_is_refused);
   RUN_TEST(a_carriage_return_is_dropped);
   RUN_TEST(a_line_one_over_the_limit_is_refused);
   RUN_TEST(a_ten_digit_number_is_refused);

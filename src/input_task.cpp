@@ -1,5 +1,6 @@
 /* Implementation of the input layer. */
 #include "input_task.h"
+#include "debug_log.h"
 
 #include "core/dx.h"
 #include "dx_task.h"
@@ -168,7 +169,7 @@ static void note(const char *what) {
   snprintf(sStatus.lastEvent, sizeof(sStatus.lastEvent), "%s%s",
            sFromApi ? "api " : "", what);
   sStatus.lastEventMs = millis();
-  Serial.printf("[input] %s\n", what);
+  DebugLog.printf("[input] %s\n", what);
 }
 
 /*
