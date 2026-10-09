@@ -184,6 +184,36 @@ int16_t uiIconTop(int16_t baselineY) {
   return (int16_t)(baselineY - ICON_RISE - UI_ICON_SIZE / 2);
 }
 
+/* The ink's offset in its box and its width; the whole box when the face
+ * does not carry the symbol. */
+static void iconInk(const char *icon, int16_t *ofs, int16_t *w) {
+  const uint8_t *b = (const uint8_t *)icon;
+  const uint32_t letter = ((uint32_t)(b[0] & 0x0F) << 12) |
+                          ((uint32_t)(b[1] & 0x3F) << 6) | (b[2] & 0x3F);
+  lv_font_glyph_dsc_t g;
+  *ofs = 0;
+  *w = UI_ICON_SIZE;
+  if (lv_font_get_glyph_dsc(&roboto_icons, &g, letter, 0)) {
+    *ofs = g.ofs_x;
+    *w = (int16_t)g.box_w;
+  }
+}
+
+int16_t uiIconInkWidth(const char *icon) {
+  int16_t ofs;
+  int16_t w;
+  iconInk(icon, &ofs, &w);
+  return w;
+}
+
+int16_t uiPlaceIcon(lv_obj_t *o, const char *icon, int16_t left, int16_t top) {
+  int16_t ofs;
+  int16_t w;
+  iconInk(icon, &ofs, &w);
+  lv_obj_set_pos(o, (int16_t)(left - ofs), top);
+  return (int16_t)(left + w);
+}
+
 void uiSetText(lv_obj_t *o, const char *text) {
   const char *current = lv_label_get_text(o);
   if (current != NULL && strcmp(current, text) == 0) {

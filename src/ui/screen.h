@@ -19,7 +19,7 @@
 
 #include "../core/touch.h"
 
-/* Why there is no sound, which decides what the V: tile shows. */
+/* Why there is no sound, which decides what the volume tile shows. */
 typedef enum {
   SCREEN_AUDIO_ON = 0,    /* The volume, in `radio`. */
   SCREEN_AUDIO_MUTED,     /* A person did it. MUTE, in the warning colour. */

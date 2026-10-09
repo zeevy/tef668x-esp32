@@ -54,15 +54,15 @@ With Touch On, a tap on the scale opens the [band scope](Band-Scope.md), and a d
 | Tile | Values | What it means |
 |---|---|---|
 | Tuning mode | `MAN`, `AUTO`, `MEM`, `MTR` | What a turn of the tuning knob does. See [Tuning](Tuning.md#tuning-modes) |
-| `SQ:` | `OFF`, `AUTO`, or a level such as `15dB` | Squelch off, automatic, or Manual at that level, set with the volume knob |
-| `BW:` | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM and OIRT |
-| `V:` | `-6dB`, or `MUTE` | The volume. `MUTE` shows in red. The value turns grey while the squelch holds the sound back |
+| Squelch, with waves | `OFF`, `AUTO`, or a level such as `15dB` | Squelch off, automatic, or Manual at that level, set with the volume knob |
+| Filter width, with an up and down arrow | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM and OIRT |
+| Volume, with a speaker | `-6dB`, or `MUTE` | The volume. While muted the speaker gets a cross and it reads `MUTE`, both in red. The value turns grey while the squelch holds the sound back |
 
 ## Other bands and states
 
 | Picture | What it shows |
 |---|---|
-| ![MW 738 kHz](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/mw.png) | Medium wave, 738 kHz. No RDS, so the name line is `---` and the text line is the date. Muted, so `V:MUTE` is red. Low battery in red, Wi-Fi off |
+| ![MW 738 kHz](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/mw.png) | Medium wave, 738 kHz. No RDS, so the name line is `---` and the text line is the date. Muted, so the volume tile shows a speaker with a cross and `MUTE`, in red. Low battery in red, Wi-Fi off |
 | ![SW 9420 kHz](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/sw.png) | Shortwave, 9420 kHz in the `31 m` band, on preset P07 with the name `RADIO ROMANIA` |
 | ![FM squelched](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/fm-squelched.png) | Manual squelch at 15 dB, a weak 12 dBµV signal, and the volume in grey because the squelch holds the sound back |
 | ![FM logged](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/fm-logged.png) | `Logged 106.40` on the name line, just after a station log hold |

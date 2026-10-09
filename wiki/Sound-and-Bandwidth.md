@@ -11,7 +11,7 @@ The filter width sets how much of the band around the frequency the tuner lets t
 | FM, OIRT | Automatic, then 56, 64, 72, 84, 97, 114, 133, 151, 168, 184, 200, 217, 236, 254, 287, 311 kHz | Automatic |
 | LW, MW, SW | 3, 4, 6, 8 kHz | 4 kHz |
 
-**Automatic** is on FM and OIRT only: the tuner narrows the filter by itself when a strong station is next to it. The `BW:` tile shows `DYN` while it is automatic, and the width, such as `84k`, when it is fixed.
+**Automatic** is on FM and OIRT only: the tuner narrows the filter by itself when a strong station is next to it. The filter width tile, with the up and down arrow, shows `DYN` while it is automatic, and the width, such as `84k`, when it is fixed.
 
 Each band keeps its own width, over a power cycle too.
 
@@ -39,9 +39,9 @@ Over DX mode there is no AUTO tile, and the width you pick is DX mode's own, whi
 
 ## Volume and mute
 
-The volume knob sets the volume from -60 dB to 0 dB. See [Controls](Controls.md#the-volume-knob). The `V:` tile shows it, for example `V:-20dB`.
+The volume knob sets the volume from -60 dB to 0 dB. See [Controls](Controls.md#the-volume-knob). The volume tile, with the speaker, shows it, for example `-20dB`.
 
-There is no mute key on the radio. Mute is on the web page's Radio page, or `POST /api/mute on=1`. While muted, the `V:` tile shows `MUTE` in red.
+There is no mute key on the radio. Mute is on the web page's Radio page, or `POST /api/mute on=1`. While muted, the volume tile shows a speaker with a cross and `MUTE`, in red.
 
 **Audio > Mute Ramp** sets how long the sound fades before a mute, before the squelch closes, and around a change of filter width: 0 to 500 ms in steps of 10, 120 ms at the start. At 0 the sound is cut at once. A seek and a station scan do not use the ramp.
 
@@ -61,7 +61,7 @@ Squelch keeps the sound off while there is no station worth hearing. Set it at *
 | Squelch Level | Read only: the Manual level the volume knob set. `Off` until the knob has set one | |
 | Squelch Floor | Off, or 1 to 40 dBuV | 15 dBuV |
 
-The `SQ:` tile shows `OFF`, `AUTO`, or the Manual level such as `15dB`. While the squelch holds the sound back, the volume in the `V:` tile turns grey.
+The squelch tile, with the waves, shows `OFF`, `AUTO`, or the Manual level such as `15dB`. While the squelch holds the sound back, the volume in the volume tile turns grey.
 
 In Manual squelch the volume stays at the stored volume, -20 dB at the start, or what the web page or `/api/volume` set.
 

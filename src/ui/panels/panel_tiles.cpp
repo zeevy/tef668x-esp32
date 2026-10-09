@@ -3,12 +3,13 @@
  *
  * The same four on every band, in `rule` with a radius of 6, UI_GAP apart
  * and each as wide as a quarter of the row. The tuning mode is a value on
- * its own. SQ:, BW: and V: are a label in `dead` in the value's own face,
- * then the value in `radio` straight after the colon, centred together in
- * the tile. When a person has muted the radio, V: reads MUTE and both turn
+ * its own. The squelch, the filter width and the volume each have a symbol
+ * in `dead`, waves, an up and down arrow and a speaker, then the value in
+ * `radio` after it, centred together in the tile by the symbol's ink. When a person has muted
+ * the radio, the speaker gets a cross, the value reads MUTE and both turn
  * `fault`; while the squelch holds the sound, the volume turns `dead`. The
- * tile stays the same grey, so nothing but the words changes. The header has
- * no speaker, so this tile is the one place either shows.
+ * tile stays the same grey, so nothing but the symbol and the words change.
+ * The header has no speaker, so this tile is the one place either shows.
  */
 #include "../../core/strings.h"
 #include "../draw.h"
@@ -17,9 +18,11 @@
 #define TILE_COUNT 4
 /* The baseline, 20 rows down the 28 row tile. */
 #define TILE_BASE 20
+/* Between a tile's symbol and its value. */
+#define SYMBOL_GAP 3
 
 static PanelRect sAt;
-static lv_obj_t *sLabel[TILE_COUNT];
+static lv_obj_t *sSymbol[TILE_COUNT];
 static lv_obj_t *sValue[TILE_COUNT];
 
 static int16_t tileW(const PanelRect *at) {
@@ -34,48 +37,47 @@ static int16_t tileX(const PanelRect *at, int i) {
 static void begin(lv_obj_t *parent, const PanelRect *at) {
   sAt = *at;
   const Theme *t = themeCurrent();
-  /* STR_COUNT marks the tile with no label. */
-  static const StrId kNames[TILE_COUNT] = {STR_COUNT, STR_RADIO_SQL,
-                                           STR_RADIO_BW_TILE, STR_RADIO_VOL};
   for (int i = 0; i < TILE_COUNT; i++) {
     uiRound(parent, t->rule, tileX(&sAt, i), at->y, tileW(&sAt), at->h,
             UI_TILE_R);
-    sLabel[i] = uiLabel(parent, &roboto_small, t->dead);
-    if (kNames[i] != STR_COUNT) {
-      lv_label_set_text_static(sLabel[i], txt(kNames[i]));
-    }
-    uiShowIf(sLabel[i], kNames[i] != STR_COUNT);
+    sSymbol[i] = uiLabel(parent, &roboto_icons, t->dead);
     sValue[i] = uiLabel(parent, &roboto_small, t->radio);
   }
 }
 
-static void placeTile(int i, const char *value, ThemeColour label,
-                      ThemeColour colour) {
-  const bool hasLabel = i != 0;
+/* A tile's symbol, NULL for none, and its value after it, centred together
+ * by the symbol's ink and on the value's line. */
+static void placeTile(int i, const char *symbol, const char *value,
+                      ThemeColour symbolColour, ThemeColour colour) {
   const bool hasValue = value != NULL && value[0] != '\0';
   uiSetOrHide(sValue[i], hasValue ? value : NULL);
   uiSetColour(sValue[i], colour);
-  uiSetColour(sLabel[i], label);
-  const int16_t lw = hasLabel ? uiTextWidth(sLabel[i], &roboto_small) : 0;
+  uiShowIf(sSymbol[i], symbol != NULL);
+  int16_t sw = 0;
+  if (symbol != NULL) {
+    uiSetTextStatic(sSymbol[i], symbol);
+    uiSetColour(sSymbol[i], symbolColour);
+    sw = (int16_t)(uiIconInkWidth(symbol) + SYMBOL_GAP);
+  }
   const int16_t vw = hasValue ? uiTextWidth(sValue[i], &roboto_small) : 0;
-  int16_t x = (int16_t)(tileX(&sAt, i) + (tileW(&sAt) - lw - vw) / 2);
+  int16_t x = (int16_t)(tileX(&sAt, i) + (tileW(&sAt) - sw - vw) / 2);
   const int16_t base = (int16_t)(sAt.y + TILE_BASE);
-  if (hasLabel) {
-    uiBaseline(sLabel[i], &roboto_small, x, base);
-    x = (int16_t)(x + lw);
+  if (symbol != NULL) {
+    x = (int16_t)(uiPlaceIcon(sSymbol[i], symbol, x, uiIconTop(base)) +
+                  SYMBOL_GAP);
   }
   uiBaseline(sValue[i], &roboto_small, x, base);
 }
 
 static void show(const ScreenState *s) {
   const Theme *t = themeCurrent();
-  placeTile(0, s->tuneMode, t->dead, t->radio);
-  placeTile(1, s->squelchMode, t->dead, t->radio);
-  placeTile(2, s->filter, t->dead, t->radio);
+  placeTile(0, NULL, s->tuneMode, t->dead, t->radio);
+  placeTile(1, ICON_SQUELCH, s->squelchMode, t->dead, t->radio);
+  placeTile(2, ICON_WIDTH, s->filter, t->dead, t->radio);
   const bool muted = s->audio == SCREEN_AUDIO_MUTED;
   const bool held = s->audio == SCREEN_AUDIO_SQUELCHED;
-  placeTile(3, muted ? txt(STR_RADIO_MUTE) : s->volume,
-            muted ? t->fault : t->dead,
+  placeTile(3, muted ? ICON_VOLUME_OFF : ICON_VOLUME,
+            muted ? txt(STR_RADIO_MUTE) : s->volume, muted ? t->fault : t->dead,
             muted  ? t->fault
             : held ? t->dead
                    : t->radio);

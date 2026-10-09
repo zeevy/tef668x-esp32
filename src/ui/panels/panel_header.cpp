@@ -2,7 +2,7 @@
  * The header: on the left the menu symbol while a finger can use it, then
  * the band, with the metre band beside it on SW, and on the right one run
  * of, from the right, the clock, Wi-Fi, the battery and the sleep mark. No
- * speaker: the V: tile says when the radio is muted.
+ * speaker: the volume tile says when the radio is muted.
  *
  * No fill. Every item is centred on one line, 14 rows down: the band name
  * sits on baseline 21 and the rest on baseline 20, one row lower so that the

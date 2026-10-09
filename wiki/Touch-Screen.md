@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Web PIN, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The update offer is still worked with the knobs and the buttons, or from the web page. A touch does what a knob or a key does there, with two more: the V tile mutes, and a tap on the frequency opens the frequency keypad.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Web PIN, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The update offer is still worked with the knobs and the buttons, or from the web page. A touch does what a knob or a key does there, with two more: the volume tile mutes, and a tap on the frequency opens the frequency keypad.
 
 While Touch is On, a `<` before a screen's title marks that a tap on the title goes back, and a `>` after a page position such as `2/4` marks that a tap on it goes to the next page.
 
@@ -19,9 +19,9 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | The scale | Drag | Tunes as the scale moves with your finger: one mark for every 8 pixels, 100 kHz on FM and 10 kHz on AM, onto the nearest channel of the band, and never onto another band where two bands overlap. Drag to the left to go up, as when you slide a dial strip under a fixed pointer. Past the end of the band it goes round to the other end |
 | The scale | Tap | Opens the [band scope](Band-Scope.md) |
 | The tuning mode tile | Tap | The next tuning mode, as a tap of MODE |
-| The SQ tile | Tap | Opens **Squelch Mode** straight away. Save a choice with the knob, or go back, and you are on the radio screen again |
-| The BW tile | Tap | Opens the bandwidth page, as BW held |
-| The V tile | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
+| The squelch tile, with the waves | Tap | Opens **Squelch Mode** straight away. Save a choice with the knob, or go back, and you are on the radio screen again |
+| The filter width tile, with the up and down arrow | Tap | Opens the bandwidth page, as BW held |
+| The volume tile, with the speaker | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
 
 The line of radio text under the frequency panel is too thin to be a target, and does nothing.
 

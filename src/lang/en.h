@@ -301,16 +301,16 @@
   X(DX_SWEEPING, "Sweeping", "Result of a Scope press, `dxTaskSweepText()`; middle text on the Scope page during a sweep") \
   X(RADIO_FMT_TYPED, "%s-", "Typed digits on the radio screen with a hyphen cursor while more can follow") \
   X(COMMON_FMT_TUNE_TYPED, "Tune %s", "Header of the RDS screen and the DX pages while digits are typed: what ENTER will tune to") \
-  X(RADIO_FMT_VOL_DB, "%ddB", "V: tile value") \
-  X(RADIO_SQL_OFF, "OFF", "SQ: tile value") \
-  X(COMMON_AUTO, "AUTO", "SQ: tile value; tile text for the automatic width") \
-  X(RADIO_FMT_SQL_DB, "%ddB", "SQ: tile value in Manual squelch, the level the volume knob sets, in whole dB") \
-  X(RADIO_BW_DYN, "DYN", "BW tile value while the tuner picks the width") \
+  X(RADIO_FMT_VOL_DB, "%ddB", "Volume tile value") \
+  X(RADIO_SQL_OFF, "OFF", "Squelch tile value") \
+  X(COMMON_AUTO, "AUTO", "Squelch tile value; tile text for the automatic width") \
+  X(RADIO_FMT_SQL_DB, "%ddB", "Squelch tile value in Manual squelch, the level the volume knob sets, in whole dB") \
+  X(RADIO_BW_DYN, "DYN", "Filter width tile value while the tuner picks the width") \
   X(RADIO_TUNE_MANUAL, "MAN", "Tuning mode tile on the radio screen; the tile is 68 px wide and no mode is longer than AUTO") \
   X(RADIO_TUNE_AUTO, "AUTO", "Tuning mode cell on the radio screen, seek on a knob turn") \
   X(RADIO_TUNE_MEMORY, "MEM", "Tuning mode cell on the radio screen, the knob walks the presets") \
   X(RADIO_TUNE_METER, "MTR", "Tuning mode cell on the radio screen, the knob walks the SW metre bands") \
-  X(RADIO_FMT_BW_K, "%uk", "BW tile value, width in kHz") \
+  X(RADIO_FMT_BW_K, "%uk", "Filter width tile value, width in kHz") \
   X(COMMON_FMT_PERCENT, "%u%%", "Battery per cent on the web page") \
   X(RADIO_FMT_MEMORY_SLOT, "P%02d", "Preset slot mark on the radio screen") \
   X(RADIO_FMT_METER_BAND, "%u m", "Radio screen header, the SW metre band beside the band name") \
@@ -458,10 +458,7 @@
   X(RADIO_VEIL_UPDATING, "UPDATING FIRMWARE", "Caption on the OTA progress veil") \
   X(RADIO_VEIL_KEEP_POWER, "Do not remove power", "Foot line on the OTA progress veil") \
   X(THEME_CUSTOM, "Custom", "Name of the custom theme, shown as the Theme row value in the menu") \
-  X(RADIO_SQL, "SQ:", "Tile label on the radio screen, `kNames[]`, before the squelch value") \
-  X(RADIO_BW_TILE, "BW:", "Tile label on the radio screen, before the filter value") \
-  X(RADIO_VOL, "V:", "Tile label on the radio screen, before the volume") \
-  X(RADIO_MUTE, "MUTE", "V: tile value while a person has muted the radio") \
+  X(RADIO_MUTE, "MUTE", "Volume tile value while a person has muted the radio") \
   X(TUNER_OK, "OK", "Tuner error text, never shown because the fault is only drawn when the error is not OK") \
   X(TUNER_NO_TUNER_ON_THE_I2C_BUS, "Tuner not found on I2C bus", "Detail of the Tuner fault message") \
   X(TUNER_THE_TUNER_NEVER_BECAME_READY, "Tuner did not become ready", "Detail of the Tuner fault message") \
