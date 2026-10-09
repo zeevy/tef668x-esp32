@@ -349,7 +349,7 @@ static void every_other_address_is_refused(void) {
 static void with_the_setting_off_it_never_checks(void) {
   UpdateDue due;
   updateDueReset(&due);
-  UpdateDueInputs in = {false, true, false, false};
+  UpdateDueInputs in = {false, true, false, false, 0};
   for (int i = 0; i < 5; i++) {
     TEST_ASSERT_FALSE(updateDueStep(&due, &in));
   }
@@ -358,7 +358,7 @@ static void with_the_setting_off_it_never_checks(void) {
 static void it_waits_for_the_network_the_trial_and_a_quiet_radio(void) {
   UpdateDue due;
   updateDueReset(&due);
-  UpdateDueInputs in = {true, false, false, false};
+  UpdateDueInputs in = {true, false, false, false, 0};
   TEST_ASSERT_FALSE(updateDueStep(&due, &in));
   in.online = true;
   in.onTrial = true;
@@ -373,7 +373,7 @@ static void it_waits_for_the_network_the_trial_and_a_quiet_radio(void) {
 static void it_checks_once_per_start(void) {
   UpdateDue due;
   updateDueReset(&due);
-  UpdateDueInputs in = {true, true, false, false};
+  UpdateDueInputs in = {true, true, false, false, 0};
   TEST_ASSERT_TRUE(updateDueStep(&due, &in));
   TEST_ASSERT_FALSE(updateDueStep(&due, &in));
   TEST_ASSERT_FALSE(updateDueStep(&due, &in));
@@ -384,9 +384,90 @@ static void it_checks_once_per_start(void) {
 static void turning_the_setting_on_later_checks_in_the_same_start(void) {
   UpdateDue due;
   updateDueReset(&due);
-  UpdateDueInputs in = {false, true, false, false};
+  UpdateDueInputs in = {false, true, false, false, 0};
   TEST_ASSERT_FALSE(updateDueStep(&due, &in));
   in.enabled = true;
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+}
+
+static void a_failed_check_is_tried_again_ten_minutes_later(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  UpdateDueInputs in = {true, true, false, false, 5000};
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  updateDueFailed(&due, 13000);
+  in.nowMs = 13000 + UPDATE_RETRY_MS - 1;
+  TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+  in.nowMs = 13000 + UPDATE_RETRY_MS;
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+}
+
+static void a_retry_still_waits_for_a_quiet_radio(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  UpdateDueInputs in = {true, true, false, false, 0};
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  updateDueFailed(&due, 0);
+  in.nowMs = UPDATE_RETRY_MS;
+  in.busy = true;
+  TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+  in.busy = false;
+  in.nowMs = UPDATE_RETRY_MS + 60000;
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+}
+
+static void failed_checks_are_tried_again_three_times_in_a_start(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  UpdateDueInputs in = {true, true, false, false, 0};
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  for (int i = 0; i < UPDATE_RETRIES; i++) {
+    updateDueFailed(&due, in.nowMs);
+    in.nowMs += UPDATE_RETRY_MS;
+    TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  }
+  updateDueFailed(&due, in.nowMs);
+  in.nowMs += UPDATE_RETRY_MS;
+  TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+  updateDueReset(&due);
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+}
+
+static void a_retry_holds_across_the_clock_wrapping(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  UpdateDueInputs in = {true, true, false, false, UINT32_MAX - 1000};
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  updateDueFailed(&due, in.nowMs);
+  in.nowMs = 5000;
+  TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+  in.nowMs = UPDATE_RETRY_MS;
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+}
+
+static void a_retry_waits_through_weeks_offline(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  UpdateDueInputs in = {true, true, false, false, 0};
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+  updateDueFailed(&due, 0);
+  in.online = false;
+  for (uint32_t day = 0; day < 30; day++) {
+    in.nowMs = day * 86400000UL;
+    TEST_ASSERT_FALSE(updateDueStep(&due, &in));
+  }
+  in.online = true;
+  in.nowMs = 30UL * 86400000UL;
+  TEST_ASSERT_TRUE(updateDueStep(&due, &in));
+}
+
+static void a_failure_before_any_check_changes_nothing(void) {
+  UpdateDue due;
+  updateDueReset(&due);
+  updateDueFailed(&due, 1000);
+  updateDueFailed(NULL, 1000);
+  UpdateDueInputs in = {true, true, false, false, 1000};
   TEST_ASSERT_TRUE(updateDueStep(&due, &in));
 }
 
@@ -394,7 +475,7 @@ static void the_due_rule_does_nothing_with_a_null(void) {
   UpdateDue due;
   updateDueReset(&due);
   updateDueReset(NULL);
-  UpdateDueInputs in = {true, true, false, false};
+  UpdateDueInputs in = {true, true, false, false, 0};
   TEST_ASSERT_FALSE(updateDueStep(NULL, &in));
   TEST_ASSERT_FALSE(updateDueStep(&due, NULL));
 }
@@ -452,6 +533,12 @@ int main(int, char **) {
   RUN_TEST(it_waits_for_the_network_the_trial_and_a_quiet_radio);
   RUN_TEST(it_checks_once_per_start);
   RUN_TEST(turning_the_setting_on_later_checks_in_the_same_start);
+  RUN_TEST(a_failed_check_is_tried_again_ten_minutes_later);
+  RUN_TEST(a_retry_still_waits_for_a_quiet_radio);
+  RUN_TEST(failed_checks_are_tried_again_three_times_in_a_start);
+  RUN_TEST(a_retry_holds_across_the_clock_wrapping);
+  RUN_TEST(a_retry_waits_through_weeks_offline);
+  RUN_TEST(a_failure_before_any_check_changes_nothing);
   RUN_TEST(the_due_rule_does_nothing_with_a_null);
   RUN_TEST(sizes_show_in_megabytes_with_one_decimal);
   RUN_TEST(a_size_that_does_not_fit_writes_nothing);

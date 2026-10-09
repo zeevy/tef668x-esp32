@@ -10,7 +10,7 @@ Your settings, presets and station log stay as they are.
 
 Turn on **Check for Updates** in the menu at **System**, or on the web page's **Settings** page under **Updates**. It is off on a new radio.
 
-Once the radio is on your Wi-Fi, it looks once on GitHub for a newer release. It does this at every start, and also as soon as the menu closes after you turn the setting on. When it finds one, it offers it in a box on the screen. The box shows the version the radio runs now, the new version, the size of the download, and that your settings are kept:
+Once the radio is on your Wi-Fi, it looks once on GitHub for a newer release, and again later if that check fails. It does this at every start, and also as soon as the menu closes after you turn the setting on. When it finds one, it offers it in a box on the screen. The box shows the version the radio runs now, the new version, the size of the download, and that your settings are kept:
 
 ![Update available: this radio 0.1.0, new version 0.2.0, download 1.9 MB, settings kept, with the buttons Update and Later](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-update-offer.png)
 
@@ -23,7 +23,7 @@ After Later, the update stays in the menu: **System** then shows a row **Update 
 
 The radio waits to look until it is on your network (not on its own hotspot), a new firmware has passed its trial, and the radio screen is up on its own: no scan or sweep, no menu, DX mode, RDS page, bandwidth page or touch calibration, and no message on the screen. A check takes a few seconds. While it runs, the line under the frequency panel says `Checking for updates…` in place of the radio text, the radio goes on answering keys, and the System row says `Checking`. If you open the menu or another page before it ends, the offer waits until you are back on the radio screen. A station scan, a DX scan or a DX level sweep started during the check is refused (the menu says `Radio busy - try again`, the DX Scanner `Checking For Updates`), because the Wi-Fi sending raises the signal levels the radio reads; start it again when the check is over.
 
-![The radio screen with Checking for updates under the frequency panel](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/fm-checking-updates.png) If GitHub cannot be reached, no offer is shown, the System row says `Check failed`, and the radio tries again at the next start.
+![The radio screen with Checking for updates under the frequency panel](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/fm-checking-updates.png) If GitHub cannot be reached, no offer is shown, the System row says `Check failed`, and the radio tries again 10 minutes later, up to three times, while it is not busy, and then at the next start.
 
 Before it writes anything, the radio checks the release: it must be for this radio, from this repository's releases, and newer than the firmware it runs, and the download's size must match. The sha256 of the download is checked as it is written to the free slot; if it does not match, that slot is never used. Either way the old firmware keeps running. The usual rollback check runs on the new firmware too, as below.
 

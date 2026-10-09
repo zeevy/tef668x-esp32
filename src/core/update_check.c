@@ -379,6 +379,8 @@ bool updateUrlAllowed(const char *url) {
 void updateDueReset(UpdateDue *due) {
   if (due != NULL) {
     due->done = false;
+    due->retries = 0;
+    due->retryMs = 0;
   }
 }
 
@@ -386,11 +388,29 @@ bool updateDueStep(UpdateDue *due, const UpdateDueInputs *in) {
   if (due == NULL || in == NULL || due->done) {
     return false;
   }
+  /* Compared as a difference, so it holds across millis() wrapping, and
+   * moved up to now once it has passed, so a radio offline for weeks does
+   * not see it in the future again. */
+  if (due->retries > 0) {
+    if ((int32_t)(in->nowMs - due->retryMs) < 0) {
+      return false;
+    }
+    due->retryMs = in->nowMs;
+  }
   if (!in->enabled || !in->online || in->onTrial || in->busy) {
     return false;
   }
   due->done = true;
   return true;
+}
+
+void updateDueFailed(UpdateDue *due, uint32_t nowMs) {
+  if (due == NULL || !due->done || due->retries >= UPDATE_RETRIES) {
+    return;
+  }
+  due->retries++;
+  due->done = false;
+  due->retryMs = nowMs + UPDATE_RETRY_MS;
 }
 
 void updateFormatMegabytes(uint32_t bytes, char *out, size_t outLen) {
