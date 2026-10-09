@@ -62,15 +62,18 @@ LV_FONT_DECLARE(roboto_label)
 /*
  * The status symbols, out of Material Symbols Outlined rather than Roboto.
  *
- * Twenty three glyphs: the network symbol's six, which are joined with its
+ * Thirty three glyphs: the network symbol's six, which are joined with its
  * two partial strengths, trying to join, serving its own access point and
  * none of those, the tick and the cross the boot screen and the menus mark
  * with, the chevron on a menu row that opens a list, the four marks on the DX
  * page's PI tile, the NEW badge and the empty inbox of the DX Catches page,
  * the badge again on the update offer's title, the run and stopped marks of
  * the DX scanner, the four on the tiles of RDS
- * page 1 and the stereo mark in its header, and the person in bed that says
- * auto off is on, which alone is cut from the filled style.
+ * page 1 and the stereo mark in its header, the PC Link's computer, the
+ * waves, the up and down arrow and the speaker, with and without a cross, of
+ * the radio screen's tiles, the minus, plus, backspace and menu symbols of
+ * the touch screens, and the person in bed that says auto off is on, which
+ * alone is cut from the filled style.
  *
  * They live in their own face because they come from a different typeface,
  * and they are 16px, which is the smallest Material Symbols stays legible at

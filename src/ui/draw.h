@@ -133,6 +133,17 @@ int16_t uiRowTop(const lv_font_t *font, int16_t baselineY);
 int16_t uiIconTop(int16_t baselineY);
 
 /*
+ * A symbol placed by its ink rather than its box. The symbols are drawn to
+ * different widths in the same 16 px box, 6 px for the up and down arrow and
+ * 16 px for speech, so placing them by the box leaves uneven gaps before the
+ * words that follow. uiIconInkWidth is how wide the ink is; uiPlaceIcon puts
+ * the ink's left edge at `left`, the box's top at `top`, and returns where
+ * the ink ends. Every symbol is one three byte character.
+ */
+int16_t uiIconInkWidth(const char *icon);
+int16_t uiPlaceIcon(lv_obj_t *o, const char *icon, int16_t left, int16_t top);
+
+/*
  * Set a label, but only when the text has actually changed.
  *
  * `lv_label_set_text` does not compare. It frees the old string, mallocs a new

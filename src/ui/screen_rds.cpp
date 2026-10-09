@@ -139,26 +139,6 @@ static void buildStation(const Theme *t) {
   }
 }
 
-/* Puts a symbol so its ink, not its box, starts at `left`, and returns where
- * its ink ends. The symbols are drawn to different widths in the same box,
- * 10 px for traffic and 16 px for speech, so placing them by the box leaves
- * uneven gaps before their words. Every symbol is one three byte character. */
-static int16_t placeIcon(lv_obj_t *o, const char *icon, int16_t left,
-                         int16_t top) {
-  const uint8_t *b = (const uint8_t *)icon;
-  const uint32_t letter = ((uint32_t)(b[0] & 0x0F) << 12) |
-                          ((uint32_t)(b[1] & 0x3F) << 6) | (b[2] & 0x3F);
-  lv_font_glyph_dsc_t g;
-  int16_t ofs = 0;
-  int16_t w = UI_ICON_SIZE;
-  if (lv_font_get_glyph_dsc(&roboto_icons, &g, letter, 0)) {
-    ofs = g.ofs_x;
-    w = (int16_t)g.box_w;
-  }
-  lv_obj_set_pos(o, (int16_t)(left - ofs), top);
-  return (int16_t)(left + w);
-}
-
 /* A symbol tile, three ways: the symbol lit in the broadcast colour when
  * the station says yes, the word alone in the measurement colour when it
  * says no, and both dead when it has not said. The symbol starts where the
@@ -173,7 +153,7 @@ static void showChip(uint8_t i, const char *icon, const char *word,
   uiSetColour(sChipWord[i],
               state == SCREEN_RDS_UNKNOWN ? t->dead : t->measurement);
   const int16_t inkEnd =
-      placeIcon(sChipIcon[i], icon, left, uiIconTop(P1_CHIP_BASE));
+      uiPlaceIcon(sChipIcon[i], icon, left, uiIconTop(P1_CHIP_BASE));
   uiBaseline(sChipWord[i], &roboto_label, (int16_t)(inkEnd + P1_CHIP_ICON_GAP),
              P1_CHIP_BASE);
 }
@@ -246,7 +226,7 @@ static void showStation(const ScreenRds *r, const Theme *t) {
   uiSetColour(sDiIcon, r->stereo == SCREEN_RDS_YES ? t->broadcast : t->dead);
   const int16_t diX = (int16_t)(uiFrameTitleEnd(&sFrame) + UI_PAD);
   const int16_t diInkEnd =
-      placeIcon(sDiIcon, ICON_EQ, diX, uiIconTop(UI_HEAD_RUN_BASE));
+      uiPlaceIcon(sDiIcon, ICON_EQ, diX, uiIconTop(UI_HEAD_RUN_BASE));
   uiBaseline(sDiWord, &roboto_label, (int16_t)(diInkEnd + P1_CHIP_ICON_GAP),
              UI_HEAD_RUN_BASE);
 
