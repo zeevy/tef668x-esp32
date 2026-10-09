@@ -46,7 +46,7 @@ After five wrong PINs, signing in is locked for a minute.
 
 ## The update check says Check failed
 
-**System > Firmware Update** shows `Check failed` when the radio could not reach GitHub, or when the release it found was refused. It tries again at the next start.
+**System > Firmware Update** shows `Check failed` when the radio could not reach GitHub, or when the release it found was refused. It tries again 10 minutes later, up to three times, while the radio is not busy, and then at the next start.
 
 - The radio must reach the internet through your Wi-Fi.
 - A VPN or a firewall on the network can block `github.com` and `release-assets.githubusercontent.com`.

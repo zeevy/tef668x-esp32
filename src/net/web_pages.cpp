@@ -2183,8 +2183,14 @@ static String updateCard(void) {
       return out;
     case UPDATE_STATE_FAILED:
       out +=
-          F("<p class=warn>The check could not be made. It is tried "
-            "again at the next start.</p>");
+          F("<p class=warn>The check could not be made. It is tried again "
+            "in ");
+      out += String(UPDATE_RETRY_MS / 60000UL);
+      out += F(" minutes, up to ");
+      out += String(UPDATE_RETRIES);
+      out +=
+          F(" times while the radio is not busy, then at the next "
+            "start.</p>");
       return out;
     case UPDATE_STATE_OFF:
     default:

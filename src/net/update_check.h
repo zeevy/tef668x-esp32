@@ -27,7 +27,9 @@ typedef enum {
   UPDATE_STATE_NONE,     /* Checked: nothing newer, or no release at all. */
   UPDATE_STATE_FOUND,    /* Checked: a newer release for this board. */
   UPDATE_STATE_FAILED    /* The check could not be made, or the manifest was
-                           refused. Tried again at the next start. */
+                           refused. Tried again UPDATE_RETRY_MS later, up to
+                           UPDATE_RETRIES times in a start, then at the
+                           next start. */
 } UpdateState;
 
 /* What asking for the install led to. */

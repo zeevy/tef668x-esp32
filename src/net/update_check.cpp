@@ -241,6 +241,7 @@ static void startCheck(void) {
                               UPDATE_TASK_CORE) != pdPASS) {
     DebugLog.println(F("[update] no memory for the check"));
     sState = UPDATE_STATE_FAILED;
+    updateDueFailed(&sDue, millis());
     return;
   }
   sChecking = true;
@@ -254,6 +255,9 @@ static void takeCheck(void) {
   }
   sChecking = false;
   sState = sCheckResult;
+  if (sState == UPDATE_STATE_FAILED) {
+    updateDueFailed(&sDue, millis());
+  }
   if (sState == UPDATE_STATE_FOUND) {
     sManifest = sCheckFound;
     sOfferDue = true;
@@ -377,10 +381,12 @@ void updateCheckLoop(bool busy) {
   }
   const UpdateDueInputs in = {sSettings->updateCheck != 0,
                               wifiState() == WIFI_STATE_ONLINE,
-                              rollbackPending(), busy};
+                              rollbackPending(), busy, millis()};
   if (sState == UPDATE_STATE_OFF && in.enabled) {
     sState = UPDATE_STATE_WAITING;
-  } else if (sState == UPDATE_STATE_WAITING && !in.enabled) {
+  } else if ((sState == UPDATE_STATE_WAITING ||
+              sState == UPDATE_STATE_FAILED) &&
+             !in.enabled) {
     sState = UPDATE_STATE_OFF;
   }
   if (updateDueStep(&sDue, &in)) {

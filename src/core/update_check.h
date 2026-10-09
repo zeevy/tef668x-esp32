@@ -104,21 +104,39 @@ typedef struct {
   bool online;  /* Joined to the network, not serving its own hotspot. */
   bool onTrial; /* A new firmware is still proving itself. */
   bool busy;    /* A scan, a sweep, the menu or a message screen is up. */
+  uint32_t nowMs;
 } UpdateDueInputs;
 
-/* Remembers that the check of this start has been made. */
+/*
+ * A failed check is tried again this long after, as long as the radio is
+ * quiet then, and this many times in one start. A check fails when the
+ * network drops, or when heavy use leaves too little memory for HTTPS to
+ * check GitHub's certificate. Ten minutes lets a burst of sweeps or a scan
+ * end; three tries cover half an hour.
+ */
+#define UPDATE_RETRY_MS (10UL * 60UL * 1000UL)
+#define UPDATE_RETRIES 3
+
+/* Remembers whether the check of this start has been made, and its tries. */
 typedef struct {
   bool done;
+  uint8_t retries;  /* Failed checks tried again so far. */
+  uint32_t retryMs; /* When the next try may start, while one is waiting. */
 } UpdateDue;
 
 void updateDueReset(UpdateDue *due);
 
 /*
  * Whether to check now. True once per start, the first time the setting is
- * on, the radio is online, no update is on trial and nothing is busy. A
- * check that fails is not tried again until the next start.
+ * on, the radio is online, no update is on trial and nothing is busy, and
+ * again after a failed check, under the same rule, UPDATE_RETRY_MS after
+ * it, up to UPDATE_RETRIES times.
  */
 bool updateDueStep(UpdateDue *due, const UpdateDueInputs *in);
+
+/* A check that failed, at `nowMs`: a try is due after UPDATE_RETRY_MS while
+ * any are left. */
+void updateDueFailed(UpdateDue *due, uint32_t nowMs);
 
 /* "1.7" for 1,714,848 bytes: megabytes of a million bytes, one decimal,
  * rounded. Writes "" into an `out` too small or NULL. */
