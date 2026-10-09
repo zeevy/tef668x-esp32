@@ -54,9 +54,9 @@ With Touch On, a tap on the scale opens the [band scope](Band-Scope.md), and a d
 | Tile | Values | What it means |
 |---|---|---|
 | Tuning mode | `MAN`, `AUTO`, `MEM`, `MTR` | What a turn of the tuning knob does. See [Tuning](Tuning.md#tuning-modes) |
-| `SQ:` | `OFF`, `AUTO`, or a level such as `15dB` | Squelch off, automatic, or Manual at that level, set with the volume knob |
-| `BW:` | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM and OIRT |
-| `V:` | `-6dB`, or `MUTE` | The volume. `MUTE` shows in red. The value turns grey while the squelch holds the sound back |
+| Squelch, with waves | `OFF`, `AUTO`, or a level such as `15dB` | Squelch off, automatic, or Manual at that level, set with the volume knob |
+| Filter width, with an up and down arrow | `DYN`, or a width such as `84k` or `6k` | The filter width. `DYN` means the tuner picks the width by itself, on FM and OIRT |
+| Volume, with a speaker | `-6dB`, or `MUTE` | The volume. While muted the speaker gets a cross and it reads `MUTE`, both in red. The value turns grey while the squelch holds the sound back |
 
 ## Other bands and states
 

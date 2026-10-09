@@ -126,8 +126,8 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
    * Why there is no sound, rather than only whether there is.
    *
    * A person muting the radio and the squelch holding the audio down both
-   * mean silence, and the V: tile says which. Without that a squelched radio
-   * looks like a broken one.
+   * mean silence, and the volume tile says which. Without that a squelched
+   * radio looks like a broken one.
    */
   state.audio = snap.settings.muted ? SCREEN_AUDIO_MUTED
                 : !snap.squelchOpen ? SCREEN_AUDIO_SQUELCHED

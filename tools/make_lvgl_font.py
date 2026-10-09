@@ -107,6 +107,10 @@ ICON_CODEPOINTS = (
     ("computer", 0xE30A, "a PC connected over the PC Link, in the radio"
      " screen's header"),
     ("graphic_eq", 0xE1B8, "the station's decoder bits, DI, stereo or mono"),
+    ("waves", 0xE176, "the squelch tile on the radio screen"),
+    ("height", 0xEA16, "the filter width tile on the radio screen"),
+    ("volume_down", 0xE04D, "the volume tile on the radio screen"),
+    ("no_sound", 0xE710, "the volume tile while the radio is muted"),
 )
 ICONS = ",".join("0x%04X" % c for _, c, _ in ICON_CODEPOINTS)
 

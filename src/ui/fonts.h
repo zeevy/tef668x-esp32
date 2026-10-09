@@ -113,6 +113,10 @@ LV_FONT_DECLARE(roboto_icons)
 #define ICON_SPEECH "\xEE\xA4\x9F"       /* U+E91F record_voice_over */
 #define ICON_COMPUTER "\xEE\x8C\x8A"     /* U+E30A computer */
 #define ICON_EQ "\xEE\x86\xB8"           /* U+E1B8 graphic_eq */
+#define ICON_SQUELCH "\xEE\x85\xB6"      /* U+E176 waves */
+#define ICON_WIDTH "\xEE\xA8\x96"        /* U+EA16 height */
+#define ICON_VOLUME "\xEE\x81\x8D"       /* U+E04D volume_down */
+#define ICON_VOLUME_OFF "\xEE\x9C\x90"   /* U+E710 no_sound */
 #define ICON_SLEEP "\xEE\x94\xBA"        /* U+E53A hotel, filled */
 
 #ifdef __cplusplus
