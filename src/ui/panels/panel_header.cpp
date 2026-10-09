@@ -20,11 +20,11 @@
 #define RUN_BASE 20
 /* The line every item is centred on. */
 #define CENTRE_Y 14
-/* The menu symbol's zone, from the edge, as wide as the 38 px floor a
- * target needs. The band name sits the header's usual gap after the symbol,
- * so the zone takes the first 2 px of the name's box, one or two columns of
- * its first letter; a tap on the name lands well right of them. */
-#define MENU_ZONE_W 38
+/* The menu symbol's zone, from the edge, as wide as a target is made. The
+ * band name sits the header's usual gap after the symbol, so the zone takes
+ * the first 2 px of the name's box, one or two columns of its first letter;
+ * a tap on the name lands well right of them. */
+#define MENU_ZONE_W TOUCH_ZONE_MIN_W
 #define BAND_AFTER_MENU_X (UI_MARGIN + UI_ICON_SIZE + UI_GAP)
 static_assert(MENU_ZONE_W - BAND_AFTER_MENU_X <= 2,
               "the menu symbol's zone must not reach further into the name");
@@ -64,6 +64,8 @@ static lv_obj_t *sClock;
 static lv_obj_t *sMenu;
 /* The menu symbol is drawn, so the header's zones make room for it. */
 static bool sMenuShown;
+/* Where the band name ends, the metre band beside it included. */
+static int16_t sBandEnd;
 
 /* Top of an icon's box, so its ink is centred on the header's line. */
 static int16_t iconTop(void) {
@@ -124,13 +126,18 @@ static void show(const ScreenState *s) {
   }
   uiSetOrHide(sBand, s->band);
   uiBaseline(sBand, &roboto_title, left, (int16_t)(sAt.y + BAND_BASE));
+  /* A hidden label keeps its old text, so a width counts only when shown. */
+  const bool bandShown = s->band != NULL && s->band[0] != '\0';
+  sBandEnd =
+      (int16_t)(left + (bandShown ? uiTextWidth(sBand, &roboto_title) : 0));
   /* In the clock's face and grey, so it reads as a note on the band rather
    * than as a second band name. */
   uiSetOrHide(sMeterBand, s->meterBand);
-  if (s->meterBand != NULL) {
-    uiBaseline(sMeterBand, &roboto_small,
-               (int16_t)(left + uiTextWidth(sBand, &roboto_title) + UI_GAP),
+  if (s->meterBand != NULL && s->meterBand[0] != '\0') {
+    uiBaseline(sMeterBand, &roboto_small, (int16_t)(sBandEnd + UI_GAP),
                (int16_t)(sAt.y + RUN_BASE));
+    sBandEnd =
+        (int16_t)(sBandEnd + UI_GAP + uiTextWidth(sMeterBand, &roboto_small));
   }
 
   int16_t right = (int16_t)(sAt.x + sAt.w - UI_MARGIN);
@@ -243,24 +250,27 @@ static void show(const ScreenState *s) {
   }
 }
 
-/* The menu symbol, while it is drawn, and the status half, which open the
- * menu as the knob's press does, and between them the band name, which
- * steps the band as BAND does. */
+/* The menu symbol, while it is drawn, which opens the menu as the knob's
+ * press does, and the band name after it, which steps the band as BAND does,
+ * to half a target's width past its last letter, since taps landed up to
+ * 18 px from where they were aimed. The rest of the header, the status
+ * marks and the clock, takes no touch: a tap there means nothing. */
 static int zones(const PanelRect *at, TouchZone *out, int max) {
   const int16_t menuW = sMenuShown ? MENU_ZONE_W : 0;
-  const int n = sMenuShown ? 3 : 2;
+  const int n = sMenuShown ? 2 : 1;
   if (max < n) {
     return 0;
   }
-  const int16_t half = (int16_t)(at->w / 2);
   int i = 0;
   if (sMenuShown) {
     out[i++] = {at->x, at->y, menuW, at->h, RADIO_ZONE_MENU};
   }
-  out[i++] = {(int16_t)(at->x + menuW), at->y, (int16_t)(half - menuW), at->h,
-              RADIO_ZONE_BAND};
-  out[i++] = {(int16_t)(at->x + half), at->y, (int16_t)(at->w - half), at->h,
-              RADIO_ZONE_MENU};
+  const int16_t from = (int16_t)(at->x + menuW);
+  int16_t w = (int16_t)(sBandEnd + TOUCH_ZONE_MIN_W / 2 - from);
+  if (w < TOUCH_ZONE_MIN_W) {
+    w = TOUCH_ZONE_MIN_W;
+  }
+  out[i++] = {from, at->y, w, at->h, RADIO_ZONE_BAND};
   return n;
 }
 

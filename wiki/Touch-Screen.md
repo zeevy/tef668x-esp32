@@ -11,8 +11,8 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | Where | Touch | Does |
 |---|---|---|
 | The menu symbol, four lines at the top left | Tap | Opens the menu, as a press of the tuning knob |
-| The band name, from the menu symbol to the middle of the top line | Tap | The next band, as a tap of BAND |
-| The right half of the top line | Tap | Opens the menu too |
+| The band name, and the metre band beside it on SW | Tap | The next band, as a tap of BAND |
+| The rest of the top line: the status marks and the clock | Tap | Nothing |
 | The station name, the upper part of the frequency panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
 | The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
 | Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |

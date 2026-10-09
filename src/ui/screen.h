@@ -1004,8 +1004,8 @@ void screenShow(const ScreenState *state);
 
 /* The parts of the radio screen a touch can act on. */
 typedef enum {
-  RADIO_ZONE_BAND = 1, /* The band name, from the menu symbol to the middle. */
-  RADIO_ZONE_MENU,     /* The menu symbol, and the header's right half. */
+  RADIO_ZONE_BAND = 1, /* The band name, at least TOUCH_ZONE_MIN_W wide. */
+  RADIO_ZONE_MENU,     /* The menu symbol. */
   RADIO_ZONE_NAME,     /* The frequency panel's upper part: the name. */
   RADIO_ZONE_SCALE,    /* The tuning scale, which follows a drag. */
   RADIO_ZONE_MODE,     /* The four tiles, left to right. */

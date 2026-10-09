@@ -572,13 +572,6 @@ static void sceneNothing(ScreenState *s) {
   s->tunerReady = true;
 }
 
-/*
- * The smallest target a touch is given: every tap measured on this glass
- * landed inside a target 28 pixels tall, and all but one inside one 38 wide.
- */
-#define ZONE_MIN_W 38
-#define ZONE_MIN_H 28
-
 /* The run ends with a failure when two of a screen's zones share a pixel,
  * when one is smaller than the targets measured to hold a tap, or when one
  * reaches past the panel. `name` says which screen. */
@@ -586,8 +579,8 @@ static void checkZones(const TouchZone *zones, int n, const char *name) {
   bool bad = !touchZonesValid(zones, n);
   for (int i = 0; i < n; i++) {
     const TouchZone *z = &zones[i];
-    if (z->w < ZONE_MIN_W || z->h < ZONE_MIN_H || z->x < 0 || z->y < 0 ||
-        z->x + z->w > W || z->y + z->h > H) {
+    if (z->w < TOUCH_ZONE_MIN_W || z->h < TOUCH_ZONE_MIN_H || z->x < 0 ||
+        z->y < 0 || z->x + z->w > W || z->y + z->h > H) {
       fprintf(stderr, "%s: zone %d at %d,%d is %d by %d\n", name, z->id, z->x,
               z->y, z->w, z->h);
       bad = true;
@@ -1455,12 +1448,15 @@ int main(int argc, char **argv) {
   for (size_t i = 0; i < sizeof(scenes) / sizeof(scenes[0]); i++) {
     snprintf(path, sizeof(path), "%s/%s.bmp", dir, scenes[i].name);
     render(scenes[i].scene, path);
+    /* The zones of every scene in this list are checked, since the band
+     * name's zone follows the name; the FM picture's are drawn too. */
+    TouchZone zones[TOUCH_ZONES_MAX];
+    const int n = screenRadioZones(zones, TOUCH_ZONES_MAX);
     if (i == 0) {
-      /* The radio screen's touch zones over the FM picture. */
-      TouchZone zones[TOUCH_ZONES_MAX];
-      const int n = screenRadioZones(zones, TOUCH_ZONES_MAX);
       snprintf(path, sizeof(path), "%s/touch-radio.bmp", dir);
       saveZones(zones, n, path);
+    } else {
+      checkZones(zones, n, scenes[i].name);
     }
   }
   /* Auto off on: the sleep mark left of the speaker, grey, and in radio for

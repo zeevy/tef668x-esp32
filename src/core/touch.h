@@ -141,6 +141,11 @@ typedef struct {
  * header, with room over. */
 #define TOUCH_ZONES_MAX 24
 
+/* The smallest target a touch is given: every tap measured on this glass
+ * landed inside a target 28 pixels tall, and all but one inside one 38 wide. */
+#define TOUCH_ZONE_MIN_W 38
+#define TOUCH_ZONE_MIN_H 28
+
 /* What touchZoneAt gives for a point in no zone. Not a uint8_t, so no
  * zone's id can be mistaken for it. */
 #define TOUCH_NO_ZONE (-1)
