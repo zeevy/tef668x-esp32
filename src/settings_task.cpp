@@ -1,5 +1,6 @@
 /* Implementation of keeping the stored settings up to date. */
 #include "settings_task.h"
+#include "debug_log.h"
 
 #include "band_scan_task.h"
 #include "core/autosave.h"
@@ -232,12 +233,12 @@ static bool writeSettings(const Settings *candidate, uint32_t nowMs) {
   autoSaveDone(&sWhen, nowMs);
   if (!settingsValid(candidate)) {
     sStatus.lastFailed = true;
-    Serial.println(F("[settings] what the radio is set to cannot be stored"));
+    DebugLog.println(F("[settings] what the radio is set to cannot be stored"));
     return false;
   }
   if (!settingsNvsSave(candidate)) {
     sStatus.lastFailed = true;
-    Serial.println(F("[settings] the save could not be written"));
+    DebugLog.println(F("[settings] the save could not be written"));
     return false;
   }
   *sLive = *candidate;
@@ -253,7 +254,7 @@ static bool writeSettings(const Settings *candidate, uint32_t nowMs) {
 static void logSaved(const char *how, const Settings *s) {
   char text[24];
   bandFormatWithUnit((BandId)s->startBand, s->startFreqKHz, text, sizeof(text));
-  Serial.printf("[settings] saved %s, %s\n", how, text);
+  DebugLog.printf("[settings] saved %s, %s\n", how, text);
 }
 
 void settingsTaskSaveNow(void) {
@@ -262,14 +263,15 @@ void settingsTaskSaveNow(void) {
   }
   Settings candidate;
   if (!settingsBuildCandidate(sLive, &candidate, NULL)) {
-    Serial.println(F("[settings] the radio could not be read, nothing saved"));
+    DebugLog.println(
+        F("[settings] the radio could not be read, nothing saved"));
     return;
   }
   if (memcmp(&candidate, sLive, sizeof(Settings)) == 0) {
     /* Already stored. Saying so is worth a line: "nothing saved" and
      * "nothing to save" look the same from outside and mean opposite
      * things. */
-    Serial.println(F("[settings] already stored, nothing to write"));
+    DebugLog.println(F("[settings] already stored, nothing to write"));
     return;
   }
   if (writeSettings(&candidate, millis())) {

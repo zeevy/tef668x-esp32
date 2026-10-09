@@ -5,6 +5,7 @@
  */
 
 #include "web_update.h"
+#include "debug_log.h"
 
 #include "web_internal.h"
 
@@ -89,15 +90,15 @@ static void handleUploadData(void) {
     sUploadEnded = false;
     sUploadWritten = false;
     if (sUploadRejected) {
-      Serial.printf("[web] upload refused, no PIN, from %s\n",
-                    sWeb->server.client().remoteIP().toString().c_str());
+      DebugLog.printf("[web] upload refused, no PIN, from %s\n",
+                      sWeb->server.client().remoteIP().toString().c_str());
       return;
     }
-    Serial.printf("[web] upload started: %s\n", upload.filename.c_str());
+    DebugLog.printf("[web] upload started: %s\n", upload.filename.c_str());
     sUploadTotal = sWeb->server.clientContentLength();
     firmwareWriteBegin();
     if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
-      Update.printError(Serial);
+      Update.printError(DebugLog);
       /* Marked and left. The radio and the panel are given back at the end of
        * the transfer and nowhere else, for the reason written over the end
        * branch below. */
@@ -120,7 +121,7 @@ static void handleUploadData(void) {
       return;
     }
     if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-      Update.printError(Serial);
+      Update.printError(DebugLog);
       sUploadFailed = true;
       return;
     }
@@ -159,14 +160,14 @@ static void handleUploadData(void) {
       return;
     }
     if (Update.end(true)) {
-      Serial.printf("[web] upload finished, %u bytes written\n",
-                    (unsigned)upload.totalSize);
+      DebugLog.printf("[web] upload finished, %u bytes written\n",
+                      (unsigned)upload.totalSize);
       /* Held until the reboot, which `handleUploadDone` asks for once the
        * reply is out. */
       sUploadWritten = true;
       firmwareWriteEnd(true);
     } else {
-      Update.printError(Serial);
+      Update.printError(DebugLog);
       firmwareWriteEnd(false);
     }
     return;
@@ -187,7 +188,7 @@ static void handleUploadData(void) {
       return;
     }
     Update.abort();
-    Serial.println("[web] upload aborted");
+    DebugLog.println("[web] upload aborted");
     firmwareWriteEnd(false);
   }
 }
@@ -353,7 +354,7 @@ void webLoop(void) {
       dropSession();
       sWeb->server.stop();
     }
-    Serial.println(wanted ? F("[web] listening") : F("[web] off"));
+    DebugLog.println(wanted ? F("[web] listening") : F("[web] off"));
   }
   if (!sListening) {
     return;
@@ -381,7 +382,7 @@ void webLoop(void) {
 
   if (sWeb->rebootAfterReply) {
     sWeb->rebootAfterReply = false;
-    Serial.println("[web] rebooting on request");
+    DebugLog.println("[web] rebooting on request");
     Serial.flush();
     /* The firmware upload sets the same flag. Its save in here writes
      * nothing, because the radio has been parked since the transfer started

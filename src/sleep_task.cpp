@@ -1,5 +1,6 @@
 /* Auto off and Sleep Now, joined to the input, the radio and the panel. */
 #include "sleep_task.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 
@@ -69,7 +70,7 @@ static bool keptAwake(void) {
 }
 
 static void goToSleep(const char *why) {
-  Serial.printf("[sleep] %s, going to sleep\n", why);
+  DebugLog.printf("[sleep] %s, going to sleep\n", why);
   uiSetSleepMark(UI_SLEEP_NONE);
   settingsTaskStop();
   /* The radio task is parked by the stop, so nothing else is on the bus. */
@@ -87,8 +88,8 @@ static void beginSleep(const char *why, uint32_t nowMs) {
   sGoingAtMs = nowMs;
   sGoingActivity = inputActivity();
   sGoingWhy = why;
-  Serial.printf("[sleep] %s, going to sleep in %lu ms\n", why,
-                (unsigned long)SLEEP_MESSAGE_MS);
+  DebugLog.printf("[sleep] %s, going to sleep in %lu ms\n", why,
+                  (unsigned long)SLEEP_MESSAGE_MS);
   screenTaskSleepShow(true);
   /* The sound goes with the message, over the same few seconds. After auto
    * off's own fade it is already down. */
@@ -102,7 +103,7 @@ void sleepTaskPoll(void) {
     if (inputActivity() != sGoingActivity || keptAwake()) {
       /* Touched while it said it was going: it stays awake, and the count
        * starts again below. */
-      Serial.println(F("[sleep] touched, staying awake"));
+      DebugLog.println(F("[sleep] touched, staying awake"));
       sGoing = false;
       sSleepAsked = false;
       screenTaskSleepShow(false);

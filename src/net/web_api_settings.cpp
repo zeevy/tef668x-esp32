@@ -1,6 +1,7 @@
 /*
  * The control API: the stored settings: what is stored, and changing it.
  */
+#include "debug_log.h"
 #include "web_api_internal.h"
 #include "web_internal.h"
 
@@ -419,7 +420,7 @@ static void handleApiSettingsPost(void) {
                 : F("PIN changed. Sign in again.");
   }
   if (wantWifi) {
-    Serial.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
+    DebugLog.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
     if (said.length() > 0) {
       said += F(" ");
     }

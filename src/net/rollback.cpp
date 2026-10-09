@@ -1,5 +1,6 @@
 /* Implementation of the pending verify self check. */
 #include "rollback.h"
+#include "debug_log.h"
 
 #include "restart_reason.h"
 
@@ -63,17 +64,17 @@ void rollbackTick(bool healthy) {
     if (err == ESP_OK) {
       sMarkedGood = true;
       sPending = false;
-      Serial.println("[rollback] self check passed, image marked good");
+      DebugLog.println("[rollback] self check passed, image marked good");
       return;
     }
     /* The mark failed, which usually means otadata could not be written.
      * Fall through to the timeout rather than sitting on trial forever. */
-    Serial.printf("[rollback] could not mark the image good: %s\n",
-                  esp_err_to_name(err));
+    DebugLog.printf("[rollback] could not mark the image good: %s\n",
+                    esp_err_to_name(err));
   }
 
   if (now - sStartedMs >= ROLLBACK_VERIFY_TIMEOUT_MS) {
-    Serial.println(
+    DebugLog.println(
         "[rollback] self check did not pass in time, going back to "
         "the previous image");
     Serial.flush();

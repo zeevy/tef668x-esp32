@@ -1,5 +1,6 @@
 /* Implementation of the radio task, its queue and its snapshot. */
 #include "radio_task.h"
+#include "debug_log.h"
 
 #include "band_scan_task.h"
 #include "core/agc.h"
@@ -2328,7 +2329,7 @@ void radioHush(void) {
      * on its way to a reboot and none of them can do anything about it. A
      * shared bus for a round is a reading that comes back wrong, not a radio
      * that breaks. */
-    Serial.println(F("[radio] the task did not park in time, carrying on"));
+    DebugLog.println(F("[radio] the task did not park in time, carrying on"));
   }
 
   int8_t from = sLastPushedVolume;

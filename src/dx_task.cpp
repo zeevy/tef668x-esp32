@@ -1,5 +1,6 @@
 /* The DX session. See dx_task.h. */
 #include "dx_task.h"
+#include "debug_log.h"
 
 #include "band_scan_task.h"
 #include "core/band_plan.h"
@@ -72,7 +73,7 @@ static LogbookWrite writeLog(void *ctx, const LogbookEntry *e) {
   }
   const LogbookWrite w = logbookFsAppend(&entry);
   if (w == LOGBOOK_NOT_WRITTEN) {
-    Serial.println(F("[dx] a catch could not be written to the log"));
+    DebugLog.println(F("[dx] a catch could not be written to the log"));
   }
   return w;
 }
@@ -92,7 +93,7 @@ static void saveSeenIfDirty(bool evenIfTried) {
   if (dxSeenFsSave(&sSession->seen)) {
     sSession->seenDirty = false;
   } else {
-    Serial.println(F("[dx] the seen PIs could not be saved"));
+    DebugLog.println(F("[dx] the seen PIs could not be saved"));
   }
 }
 
@@ -324,7 +325,7 @@ static void watchFlag(uint32_t khz, int16_t rise) {
   if (sSetup.beep) {
     radioBeep(DX_WATCH_BEEP_MS);
   }
-  Serial.printf("[dx] watch: %s\n", text);
+  DebugLog.printf("[dx] watch: %s\n", text);
 }
 
 /* The watch's turn in a DX page poll: read the check that came back, or
@@ -501,7 +502,7 @@ static void sweepEnsure(void) {
     /* Zeroed is no sweep and no baseline. */
     sSweep = (SweepStore *)calloc(1, sizeof(*sSweep));
     if (sSweep == NULL) {
-      Serial.println(F("[dx] no memory for the level sweep"));
+      DebugLog.println(F("[dx] no memory for the level sweep"));
       return;
     }
     /* Somewhere new each boot, so a page left open over a restart does
@@ -561,7 +562,7 @@ static void sweepPoll(void) {
   sSweep->revision++;
   DxSweepHistory *h = (DxSweepHistory *)malloc(sizeof(*h));
   if (h == NULL) {
-    Serial.println(F("[dx] no memory to keep the sweep"));
+    DebugLog.println(F("[dx] no memory to keep the sweep"));
     if (!sSweep->baseFixed) {
       sSweep->baseN = 0;
     }
@@ -573,7 +574,7 @@ static void sweepPoll(void) {
   }
   dxSweepKeep(h, s);
   if (!dxSweepFsSave(DX_SWEEP_PATH, h)) {
-    Serial.println(F("[dx] the sweep could not be saved"));
+    DebugLog.println(F("[dx] the sweep could not be saved"));
   }
   free(h);
 }
@@ -618,7 +619,7 @@ static void timingEnd(void) {
   char line[96];
   const size_t n = dxTimingCsvLine(&sTiming, utc, line, sizeof(line));
   if (n == 0 || n >= sizeof(line) || !dxTimingFsAppend(line)) {
-    Serial.println(F("[dx] an RDS time could not be written"));
+    DebugLog.println(F("[dx] an RDS time could not be written"));
   }
 }
 
@@ -928,13 +929,13 @@ void dxTaskRestart(void) {
     /* Zeroed is an idle scan. */
     sScanStore = (ScanStore *)calloc(1, sizeof(*sScanStore));
     if (sScanStore == NULL) {
-      Serial.println(F("[dx] no memory for the scanner"));
+      DebugLog.println(F("[dx] no memory for the scanner"));
     }
   }
   if (sSession == NULL) {
     sSession = (DxSession *)malloc(sizeof(*sSession));
     if (sSession == NULL) {
-      Serial.println(F("[dx] no memory for the catches"));
+      DebugLog.println(F("[dx] no memory for the catches"));
       return;
     }
     dxSessionReset(sSession);
@@ -948,7 +949,7 @@ void dxTaskRestart(void) {
   if (sWatch == NULL) {
     sWatch = (DxWatch *)calloc(1, sizeof(*sWatch));
     if (sWatch == NULL) {
-      Serial.println(F("[dx] no memory for the preset watch"));
+      DebugLog.println(F("[dx] no memory for the preset watch"));
     }
   } else {
     memset(sWatch, 0, sizeof(*sWatch));

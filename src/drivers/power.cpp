@@ -1,5 +1,6 @@
 /* Deep sleep and the knob that wakes it. */
 #include "power.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 #include <driver/gpio.h>
@@ -45,7 +46,7 @@ void powerDeepSleep(void) {
   }
   delay(POWER_SETTLE_MS);
 
-  Serial.println(F("[power] asleep until the knob is pressed"));
+  DebugLog.println(F("[power] asleep until the knob is pressed"));
   Serial.flush();
   esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_ENCODER_BUTTON, 0);
   esp_deep_sleep_start();

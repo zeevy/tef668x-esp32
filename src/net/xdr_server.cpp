@@ -1,5 +1,6 @@
 /*
- * The PC Link: XDR-GTK and FM-DX Webserver over TCP port 7373.
+ * The PC Link: XDR-GTK and FM-DX Webserver over TCP port 7373, and over the
+ * USB cable.
  *
  * Polled from loop() like the web server, with no task of its own. Every
  * command a PC sends goes to the radio through radioPost, the call the knob
@@ -15,8 +16,17 @@
  * lines do not fit is dropped. The Arduino client's own write would wait up
  * to ten seconds on a full socket, a phone that left the Wi-Fi, with the knob
  * and the panel stopped.
+ *
+ * The cable is one more PC, in the last place. It needs no PIN, since a
+ * person with the cable has the radio, and no setting: a session starts when
+ * x comes in on the serial port and ends with X. While it is on, the radio's
+ * own debug lines are kept off the port, where they would read as replies.
+ * A write to the cable waits for the port, at 115200 baud: a line of a few
+ * bytes goes at once, and the answer to a whole band's scan holds the loop
+ * about half a second.
  */
 #include "net/xdr_server.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 #include <errno.h>
@@ -54,8 +64,12 @@
 /* Room for the login line, 40 hex characters, and a carriage return. */
 #define XDR_READ_MAX (XDR_DIGEST_HEX + 4)
 
+/* The network PCs' places, then the cable's. */
+#define XDR_CABLE XDR_CLIENTS_MAX
+#define XDR_SLOTS (XDR_CLIENTS_MAX + 1)
+
 typedef struct {
-  int fd;      /* The socket, or -1 for a free slot. */
+  int fd;      /* The socket, or -1 for a free slot and for the cable. */
   uint32_t ip; /* Its address, as the socket gives it. */
   bool signedIn;
   bool started;       /* Sent x: it gets the signal and the RDS. */
@@ -93,7 +107,7 @@ typedef struct {
 } Told;
 
 typedef struct {
-  Pc pc[XDR_CLIENTS_MAX];
+  Pc pc[XDR_SLOTS];
   Told told;
   RadioSnapshot snap;
   RadioRdsRaw rds[RADIO_RDS_RAW_DEPTH];
@@ -102,7 +116,8 @@ typedef struct {
 } Link;
 
 static const Settings *sSettings = NULL;
-static Link *sLink = NULL; /* On the heap only while the port is open. */
+/* On the heap only while the port is open or a cable session is on. */
+static Link *sLink = NULL;
 static int sListen = -1;
 static bool sRetrying = false;
 static uint32_t sRetryFromMs = 0;
@@ -129,6 +144,10 @@ static int sScanBy = -1;
 static bool sScanRepeat = false;
 static bool sScanWaiting = false;
 static uint16_t sScanRev = 0;
+/* The cable's line as it comes in, before a session has a place for it. */
+static char sCableLine[XDR_READ_MAX];
+static uint8_t sCableLen = 0;
+static bool sCableOverlong = false;
 
 void xdrServerBegin(const Settings *settings) {
   sSettings = settings;
@@ -140,22 +159,26 @@ bool xdrServerListening(void) {
 
 uint8_t xdrServerClients(void) {
   uint8_t n = 0;
-  for (int i = 0; sLink != NULL && i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; sLink != NULL && i < XDR_SLOTS; i++) {
     n += sLink->pc[i].signedIn ? 1 : 0;
   }
   return n;
 }
 
 bool xdrServerClientAddress(uint8_t index, char *out, size_t cap) {
-  for (int i = 0; sLink != NULL && i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; sLink != NULL && i < XDR_SLOTS; i++) {
     const Pc *pc = &sLink->pc[i];
     if (!pc->signedIn) {
       continue;
     }
-    if (index-- == 0) {
-      struct in_addr at = {pc->ip};
-      return inet_ntoa_r(at, out, cap) != NULL;
+    if (index-- != 0) {
+      continue;
     }
+    if (i == XDR_CABLE) {
+      return snprintf(out, cap, "USB") < (int)cap;
+    }
+    struct in_addr at = {pc->ip};
+    return inet_ntoa_r(at, out, cap) != NULL;
   }
   return false;
 }
@@ -192,6 +215,9 @@ static void drop(Pc *pc) {
   if (pc->signedIn) {
     sUsersChanged = true;
   }
+  if (sLink != NULL && pc == &sLink->pc[XDR_CABLE]) {
+    DebugLog.quiet(false);
+  }
   pc->fd = -1;
   pc->signedIn = false;
   pc->started = false;
@@ -202,25 +228,61 @@ static void drop(Pc *pc) {
 /* Send the whole of `text` now or drop the PC: half a line is worse than
  * none, and waiting holds the loop. */
 static void sendAll(Pc *pc, const char *text, size_t len) {
-  if (pc->fd >= 0 && len > 0 &&
-      send(pc->fd, text, len, MSG_DONTWAIT) != (int)len) {
+  if (len == 0) {
+    return;
+  }
+  if (pc == &sLink->pc[XDR_CABLE]) {
+    if (pc->signedIn) {
+      Serial.write(reinterpret_cast<const uint8_t *>(text), len);
+    }
+    return;
+  }
+  if (pc->fd >= 0 && send(pc->fd, text, len, MSG_DONTWAIT) != (int)len) {
     drop(pc);
   }
 }
 
+/* The cable has no PIN, so it stays. */
 void xdrServerSignOutAll(void) {
   for (int i = 0; sLink != NULL && i < XDR_CLIENTS_MAX; i++) {
     drop(&sLink->pc[i]);
   }
 }
 
-static bool openPort(void) {
+static bool ensureLink(void) {
+  if (sLink != NULL) {
+    return true;
+  }
   sLink = static_cast<Link *>(calloc(1, sizeof(Link)));
   if (sLink == NULL) {
     return false;
   }
-  for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; i < XDR_SLOTS; i++) {
     sLink->pc[i].fd = -1;
+  }
+  sIntervalMs = XDR_INTERVAL_MIN_MS;
+  sNextLineMs = millis();
+  return true;
+}
+
+/* Back to nothing once the port is closed and no cable session is on. */
+static void releaseLink(void) {
+  free(sLink);
+  sLink = NULL;
+  sUsersChanged = false;
+  /* Nobody is left to answer, and the sweep keeps the radio muted. */
+  if (sScanBy >= 0 && !sScanWaiting) {
+    radioSweepCancel();
+  }
+  sScanBy = -1;
+  sScanRepeat = false;
+  sScanWaiting = false;
+  unmuteIfPcMuted();
+}
+
+static bool openPort(void) {
+  if (!ensureLink()) {
+    return false;
   }
   const int fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   struct sockaddr_in at = {};
@@ -235,37 +297,20 @@ static bool openPort(void) {
     if (fd >= 0) {
       close(fd);
     }
-    free(sLink);
-    sLink = NULL;
     return false;
   }
   sListen = fd;
-  sIntervalMs = XDR_INTERVAL_MIN_MS;
-  sNextLineMs = millis();
-  Serial.printf("[xdr] listening on %u\n", (unsigned)XDR_PORT);
+  DebugLog.printf("[xdr] listening on %u\n", (unsigned)XDR_PORT);
   return true;
 }
 
 static void closePort(void) {
-  for (int i = 0; sLink != NULL && i < XDR_CLIENTS_MAX; i++) {
-    drop(&sLink->pc[i]);
-  }
+  xdrServerSignOutAll();
   if (sListen >= 0) {
     close(sListen);
   }
   sListen = -1;
-  free(sLink);
-  sLink = NULL;
-  sUsersChanged = false;
-  /* Nobody is left to answer, and the sweep keeps the radio muted. */
-  if (sScanBy >= 0 && !sScanWaiting) {
-    radioSweepCancel();
-  }
-  sScanBy = -1;
-  sScanRepeat = false;
-  sScanWaiting = false;
-  unmuteIfPcMuted();
-  Serial.println(F("[xdr] closed"));
+  DebugLog.println(F("[xdr] closed"));
 }
 
 static void takeNewPcs(void) {
@@ -466,7 +511,7 @@ static void startScan(Pc *pc, bool repeat) {
                         : xdrScanRange(r.band, &plan, pc->scanFrom, pc->scanTo,
                                        pc->scanStep, &range);
   if (why != NULL) {
-    Serial.printf("[xdr] scan not started: %s\n", why);
+    DebugLog.printf("[xdr] scan not started: %s\n", why);
     sendAll(pc, "U\n", 2);
     sScanBy = -1;
     sScanRepeat = false;
@@ -486,7 +531,7 @@ static void sendScan(const DxSweep *s) {
   uint16_t next = 0;
   size_t len = 0;
   while ((len = xdrScanPart(sLink->out, XDR_OUT_MAX, s, &next)) > 0) {
-    for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+    for (int i = 0; i < XDR_SLOTS; i++) {
       if (sLink->pc[i].started) {
         sendAll(&sLink->pc[i], sLink->out, len);
       }
@@ -679,7 +724,7 @@ static void act(Pc *pc, const XdrCommand *c, const RadioSettings *r) {
 static void handleLine(Pc *pc, const char *line) {
   if (!pc->signedIn) {
     if (!webAuthXdrLogin(pc->salt, line)) {
-      Serial.println(F("[xdr] wrong PIN"));
+      DebugLog.println(F("[xdr] wrong PIN"));
       sendAll(pc, "a0\n", 3);
       drop(pc);
       return;
@@ -688,7 +733,7 @@ static void handleLine(Pc *pc, const char *line) {
     sUsersChanged = true;
     char ip[16];
     struct in_addr at = {pc->ip};
-    Serial.printf("[xdr] %s signed in\n", inet_ntoa_r(at, ip, sizeof(ip)));
+    DebugLog.printf("[xdr] %s signed in\n", inet_ntoa_r(at, ip, sizeof(ip)));
     return;
   }
   XdrCommand c;
@@ -730,13 +775,52 @@ static void readPc(Pc *pc) {
   }
 }
 
+/*
+ * The cable's lines, a few dozen bytes a pass. Before a session only x is
+ * looked for, and it starts one: the state comes from the heap then, not for
+ * a stray byte. Debug lines stop before the session's first answer.
+ */
+static void cablePoll(void) {
+  for (int n = 0; n < 64 && Serial.available() > 0; n++) {
+    const int ch = Serial.read();
+    if (ch != '\n') {
+      if (sCableLen < XDR_READ_MAX - 1) {
+        sCableLine[sCableLen++] = (char)ch;
+      } else {
+        sCableOverlong = true;
+      }
+      continue;
+    }
+    sCableLine[sCableLen] = '\0';
+    const bool whole = !sCableOverlong;
+    sCableLen = 0;
+    sCableOverlong = false;
+    if (!whole) {
+      continue;
+    }
+    Pc *pc = sLink != NULL ? &sLink->pc[XDR_CABLE] : NULL;
+    if (pc == NULL || !pc->signedIn) {
+      XdrCommand first;
+      if (xdrParse(sCableLine, &first) != NULL || first.kind != XDR_START ||
+          !ensureLink()) {
+        continue;
+      }
+      pc = &sLink->pc[XDR_CABLE];
+      DebugLog.quiet(true);
+      pc->signedIn = true;
+      sUsersChanged = true;
+    }
+    handleLine(pc, sCableLine);
+  }
+}
+
 static void tellUsers(void) {
   sUsersChanged = false;
   const uint8_t users = xdrServerClients();
   char line[16];
   size_t len = xdrUsers(line, sizeof(line) - 1, users);
   line[len++] = '\n';
-  for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; i < XDR_SLOTS; i++) {
     if (sLink->pc[i].signedIn) {
       sendAll(&sLink->pc[i], line, len);
     }
@@ -777,7 +861,7 @@ static void addRds(Told *told, bool fromNow) {
 }
 
 static bool anyStarted(void) {
-  for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; i < XDR_SLOTS; i++) {
     if (sLink->pc[i].started) {
       return true;
     }
@@ -813,7 +897,7 @@ static void sendDue(bool lineDue) {
     addTune(now.freqKHz);
   }
   sLink->told = now;
-  for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
+  for (int i = 0; i < XDR_SLOTS; i++) {
     Pc *pc = &sLink->pc[i];
     if (pc->started && pc->startPass != sPass) {
       sendAll(pc, sLink->out, sLink->outLen);
@@ -824,25 +908,26 @@ static void sendDue(bool lineDue) {
 void xdrServerLoop(void) {
   const uint32_t now = millis();
   sPass++;
+  cablePoll();
   const bool wanted =
       sSettings != NULL && sSettings->pcLink != 0 && sSettings->wifiEnabled;
-  if (!wanted) {
-    if (sListen >= 0) {
-      closePort();
-    }
-    return;
+  if (!wanted && sListen >= 0) {
+    closePort();
   }
-  if (sListen < 0) {
-    if (sRetrying && now - sRetryFromMs < XDR_RETRY_MS) {
-      return;
-    }
+  if (wanted && sListen < 0 &&
+      !(sRetrying && now - sRetryFromMs < XDR_RETRY_MS)) {
     sRetrying = !openPort();
     sRetryFromMs = now;
-    if (sRetrying) {
-      return;
-    }
   }
-  takeNewPcs();
+  if (sLink != NULL && sListen < 0 && !sLink->pc[XDR_CABLE].signedIn) {
+    releaseLink();
+  }
+  if (sLink == NULL) {
+    return;
+  }
+  if (sListen >= 0) {
+    takeNewPcs();
+  }
   for (int i = 0; i < XDR_CLIENTS_MAX; i++) {
     Pc *pc = &sLink->pc[i];
     if (pc->fd >= 0) {

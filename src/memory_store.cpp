@@ -1,5 +1,6 @@
 /* Implementation of the channel list owner. */
 #include "memory_store.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
@@ -95,7 +96,7 @@ static void writeNow(void) {
      * the next power cycle with nothing having said so. */
     sDirty = true;
     sDirtyAtMs = millis();
-    Serial.println(F("[memory] the channel list could not be written"));
+    DebugLog.println(F("[memory] the channel list could not be written"));
   }
 }
 

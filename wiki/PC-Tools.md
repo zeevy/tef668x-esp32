@@ -1,6 +1,6 @@
 # PC Tools
 
-The radio can be worked from a PC with [XDR-GTK](https://github.com/kkonradpl/xdr-gtk), the program DX listeners use for a tuner on the desk, and with [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver), which puts a tuner on a web page. Both speak the same XDR protocol, and the radio answers it over Wi-Fi on TCP port 7373, the port xdrd uses. Through XDR-GTK, RDS Spy and StationList work too.
+The radio can be worked from a PC with [XDR-GTK](https://github.com/kkonradpl/xdr-gtk), the program DX listeners use for a tuner on the desk, and with [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver), which puts a tuner on a web page. Both speak the same XDR protocol, and the radio answers it over Wi-Fi on TCP port 7373, the port xdrd uses, and over its USB cable. Through XDR-GTK, RDS Spy and StationList work too.
 
 The radio stays yours while a PC is connected: the knobs, the keys, the touch screen, the menu and the web page all keep working, and what you change on the radio shows in the PC program.
 
@@ -28,6 +28,20 @@ XDR-GTK's own code after its v1.2 release has a **TEF668X mode** in its settings
 ### RDS Spy and StationList through XDR-GTK
 
 XDR-GTK passes the radio's data on: its own RDS Spy server (port 7376 on the PC) feeds [RDS Spy](https://rdsspy.com/), and its StationList option feeds [StationList](https://zeiterfassung.3sdesign.de/station_list.htm). Set those up in XDR-GTK; the radio needs nothing more.
+
+## Over the USB cable
+
+XDR-GTK and FM-DX Webserver can also use the radio's USB-C cable, with no Wi-Fi at all.
+
+1. Connect the radio to the PC with a data cable, not a charge only one.
+2. In XDR-GTK's connection window choose the serial port, not the network: on a Mac `/dev/cu.usbserial-...` (or `/dev/cu.wchusbserial-...`), on Windows a `COM` port, on Linux `/dev/ttyUSB0`. In FM-DX Webserver's setup choose the serial port the same way.
+3. Connect. There is no password on the cable: whoever has the cable has the radio. PC Link does not need to be On for it.
+
+- **Cleaner readings.** The radio's own Wi-Fi transmitter is next to the tuner, and a reply going out while the tuner reads raises the reading. With the cable, turn Wi-Fi off in Connectivity and nothing on the radio sends.
+- **Everything else is as over Wi-Fi**: the same commands, the same answers, the spectral scan too. While a PC is on the cable, the radio keeps its own debug lines off it.
+- A whole band's spectral scan answer takes about half a second to go down the cable, and the radio's controls wait for it.
+- XDR-GTK ends the session when it disconnects. If it is closed without Disconnect, or the cable is pulled, the radio cannot tell and still counts the PC: the laptop mark stays, the menu's PC Link row and the web page show it connected, and a mute the PC set stays. The radio's own controls work as always. Connect and Disconnect once in XDR-GTK, or restart the radio, to clear it.
+- **Some radios restart when XDR-GTK connects.** XDR-GTK and xdrd pulse the cable's DTR and RTS lines to reset an Arduino. On this ATS-125, with an FT232R chip, those lines are not wired, and nothing happens. Radios of this model with a CH340 chip are often wired to restart on that pulse: the radio then starts again, and XDR-GTK may need a second Connect once it is up.
 
 ## FM-DX Webserver
 
@@ -76,9 +90,9 @@ The signal is sent in dBf, which is dBµV plus 11.25; XDR-GTK and FM-DX Webserve
 
 ## Good to know
 
-- **Three PCs at most.** A fourth is closed at once; XDR-GTK then says `Authentication error.`, though the PIN is right. `ref` in `/api/state` counts them.
+- **Three PCs at most** over Wi-Fi, and one more on the cable. A fourth over Wi-Fi is closed at once; XDR-GTK then says `Authentication error.`, though the PIN is right. `ref` in `/api/state` counts them. A PC on the cable shows in `/api/state` as `USB`.
 - **Five wrong PINs** lock the link for a minute, and only the link: the web page's sign in is not touched. A PC still set to an old PIN keeps the link locked this way, so after changing the Web PIN, change it in XDR-GTK and FM-DX Webserver too.
-- **Changing the Web PIN** signs every PC out, as it signs out the web page.
+- **Changing the Web PIN** signs every PC on Wi-Fi out, as it signs out the web page. The cable has no PIN and stays.
 - **A level sweep**, DX mode's, the band scope's or a spectral scan, stops the link's lines for its seconds; they start again after it. The radio still reads what a PC sends, so a stop arrives.
 - A PC that connects and does not start within 10 seconds is closed, so a lost connection cannot hold one of the three places.
 

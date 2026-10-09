@@ -12,6 +12,7 @@
  */
 #include <Arduino.h>
 #include <esp_task_wdt.h>
+#include "debug_log.h"
 
 #include "band_scan_task.h"
 #include "board/board.h"
@@ -108,40 +109,41 @@ static void printBanner(void) {
   uint8_t mac[6];
   deviceMacRead(mac);
 
-  Serial.println();
-  Serial.println(F("tef668x-esp32"));
-  Serial.printf("  board          %s\n", BOARD_NAME);
-  Serial.printf("  firmware       %s\n", FIRMWARE_VERSION);
-  Serial.printf("  running from   %s (%s)\n", rollbackRunningPartition(),
-                rollbackStateText());
-  Serial.printf("  last restart   %s\n", restartReasonText());
-  Serial.printf("  mac            %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],
-                mac[1], mac[2], mac[3], mac[4], mac[5]);
+  DebugLog.println();
+  DebugLog.println(F("tef668x-esp32"));
+  DebugLog.printf("  board          %s\n", BOARD_NAME);
+  DebugLog.printf("  firmware       %s\n", FIRMWARE_VERSION);
+  DebugLog.printf("  running from   %s (%s)\n", rollbackRunningPartition(),
+                  rollbackStateText());
+  DebugLog.printf("  last restart   %s\n", restartReasonText());
+  DebugLog.printf("  mac            %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0],
+                  mac[1], mac[2], mac[3], mac[4], mac[5]);
   const Tef668xCapabilities *tuner = tef668xCapabilities();
   if (tuner != NULL) {
-    Serial.printf("  tuner          %s, patch v%u\n", tuner->part,
-                  (unsigned)tuner->patchVersion);
-    Serial.printf("  tuner words    device %04X hw %04X sw %04X\n",
-                  tuner->deviceWord, tuner->hardwareWord, tuner->softwareWord);
-    Serial.printf("  tuner can do   %s%s%s\n",
-                  tuner->hasStereoImprovement ? "stereo improvement " : "",
-                  tuner->hasFullSearchRds ? "full search RDS " : "",
-                  tuner->hasDigitalRadio ? "digital radio" : "");
+    DebugLog.printf("  tuner          %s, patch v%u\n", tuner->part,
+                    (unsigned)tuner->patchVersion);
+    DebugLog.printf("  tuner words    device %04X hw %04X sw %04X\n",
+                    tuner->deviceWord, tuner->hardwareWord,
+                    tuner->softwareWord);
+    DebugLog.printf("  tuner can do   %s%s%s\n",
+                    tuner->hasStereoImprovement ? "stereo improvement " : "",
+                    tuner->hasFullSearchRds ? "full search RDS " : "",
+                    tuner->hasDigitalRadio ? "digital radio" : "");
   } else {
-    Serial.printf("  tuner          FAILED: %s\n",
-                  tef668xErrorText(gTunerError));
+    DebugLog.printf("  tuner          FAILED: %s\n",
+                    tef668xErrorText(gTunerError));
   }
-  Serial.printf(
+  DebugLog.printf(
       "  access pin     %s%s\n", pin,
       accessPinIsDefault(gAccessPin) ? "   <- still the default" : "");
   if (accessPinIsDefault(gAccessPin)) {
-    Serial.println();
-    Serial.println(F("  WARNING: this radio is on the default access PIN."));
-    Serial.println(
+    DebugLog.println();
+    DebugLog.println(F("  WARNING: this radio is on the default access PIN."));
+    DebugLog.println(
         F("  Anyone who can reach it on the network can change its"));
-    Serial.println(
+    DebugLog.println(
         F("  settings and replace its firmware. Set your own PIN on"));
-    Serial.println(F("  the web page to stop that."));
+    DebugLog.println(F("  the web page to stop that."));
   }
 
   /*
@@ -151,41 +153,41 @@ static void printBanner(void) {
    * radio that joined nothing.
    */
   if (wifiState() == WIFI_STATE_ACCESS_POINT) {
-    Serial.printf("  access point   %s, open\n", wifiNetworkName());
-    Serial.printf("  setup page     http://%s:%u/\n", wifiAddress(),
-                  (unsigned)WEB_PORT);
-    Serial.println(
+    DebugLog.printf("  access point   %s, open\n", wifiNetworkName());
+    DebugLog.printf("  setup page     http://%s:%u/\n", wifiAddress(),
+                    (unsigned)WEB_PORT);
+    DebugLog.println(
         F("  no network yet. Join that access point and set the "
           "Wi-Fi details."));
   } else if (wifiState() == WIFI_STATE_JOINING) {
-    Serial.printf("  network        joining %s\n", gSettings.wifiSsid);
-    Serial.println();
-    Serial.println(
+    DebugLog.printf("  network        joining %s\n", gSettings.wifiSsid);
+    DebugLog.println();
+    DebugLog.println(
         F("  the address is not known yet. The radio prints it as\n"
           "  [wifi] joined ... when the join lands, and puts up its own\n"
           "  access point if it does not."));
   } else if (wifiState() == WIFI_STATE_OFFLINE) {
-    Serial.println(F("  network        none, and the access point did not"));
-    Serial.println(
+    DebugLog.println(F("  network        none, and the access point did not"));
+    DebugLog.println(
         F("  start either, so nothing can reach this radio. It tries "
           "again on its own."));
   } else {
-    Serial.printf("  network        %s\n", wifiNetworkName());
-    Serial.printf("  address        http://%s:%u/\n", wifiAddress(),
-                  (unsigned)WEB_PORT);
-    Serial.printf("  mdns           http://%s.local:%u/\n", BOARD_HOSTNAME,
-                  (unsigned)WEB_PORT);
-    Serial.println();
+    DebugLog.printf("  network        %s\n", wifiNetworkName());
+    DebugLog.printf("  address        http://%s:%u/\n", wifiAddress(),
+                    (unsigned)WEB_PORT);
+    DebugLog.printf("  mdns           http://%s.local:%u/\n", BOARD_HOSTNAME,
+                    (unsigned)WEB_PORT);
+    DebugLog.println();
 #if FEATURE_OTA
-    Serial.printf(
+    DebugLog.printf(
         "  flash it again with:\n"
         "    pio run -e ats125 -t upload --upload-port %s\n",
         wifiAddress());
-    Serial.printf("    the uploader asks for --auth=%s\n", pin);
+    DebugLog.printf("    the uploader asks for --auth=%s\n", pin);
 #else
     /* With no ArduinoOTA listener the way in is the update page's own POST,
      * after signing in with the PIN. */
-    Serial.printf(
+    DebugLog.printf(
         "  flash it again with:\n"
         "    curl -c jar -d pin=%s http://%s:%u/auth\n"
         "    curl -b jar -F firmware=@.pio/build/ats125/firmware.bin "
@@ -194,7 +196,7 @@ static void printBanner(void) {
         (unsigned)WEB_PORT);
 #endif
   }
-  Serial.println();
+  DebugLog.println();
 }
 
 /*
@@ -368,8 +370,8 @@ void setup() {
    * gets installed. */
   gTunerError = tef668xBegin();
   if (gTunerError != TEF668X_OK) {
-    Serial.printf("[tuner] start up failed: %s\n",
-                  tef668xErrorText(gTunerError));
+    DebugLog.printf("[tuner] start up failed: %s\n",
+                    tef668xErrorText(gTunerError));
   }
   screenTaskBootStep(BOOT_STEP_TUNER, gTunerError == TEF668X_OK, NULL);
   if (gTunerError == TEF668X_OK) {
@@ -453,7 +455,7 @@ void setup() {
   /* Before the radio task, because it looks the stored list up on its first
    * round to say which slot the radio came up on. */
   const bool memoryOk = memoryStoreBegin();
-  Serial.printf("[memory] %d stored channels\n", memoryStoreCount());
+  DebugLog.printf("[memory] %d stored channels\n", memoryStoreCount());
   {
     /* A list that came back short marks the row failed and still shows the
      * count. Without the cross the row is the same as a list that was always
@@ -470,7 +472,7 @@ void setup() {
   const bool radioOk = radioTaskStart(&gSettings, &plan, startVolume);
   screenTaskBootStep(BOOT_STEP_RADIO, radioOk, NULL);
   if (!radioOk) {
-    Serial.println(F("[radio] the radio task could not start"));
+    DebugLog.println(F("[radio] the radio task could not start"));
     /* The tuner was muted at the end of its start up, and the task is what
      * unmutes it. Without this the radio is silent for good, which is worse
      * than the wrong station: a radio making no sound reads as dead. */
@@ -481,7 +483,7 @@ void setup() {
     if (radioGetSnapshot(&snap)) {
       bandFormatWithUnit(snap.settings.band, snap.settings.freqKHz, text,
                          sizeof(text));
-      Serial.printf("[radio] task started on %s\n", text);
+      DebugLog.printf("[radio] task started on %s\n", text);
     }
   }
 
@@ -491,7 +493,7 @@ void setup() {
       inputBegin((EncoderKind)gSettings.encoderKind,
                  (EncoderDirection)gSettings.encoderDirection);
   if (!keypadOk) {
-    Serial.println(F("[input] no keypad answered at 0x20, knob only"));
+    DebugLog.println(F("[input] no keypad answered at 0x20, knob only"));
   }
   screenTaskBootStep(BOOT_STEP_KEYPAD, keypadOk, NULL);
 #if FEATURE_TOUCH

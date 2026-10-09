@@ -3,6 +3,7 @@
  * network page, DX and the system page, plus the field and card builders
  * every one of them shares.
  */
+#include "debug_log.h"
 #include "web_chunked.h"
 #include "web_internal.h"
 
@@ -2322,7 +2323,7 @@ static void handleWifi(void) {
     return;
   }
 
-  Serial.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
+  DebugLog.printf("[web] new credentials saved for %s\n", pending.wifiSsid);
   sendResult(200, "Saved",
              "Saved. The radio is trying that network now. If it works it "
              "will be on tef668x.local:8080, and this access point will "

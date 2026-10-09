@@ -1,5 +1,6 @@
 /* The menu, put together. The cursor is in core, the pixels are in ui. */
 #include "menu_task.h"
+#include "debug_log.h"
 
 #include <Arduino.h>
 #include <esp_flash.h>
@@ -1542,17 +1543,17 @@ static void infoText(RowId id, char *out, size_t len) {
       }
       return;
     case ROW_NET_PC_LINK:
-      /* What to type in XDR-GTK while nobody is connected, the radio's name
-       * where it is announced, as the web address does; how many PCs are
-       * signed in once one is. */
-      if (!xdrServerListening()) {
+      /* How many PCs are signed in once one is, the cable's too, which
+       * needs neither the setting nor Wi-Fi; else what to type in XDR-GTK,
+       * the radio's name where it is announced, as the web address does. */
+      if (xdrServerClients() > 0) {
+        snprintf(out, len, txt(STR_MENU_FMT_PC_CONNECTED),
+                 (unsigned)xdrServerClients());
+      } else if (!xdrServerListening()) {
         putText(out, len, STR_COMMON_OFF);
       } else if (strcmp(wifiAddress(), "0.0.0.0") == 0) {
         /* No network yet: no port, as the web address shows none. */
         snprintf(out, len, "%s", wifiAddress());
-      } else if (xdrServerClients() > 0) {
-        snprintf(out, len, txt(STR_MENU_FMT_PC_CONNECTED),
-                 (unsigned)xdrServerClients());
       } else if (wifiAnnouncedName() != NULL) {
         snprintf(out, len, txt(STR_MENU_FMT_NAME_ADDRESS), wifiAnnouncedName(),
                  (unsigned)XDR_PORT);
@@ -2527,8 +2528,8 @@ static void fire(const MenuRow *row) {
         sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
         return;
       }
-      Serial.printf("[menu] tuned to log entry at %u kHz\n",
-                    (unsigned)e.freqKHz);
+      DebugLog.printf("[menu] tuned to log entry at %u kHz\n",
+                      (unsigned)e.freqKHz);
       return;
     }
     case ROW_PRESET_ENTRY: {
@@ -2548,7 +2549,7 @@ static void fire(const MenuRow *row) {
         return;
       }
       if (!memoryChannelTunable(&c, &plan)) {
-        Serial.printf("[menu] preset %d is not on the band plan\n", slot + 1);
+        DebugLog.printf("[menu] preset %d is not on the band plan\n", slot + 1);
         sNote = txt(STR_MENU_NOTE_OFF_PLAN);
         return;
       }
@@ -2559,7 +2560,7 @@ static void fire(const MenuRow *row) {
         sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
         return;
       }
-      Serial.printf("[menu] tuned to preset %d\n", slot + 1);
+      DebugLog.printf("[menu] tuned to preset %d\n", slot + 1);
       return;
     }
     case ROW_FM_SCAN:
@@ -2576,16 +2577,16 @@ static void fire(const MenuRow *row) {
         BandScanFrom from;
         if (bandScanFrom(&from) && from.scanned == band) {
           bandScanStop();
-          Serial.printf("[menu] %s scan stopped\n", bandName(band));
+          DebugLog.printf("[menu] %s scan stopped\n", bandName(band));
         }
         return;
       }
       if (bandScanStart(band) != BAND_SCAN_STARTED) {
-        Serial.println(F("[menu] scan refused, radio busy"));
+        DebugLog.println(F("[menu] scan refused, radio busy"));
         sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
         return;
       }
-      Serial.printf("[menu] %s scan started\n", bandName(band));
+      DebugLog.printf("[menu] %s scan started\n", bandName(band));
       return;
     }
     case ROW_DX_LEARN: {
@@ -2615,13 +2616,13 @@ static void fire(const MenuRow *row) {
     case ROW_GOTO_BANDWIDTH:
       menuTaskClose();
       if (!screenTaskBwOpen()) {
-        Serial.println(F("[menu] the bandwidth page did not open"));
+        DebugLog.println(F("[menu] the bandwidth page did not open"));
       }
       return;
     case ROW_CALIBRATE_TOUCH:
       menuTaskClose();
       if (!screenTaskTouchCalOpen()) {
-        Serial.println(F("[menu] the touch calibration did not open"));
+        DebugLog.println(F("[menu] the touch calibration did not open"));
       }
       return;
     case ROW_GOTO_RDS:
@@ -2634,14 +2635,14 @@ static void fire(const MenuRow *row) {
       }
       menuTaskClose();
       if (screenTaskDxOpen() != SCREEN_DX_OPEN) {
-        Serial.println(F("[menu] DX mode did not open"));
+        DebugLog.println(F("[menu] DX mode did not open"));
       }
       return;
     }
     case ROW_GOTO_SCOPE:
       menuTaskClose();
       if (!screenTaskScopeOpen()) {
-        Serial.println(F("[menu] the band scope did not open"));
+        DebugLog.println(F("[menu] the band scope did not open"));
       }
       return;
     case ROW_DX_START_SCAN: {
@@ -2695,7 +2696,7 @@ static void fire(const MenuRow *row) {
         sNote = txt(STR_MENU_NOTE_UPDATE_ON_TRIAL);
         return;
       }
-      Serial.println(F("[menu] restarting, asked for from the menu"));
+      DebugLog.println(F("[menu] restarting, asked for from the menu"));
       restartReasonNote(RESTART_WHY_ASKED);
       settingsTaskRestart();
       return;
@@ -3207,7 +3208,7 @@ void menuTaskPress(void) {
     if (now) {
       const UpdateInstallAsk ask = updateCheckInstall();
       if (ask != UPDATE_INSTALL_STARTING) {
-        Serial.printf("[menu] update not started, reason %d\n", (int)ask);
+        DebugLog.printf("[menu] update not started, reason %d\n", (int)ask);
       }
     }
     return;
@@ -3219,7 +3220,7 @@ void menuTaskPress(void) {
     cmd.kind = RADIO_TUNE;
     cmd.freqKHz = sChoice.reading[sChoice.cursor].freqKHz;
     if (!radioPost(&cmd)) {
-      Serial.println(F("[menu] typed choice not tuned, radio busy"));
+      DebugLog.println(F("[menu] typed choice not tuned, radio busy"));
     }
     choiceEnd();
     return;
@@ -3258,7 +3259,7 @@ void menuTaskPress(void) {
          * Starting anyway would begin at zero, and a cancel would then write
          * that zero to the tuner. */
         menuBack(&sMenu);
-        Serial.println(F("[menu] the radio is busy, try that row again"));
+        DebugLog.println(F("[menu] the radio is busy, try that row again"));
         sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
         break;
       }

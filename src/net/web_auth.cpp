@@ -3,6 +3,7 @@
  * guesses, the one session a right PIN opens, and the two routes that sign
  * in and change the PIN.
  */
+#include "debug_log.h"
 #include "web_internal.h"
 #include "web_update.h"
 
@@ -64,7 +65,7 @@ void webPinChanged(uint32_t pin) {
   /* The PCs signed in with the old PIN go too, as the browser's session
    * does. */
   xdrServerSignOutAll();
-  Serial.println("[web] the access PIN was changed");
+  DebugLog.println("[web] the access PIN was changed");
 }
 
 void dropSession(void) {
@@ -148,8 +149,8 @@ static void handleAuth(void) {
   }
 
   if (!accessPinGateCheck(&sGate, sAccessPin, given, now)) {
-    Serial.printf("[web] wrong PIN from %s\n",
-                  sWeb->server.client().remoteIP().toString().c_str());
+    DebugLog.printf("[web] wrong PIN from %s\n",
+                    sWeb->server.client().remoteIP().toString().c_str());
     sendResult(403, "Wrong PIN", "That PIN is not right.", true);
     return;
   }
