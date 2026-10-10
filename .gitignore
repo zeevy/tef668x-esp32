@@ -3,6 +3,13 @@
 .pioenvs/
 .piolibdeps/
 
+# Written by the framework rebuild that custom_sdkconfig asks for
+/.dummy/
+/managed_components/
+/sdkconfig.*
+/dependencies.lock
+/CMakeLists.txt
+
 # Editors
 .vscode/
 .idea/
