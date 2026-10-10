@@ -26,6 +26,16 @@ pio test -e native -f test_rds    # run one test folder
 
 The firmware is written to `.pio/build/ats125/firmware.bin`.
 
+## The first build takes longer
+
+The firmware changes one setting inside the framework's own ESP-IDF libraries: HTTPS keeps 4 KB for what it sends instead of 16 KB, which leaves about 12 KB more memory free while the radio checks for an update. `custom_sdkconfig` in `platformio.ini` asks for this, and the platform then rebuilds those libraries once, on the first build. That build downloads ESP-IDF and about 30 of its components and takes a few minutes more. Later builds reuse the rebuilt libraries.
+
+`tools/pin_components.py` keeps every component at the version the framework's own libraries were built with, and stops the build if one comes out different. The rebuild writes `.dummy/`, `managed_components/`, `sdkconfig.defaults` and `sdkconfig.ats125` in the project folder, and git ignores them.
+
+The rebuilt libraries replace the stock ones in PlatformIO's package folder. Another project on the same computer that uses the same platform without these settings puts the stock libraries back by itself, and the next build here rebuilds them again.
+
+## Build environments
+
 There are two build environments: `ats125` for the radio, and `native` for the tests. The `native` build holds the parts of the code that touch no hardware: `src/core/`, which is plain C and has all the radio's logic, the screen state builders that turn a radio reading into what a screen shows, the decoding of the tuner's replies, and the web server's record of its reply times. Many of the tests replay real readings taken off a radio: RDS groups, band sweeps and signal readings.
 
 ## Every check in one command

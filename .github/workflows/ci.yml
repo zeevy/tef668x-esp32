@@ -45,6 +45,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The framework's libraries are rebuilt for custom_sdkconfig into
+      # ~/.platformio/packages, and sdkconfig.defaults holds the hash the
+      # platform compares to decide whether they need rebuilding again, so
+      # the two are kept together. A change to either input file rebuilds.
       - name: Cache the PlatformIO toolchain
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -52,7 +56,8 @@ jobs:
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+            sdkconfig.defaults
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini', 'tools/pin_components.py') }}
           restore-keys: pio-${{ runner.os }}-
 
       # Pinned exactly, never a range. clang-format in particular: Ubuntu ships
