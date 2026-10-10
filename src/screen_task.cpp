@@ -1473,6 +1473,10 @@ void screenTaskBwPick(void) {
     return;
   }
   const BwTile *t = &sBw->tiles[sBw->cursor];
+  if (t->kind == BW_TILE_CLOSE) {
+    screenTaskBwClose();
+    return;
+  }
   RadioCommand cmd = {};
   if (t->kind == BW_TILE_WIDTH) {
     if (sBw->overDx) {

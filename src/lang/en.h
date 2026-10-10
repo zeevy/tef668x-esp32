@@ -349,6 +349,7 @@
   X(DX_FMT_FLOOR, "FLOOR %s", "Floor label on the Scope page, %s is the level in tenths") \
   X(BW_FMT_CONTEXT, "%s \xC2\xB7 kHz", "Header context on the Bandwidth page, band name and unit") \
   X(BW_EQ, "EQ", "Bandwidth page, switch tile name") \
+  X(BW_CLOSE, "Close", "Bandwidth page, the tile that closes the page") \
   X(BW_FMT_AUTO_AT, "Auto: %u kHz", "Bandwidth page, note under the tiles, the width the chip picked") \
   X(RECOVERY_ROTATE_DISPLAY, "Rotate Display", "Recovery screen row name") \
   X(RECOVERY_CALIBRATE_TOUCH, "Calibrate Touch", "Recovery screen row name: runs the touch calibration screen, with the knob to cancel") \

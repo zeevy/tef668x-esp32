@@ -110,6 +110,7 @@ The update offer looks like this box but takes no taps: it opens by itself over 
 |---|---|---|
 | A width | Tap | Uses that width, as turning the tuning knob to it and pressing. The page stays up, so widths can be compared by ear |
 | iMS or EQ, on FM | Tap | Turns the switch on or off |
+| Close | Tap | Closes the page, as a tap of MODE |
 | The top line, with the title | Tap | Closes the page, as a tap of MODE. Over DX mode, back to the DX page |
 
 Over DX mode the page sets DX mode's own width and has no AUTO.

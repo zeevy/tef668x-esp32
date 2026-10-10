@@ -1,6 +1,6 @@
 /*
- * The bandwidth page: every width the band takes as a tile, and on FM the
- * iMS and equaliser switches after them. A hold of BW opens it and the knob
+ * The bandwidth page: every width the band takes as a tile, then a Close
+ * tile, and on FM the iMS and equaliser switches after them. A hold of BW opens it and the knob
  * picks.
  *
  * Pure logic: which tiles, in what order, where the cursor starts and how
@@ -20,13 +20,15 @@
 extern "C" {
 #endif
 
-/* The most tiles: automatic and sixteen FM widths, iMS and the equaliser. */
-#define BW_PAGE_MAX 19
+/* The most tiles: automatic and sixteen FM widths, Close, iMS and the
+ * equaliser. */
+#define BW_PAGE_MAX 20
 
 typedef enum {
   BW_TILE_WIDTH = 0, /* A width; `khz` 0 is automatic. */
   BW_TILE_IMS,       /* The iMS switch. */
   BW_TILE_EQ,        /* The equaliser switch. */
+  BW_TILE_CLOSE,     /* Closes the page, for a finger or the knob alone. */
 } BwTileKind;
 
 typedef struct {
