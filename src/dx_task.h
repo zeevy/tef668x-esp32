@@ -223,6 +223,28 @@ typedef enum {
 DxBaseResult dxTaskBaselineNow(void);
 DxBaseResult dxTaskBaselineAuto(void);
 
+/* Fix kept sweep `n` as the baseline, the same way: 1 is the sweep before the
+ * newest, up to one less than the number kept. */
+DxBaseResult dxTaskBaselineKept(uint8_t n);
+
+/* The next baseline in the order the Scope page steps through them: the
+ * median, then each kept sweep but the newest, newest first, then the median
+ * again. DX_BASE_NO_SWEEP when there is only the newest to compare with. */
+DxBaseResult dxTaskBaselineNext(void);
+
+/* When a kept sweep was taken. */
+typedef struct {
+  bool timeKnown;
+  uint32_t at; /* UTC seconds, when `timeKnown`. */
+} DxKeptSweep;
+
+/* The kept sweeps but the newest, newest first, into `out`, at most `cap`.
+ * `chosen` is 0 when the baseline is the median, `n` when it is kept sweep
+ * `n`, and -1 when it is a sweep fixed by hand that is not in the list: no
+ * longer kept, or the newest. Returns how many there are, of which at most
+ * `cap` are written; `out` may be NULL with `cap` 0. */
+uint8_t dxTaskKept(DxKeptSweep *out, uint8_t cap, int8_t *chosen);
+
 /* What a refused sweep press did, a few words for the panel. */
 const char *dxTaskSweepText(DxSweepStart r);
 

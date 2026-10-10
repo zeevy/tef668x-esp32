@@ -320,6 +320,64 @@ static void a_date_with_a_bad_offset_or_short_buffer_is_refused(void) {
   TEST_ASSERT_FALSE(clockFormatDate(0u, 0, NULL, sizeof(out)));
 }
 
+/* 17:43 at +05:30 on Saturday 10 October 2026, the "now" of these tests. */
+static const uint32_t kNow = 1791634380u;
+
+static void assertWhen(uint32_t epoch, uint32_t now, int16_t offset,
+                       ClockWhenStyle style, const char *want) {
+  char out[CLOCK_WHEN_LEN];
+  TEST_ASSERT_TRUE(
+      clockFormatWhen(epoch, now, offset, style, out, sizeof(out)));
+  TEST_ASSERT_EQUAL_STRING(want, out);
+}
+
+static void a_moment_today_is_its_time(void) {
+  assertWhen(1791632280u, kNow, 330, CLOCK_WHEN_TAG, "17:08");
+  assertWhen(1791632280u, kNow, 330, CLOCK_WHEN_ROW, "Today 17:08");
+}
+
+static void a_moment_yesterday_says_so(void) {
+  assertWhen(1791560400u, kNow, 330, CLOCK_WHEN_TAG, "YDAY 21:10");
+  assertWhen(1791560400u, kNow, 330, CLOCK_WHEN_ROW, "Yesterday 21:10");
+}
+
+static void an_older_moment_gives_the_date(void) {
+  /* 21:10 on the 9th, seen at 09:00 on the 11th. */
+  assertWhen(1791560400u, 1791689400u, 330, CLOCK_WHEN_TAG, "9 OCT 21:10");
+  assertWhen(1791560400u, 1791689400u, 330, CLOCK_WHEN_ROW, "9 Oct 21:10");
+}
+
+static void midnight_is_where_the_day_turns(void) {
+  /* 23:59 on the 9th and 00:00 on the 10th, one minute apart. */
+  assertWhen(1791570540u, kNow, 330, CLOCK_WHEN_TAG, "YDAY 23:59");
+  assertWhen(1791570600u, kNow, 330, CLOCK_WHEN_TAG, "00:00");
+}
+
+static void the_offset_decides_the_day(void) {
+  /* 20:00 UTC on the 9th is 01:30 on the 10th at +05:30, but still the 9th
+   * in UTC, where "now" is 12:13 on the 10th. */
+  assertWhen(1791576000u, kNow, 330, CLOCK_WHEN_TAG, "01:30");
+  assertWhen(1791576000u, kNow, 0, CLOCK_WHEN_TAG, "YDAY 20:00");
+}
+
+static void a_moment_after_now_gives_the_date(void) {
+  /* Only a clock that moved gives one: 08:00 on the 12th. */
+  assertWhen(1791772200u, kNow, 330, CLOCK_WHEN_ROW, "12 Oct 08:00");
+}
+
+static void when_with_a_bad_offset_or_buffer_is_empty(void) {
+  char out[CLOCK_WHEN_LEN];
+  out[0] = 'x';
+  TEST_ASSERT_FALSE(
+      clockFormatWhen(kNow, kNow, 900, CLOCK_WHEN_TAG, out, sizeof(out)));
+  TEST_ASSERT_EQUAL_STRING("", out);
+  out[0] = 'x';
+  TEST_ASSERT_FALSE(clockFormatWhen(kNow, kNow, 0, CLOCK_WHEN_TAG, out, 8));
+  TEST_ASSERT_EQUAL_STRING("", out);
+  TEST_ASSERT_FALSE(
+      clockFormatWhen(kNow, kNow, 0, CLOCK_WHEN_TAG, NULL, sizeof(out)));
+}
+
 static ClockTime at(uint8_t hour, uint8_t minute) {
   ClockTime t = {hour, minute, true};
   return t;
@@ -348,6 +406,13 @@ int main(void) {
 
   RUN_TEST(an_epoch_gives_its_time_of_day);
   RUN_TEST(an_epoch_on_either_side_of_midnight);
+  RUN_TEST(a_moment_today_is_its_time);
+  RUN_TEST(a_moment_yesterday_says_so);
+  RUN_TEST(an_older_moment_gives_the_date);
+  RUN_TEST(midnight_is_where_the_day_turns);
+  RUN_TEST(the_offset_decides_the_day);
+  RUN_TEST(a_moment_after_now_gives_the_date);
+  RUN_TEST(when_with_a_bad_offset_or_buffer_is_empty);
   RUN_TEST(an_epoch_with_a_bad_offset_is_unknown);
   RUN_TEST(utc_with_no_offset_is_utc);
   RUN_TEST(a_half_hour_offset_lands_on_the_half_hour);

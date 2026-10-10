@@ -102,6 +102,26 @@ bool clockFormat(ClockTime t, char *out, size_t outLen);
 bool clockFormatDate(uint32_t epochUtc, int16_t offsetMinutes, char *out,
                      size_t outLen);
 
+/* The two ways clockFormatWhen names a moment. */
+typedef enum {
+  CLOCK_WHEN_TAG, /* "17:08", "YDAY 21:10", "9 OCT 21:10": a label. */
+  CLOCK_WHEN_ROW, /* "Today 17:08", "Yesterday 21:10", "9 Oct 21:10": a list. */
+} ClockWhenStyle;
+
+/* Room for any of them: "Yesterday 23:59" is 15 characters. */
+#define CLOCK_WHEN_LEN 20
+
+/*
+ * Write when `epochUtc` was, seen from `nowUtc`, in local time: the time on
+ * the same local day, yesterday's word and the time on the day before, and
+ * otherwise the day, the month's short name and the time. A moment on a later
+ * day than `nowUtc`, which only a clock that moved gives, is written as a
+ * date. Returns false and writes an empty string when the offset is outside
+ * the range above or the buffer is shorter than CLOCK_WHEN_LEN.
+ */
+bool clockFormatWhen(uint32_t epochUtc, uint32_t nowUtc, int16_t offsetMinutes,
+                     ClockWhenStyle style, char *out, size_t outLen);
+
 /*
  * Write an offset as "+05:30" or "-08:00", into a buffer of at least 7 bytes.
  *

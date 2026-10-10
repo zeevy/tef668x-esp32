@@ -432,6 +432,10 @@ DxScanPress screenTaskDxLearnLocals(void);
  * channel per click. Nothing on the DX page, where the knob tunes. */
 void screenTaskDxTurn(int32_t clicks);
 
+/* The Scope page's next baseline: the median, then each kept sweep but the
+ * newest, and round again; drawn at once. Nothing on another page. */
+DxBaseResult screenTaskDxBaselineNext(void);
+
 /* The catch under the Catches page's cursor. False when that page is not up
  * or the list is empty. */
 bool screenTaskDxCursorCatch(DxCatch *out);

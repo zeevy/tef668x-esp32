@@ -748,11 +748,21 @@ static void rdsBandwidth(ButtonEvent event, bool dxUnder) {
   }
 }
 
+/* The Scope page's tap steps what the sweep is compared with. */
+static void stepScopeBaseline(void) {
+  note(screenTaskDxBaselineNext() == DX_BASE_DONE ? "scope baseline changed"
+                                                  : "no kept sweep to compare");
+}
+
 static void dxBandwidth(ButtonEvent event, bool) {
   if (event == BUTTON_LONG) {
     openBandwidthPage();
   } else if (event == BUTTON_SHORT) {
-    cycleDxWidth();
+    if (screenTaskDxPage() == SCREEN_DX_PAGE_SCOPE) {
+      stepScopeBaseline();
+    } else {
+      cycleDxWidth();
+    }
   }
 }
 
@@ -1201,6 +1211,12 @@ static int dxZones(TouchZone *out, int max) {
 
 static void dxTouch(TouchGestureEvent event, int zone, TouchPoint start,
                     TouchPoint last, bool dxUnder) {
+  if (zone == DX_ZONE_BASE) {
+    if (event == TOUCH_TAP) {
+      dxBandwidth(BUTTON_SHORT, dxUnder);
+    }
+    return;
+  }
   if (zone == DX_ZONE_CHART) {
     /* The Scope's cursor follows the finger; held, it tunes there, as the
      * knob's hold tunes to the cursor. */

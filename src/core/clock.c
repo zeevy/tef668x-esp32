@@ -1,6 +1,7 @@
 /* What time it is. No hardware, no network. */
 #include "clock.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -94,6 +95,54 @@ bool clockFormatDate(uint32_t epochUtc, int16_t offsetMinutes, char *out,
   }
   snprintf(out, outLen, txt(STR_DATE_FMT_LINE), txt(kDays[tm.tm_wday]), day,
            txt(suffix), txt(kMonths[tm.tm_mon]), tm.tm_year + 1900);
+  return true;
+}
+
+bool clockFormatWhen(uint32_t epochUtc, uint32_t nowUtc, int16_t offsetMinutes,
+                     ClockWhenStyle style, char *out, size_t outLen) {
+  static const StrId kMonths[12] = {
+      STR_MONTH_SHORT_JAN, STR_MONTH_SHORT_FEB, STR_MONTH_SHORT_MAR,
+      STR_MONTH_SHORT_APR, STR_MONTH_SHORT_MAY, STR_MONTH_SHORT_JUN,
+      STR_MONTH_SHORT_JUL, STR_MONTH_SHORT_AUG, STR_MONTH_SHORT_SEP,
+      STR_MONTH_SHORT_OCT, STR_MONTH_SHORT_NOV, STR_MONTH_SHORT_DEC};
+  if (out == NULL) {
+    return false;
+  }
+  if (outLen < CLOCK_WHEN_LEN || offsetMinutes < CLOCK_OFFSET_MIN_MINUTES ||
+      offsetMinutes > CLOCK_OFFSET_MAX_MINUTES) {
+    if (outLen > 0) {
+      out[0] = '\0';
+    }
+    return false;
+  }
+  const time_t local = (time_t)epochUtc + (time_t)offsetMinutes * 60;
+  const time_t localNow = (time_t)nowUtc + (time_t)offsetMinutes * 60;
+  struct tm tm;
+  if (gmtime_r(&local, &tm) == NULL) {
+    out[0] = '\0';
+    return false;
+  }
+  const ClockTime at = {(uint8_t)tm.tm_hour, (uint8_t)tm.tm_min, true};
+  char time[CLOCK_TEXT_LEN];
+  clockFormat(at, time, sizeof(time));
+  const bool tag = style == CLOCK_WHEN_TAG;
+  const time_t day = local / 86400;
+  const time_t today = localNow / 86400;
+  if (day == today && tag) {
+    snprintf(out, outLen, "%s", time);
+  } else if (day == today || day + 1 == today) {
+    const StrId word = day == today ? STR_DATE_TODAY
+                       : tag        ? STR_DATE_YDAY
+                                    : STR_DATE_YESTERDAY;
+    snprintf(out, outLen, txt(STR_DATE_FMT_WHEN_DAY), txt(word), time);
+  } else {
+    char month[8];
+    snprintf(month, sizeof(month), "%s", txt(kMonths[tm.tm_mon]));
+    for (char *c = month; tag && *c != '\0'; c++) {
+      *c = (char)toupper((unsigned char)*c);
+    }
+    snprintf(out, outLen, txt(STR_DATE_FMT_WHEN_DATE), tm.tm_mday, month, time);
+  }
   return true;
 }
 

@@ -995,6 +995,18 @@ void screenTaskDxShowScope(void) {
   }
 }
 
+DxBaseResult screenTaskDxBaselineNext(void) {
+  if (!sDxUp || sDxPage != SCREEN_DX_PAGE_SCOPE) {
+    return DX_BASE_NO_SWEEP;
+  }
+  const DxBaseResult r = dxTaskBaselineNext();
+  if (r == DX_BASE_DONE) {
+    (void)screenTaskDxDraw(sDxPage, &sDxCursor);
+    lvglPortRefreshNow();
+  }
+  return r;
+}
+
 void screenTaskDxTurn(int32_t clicks) {
   if (!sDxUp || clicks == 0) {
     return;

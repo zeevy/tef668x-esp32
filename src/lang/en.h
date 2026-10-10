@@ -63,6 +63,9 @@
   X(MENU_AUTO_LOG_NEW, "Auto-Log Stations", "Menu row name, DX Scanner group: a NEW catch logs itself") \
   X(MENU_LOG_RADIO_TEXT, "Log Radio Text", "Menu row name, DX Scanner group") \
   X(MENU_WATCH_PRESETS, "Watch Presets", "Menu row name, DX Scanner group") \
+  X(MENU_SCOPE_BASELINE, "Scope Baseline", "Menu row name, DX Scanner group: what the Scope page compares the latest sweep with") \
+  X(MENU_MEDIAN, "Median", "Scope Baseline choice: the median of the kept sweeps") \
+  X(MENU_FMT_SWEEP_N, "Sweep %u", "Scope Baseline choice: a kept sweep taken while the clock was not set") \
   X(DX_FMT_WATCH_UP, "%s up %d dB", "Confirm text when a watched preset comes up, frequency and rise; on a DX page it shows in the header") \
   X(MENU_LEARN_LOCALS, "Learn Local Stations", "Menu row name, DX Scanner group") \
   X(MENU_START_SCAN, "Start Scan", "Menu row name, DX Scanner group: opens DX mode on the Scanner page and starts the scan, FM only") \
@@ -340,7 +343,8 @@
   X(SCOPE_FULL, "Full", "Band scope header, in place of the page position: the whole band is shown") \
   X(SCOPE_FMT_SPAN, "%lu.%lu MHz", "Band scope header, in place of the page position: the span round the dial on FM; MHz and tenths") \
   X(SCOPE_FMT_SPAN_KHZ, "%lu kHz", "Band scope header, in place of the page position: the span round the dial on AM") \
-  X(DX_FIXED, "FIXED", "Base line label on the Scope page") \
+  X(DX_FIXED, "FIXED", "Base line label on the Scope page, a fixed sweep whose time is not known") \
+  X(DX_FMT_VS, "VS %s", "Base line label on the Scope page: the kept sweep compared with, as 17:08, YDAY 21:10 or 9 OCT 21:10") \
   X(DX_FMT_MEDIAN_OF, "MEDIAN OF %u", "Base line label on the Scope page, sweep count") \
   X(DX_FMT_FLOOR, "FLOOR %s", "Floor label on the Scope page, %s is the level in tenths") \
   X(BW_FMT_CONTEXT, "%s \xC2\xB7 kHz", "Header context on the Bandwidth page, band name and unit") \
@@ -737,6 +741,23 @@
   X(DATE_SUFFIX_ND, "nd", "Ordinal suffix on the day of the month") \
   X(DATE_SUFFIX_RD, "rd", "Ordinal suffix on the day of the month") \
   X(DATE_FMT_LINE, "%s, %d%s %s %d", "The date line, day name, day and suffix, month, year") \
+  X(DATE_TODAY, "Today", "A kept sweep taken today, in the Scope Baseline list") \
+  X(DATE_YESTERDAY, "Yesterday", "A kept sweep taken yesterday, in the Scope Baseline list") \
+  X(DATE_YDAY, "YDAY", "A kept sweep taken yesterday, on the Scope page's label, in capitals") \
+  X(DATE_FMT_WHEN_DAY, "%s %s", "A kept sweep: Today, Yesterday or YDAY, then the time") \
+  X(DATE_FMT_WHEN_DATE, "%d %s %s", "A kept sweep from before yesterday: the day, the short month, the time") \
+  X(MONTH_SHORT_JAN, "Jan", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_FEB, "Feb", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_MAR, "Mar", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_APR, "Apr", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_MAY, "May", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_JUN, "Jun", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_JUL, "Jul", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_AUG, "Aug", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_SEP, "Sep", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_OCT, "Oct", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_NOV, "Nov", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_DEC, "Dec", "Short month name in a kept sweep's date, in capitals on the Scope page") \
   X(DX_NOW, "now", "Scope page header context, age of the sweep shown") \
   X(DX_FMT_MIN_AGO, "%u min ago", "Scope page header context") \
   X(DX_FMT_H_AGO, "%u h ago", "Scope page header context") \

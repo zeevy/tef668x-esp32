@@ -667,6 +667,7 @@ typedef enum {
   DX_ZONE_LEFT = DX_ZONE_ROW + 6, /* Scope, past the six rows: cursor left. */
   DX_ZONE_RIGHT,                  /* Scope: cursor right. */
   DX_ZONE_SWEEP,                  /* Scope: Sweep. */
+  DX_ZONE_BASE, /* Scope: the baseline's label, which steps the baseline. */
 } DxZone;
 
 /* The zones of the DX page when `dxPage`, else of any other DX page:
@@ -794,7 +795,7 @@ typedef struct {
   const char *from;       /* "87.0", "97.5", "108.0" under the chart. */
   const char *mid;
   const char *to;
-  const char *baseText;    /* "MEDIAN OF 5", "FIXED", or NULL. */
+  const char *baseText;    /* "MEDIAN OF 5", "VS 17:08", "FIXED", or NULL. */
   const char *floorText;   /* "FLOOR 0.8", or NULL. */
   const char *empty;       /* In the chart when there is no sweep, or NULL. */
   const char *cursorFreq;  /* "98.30", or NULL with no sweep. */

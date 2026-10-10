@@ -153,6 +153,7 @@ With Touch On, the foot row of the Scope page is five blocks: a button to move t
 |---|---|---|
 | The chart and the strip under it | Tap or drag | Moves the cursor to the channel under the finger. The chart has about 1.4 pixels a channel, so use the arrow buttons or the knob for the last channel |
 | The chart and the strip under it | Hold | Moves the cursor there and tunes to it, as the tuning knob held |
+| The baseline's label, `MEDIAN OF n` or `VS 17:08` | Tap | The next sweep to compare with, as BW |
 | The left or right arrow button | Tap | Moves the cursor one channel, as a click of the tuning knob |
 | The frequency or the level tile | Tap | Tunes to the cursor's channel |
 | The Sweep button in the middle | Tap | Sweeps the band, as a press of the tuning knob. A sweep takes about 4 seconds; the screen is not read while it runs, so the button is dimmed then, and the knob's press stops a sweep |
