@@ -269,8 +269,9 @@ static bool learningNow(void) {
 /* As long as the long press beep, so a flag is heard as more than a key. */
 #define DX_WATCH_BEEP_MS 200
 
-/* On the heap, about 1.6 KB, taken the first time DX mode opens. NULL when
- * the heap could not give it, and then nothing is watched. */
+/* On the heap, about 1.6 KB, taken each time DX mode opens and given back
+ * when it closes, since each opening starts from fresh floors anyway. NULL
+ * when the heap could not give it, and then nothing is watched. */
 static DxWatch *sWatch = NULL;
 static RadioAfCheck sWatchCheck;
 static RadioAfSeries sWatchSeries;
@@ -951,8 +952,6 @@ void dxTaskRestart(void) {
     if (sWatch == NULL) {
       DebugLog.println(F("[dx] no memory for the preset watch"));
     }
-  } else {
-    memset(sWatch, 0, sizeof(*sWatch));
   }
   sWatchPending = false;
   sWatchCount = 0;
@@ -983,6 +982,8 @@ void dxTaskLeave(void) {
   }
   dxSessionClose(sSession, writeLog, NULL);
   saveSeenIfDirty(true);
+  free(sWatch);
+  sWatch = NULL;
 }
 
 const DxCatches *dxTaskCatches(void) {
