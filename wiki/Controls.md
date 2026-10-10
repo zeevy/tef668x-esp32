@@ -26,7 +26,7 @@ When the tuning knob tunes, turning it fast moves it further: two, four or six s
 | MODE | The next tuning mode: MAN, AUTO, MEM, and MTR on shortwave | The menu |
 | 0 to 9 | Types a frequency | |
 | ENTER | Tunes the typed frequency | Writes the station to the station log |
-| DX | Opens DX mode, on FM and OIRT. On AM it shows `Switch to FM first` | |
+| DX | Opens DX mode, on FM and OIRT. On LW, MW and SW it opens the band scope | |
 | Volume knob | The volume. In Manual squelch, the squelch level | |
 
 In AUTO, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
@@ -100,7 +100,7 @@ While the scanner runs, any key or turn only stops it, and so does a touch while
 
 ## On the band scope
 
-Open it from Go To in the menu, or with a tap on the scale. See [Band Scope](Band-Scope.md).
+Open it from Go To in the menu, with a tap on the scale, or with DX on LW, MW or SW. See [Band Scope](Band-Scope.md).
 
 | Control | Tap or turn | Hold |
 |---|---|---|
@@ -109,7 +109,8 @@ Open it from Go To in the menu, or with a tap on the scale. See [Band Scope](Ban
 | ENTER | The same as the knob press | The same as the knob hold |
 | BAND | The whole band or the span round the dial, and sweeps again. On SW, the span again | Nothing |
 | MODE | Closes the band scope | The menu |
-| BW, keypad | Nothing | |
+| DX | Closes the band scope | |
+| BW, digits | Nothing | |
 
 ## On the bandwidth page
 

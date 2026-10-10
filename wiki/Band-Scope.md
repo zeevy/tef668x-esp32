@@ -7,6 +7,7 @@ The band scope draws the level of every channel of the band you are on, FM, OIRT
 ## Open it
 
 - Tap the tuning scale on the radio screen, with Touch On.
+- On LW, MW or SW, press DX. On FM and OIRT, DX opens DX mode instead.
 - Or open the menu and pick **Go To > Band Scope**.
 
 It sweeps as soon as it opens. A sweep reads every channel at the band's default step, muted. While it sweeps, the header says `sweeping`. After that it says how old the sweep is: `now`, `3 min ago` and so on.
@@ -60,7 +61,8 @@ The same page on MW, at night indoors, with one station heard, 738 kHz, stored a
 | BAND | The whole band or the span, and sweeps again. On SW, the span again | Nothing |
 | BW | Nothing | Nothing |
 | MODE | Closes the band scope | The menu |
-| Keypad | Nothing | |
+| DX | Closes the band scope | |
+| Digits | Nothing | |
 | Volume knob | The volume | |
 
 By touch, with Touch On:

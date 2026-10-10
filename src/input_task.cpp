@@ -915,7 +915,7 @@ static void dialKey(int8_t key, uint32_t nowMs, bool dxShown) {
       return;
     }
     /* DX mode, and the same key leaves it. FM only: every page of it is
-     * about an FM station. */
+     * about an FM station. On LW, MW and SW it opens the band scope. */
     if (dxShown) {
       screenTaskDxClose();
       note("DX closed");
@@ -934,8 +934,7 @@ static void dialKey(int8_t key, uint32_t nowMs, bool dxShown) {
         break;
       case SCREEN_DX_NOT_FM:
       default:
-        note("DX mode is FM only");
-        screenTaskLogConfirm(txt(STR_MENU_NOTE_SWITCH_TO_FM));
+        note(screenTaskScopeOpen() ? "band scope" : "band scope not opened");
         break;
     }
     return;
@@ -1479,7 +1478,13 @@ static void scopeEnter(ButtonEvent event, uint32_t, bool dxUnder) {
   scopePress(event, dxUnder);
 }
 
-static void scopeKey(int8_t, uint32_t, bool) {
+/* DX leaves the band scope, as it leaves DX mode; a digit is ignored. */
+static void scopeKey(int8_t key, uint32_t, bool) {
+  if (key == KEYPAD_DX) {
+    screenTaskScopeClose();
+    note("band scope closed");
+    return;
+  }
   note("key ignored on the band scope");
 }
 
