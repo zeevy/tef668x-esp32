@@ -27,7 +27,9 @@
 #define FEATURE_TELEMETRY \
   0 /* JSON state over UDP. Reserved: no code reads this flag yet. */
 #define FEATURE_SPECTRUM \
-  0 /* Band sweep and its layout. Reserved: no code reads this flag yet. */
+  0 /* A layout of the radio screen around the band's spectrum. Reserved: no \
+     * code reads this flag yet. The band scope and the sweeps do not use it. \
+     */
 #define FEATURE_ALARM \
   0 /* Alarm clock, not auto off. Reserved: no code reads this flag yet. */
 #define FEATURE_TOUCH \
