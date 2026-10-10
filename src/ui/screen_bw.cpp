@@ -35,8 +35,10 @@
 #define RING 2
 #define NOTE_BASE 226
 /* The AM side's four widths sit on the second row rather than the first,
- * so they are not up against the header. */
+ * so they are not up against the header, and Close under the first. */
 #define AM_ROW 1
+/* On FM Close takes the cell after the last width, left of the switches. */
+#define CLOSE_COL 1
 /* The switches' row and columns. */
 #define SWITCH_ROW 4
 #define SWITCH_COL 2
@@ -84,11 +86,15 @@ bool screenBwBegin(void) {
 }
 
 /* Where tile `i` of `s` sits: the widths four to a row, the switches on
- * the last row's right. */
+ * the last row's right, and Close beside them on FM or under the widths on
+ * AM. */
 static void place(const ScreenBw *s, uint8_t i, int16_t *x, int16_t *y) {
   uint8_t row;
   uint8_t col;
-  if (s->tile[i].kind != SCREEN_BW_WIDTH) {
+  if (s->tile[i].kind == SCREEN_BW_CLOSE) {
+    row = s->hasSwitches ? (uint8_t)SWITCH_ROW : (uint8_t)(AM_ROW + 1);
+    col = s->hasSwitches ? (uint8_t)CLOSE_COL : (uint8_t)0;
+  } else if (s->tile[i].kind != SCREEN_BW_WIDTH) {
     row = SWITCH_ROW;
     col = (uint8_t)(SWITCH_COL + (s->tile[i].kind == SCREEN_BW_EQ ? 1 : 0));
   } else if (!s->hasSwitches) {
@@ -175,9 +181,10 @@ int screenBwZones(TouchZone *out, int max) {
 
 const char *screenBwZoneName(int id) {
   static const char *const kNames[] = {
-      "",       "back",   "tile1",  "tile2",  "tile3",  "tile4",  "tile5",
-      "tile6",  "tile7",  "tile8",  "tile9",  "tile10", "tile11", "tile12",
-      "tile13", "tile14", "tile15", "tile16", "tile17", "tile18", "tile19"};
+      "",       "back",   "tile1",  "tile2",  "tile3",  "tile4",
+      "tile5",  "tile6",  "tile7",  "tile8",  "tile9",  "tile10",
+      "tile11", "tile12", "tile13", "tile14", "tile15", "tile16",
+      "tile17", "tile18", "tile19", "tile20"};
   return id > 0 && id < (int)(sizeof(kNames) / sizeof(kNames[0])) ? kNames[id]
                                                                   : "";
 }

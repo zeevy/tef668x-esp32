@@ -25,13 +25,13 @@ Each band keeps its own width, over a power cycle too.
 
 ![The bandwidth page on FM](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/bw-fm.png)
 
-Hold BW on the radio screen, the RDS pages or DX mode, or use **Menu > Go To > Bandwidth**. The header shows the band and the place of the cursor, such as `1/19`.
+Hold BW on the radio screen, the RDS pages or DX mode, or use **Menu > Go To > Bandwidth**. The header shows the band and the place of the cursor, such as `1/20`.
 
-- On FM it shows 19 tiles: AUTO, the 16 widths, **iMS** and **EQ**. On AM it shows the 4 widths.
+- On FM it shows 20 tiles: AUTO, the 16 widths, **Close**, **iMS** and **EQ**. On AM it shows the 4 widths, with **Close** under the first.
 - The width in use, and a switch that is on, are filled in the theme's main colour. A ring marks the cursor, which starts on the width in use.
 - While AUTO is in use, a note under the tiles says which width the tuner picked, for example `Auto: 217 kHz`.
 
-Turn the knob to move between tiles. Press the knob or ENTER to use that width at once, or to turn iMS or EQ on or off. The page stays open, so you can try the next one. Hold the knob, or tap BW or MODE, to close it. It also closes after one minute with no input, and when the band changes.
+Turn the knob to move between tiles. Press the knob or ENTER to use that width at once, or to turn iMS or EQ on or off. The page stays open, so you can try the next one. Press the knob on **Close**, hold the knob, or tap BW or MODE, to close it. It also closes after one minute with no input, and when the band changes.
 
 Over DX mode there is no AUTO tile, and the width you pick is DX mode's own, which is not saved.
 

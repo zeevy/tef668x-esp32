@@ -35,6 +35,10 @@ void screenBwStateBuild(const ScreenBwInputs *in, ScreenBwKeep *keep,
         snprintf(keep->text[i], sizeof(keep->text[i]), "%u", (unsigned)t->khz);
       }
       k->filled = t->khz == in->widthKHz;
+    } else if (t->kind == BW_TILE_CLOSE) {
+      k->kind = SCREEN_BW_CLOSE;
+      snprintf(keep->text[i], sizeof(keep->text[i]), "%s", txt(STR_BW_CLOSE));
+      k->filled = false;
     } else {
       const bool ims = t->kind == BW_TILE_IMS;
       k->kind = ims ? SCREEN_BW_IMS : SCREEN_BW_EQ;

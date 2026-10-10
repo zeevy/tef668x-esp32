@@ -829,17 +829,18 @@ int32_t screenScopeChannelAt(int16_t x);
 
 /*
  * The bandwidth page: every width the band takes as a tile, automatic first
- * on FM, and on FM the iMS and equaliser switches after them. The width in
+ * on FM, a Close tile, and on FM the iMS and equaliser switches after them. The width in
  * use and a switch that is on are filled; the cursor is a ring.
  */
-#define SCREEN_BW_TILES 19
+#define SCREEN_BW_TILES 20
 #define SCREEN_BW_WIDTH 0
 #define SCREEN_BW_IMS 1
 #define SCREEN_BW_EQ 2
+#define SCREEN_BW_CLOSE 3
 
 typedef struct {
-  const char *text; /* "AUTO", "114", "iMS On". */
-  uint8_t kind;     /* SCREEN_BW_WIDTH, _IMS or _EQ: where it sits. */
+  const char *text; /* "AUTO", "114", "iMS On", "Close". */
+  uint8_t kind;     /* SCREEN_BW_WIDTH, _IMS, _EQ or _CLOSE: where it sits. */
   bool filled;      /* The width in use, or a switch that is on. */
   bool cursor;
 } ScreenBwTile;
@@ -866,7 +867,7 @@ typedef enum {
  * 0 while the page is not up. */
 int screenBwZones(TouchZone *out, int max);
 
-/* A zone's name, for GET /api/screen: "back", "tile1" to "tile19", or "". */
+/* A zone's name, for GET /api/screen: "back", "tile1" to "tile20", or "". */
 const char *screenBwZoneName(int id);
 
 bool screenBwBegin(void);

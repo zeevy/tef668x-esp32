@@ -119,7 +119,7 @@ Hold BW to open it. It shows a tile for each filter width of the band, and on FM
 | Control | Tap or turn | Hold |
 |---|---|---|
 | Tuning knob, turn | Moves between the tiles | |
-| Tuning knob, press | Picks that width, or turns iMS or EQ on or off | Closes the page |
+| Tuning knob, press | Picks that width, or turns iMS or EQ on or off. On **Close**, closes the page | Closes the page |
 | ENTER | The same as the knob press | Nothing |
 | BW | Closes the page | |
 | MODE | Closes the page | The menu |
