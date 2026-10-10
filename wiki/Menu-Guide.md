@@ -136,6 +136,7 @@ See [DX Mode](DX-Mode.md).
 | Auto-Log Stations | Off, On | On | Writes each new catch to the station log |
 | Log Radio Text | Off, On | On | Adds the radio text to each log entry |
 | Watch Presets | Off, On | On | Checks the presets in the background in DX mode |
+| Scope Baseline | Median, or one of the kept sweeps but the newest, by when it was taken: Today 17:08, Yesterday 21:10, 9 Oct 21:10, or Sweep 3 when the time is not known. A sweep fixed earlier that is not one of them comes last | Median | What the Scope page compares the latest sweep with |
 | Learn Local Stations | | | Walks the band once and marks every station heard as caught. Needs FM and RDS |
 
 ## Display

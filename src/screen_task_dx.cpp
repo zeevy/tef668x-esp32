@@ -136,6 +136,7 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
     in.cursor = sScopeCursor;
     in.dialKHz = snap.settings.freqKHz;
     in.nowKnown = ntpEpochUtc(&in.nowUtc);
+    in.offsetMinutes = ntpOffsetMinutes();
     in.page = page;
     in.pages = SCREEN_DX_PAGES;
     in.clock = clock;

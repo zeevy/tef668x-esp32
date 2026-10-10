@@ -73,6 +73,7 @@ typedef enum {
   SRC_RADIO,      /* The radio task. Written by posting a command. */
   SRC_ACTION,     /* Does something when pressed. */
   SRC_INFO,       /* Read only. */
+  SRC_BASELINE,   /* The Scope page's baseline, kept with the DX sweeps. */
 } RowSource;
 
 /* Which setting, which reading, or which action. One name each. */
@@ -186,6 +187,7 @@ typedef enum {
   ROW_SYSTEM_CHIP,
   ROW_SYSTEM_FLASH,
   ROW_DX_START_SCAN,
+  ROW_DX_BASELINE,
   ROW_SYSTEM_BATTERY,
   ROW_NET_IP,
   /* One entry of the Station Log. Every entry shares this one row; which
@@ -559,6 +561,8 @@ static const MenuRow kDxRows[] = {
      false, false, false, NULL, "drt"},
     {STR_MENU_WATCH_PRESETS, ROW_DX_WATCH, SRC_STORED, TABLE_RANGE, 1, NOLIST,
      false, false, false, NULL, "dwt"},
+    {STR_MENU_SCOPE_BASELINE, ROW_DX_BASELINE, SRC_BASELINE, 0, 0, 1, NOLIST,
+     false, false, false},
     ACTION(STR_MENU_LEARN_LOCALS, ROW_DX_LEARN),
 };
 
@@ -1329,7 +1333,34 @@ static int32_t rowMin(const MenuRow *row) {
   return setting != NULL ? setting->low : row->min;
 }
 
+/*
+ * The Scope Baseline list: Median, then the kept sweeps but the newest,
+ * newest first, then a sweep fixed by hand that is no longer kept, when the
+ * baseline is one. Read from the sweep store's own note of the kept sweeps,
+ * which costs no read of littlefs.
+ */
+typedef struct {
+  uint8_t count;
+  DxKeptSweep kept[DX_SWEEP_KEEP];
+  int8_t chosen;
+} BaselineList;
+
+static BaselineList baselineList(void) {
+  BaselineList b;
+  b.count = dxTaskKept(b.kept, DX_SWEEP_KEEP, &b.chosen);
+  return b;
+}
+
+/* The list's last entry: the fixed sweep's place when it is not kept. */
+static int32_t baselineLast(const BaselineList *b) {
+  return b->chosen < 0 ? b->count + 1 : b->count;
+}
+
 static int32_t rowMax(const MenuRow *row) {
+  if (row->source == SRC_BASELINE) {
+    const BaselineList b = baselineList();
+    return baselineLast(&b);
+  }
   const SettingRow *setting = rowIsListed(row) ? NULL : rowSetting(row);
   return setting != NULL ? setting->high : row->max;
 }
@@ -1733,6 +1764,35 @@ static void updateRowValue(char *out, size_t len) {
   putText(out, len, why);
 }
 
+/* An entry of the Scope Baseline list, by when its sweep was taken: "Today
+ * 17:08", or "Sweep 3" when the clock was not set then. */
+static void baselineText(int32_t v, char *out, size_t len) {
+  const BaselineList b = baselineList();
+  DxKeptSweep sweep = {false, 0};
+  if (v <= 0) {
+    snprintf(out, len, "%s", txt(STR_MENU_MEDIAN));
+    return;
+  }
+  if (v <= b.count) {
+    sweep = b.kept[v - 1];
+  } else {
+    DxSweepState st;
+    if (dxTaskSweepState(&st) && st.base != NULL) {
+      sweep.timeKnown = st.base->timeKnown;
+      sweep.at = st.base->at;
+    }
+  }
+  uint32_t now = 0;
+  char when[CLOCK_WHEN_LEN];
+  if (sweep.timeKnown && ntpEpochUtc(&now) &&
+      clockFormatWhen(sweep.at, now, ntpOffsetMinutes(), CLOCK_WHEN_ROW, when,
+                      sizeof(when))) {
+    snprintf(out, len, "%s", when);
+  } else {
+    snprintf(out, len, txt(STR_MENU_FMT_SWEEP_N), (unsigned)v);
+  }
+}
+
 static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
   if (row == NULL) {
     out[0] = '\0';
@@ -1745,6 +1805,10 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
   }
   if (row->source == SRC_INFO) {
     infoText(row->id, out, len);
+    return;
+  }
+  if (row->source == SRC_BASELINE) {
+    baselineText(v, out, len);
     return;
   }
   if (row->source == SRC_ACTION) {
@@ -2058,6 +2122,9 @@ static bool valueNowRead(const MenuRow *row, const Settings *s, int32_t *out) {
     }
   } else if (row->source == SRC_STORED) {
     raw = storedValue(row, s);
+  } else if (row->source == SRC_BASELINE) {
+    const BaselineList b = baselineList();
+    raw = b.chosen < 0 ? baselineLast(&b) : b.chosen;
   }
   *out = rowIsListed(row) ? indexOf(row, raw) : raw;
   return true;
@@ -2201,9 +2268,10 @@ static void limitText(const MenuRow *row, int32_t v, char *out, size_t len) {
  */
 static bool actsOnKeep(const MenuRow *row) {
   return row != NULL &&
-         (row->id == ROW_DISPLAY_ROTATION || row->id == ROW_WEB_PIN ||
-          row->id == ROW_HOTSPOT || row->id == ROW_WEB_SERVER ||
-          row->id == ROW_PC_LINK || row->id == ROW_WIFI || isThemeRow(row));
+         (row->source == SRC_BASELINE || row->id == ROW_DISPLAY_ROTATION ||
+          row->id == ROW_WEB_PIN || row->id == ROW_HOTSPOT ||
+          row->id == ROW_WEB_SERVER || row->id == ROW_PC_LINK ||
+          row->id == ROW_WIFI || isThemeRow(row));
 }
 
 /* Whether the Web PIN is being set, where a turn, a press and a digit key go
@@ -2705,6 +2773,21 @@ static bool applyPending(const MenuRow *row) {
 /* Write what the edit ended on, once, through the one call that counts it. */
 static void keepEdit(const MenuRow *row) {
   if (sLive == NULL || row == NULL) {
+    return;
+  }
+  if (row->source == SRC_BASELINE) {
+    /* The same calls POST /api/dx makes with baseline=auto and baseline=n.
+     * The last entry, a fixed sweep no longer kept, is already the baseline. */
+    const BaselineList b = baselineList();
+    DxBaseResult r = DX_BASE_DONE;
+    if (sMenu.value == 0) {
+      r = dxTaskBaselineAuto();
+    } else if (sMenu.value <= b.count) {
+      r = dxTaskBaselineKept((uint8_t)sMenu.value);
+    }
+    if (r != DX_BASE_DONE) {
+      sNote = txt(STR_MENU_NOTE_NOT_STORED);
+    }
     return;
   }
   if (row->source != SRC_STORED) {

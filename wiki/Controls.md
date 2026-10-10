@@ -82,7 +82,7 @@ These work on every page:
 | Control | Tap | Hold |
 |---|---|---|
 | BAND | The next page | The RDS pages, over DX mode |
-| BW | On the DX page, the next filter width for DX mode | The bandwidth page |
+| BW | On the DX page, the next filter width for DX mode. On the Scope page, the next sweep to compare with | The bandwidth page |
 | MODE | Leaves DX mode | The menu |
 | ENTER | The next page | Writes the station to the station log |
 | DX | Leaves DX mode | |

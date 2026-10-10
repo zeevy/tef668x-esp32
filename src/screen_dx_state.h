@@ -175,6 +175,8 @@ typedef struct {
   uint32_t dialKHz; /* Where the dial is. */
   bool nowKnown;    /* The UTC clock is set, for the sweep's age. */
   uint32_t nowUtc;
+  int16_t offsetMinutes; /* Local time's offset, for when a fixed baseline was
+                          * taken. */
   uint8_t page;
   uint8_t pages;
   const char *clock;   /* Local, or NULL. */

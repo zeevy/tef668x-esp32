@@ -525,10 +525,27 @@ int screenScopeZones(TouchZone *out, int max) {
   const int16_t top = out[2].y;
   const int16_t foot = (int16_t)(TILE_Y - 2);
   const int16_t footH = (int16_t)(SCOPE_H - foot);
-  out[2] = {0, top, SCOPE_W, (int16_t)(foot - top), DX_ZONE_CHART};
-  if (!sUi->shown.buttons || max < 8) {
-    out[3] = {0, foot, SCOPE_W, footH, DX_ZONE_FOOT};
-    return 4;
+  int i = 2;
+  if (sUi->shown.baseText != NULL && max >= 10) {
+    /* The baseline's label, its words and half a target past them, which a
+     * tap steps as BW does; the chart keeps the rest of that strip. */
+    int16_t w =
+        (int16_t)(BOX_X + CORNER_IN + uiTextWidth(sUi->base, &roboto_label) +
+                  TOUCH_ZONE_MIN_W / 2);
+    if (w < TOUCH_ZONE_MIN_W) {
+      w = TOUCH_ZONE_MIN_W;
+    }
+    const int16_t h = TOUCH_ZONE_MIN_H;
+    out[i++] = {0, top, w, h, DX_ZONE_BASE};
+    out[i++] = {w, top, (int16_t)(SCOPE_W - w), h, DX_ZONE_CHART};
+    out[i++] = {0, (int16_t)(top + h), SCOPE_W, (int16_t)(foot - top - h),
+                DX_ZONE_CHART};
+  } else {
+    out[i++] = {0, top, SCOPE_W, (int16_t)(foot - top), DX_ZONE_CHART};
+  }
+  if (!sUi->shown.buttons || max < i + 5) {
+    out[i++] = {0, foot, SCOPE_W, footH, DX_ZONE_FOOT};
+    return i;
   }
   /* The foot row's five, meeting halfway across the gaps between them; a
    * tap on either tile tunes, as the one tile does without the buttons. */
@@ -537,12 +554,12 @@ int screenScopeZones(TouchZone *out, int max) {
   const int16_t sweepL = (int16_t)(SWEEP_X - half);
   const int16_t levelL = (int16_t)(LEVEL_TILE_X - half);
   const int16_t rightL = (int16_t)(kButtonX[1] - half);
-  out[3] = {0, foot, freqL, footH, DX_ZONE_LEFT};
-  out[4] = {freqL, foot, (int16_t)(sweepL - freqL), footH, DX_ZONE_FOOT};
-  out[5] = {sweepL, foot, (int16_t)(levelL - sweepL), footH, DX_ZONE_SWEEP};
-  out[6] = {levelL, foot, (int16_t)(rightL - levelL), footH, DX_ZONE_FOOT};
-  out[7] = {rightL, foot, (int16_t)(SCOPE_W - rightL), footH, DX_ZONE_RIGHT};
-  return 8;
+  out[i++] = {0, foot, freqL, footH, DX_ZONE_LEFT};
+  out[i++] = {freqL, foot, (int16_t)(sweepL - freqL), footH, DX_ZONE_FOOT};
+  out[i++] = {sweepL, foot, (int16_t)(levelL - sweepL), footH, DX_ZONE_SWEEP};
+  out[i++] = {levelL, foot, (int16_t)(rightL - levelL), footH, DX_ZONE_FOOT};
+  out[i++] = {rightL, foot, (int16_t)(SCOPE_W - rightL), footH, DX_ZONE_RIGHT};
+  return i;
 }
 
 int32_t screenScopeChannelAt(int16_t x) {

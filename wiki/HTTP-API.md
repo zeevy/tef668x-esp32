@@ -351,7 +351,7 @@ See [DX Mode](DX-Mode.md).
 |---|---|---|---|
 | `POST /api/dx` | Yes | `on`: `1` or `0`. `khz`: DX mode's width. `scan`: `1` or `0` | `DX on, 114 kHz`, `DX off` |
 | `POST /api/dx` | Yes | `sweep=1`, alone, while DX mode is open | `sweeping, GET /api/dx/sweep has it in about 4 s` |
-| `POST /api/dx` | Yes | `baseline`: `now` keeps the last sweep as the baseline, `auto` goes back to the median | |
+| `POST /api/dx` | Yes | `baseline`: `now` keeps the last sweep as the baseline, `1` to `7` keeps that kept sweep, as `kept` in `GET /api/dx/sweep` lists them, `auto` goes back to the median | `baseline fixed on kept sweep 3` |
 | `POST /api/dx` | Yes | `learn=1` alone: Learn Local Stations. `log` (the place in the list) or `logid` (a catch's `id`): log that catch | |
 | `GET /api/dx` | No | | DX mode's state, then one line per catch |
 | `GET /api/dx/sweep` | No | | The last sweep, with the level of every channel |
@@ -365,10 +365,10 @@ $ curl -s $R/api/dx
 
 ```
 $ curl -s $R/api/dx/sweep
-{"rev":10598,"running":false,"abandoned":false,"time":1791130892,"real":true,"took_ms":3247,"width":114,"low":87000,"step":100,"count":211,"floor":-72,"baseline":"fixed","baseline_sweeps":1,"level":[-68,-67,-58,...],...}
+{"rev":34520,"running":false,"abandoned":false,"time":1791613955,"real":true,"took_ms":3278,"width":114,"low":87000,"step":100,"count":211,"floor":19,"baseline":"fixed","baseline_sweeps":1,"level":[86,71,77,...],...,"kept":[1791613910,1791613668,1791613663,1791613645,1791605822,1791600852,1791600845],"baseline_kept":5}
 ```
 
-The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading.
+The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading. `kept` lists when each kept sweep but the latest was taken, in UTC seconds, newest first, null for one taken while the clock was not set. `baseline_kept` is the kept sweep fixed as the baseline, counted from 1, `0` for the median and `-1` for a fixed sweep that is not in `kept`: the latest, or one no longer kept.
 
 ### Band scope
 

@@ -1356,6 +1356,34 @@ static void the_rise_has_a_sign_only_when_it_is_above_the_baseline(void) {
   TEST_ASSERT_FALSE(pv.riseUp);
 }
 
+/* A sweep fixed by hand is named by when it was taken, in local time. */
+static void a_fixed_baseline_says_when_it_was_taken(void) {
+  ScreenScopeInputs in = realScope();
+  in.baseFixed = true;
+  in.offsetMinutes = 330;
+  base.timeKnown = true;
+  base.at = kScopeNow - 35 * 60;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("VS 17:16", pv.baseText);
+
+  base.at = kScopeNow - 86400;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("VS YDAY 17:51", pv.baseText);
+
+  base.at = kScopeNow - 3 * 86400;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("VS 24 SEP 17:51", pv.baseText);
+
+  /* With the clock not set, or the sweep's time not known, it cannot say. */
+  in.nowKnown = false;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("FIXED", pv.baseText);
+  in.nowKnown = true;
+  base.timeKnown = false;
+  buildScope(&in);
+  TEST_ASSERT_EQUAL_STRING("FIXED", pv.baseText);
+}
+
 static void a_baseline_or_peak_on_other_channels_is_left_out(void) {
   ScreenScopeInputs in = smallScope();
   in.cursor = 0;
@@ -1716,6 +1744,7 @@ int main(void) {
   RUN_TEST(the_cursor_frequency_reads_in_mhz_with_two_decimals);
   RUN_TEST(a_gap_in_the_sweep_shows_no_level_and_no_rise);
   RUN_TEST(the_rise_has_a_sign_only_when_it_is_above_the_baseline);
+  RUN_TEST(a_fixed_baseline_says_when_it_was_taken);
   RUN_TEST(a_baseline_or_peak_on_other_channels_is_left_out);
   RUN_TEST(the_age_shows_only_when_both_times_are_known);
   RUN_TEST(the_scope_buttons_follow_the_touch_setting);

@@ -44,6 +44,7 @@
 #include "core/band_plan.h"
 #include "core/battery.h"
 #include "core/bw_page.h"
+#include "core/clock.h"
 #include "core/dx.h"
 #include "core/dx_catch.h"
 #include "core/dx_sweep.h"
@@ -1057,6 +1058,20 @@ static void renderScopes(const char *dir) {
   in.clock = "17:43";
   renderScopeView(dir, "dx-scope", &in);
   {
+    /* The baseline fixed on a kept sweep taken 35 minutes before, named by
+     * when it was taken, in local time at +05:30. */
+    const DxSweep median = base;
+    base.timeKnown = true;
+    base.at = now - 35 * 60;
+    in.baseFixed = true;
+    in.offsetMinutes = 330;
+    in.revision++;
+    renderScopeView(dir, "dx-scope-vs", &in);
+    base = median;
+    in.baseFixed = false;
+    in.revision++;
+  }
+  {
     /* With Touch On: the buttons in the foot row, the rise up in the chart,
      * and the touch zones over it; then the same while a sweep runs. */
     in.touchOn = true;
@@ -1587,7 +1602,7 @@ int main(int argc, char **argv) {
     static const StrId kNames[] = {STR_MENU_GO_TO,    STR_MENU_STATIONS,
                                    STR_MENU_AUDIO,    STR_MENU_FM_SETUP,
                                    STR_MENU_AM_SETUP, STR_MENU_DX_SETUP};
-    static const char *const kCounts[] = {"6", "6", "4", "10", "7", "12"};
+    static const char *const kCounts[] = {"7", "6", "4", "10", "7", "13"};
     for (int i = 0; i < SCREEN_MENU_ROWS; i++) {
       menu.rows[i].name = txt(kNames[i]);
       menu.rows[i].value = kCounts[i];
@@ -2097,6 +2112,34 @@ int main(int argc, char **argv) {
     }
     screenMenuValueShow(&beep);
     saveShot("%s/menu-enum.bmp", dir);
+
+    /* The Scope Baseline picker: Median, then the kept sweeps but the newest,
+     * named by the same code the radio uses, at +05:30. The cursor on the
+     * second, the median kept. */
+    ScreenMenuValue kept;
+    memset(&kept, 0, sizeof(kept));
+    kept.name = fmt(STR_MENU_FMT_PATH, txt(STR_MENU_DX_SETUP),
+                    txt(STR_MENU_SCOPE_BASELINE));
+    kept.isPicker = true;
+    static const uint32_t kKeptAgo[] = {35 * 60u, 63 * 60u, 20u * 3600u,
+                                        23u * 3600u, 50u * 3600u};
+    static char keptNames[6][CLOCK_WHEN_LEN];
+    const uint32_t keptNow = 1791634380u; /* 17:43 on 10 October 2026 */
+    kept.pickerTotal = 6;
+    for (int i = 0; i < 6; i++) {
+      if (i == 0) {
+        snprintf(keptNames[i], sizeof(keptNames[i]), "%s",
+                 txt(STR_MENU_MEDIAN));
+      } else {
+        clockFormatWhen(keptNow - kKeptAgo[i - 1], keptNow, 330, CLOCK_WHEN_ROW,
+                        keptNames[i], sizeof(keptNames[i]));
+      }
+      kept.picker[i].name = keptNames[i];
+      kept.picker[i].isCursor = i == 1;
+      kept.picker[i].isSaved = i == 0;
+    }
+    screenMenuValueShow(&kept);
+    saveShot("%s/menu-scope-baseline.bmp", dir);
 
     /* The Rotation row's own picker, the cursor on the choice not yet kept. */
     ScreenMenuValue rotation;

@@ -59,11 +59,14 @@ Turn the knob to move the cursor one channel. Hold it to tune to the cursor.
 | Dashed line | The floor |
 | Dial mark | Where the dial is: a short bar at the foot of the chart and of the strip |
 | Strip below | How far each channel is above its baseline (bright) or below it (dim) |
-| `MEDIAN OF n` | The baseline is the middle value of the last n sweeps, not counting this one. The last 8 sweeps are kept over a power cycle. `FIXED` when a baseline was set from the web page |
+| `MEDIAN OF n` | The baseline is the middle value of the last n sweeps, not counting this one. The last 8 sweeps are kept over a power cycle |
+| `VS 17:08` | The baseline is one sweep, named by when it was taken, in local time: `VS 17:08` today, `VS YDAY 21:10` yesterday, `VS 9 OCT 21:10` before that. `FIXED` when the radio does not know when it was taken, or what time it is now |
 | `FLOOR` | The level that a quarter of the channels are below |
 | Foot | The cursor's frequency and level, and `RISE`: how far it is above its baseline, in dB |
 
 A rise over the baseline on a channel is the sign of a station coming in that is not usually there.
+
+To compare the latest sweep with one earlier sweep rather than the median, press BW on the Scope page, or tap the baseline's label. Each press goes to the next kept sweep, newest first, and after the oldest back to the median. Or pick one in the menu, **DX Scanner > Scope Baseline**. The choice is kept over a power cycle, and the sweep it names stays the baseline after it is no longer one of the 8 kept.
 
 ## Scanner page
 

@@ -478,6 +478,13 @@ typedef struct {
   bool running;
   bool abandoned;    /* The last sweep was ended before the top. */
   uint16_t revision; /* Moves whenever live, base or peak change. */
+  /* When each kept sweep was taken, newest first, so the Scope Baseline list
+   * is written without reading the 7 KB of them back from littlefs. */
+  uint8_t keptCount;
+  DxKeptSweep kept[DX_SWEEP_KEEP];
+  /* Where the fixed baseline is among the kept sweeps, 0 the newest, moved
+   * on as each new sweep is kept; -1 when it is not one of them. */
+  int8_t baseKept;
 } SweepStore;
 static SweepStore *sSweep = NULL;
 
@@ -486,6 +493,15 @@ static bool sameSweep(const DxSweep *a, const DxSweep *b) {
   return dxSweepSameChannels(a, b) && a->timeKnown == b->timeKnown &&
          a->at == b->at &&
          memcmp(a->level, b->level, a->count * sizeof(a->level[0])) == 0;
+}
+
+/* Note when each sweep in `h` was taken. */
+static void noteKept(const DxSweepHistory *h) {
+  sSweep->keptCount = h->count;
+  for (uint8_t i = 0; i < h->count; i++) {
+    sSweep->kept[i].timeKnown = h->item[i].timeKnown;
+    sSweep->kept[i].at = h->item[i].at;
+  }
 }
 
 /* The median of the kept sweeps in `h`, leaving out the live one. */
@@ -527,6 +543,16 @@ static void sweepEnsure(void) {
     read = true;
   }
   dxSweepFsLoad(DX_SWEEP_PATH, h);
+  noteKept(h);
+  /* Found by the whole sweep, so one taken while the clock was not set is
+   * found too. */
+  sSweep->baseKept = -1;
+  for (uint8_t i = 0; sSweep->baseFixed && i < h->count; i++) {
+    if (sameSweep(&h->item[i], &sSweep->base)) {
+      sSweep->baseKept = (int8_t)i;
+      break;
+    }
+  }
   if (h->count > 0) {
     sSweep->live = h->item[0];
     if (!sSweep->baseFixed) {
@@ -576,6 +602,12 @@ static void sweepPoll(void) {
   dxSweepKeep(h, s);
   if (!dxSweepFsSave(DX_SWEEP_PATH, h)) {
     DebugLog.println(F("[dx] the sweep could not be saved"));
+  }
+  noteKept(h);
+  if (sSweep->baseKept >= 0) {
+    sSweep->baseKept = sSweep->baseKept + 1 < DX_SWEEP_KEEP
+                           ? (int8_t)(sSweep->baseKept + 1)
+                           : (int8_t)-1;
   }
   free(h);
 }
@@ -1095,6 +1127,21 @@ bool dxTaskSweepView(DxSweepState *out) {
   return true;
 }
 
+/* Fix `h->item[n]` as the baseline, kept across restarts. `h` is used up. */
+static DxBaseResult fixBaseline(DxSweepHistory *h, uint8_t n) {
+  h->item[0] = h->item[n];
+  h->count = 1;
+  if (!dxSweepFsSave(DX_SWEEP_BASE_PATH, h)) {
+    return DX_BASE_NOT_SAVED;
+  }
+  sSweep->base = h->item[0];
+  sSweep->baseFixed = true;
+  sSweep->baseN = 1;
+  sSweep->baseKept = (int8_t)n;
+  sSweep->revision++;
+  return DX_BASE_DONE;
+}
+
 DxBaseResult dxTaskBaselineNow(void) {
   sweepEnsure();
   if (sSweep == NULL) {
@@ -1108,18 +1155,57 @@ DxBaseResult dxTaskBaselineNow(void) {
   if (h == NULL) {
     return DX_BASE_NO_MEMORY;
   }
-  h->count = 0;
-  dxSweepKeep(h, &sSweep->live);
-  const bool saved = dxSweepFsSave(DX_SWEEP_BASE_PATH, h);
+  h->item[0] = sSweep->live;
+  const DxBaseResult r = fixBaseline(h, 0);
   free(h);
-  if (!saved) {
-    return DX_BASE_NOT_SAVED;
+  return r;
+}
+
+DxBaseResult dxTaskBaselineKept(uint8_t n) {
+  sweepEnsure();
+  if (sSweep == NULL) {
+    return DX_BASE_NO_MEMORY;
   }
-  sSweep->base = sSweep->live;
-  sSweep->baseFixed = true;
-  sSweep->baseN = 1;
-  sSweep->revision++;
-  return DX_BASE_DONE;
+  sweepPoll();
+  DxSweepHistory *h = (DxSweepHistory *)malloc(sizeof(*h));
+  if (h == NULL) {
+    return DX_BASE_NO_MEMORY;
+  }
+  dxSweepFsLoad(DX_SWEEP_PATH, h);
+  const DxBaseResult r =
+      n == 0 || n >= h->count ? DX_BASE_NO_SWEEP : fixBaseline(h, n);
+  free(h);
+  return r;
+}
+
+uint8_t dxTaskKept(DxKeptSweep *out, uint8_t cap, int8_t *chosen) {
+  if (chosen != NULL) {
+    *chosen = 0;
+  }
+  sweepEnsure();
+  if (sSweep == NULL) {
+    return 0;
+  }
+  sweepPoll();
+  const uint8_t count = sSweep->keptCount > 0 ? sSweep->keptCount - 1 : 0;
+  for (uint8_t i = 0; i < count && i < cap; i++) {
+    out[i] = sSweep->kept[i + 1];
+  }
+  if (chosen != NULL && sSweep->baseFixed) {
+    *chosen = sSweep->baseKept >= 1 ? sSweep->baseKept : (int8_t)-1;
+  }
+  return count;
+}
+
+DxBaseResult dxTaskBaselineNext(void) {
+  int8_t chosen = 0;
+  const uint8_t count = dxTaskKept(NULL, 0, &chosen);
+  if (count == 0) {
+    return DX_BASE_NO_SWEEP;
+  }
+  const int next = chosen < 0 ? 1 : chosen + 1;
+  return next > count ? dxTaskBaselineAuto()
+                      : dxTaskBaselineKept((uint8_t)next);
 }
 
 DxBaseResult dxTaskBaselineAuto(void) {

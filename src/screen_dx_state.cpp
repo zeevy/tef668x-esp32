@@ -499,7 +499,13 @@ void screenScopeStateBuild(const ScreenScopeInputs *in, ScreenScopeKeep *keep,
         dxSweepSameChannels(in->base, live) && in->baseN > 0 ? in->base : NULL;
     if (base != NULL) {
       out->base = base->level;
-      if (in->baseFixed) {
+      char when[CLOCK_WHEN_LEN];
+      if (in->baseFixed && base->timeKnown && in->nowKnown &&
+          clockFormatWhen(base->at, in->nowUtc, in->offsetMinutes,
+                          CLOCK_WHEN_TAG, when, sizeof(when))) {
+        snprintf(keep->baseText, sizeof(keep->baseText), txt(STR_DX_FMT_VS),
+                 when);
+      } else if (in->baseFixed) {
         snprintf(keep->baseText, sizeof(keep->baseText), "%s",
                  txt(STR_DX_FIXED));
       } else {

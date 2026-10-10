@@ -8,6 +8,7 @@
 #include "band_scan_task.h"
 #include "core/dx.h"
 #include "core/dx_timing.h"
+#include "core/web_text.h"
 #include "drivers/dx_timing_fs.h"
 #include "drivers/logbook_fs.h"
 #include "dx_task.h"
@@ -27,8 +28,10 @@ static WebContext *sWeb = NULL;
  * wherever it now is. `scan=1` starts the DX scanner and `scan=0` stops it.
  * `learn=1` learns the local stations, opening DX mode first if it is not
  * open. `sweep=1` takes a level sweep, read with GET /api/dx/sweep, and
- * `baseline` sets the sweep baseline: `now` fixes it on the latest sweep and
- * `auto` makes it the median of the kept sweeps. `learn`, `sweep` and
+ * `baseline` sets the sweep baseline: `now` fixes it on the latest sweep, a
+ * number `n` on kept sweep `n` (1 the sweep before the latest, as `kept` in
+ * GET /api/dx/sweep lists them), and `auto` makes it the median of the kept
+ * sweeps. `learn`, `sweep` and
  * `baseline` each go on their own. The same calls the DX, MODE and BW keys
  * and a hold on a Catches row make, so the panel cannot disagree with what
  * the API was told.
@@ -91,25 +94,38 @@ static void handleApiDx(void) {
     }
     const String how = sWeb->server.arg("baseline");
     DxBaseResult r;
+    long kept = 0;
     if (how == "now") {
       r = dxTaskBaselineNow();
     } else if (how == "auto") {
       r = dxTaskBaselineAuto();
+    } else if (webParseNumber(how.c_str(), 1, DX_SWEEP_KEEP - 1, &kept) ==
+               WEB_NUMBER_OK) {
+      r = dxTaskBaselineKept((uint8_t)kept);
     } else {
       apiFail(400,
-              "baseline is now, to fix the latest sweep, or auto, for "
-              "the median of the kept sweeps.");
+              "baseline is now, to fix the latest sweep, auto, for the median "
+              "of the kept sweeps, or a kept sweep from 1 to 7.");
       return;
+    }
+    char done[48];
+    if (how == "now") {
+      snprintf(done, sizeof(done), "baseline fixed on the latest sweep\n");
+    } else if (how == "auto") {
+      snprintf(done, sizeof(done),
+               "baseline is the median of the kept sweeps\n");
+    } else {
+      snprintf(done, sizeof(done), "baseline fixed on kept sweep %ld\n", kept);
     }
     switch (r) {
       case DX_BASE_DONE:
-        sWeb->server.send(200, "text/plain",
-                          how == "now" ? "baseline fixed on the latest sweep\n"
-                                       : "baseline is the median of the kept "
-                                         "sweeps\n");
+        sWeb->server.send(200, "text/plain", done);
         return;
       case DX_BASE_NO_SWEEP:
-        apiFail(409, "There is no sweep yet. Take one with sweep=1.");
+        apiFail(409, how == "now" || how == "auto"
+                         ? "There is no sweep yet. Take one with sweep=1."
+                         : "No sweep is kept at that place. GET /api/dx/sweep "
+                           "lists them in kept.");
         return;
       case DX_BASE_NOT_SAVED:
         apiFail(503, "The storage did not take it. Nothing changed.");
@@ -361,8 +377,11 @@ static void sendSweepLevels(const char *name, const DxSweep *s,
  * channel has no reading: `level`, the baseline it is held against,
  * `rise` over it, and the `peak` held since DX mode opened. The baseline is
  * the median of `baseline_sweeps` kept sweeps before this one, or one fixed
- * by hand; with none, it and `rise` are null rather than 0. Open to read:
- * a level is already public on /api/state.
+ * by hand; with none, it and `rise` are null rather than 0. `kept` lists when
+ * each kept sweep but the latest was taken, UTC, newest first, null for one
+ * taken while the clock was not set; `baseline_kept` is the one fixed as the
+ * baseline, counted from 1, 0 for the median and -1 for a fixed sweep that
+ * is no longer kept. Open to read: a level is already public on /api/state.
  */
 static void handleApiDxSweepGet(void) {
   DxSweepState v;
@@ -405,6 +424,23 @@ static void handleApiDxSweepGet(void) {
     sendSweepLevels("baseline_level", v.base, NULL);
     sendSweepLevels("rise", v.base != NULL ? v.live : NULL, v.base);
     sendSweepLevels("peak", v.peak, NULL);
+    DxKeptSweep kept[DX_SWEEP_KEEP];
+    int8_t chosen = 0;
+    const uint8_t n = dxTaskKept(kept, DX_SWEEP_KEEP, &chosen);
+    sWeb->server.sendContent(",\"kept\":[");
+    for (uint8_t i = 0; i < n && i < DX_SWEEP_KEEP; i++) {
+      char item[16];
+      if (kept[i].timeKnown) {
+        snprintf(item, sizeof(item), "%s%u", i > 0 ? "," : "",
+                 (unsigned)kept[i].at);
+      } else {
+        snprintf(item, sizeof(item), "%snull", i > 0 ? "," : "");
+      }
+      sWeb->server.sendContent(item);
+    }
+    char tail[32];
+    snprintf(tail, sizeof(tail), "],\"baseline_kept\":%d", (int)chosen);
+    sWeb->server.sendContent(tail);
   }
   sWeb->server.sendContent("}\n");
   sWeb->server.sendContent("");
