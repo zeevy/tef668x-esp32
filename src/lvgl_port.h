@@ -24,18 +24,22 @@
  *
  * There is no PSRAM, so a full 320x240 frame at two bytes a pixel is 150 KB
  * and out of the question. LVGL draws a strip at a time instead, and this is
- * how tall a strip is: 320 by 20 pixels, 12.5 KB.
+ * how tall a strip is: 320 by 10 pixels, 6.25 KB, and a whole screen is 24
+ * of them.
  *
- * Bigger is fewer strips for a whole screen. Smaller is less RAM, which is
- * what this radio is shortest of. 20 lines still hold the scrolling radio
- * text, 296 by 18, in one strip, and a whole screen is twelve of them.
+ * Bigger is fewer strips. Smaller is less RAM, which is what this radio is
+ * shortest of, and RAM wins here. LVGL draws each object once for every strip
+ * it crosses, so a full repaint takes about 200 ms at 10 lines against about
+ * 145 ms at 20, and the menu or another screen opens about 20 to 55 ms later.
+ * 20 lines would cost 6.4 KB more. One step of the scrolling radio text,
+ * 296 by 18, goes to the panel in two pushes.
  *
  * One buffer, not two. Two only helps when the push happens in the background
  * and drawing can carry on into the other one, and `displayPush` writes to
  * the SPI bus and returns when it is done. A second buffer would be RAM that
  * nothing could use.
  */
-#define LVGL_DRAW_LINES 20
+#define LVGL_DRAW_LINES 10
 
 /*
  * Start LVGL and give it the panel.

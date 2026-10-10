@@ -32,14 +32,16 @@
 
 /*
  * Measured, not guessed: `rad` in GET /api/state is the part of this stack
- * the task has never reached. Driven through start up, seeks, a band scan,
- * a DX level sweep, a series of AF checks and every band, the most it used
- * was 2372 bytes, nearly all of it at start up while the tuner is brought
- * up, which leaves 1724, 42 %. The rule is that at least a quarter of each
- * stack stays unreached, so this holds with room; measure again before
- * making it smaller.
+ * the task has never reached. Driven through a start from power off, seeks,
+ * a band scan, a DX level sweep and scan, a series of AF checks, every band,
+ * the band scope and PC Link spectral scans, the most it used was 1872
+ * bytes, 1744 of them at start up while the tuner is brought up. The rule is
+ * that at least a quarter of each stack stays unreached: 3200 leaves 1328
+ * bytes, 41 %, and would still keep a quarter at 2400 bytes of use. Every
+ * byte not needed here is heap for the HTTPS update check, so measure again
+ * before making it bigger or smaller.
  */
-#define RADIO_TASK_STACK 4096
+#define RADIO_TASK_STACK 3200
 
 /*
  * The queue carries commands and nothing else.

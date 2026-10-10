@@ -997,8 +997,8 @@ bool screenBegin(void);
  * Only what changed is written. LVGL redraws only what it has been told is
  * dirty, so setting a label to the string it already holds costs a compare
  * and nothing else, but the strings still have to be built, and a full
- * repaint is twelve strips of 320 by 20 pixels, about 150 ms, 37 of it
- * pushes at the panel's 40 MHz.
+ * repaint is 24 strips of 320 by 10 pixels, about 200 ms, 37 of it pushes
+ * at the panel's 40 MHz.
  */
 void screenShow(const ScreenState *state);
 
