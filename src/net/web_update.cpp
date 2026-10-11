@@ -23,6 +23,8 @@ static WebServer sServerItself(WEB_PORT);
 /* The one context every web file is handed; see web_internal.h. */
 static WebContext sContext = {sServerItself, NULL, 0, false};
 static WebContext *const sWeb = &sContext;
+/* When the last request came, for webLastRequestMs. */
+static uint32_t sLastRequestMs = 0;
 /* Whether the server is listening, which follows `webEnabled`. */
 static bool sListening = false;
 
@@ -304,6 +306,7 @@ void webBegin(Settings *settings, uint32_t accessPin) {
    * or the not-found handler runs. */
   sWeb->server.addMiddleware([](WebServer &, Middleware::Callback next) {
     sWeb->requests++;
+    sLastRequestMs = millis();
     return next();
   });
 
@@ -320,6 +323,14 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   if (sListening) {
     sWeb->server.begin();
   }
+}
+
+bool webLastRequestMs(uint32_t *atMs) {
+  if (sWeb->requests == 0 || atMs == NULL) {
+    return false;
+  }
+  *atMs = sLastRequestMs;
+  return true;
 }
 
 void webLoop(void) {

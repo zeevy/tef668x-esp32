@@ -289,6 +289,7 @@ void settingsDefaults(Settings *s) {
   s->keypadTimeoutS = SETTINGS_KEYPAD_TIMEOUT_DEFAULT_S;
   /* Off: nothing listens for a PC until its owner asks. */
   s->pcLink = 0;
+  s->batteryCheck = 0;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a
@@ -525,6 +526,9 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     if (out->pcLink > 1) {
       out->pcLink = 0;
     }
+    if (out->batteryCheck > 1) {
+      out->batteryCheck = 0;
+    }
     keepUnused(out);
     if (!settingsValid(out)) {
       settingsDefaults(out);
@@ -602,9 +606,13 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
   if (out->touchOff > 1) {
     out->touchOff = 0;
   }
-  /* The PC Link lives in version 32's padding, the same way. */
+  /* The PC Link and the battery check live in version 32's padding, the
+   * same way. */
   if (out->pcLink > 1) {
     out->pcLink = 0;
+  }
+  if (out->batteryCheck > 1) {
+    out->batteryCheck = 0;
   }
   keepUnused(out);
 

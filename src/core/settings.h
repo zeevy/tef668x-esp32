@@ -454,6 +454,12 @@ typedef struct {
    * the radio listens on TCP port 7373 for XDR-GTK and FM-DX Webserver. 0,
    * the default, for nothing listening. */
   uint8_t pcLink;
+
+  /* The last byte of version 32's padding, the version left at 32 for the
+   * same reason. 1 for the battery read again every few minutes with Wi-Fi
+   * paused while nobody uses the radio; 0, the default, for the one reading
+   * at start up. */
+  uint8_t batteryCheck;
 } Settings;
 
 /* Keypad Timeout's limits and the value a new radio starts with. Five

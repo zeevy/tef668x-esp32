@@ -415,6 +415,14 @@ void screenTaskSetBacklight(const BacklightConfig *cfg) {
   }
 }
 
+void screenTaskBatteryTake(uint16_t milliVolts) {
+  batteryTake(&sBattery, milliVolts);
+}
+
+uint32_t screenTaskLastInputMs(void) {
+  return sLastActivityMs;
+}
+
 bool screenTaskBacklightState(uint8_t *percent) {
   if (percent != NULL) {
     *percent = backlightLevel(&sBacklight);

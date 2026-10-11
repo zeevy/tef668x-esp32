@@ -15,6 +15,7 @@
 #include "debug_log.h"
 
 #include "band_scan_task.h"
+#include "battery_check_task.h"
 #include "board/board.h"
 #include "core/access_pin.h"
 #include "core/autosave.h"
@@ -544,6 +545,8 @@ void setup() {
    * on the pass the address actually arrives.
    */
   wifiBegin(&gSettings);
+  /* From here: the next reading is a full interval after this start. */
+  batteryCheckTaskBegin(&gSettings);
 
   otaBegin(gAccessPin);
 
@@ -600,6 +603,7 @@ void loop() {
   sleepTaskPoll();
 
   wifiLoop();
+  batteryCheckTaskPoll(updateWouldInterrupt);
   otaLoop(gSettings.webEnabled != 0);
   webLoop();
   xdrServerLoop();

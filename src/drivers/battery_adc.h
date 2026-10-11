@@ -73,4 +73,12 @@ bool batteryAdcAtBoot(uint16_t *milliVolts);
 /* Take that reading. Call once, before Wi-Fi starts. */
 void batteryAdcSampleAtBoot(void);
 
+/*
+ * The newest plausible reading, from start up, from a read with Wi-Fi off,
+ * or from one with Wi-Fi paused: its millivolts, the millis() it was taken
+ * at, and whether it is still the one from start up. False until one has
+ * arrived. A reading out of the range a connected cell gives is not kept.
+ */
+bool batteryAdcLast(uint16_t *milliVolts, uint32_t *atMs, bool *atStart);
+
 #endif /* DRIVERS_BATTERY_ADC_H */

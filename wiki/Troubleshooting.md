@@ -74,6 +74,10 @@ Change **Seek Sensitivity**, in FM Reception for FM and AM Reception for AM. A h
 
 When the screen has dimmed, the first key press or knob turn only wakes it. Press again. To stop the screen dimming, set **Display > Dim After** to Never.
 
+## The radio drops off the network for a few seconds
+
+With [Battery Check](Display-and-Themes.md#battery-check) on, the radio stops Wi-Fi every 5 minutes while nobody uses it, to read the battery, then joins again. It never does it while a web page is open, a PC is on the PC Link or a phone is on its hotspot, nor while you use the radio: a key, the knob or a touch in the last 5 minutes, unless the screen is dimmed to nothing. Turn Battery Check off under **Menu > Display** to keep the radio on the network all the time.
+
 ## Something else
 
 Ask in [Discussions](https://github.com/zeevy/tef668x-esp32/discussions/categories/q-a), or open a [bug report](https://github.com/zeevy/tef668x-esp32/issues/new/choose) with the output of `/api/state`.

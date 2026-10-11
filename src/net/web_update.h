@@ -37,6 +37,12 @@ void webBegin(Settings *settings, uint32_t accessPin);
 
 void webLoop(void);
 
+/* When the last request came, in millis(); false while none has. */
+bool webLastRequestMs(uint32_t *atMs);
+
+/* Pages on the live socket. */
+uint8_t webLivePages(void);
+
 /*
  * Make `pin` the access PIN everywhere it is used, once the caller has
  * stored it: the web sign in and the OTA password. The session was opened

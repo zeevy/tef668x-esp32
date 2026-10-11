@@ -150,6 +150,7 @@ static void handleApiSettingsGet(void) {
  * | `rds` | 0 or 1 | at once | Run the RDS decoder. Off gives the radio task back two thirds of its wakeups on FM |
  * | `ntp` | 0 or 1 | at once | Ask the network for the time. Off takes the clock off the panel |
  * | `bat` | 0 to 2 | at once | The battery in the header: 0 off, 1 per cent, 2 volts |
+ * | `bck` | 0 or 1 | at once | Battery Check: 1 reads the battery every 5 min with Wi-Fi paused while nobody uses the radio |
  * | `agt` | 0, or 30 to 80 | at once | Volume AGC target modulation, per cent. 0 is off |
  * | `agb` | 0 to 8 | at once | The most the AGC may add to a quiet station, dB. 0 is cut only |
  * | `thm` | 0 to `THEME_COUNT` - 1 | at once | The theme drawn by day, 06:00 to 17:59 local time and whenever the time is not known, by saved index: 0 Nightwatch, 1 Daylight, 2 Red Night, 3 Phosphor, 4 Clear, 5 Custom, 6 Slate, 7 Paper, 8 LCD, 9 Ember, 10 Clear Day, 11 High Contrast, 12 Mono, 13 Hi-Fi, 14 Violet, 15 Blossom |

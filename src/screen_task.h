@@ -300,6 +300,13 @@ void screenTaskSetBacklight(const BacklightConfig *cfg);
 
 bool screenTaskBacklightState(uint8_t *percent);
 
+/* A battery reading taken with Wi-Fi paused, for the panel, as it stands. */
+void screenTaskBatteryTake(uint16_t milliVolts);
+
+/* When the last key, knob or touch came, in millis(), or when the panel last
+ * woke by itself: at start up, or for an update offer. */
+uint32_t screenTaskLastInputMs(void);
+
 /*
  * Show `text` in the station name band for a second and a half, then let it
  * go back to the station or memory name.

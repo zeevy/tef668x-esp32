@@ -152,6 +152,7 @@ See [Display and Themes](Display-and-Themes.md).
 | Dim After | Never, 5 to 240 s in steps of 5 | Never | How long with no input before the screen dims |
 | Display Rotation | Normal, Upside Down | Normal | Turns the screen over. Acts when saved, no restart |
 | Battery | Off, Percent, Volts | Off | How the battery shows in the header |
+| Battery Check | Off, On | Off | On reads the battery every 5 minutes with Wi-Fi stopped for a moment, while nobody uses the radio. See [Display and Themes](Display-and-Themes.md#battery-check) |
 
 ## Connectivity
 
@@ -197,7 +198,7 @@ All read only.
 |---|---|
 | Boot Source | The firmware slot it runs from, `app0` or `app1` |
 | Uptime | How long since start, such as `42 min` or `3 h 5 m` |
-| Battery Voltage | The battery, such as `3.95 V`, with `at start` when it is the reading from start up |
+| Battery Voltage | The battery, such as `3.95 V`, with `at start` when it is the reading from start up; with Battery Check on, the newest reading and its age, such as `3.85 V, 4 min ago` |
 | Tuner | The tuner chip and patch, such as `TEF6686 patch 102` |
 | Reset Reason | Why the radio last started: Power On, Software, Panic, IRQ Watchdog, Task Watchdog, Watchdog, Deep Sleep, Brownout, Reset Pin, Unknown, Restart Asked, Boot Watchdog, Rollback, Display Fault or Update |
 | CPU Core 0, CPU Core 1 | How busy each core was over the last second |

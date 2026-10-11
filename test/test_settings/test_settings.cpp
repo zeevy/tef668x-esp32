@@ -2096,6 +2096,46 @@ static void the_pc_link_survives_a_newer_blob(void) {
   TEST_ASSERT_EQUAL_UINT8(0, out.pcLink);
 }
 
+/* The battery check sits in the last byte of version 32's padding, so the
+ * struct keeps its size and version. A blob written before it holds 0 there
+ * and reads as off; a stray byte reads as off rather than costing the struct;
+ * a newer firmware's blob keeps it on. */
+static void the_battery_check_in_version_32_padding_reads_as_off(void) {
+  TEST_ASSERT_EQUAL_size_t(278, offsetof(Settings, batteryCheck));
+  TEST_ASSERT_EQUAL_size_t(V32_SIZE, sizeof(Settings));
+  TEST_ASSERT_EQUAL_UINT16(32, SETTINGS_VERSION);
+  Settings source;
+  settingsDefaults(&source);
+  TEST_ASSERT_EQUAL_UINT8(0, source.batteryCheck);
+  source.pcLink = 1;
+  uint8_t blob[V32_SIZE];
+  memcpy(blob, &source, V32_SIZE);
+  Settings out;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.batteryCheck);
+  blob[278] = 1;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.batteryCheck);
+  blob[278] = 7;
+  TEST_ASSERT_TRUE(settingsFromBlob(blob, V32_SIZE, &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.batteryCheck);
+  TEST_ASSERT_EQUAL_UINT8(1, out.pcLink);
+
+  uint8_t newer[V32_SIZE + 8];
+  memset(newer, 0, sizeof(newer));
+  source.batteryCheck = 1;
+  memcpy(newer, &source, V32_SIZE);
+  uint16_t version = SETTINGS_VERSION + 1;
+  uint16_t size = (uint16_t)sizeof(newer);
+  memcpy(newer + offsetof(Settings, version), &version, sizeof(version));
+  memcpy(newer + offsetof(Settings, size), &size, sizeof(size));
+  TEST_ASSERT_TRUE(settingsFromBlob(newer, sizeof(newer), &out));
+  TEST_ASSERT_EQUAL_UINT8(1, out.batteryCheck);
+  newer[278] = 3;
+  TEST_ASSERT_TRUE(settingsFromBlob(newer, sizeof(newer), &out));
+  TEST_ASSERT_EQUAL_UINT8(0, out.batteryCheck);
+}
+
 /* A version 31 blob has no keypad timeout, so it gets the 20 s a new radio
  * starts with, and the rest of it is kept. */
 static void a_version_31_blob_gets_the_default_keypad_timeout(void) {
@@ -2427,6 +2467,7 @@ int main(int, char **) {
   RUN_TEST(touch_off_survives_a_newer_blob);
   RUN_TEST(the_pc_link_in_version_32_padding_reads_as_off);
   RUN_TEST(the_pc_link_survives_a_newer_blob);
+  RUN_TEST(the_battery_check_in_version_32_padding_reads_as_off);
   RUN_TEST(touch_is_on_and_takes_only_0_or_1);
   RUN_TEST(a_version_31_blob_gets_the_default_keypad_timeout);
   RUN_TEST(the_keypad_timeout_is_5_to_60_seconds);
