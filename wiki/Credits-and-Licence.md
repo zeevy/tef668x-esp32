@@ -19,9 +19,13 @@ The firmware carries some parts made by others, each under its own licence. [THI
 | [LVGL](https://lvgl.io) 9.5.0 | The graphics library that draws the screens. Downloaded at build time | MIT |
 | [Roboto Condensed](https://fonts.google.com/specimen/Roboto+Condensed) | The font on the screen, stored as bitmaps | SIL Open Font License 1.1 |
 | [Material Symbols](https://fonts.google.com/icons) | The icons on the screen, stored as bitmaps | Apache 2.0 |
-| [Pico CSS](https://picocss.com) 2.1.1 | The look of the web page, served by the radio | MIT |
-| [htmx](https://htmx.org) 2.0.10 | The controls on the web page, served by the radio | Zero-Clause BSD |
+| [Preact](https://preactjs.com) 11.0.1 | The library the web page is built with. Built into the page | MIT |
+| [Preact Signals](https://github.com/preactjs/signals) 2.11.3 | Holds the data the web page shows, and redraws a part when its data changes. Built into the page | MIT |
+| [Tailwind CSS](https://tailwindcss.com) 4.3.3 | The look of the web page. The styles it makes are built into the page | MIT |
+| [Lucide](https://lucide.dev) 1.55.0 | The icons on the web page, copied into the page | ISC, and MIT for the icons that come from Feather |
 | TEF668x patch data | NXP's firmware for the tuner, which it needs at every power on | See below |
+
+The web page is built and tested with [Vite](https://vite.dev) 8.3.4, vite-plugin-singlefile 2.3.3 and [Playwright](https://playwright.dev) 1.64.0. They are not in the firmware.
 
 ### The tuner's patch data
 

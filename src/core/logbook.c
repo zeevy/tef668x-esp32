@@ -47,6 +47,20 @@ uint16_t logbookRingSlotAt(const LogbookRing *ring, uint16_t i) {
   return (uint16_t)((ring->head + i) % LOGBOOK_MAX_ENTRIES);
 }
 
+bool logbookRingIndexOf(const LogbookRing *ring, uint16_t slot,
+                        uint16_t *index) {
+  if (ring == NULL || index == NULL || slot >= LOGBOOK_MAX_ENTRIES) {
+    return false;
+  }
+  const uint16_t i = (uint16_t)((slot + LOGBOOK_MAX_ENTRIES - ring->head) %
+                                LOGBOOK_MAX_ENTRIES);
+  if (i >= ring->count) {
+    return false;
+  }
+  *index = i;
+  return true;
+}
+
 size_t logbookEncode(const LogbookEntry *e, uint8_t *out, size_t cap) {
   if (e == NULL || out == NULL || cap < LOGBOOK_RECORD_SIZE) {
     return 0;
@@ -84,6 +98,10 @@ size_t logbookEncode(const LogbookEntry *e, uint8_t *out, size_t cap) {
   *p++ = e->hasRt ? 1 : 0;
   memcpy(p, e->rt, LOGBOOK_RT_LEN);
   p += LOGBOOK_RT_LEN;
+  /* Copied whole, as the name is. */
+  memcpy(p, e->note, LOGBOOK_NOTE_LEN);
+  p += LOGBOOK_NOTE_LEN;
+  *p++ = e->renamed ? 1 : 0; /* Flags: bit 0 renamed, the rest kept 0. */
   return (size_t)(p - out);
 }
 
@@ -120,22 +138,40 @@ bool logbookDecode(const uint8_t *in, size_t len, LogbookEntry *out) {
   out->hasRt = *p++ != 0;
   memcpy(out->rt, p, LOGBOOK_RT_LEN);
   out->rt[LOGBOOK_RT_LEN - 1] = '\0';
+  p += LOGBOOK_RT_LEN;
+  memcpy(out->note, p, LOGBOOK_NOTE_LEN);
+  out->note[LOGBOOK_NOTE_LEN - 1] = '\0';
+  p += LOGBOOK_NOTE_LEN;
+  out->renamed = (*p & 1) != 0;
   return true;
 }
 
-bool logbookUpgradeV1(const uint8_t *in, uint8_t *out, size_t cap) {
-  if (in == NULL || out == NULL || cap < LOGBOOK_RECORD_SIZE) {
+bool logbookUpgrade(const uint8_t *in, size_t len, uint8_t *out, size_t cap) {
+  if (in == NULL || out == NULL || len > LOGBOOK_RECORD_SIZE ||
+      cap < LOGBOOK_RECORD_SIZE) {
     return false;
   }
-  memcpy(out, in, LOGBOOK_RECORD_SIZE_V1);
-  memset(out + LOGBOOK_RECORD_SIZE_V1, 0,
-         LOGBOOK_RECORD_SIZE - LOGBOOK_RECORD_SIZE_V1);
+  memcpy(out, in, len);
+  memset(out + len, 0, LOGBOOK_RECORD_SIZE - len);
+  return true;
+}
+
+bool logbookTextFits(const char *text, size_t max) {
+  if (text == NULL) {
+    return false;
+  }
+  size_t n = 0;
+  for (; text[n] != '\0'; n++) {
+    if (n >= max || text[n] < 0x20 || text[n] > 0x7E) {
+      return false;
+    }
+  }
   return true;
 }
 
 const char *logbookCsvHeader(void) {
   return "time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,"
-         "bandwidth_khz,name,pi,rt\n";
+         "bandwidth_khz,name,pi,rt,note,renamed\n";
 }
 
 size_t logbookCsvLine(const LogbookEntry *e, int16_t offsetMinutes, char *out,
@@ -188,13 +224,19 @@ size_t logbookCsvLine(const LogbookEntry *e, int16_t offsetMinutes, char *out,
     csvQuote(e->rt, LOGBOOK_RT_LEN - 1, rtField, sizeof(rtField));
   }
 
+  char noteField[2 + (LOGBOOK_NOTE_LEN - 1) * 2 + 1];
+  noteField[0] = '\0';
+  if (e->note[0] != '\0') {
+    csvQuote(e->note, LOGBOOK_NOTE_LEN - 1, noteField, sizeof(noteField));
+  }
+
   return (size_t)snprintf(
-      out, cap, "%s,%d,%s,%u,%d,%u,%u,%u,%d,%d,%u,%s,%s,%s\n", timeText,
+      out, cap, "%s,%d,%s,%u,%d,%u,%u,%u,%d,%d,%u,%s,%s,%s,%s,%d\n", timeText,
       e->timeKnown ? 1 : 0, bandName((BandId)e->band), (unsigned)e->freqKHz,
       (int)e->levelDbuVTenths, (unsigned)e->usnTenths,
       (unsigned)e->multipathTenths, (unsigned)e->coChannelTenths, (int)e->snrDb,
-      e->stereo ? 1 : 0, (unsigned)e->bandwidthKHz, nameField, piField,
-      rtField);
+      e->stereo ? 1 : 0, (unsigned)e->bandwidthKHz, nameField, piField, rtField,
+      noteField, e->renamed ? 1 : 0);
 }
 
 void logbookEntryLabel(const LogbookEntry *e, char *out, size_t len) {

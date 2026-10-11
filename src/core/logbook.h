@@ -1,11 +1,13 @@
 /*
  * A record of what was heard and when.
  *
- * An entry is written once, holds everything the radio knew at that moment,
- * and is never edited from the radio itself, which is what tells it apart
+ * An entry is written once and holds everything the radio knew at that
+ * moment. Its readings are never changed after, which is what tells it apart
  * from a memory channel: a channel is somewhere to go back to and a person
  * chooses and names it, an entry is something that happened and is worth
- * keeping because of when it happened.
+ * keeping because of when it happened. From the web page a person can still
+ * correct its name, which then says it was renamed, write a note on it, or
+ * delete it.
  *
  * Nothing here touches a file or the network. The ring math and the record
  * format are pure, so they build and are tested on a PC; where the bytes
@@ -38,6 +40,9 @@ extern "C" {
 /* RDS radio text, 64 characters plus the terminator. Matches RDS_RT_LEN. */
 #define LOGBOOK_RT_LEN 65
 
+/* A person's own note on an entry, 32 characters plus the terminator. */
+#define LOGBOOK_NOTE_LEN 33
+
 /*
  * The exact size of one packed record, in bytes.
  *
@@ -45,13 +50,15 @@ extern "C" {
  * for a caller to fill in, and the padding a compiler puts in it is not the
  * same on every target that might read this file back. A new field needs
  * a new format version in drivers/logbook_fs.h and a way to read the old
- * records, as logbookUpgradeV1 is for the radio text.
+ * records, which logbookUpgrade is.
  */
-#define LOGBOOK_RECORD_SIZE 101
+#define LOGBOOK_RECORD_SIZE 135
 
-/* Format 1's record: everything above but the radio text, which follows it
- * in format 2. */
+/* The formats before: format 1 had no radio text, format 2 no note and no
+ * renamed mark. Each is the start of the one after, the same bytes in the
+ * same place. */
 #define LOGBOOK_RECORD_SIZE_V1 35
+#define LOGBOOK_RECORD_SIZE_V2 101
 
 /* One catch, everything the radio knew about it at the moment it was held. */
 typedef struct {
@@ -82,6 +89,11 @@ typedef struct {
    * channel's own station and Log Radio Text is on. */
   bool hasRt;
   char rt[LOGBOOK_RT_LEN];
+  /* A person's note, empty for none. Format 3. */
+  char note[LOGBOOK_NOTE_LEN];
+  /* The name was typed by a person, not received: a log keeps the two
+   * apart, since a received name is evidence of what was heard. Format 3. */
+  bool renamed;
 } LogbookEntry;
 
 /*
@@ -135,6 +147,12 @@ uint16_t logbookRingAppend(LogbookRing *ring);
  */
 uint16_t logbookRingSlotAt(const LogbookRing *ring, uint16_t i);
 
+/* The reverse: which entry, counted from the oldest, `slot` holds, into
+ * `index`. False when the ring does not hold that slot, which a slot named
+ * by a list read before the ring moved on can be, or for NULL. */
+bool logbookRingIndexOf(const LogbookRing *ring, uint16_t slot,
+                        uint16_t *index);
+
 /*
  * Pack one entry into its fixed size on-flash record.
  *
@@ -156,12 +174,20 @@ size_t logbookEncode(const LogbookEntry *e, uint8_t *out, size_t cap);
 bool logbookDecode(const uint8_t *in, size_t len, LogbookEntry *out);
 
 /*
- * A format 1 record, LOGBOOK_RECORD_SIZE_V1 bytes, as a format 2 one of
- * LOGBOOK_RECORD_SIZE: the same entry with no radio text. Format 2 keeps
- * format 1's bytes in the same place, so this copies them and zeroes the
- * rest. False if either pointer is NULL or `cap` is short.
+ * A record of an earlier format, `len` bytes, as one of this format, of
+ * LOGBOOK_RECORD_SIZE: the same entry with what the old format had no room
+ * for left empty. Each format keeps the one before's bytes in the same place,
+ * so this copies them and zeroes the rest. False if either pointer is NULL,
+ * `len` is longer than a record or `cap` is short.
  */
-bool logbookUpgradeV1(const uint8_t *in, uint8_t *out, size_t cap);
+bool logbookUpgrade(const uint8_t *in, size_t len, uint8_t *out, size_t cap);
+
+/*
+ * Whether a person's text fits a field: at most `max` characters, each
+ * printable ASCII, so an exported line stays one line and the panel's font
+ * has every character. Empty is allowed. False for NULL.
+ */
+bool logbookTextFits(const char *text, size_t max);
 
 const char *logbookCsvHeader(void);
 

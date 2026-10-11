@@ -51,7 +51,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 
 **Network**
 - Joins your Wi-Fi, or starts its own hotspot when it cannot.
-- A web page served by the radio itself, with no internet needed.
+- A web page served by the radio itself, with no internet needed: Home, Radio, Presets, DX, Band scope, Station log, Settings, Network and System, sized for a phone or a laptop, in light or dark. It shows the radio live, twice a second, on up to two pages at once. It is one gzipped file in the firmware.
 - An HTTP control API for every control the radio has.
 - A PC Link for [XDR-GTK](https://github.com/kkonradpl/xdr-gtk) and [FM-DX Webserver](https://github.com/NoobishSVK/fm-dx-webserver) over Wi-Fi, off until switched on, with the access PIN as its password; RDS Spy and StationList work through XDR-GTK.
 - Over the air updates with two firmware slots. A new image that fails to boot is rolled back on its own.
@@ -107,7 +107,7 @@ pio run -e ats125 -t upload       # first flash, over USB
 
 **The first flash needs download mode.** The ATS-125's USB serial chip is not wired for auto reset. Hold BOOT, tap RESET, release BOOT, then start the upload.
 
-**After that, flash over Wi-Fi.** Open the radio's page, sign in with the PIN, and use the update form. Or with curl:
+**After that, flash over Wi-Fi.** Open the radio's web page, go to **System**, and use **Update firmware** in the Updates card. The page asks for the PIN. Or with curl:
 
 ```bash
 R=http://tef668x.local:8080
@@ -154,6 +154,8 @@ curl -s -b jar -d bnd=MW $R/api/band         # change band
 curl -s -b jar -d k=MODE -d e=long $R/api/key # press a control, as a person would
 curl -s $R/api/screen                        # what the screen shows, text by text
 ```
+
+`/api/live` is a WebSocket that sends the same JSON as `/api/state` twice a second, with no PIN, to at most two pages at once.
 
 Other endpoints: `/api/touch`, `/api/bandwidth`, `/api/step-size`, `/api/volume`, `/api/mute`, `/api/mode`, `/api/cycle`, `/api/squelch`, `/api/fm`, `/api/seek`, `/api/scan`, `/api/beep`, `/api/presets`, `/api/presets.csv`, `/api/presets/import`, `/api/log`, `/api/log.csv`, `/api/settings`, `/api/save`, `/api/sleep`, `/api/dx`, `/api/dx.csv`, `/api/scope` and `/api/rds/raw`, plus a few more used for measuring.
 
@@ -207,7 +209,7 @@ flowchart LR
     subgraph c1["Core 1: loop"]
         IN["knob, buttons,<br/>keypad, volume"]
         L["LVGL screens<br/>and menu"]
-        W["web pages, API<br/>and updates"]
+        W["web page, API<br/>and updates"]
     end
 
     T -- "state snapshot" --> L
@@ -258,11 +260,20 @@ Every text the screen shows is one line in `src/lang/en.h`. Another language is 
 One command runs every check:
 
 ```bash
-tools/check.sh                    # all seven gates
-tools/check.sh test               # just one: build, test, coverage, analysis, format, fonts, size
+tools/check.sh                    # all eight gates
+tools/check.sh test               # just one: build, test, coverage, analysis, format, fonts, web, size
 ```
 
-It builds the firmware, runs the unit tests, checks that line coverage is at least 95 %, runs static analysis, checks the formatting with clang-format 23.1.1, checks the fonts are not compressed, and prints the image size. CI runs the same script on every push and pull request to `master`.
+It builds the firmware, runs the unit tests, checks that line coverage is at least 95 %, runs static analysis, checks the formatting with clang-format 23.1.1, checks the fonts are not compressed, builds the web page and runs its browser tests, and prints the image size. CI runs the same script on every push and pull request to `master`.
+
+The web page is built from `web/` with Preact and Tailwind CSS, into one file that the firmware carries gzipped in `src/net/web_page.h`. It needs Node 24.21.0. After a change in `web/`:
+
+```bash
+npm --prefix web ci                                   # once
+npm --prefix web run build && python3 tools/web_page.py
+```
+
+The `web` gate fails when `src/net/web_page.h` is not what the page builds to now.
 
 Many unit tests replay real readings taken off the radio: RDS groups, band sweeps and signal readings. A threshold is set from measured data, never guessed.
 
@@ -285,8 +296,10 @@ Some parts come from others, each with its own licence. [THIRD_PARTY_LICENSES.md
 | [LVGL](https://lvgl.io) 9.5.0 | Downloaded at build time | MIT |
 | [Roboto Condensed](https://fonts.google.com/specimen/Roboto+Condensed) | Converted to bitmaps in `src/ui/fonts/` | SIL Open Font License 1.1 |
 | [Material Symbols](https://fonts.google.com/icons) | Converted to bitmaps in `src/ui/fonts/font_icons.c` | Apache 2.0 |
-| [Pico CSS](https://picocss.com) 2.1.1 | Compressed in `src/net/web_assets.h` | MIT |
-| [htmx](https://htmx.org) 2.0.10 | Compressed in `src/net/web_assets.h` | Zero-Clause BSD |
+| [Preact](https://preactjs.com) 11.0.1 | Built into the web page, `src/net/web_page.h` | MIT |
+| [Preact Signals](https://github.com/preactjs/signals) 2.11.3 | Built into the web page, `src/net/web_page.h` | MIT |
+| [Tailwind CSS](https://tailwindcss.com) 4.3.3 | The styles it makes are built into the web page | MIT |
+| [Lucide](https://lucide.dev) 1.55.0 | Icon shapes in `web/src/ui/icons.js`, built into the web page | ISC, and MIT for the icons that come from Feather |
 | TEF668x patch data | `src/drivers/tef668x_patch.cpp` | NXP's firmware for the tuner, which it needs at every power on. It is carried here as the GPLv3 [PE5PVB](https://github.com/PE5PVB/TEF6686_ESP32) firmware carries the same bytes. NXP has not published terms for it that this project knows of |
 
 Thanks to Sjef Verhoeven, PE5PVB, whose firmware showed how this hardware works, and to Oona Räisänen, whose [redsea](https://github.com/windytan/redsea) RDS decoder (MIT) the country tables were checked against.

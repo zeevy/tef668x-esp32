@@ -131,6 +131,18 @@ const MemoryChannel *memoryGet(const MemoryStore *m, int slot);
 
 bool memorySet(MemoryStore *m, int slot, const MemoryChannel *c);
 
+/* Empties `slot`. False for a slot outside the store or a NULL store. An
+ * empty slot is left empty and answers true. */
+bool memoryClear(MemoryStore *m, int slot);
+
+/*
+ * Moves the channel in `from` to `to`, its name, width and PI with it. A
+ * channel already in `to` goes to `from`, so the two swap and nothing is
+ * lost. False for a slot outside the store, an empty `from` or a NULL store;
+ * a move onto itself is true and changes nothing.
+ */
+bool memoryMove(MemoryStore *m, int from, int to);
+
 int memoryCount(const MemoryStore *m);
 
 /* The slot of the n-th used slot, n counted from 0 in slot order, or
@@ -165,26 +177,27 @@ int memoryFindNear(const MemoryStore *m, uint8_t band, uint32_t freqKHz,
 int memoryPick(const MemoryStore *m, int first, int second, uint8_t band,
                uint32_t freqKHz);
 
-/* What came of storing a channel. */
+/* What came of adding a channel. */
 typedef enum {
-  MEMORY_SAVE_OK,         /* Written, into the slot `*slot` names. */
-  MEMORY_SAVE_FULL,       /* No slot was named and none is free. */
-  MEMORY_SAVE_INVALID,    /* Not a preset: the name, width or frequency. */
-  MEMORY_SAVE_UNREACHABLE /* For the store around this: it did not start. */
+  MEMORY_SAVE_OK,          /* Written, into the slot `*slot` names. */
+  MEMORY_SAVE_FULL,        /* No slot is free. */
+  MEMORY_SAVE_INVALID,     /* Not a preset: the name, width or frequency. */
+  MEMORY_SAVE_UNREACHABLE, /* For the store around this: it did not start. */
+  MEMORY_SAVE_TAKEN        /* The station is a preset already. */
 } MemorySaveResult;
 
 /*
- * Store a channel into `*slot`, or into the lowest free slot when `*slot` is
- * MEMORY_NO_SLOT, with `name`, or no name when it is NULL.
- *
- * It replaces the slot outright: keeping an old name on a different station
- * would be worse than losing it. A name longer than a slot holds is cut to
- * fit. Nothing changes unless the answer is MEMORY_SAVE_OK, and only then does
- * `*slot` name where it went.
+ * Add a station as a new preset, in the lowest free slot, with `name`, or no
+ * name when it is NULL; a name longer than a slot holds is cut to fit. A
+ * preset that holds the same band and frequency already gives
+ * MEMORY_SAVE_TAKEN, with `*slot` naming it. The list itself picks the slot,
+ * so a caller working from an old copy of it cannot write over a preset
+ * stored since. Nothing changes unless the answer is MEMORY_SAVE_OK, and
+ * `*slot` names the new slot only then.
  */
-MemorySaveResult memorySaveChannel(MemoryStore *m, uint8_t band,
-                                   uint32_t freqKHz, uint16_t bandwidthKHz,
-                                   const char *name, int *slot);
+MemorySaveResult memoryAddChannel(MemoryStore *m, uint8_t band,
+                                  uint32_t freqKHz, uint16_t bandwidthKHz,
+                                  const char *name, int *slot);
 
 /*
  * The next filled slot that can actually be tuned, wrapping at the ends.

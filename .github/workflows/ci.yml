@@ -1,7 +1,7 @@
 # Gates for every push and every pull request.
 #
 # This runs tools/check.sh, the same script that runs on a development machine.
-# Six of the seven gates give the same answer in both places. Coverage does not:
+# Seven of the eight gates give the same answer in both places. Coverage does not:
 # llvm-cov on macOS and gcov on Linux count lines differently, so this run is
 # the number that counts.
 #
@@ -45,6 +45,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The web page is built with Node and its browser tests run in Chromium.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.21.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install the web page's tools and its test browser
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
       # The framework's libraries are rebuilt for custom_sdkconfig into
       # ~/.platformio/packages, and sdkconfig.defaults holds the hash the
       # platform compares to decide whether they need rebuilding again, so
@@ -70,6 +83,16 @@ jobs:
 
       - name: Run every gate
         run: tools/check.sh
+
+      # The browser tests' traces, kept only for a test that failed, so a
+      # failure here can be replayed with npx playwright show-trace.
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: web-test-traces
+          path: web/test-results
+          retention-days: 7
+          if-no-files-found: ignore
 
       # The size of the image the build gate just made, for the comment that
       # size-comment.yml posts on the pull request from a run of its own. It

@@ -120,6 +120,14 @@ typedef struct {
 void dxCatchesReset(DxCatches *list);
 
 /*
+ * A number that changes whenever anything a page shows of the list does: a
+ * catch added or dropped, heard again, a better level, its name or country
+ * arriving, or it being logged. So a page can read the list only when it has
+ * changed. 0 for a NULL `list`.
+ */
+uint32_t dxCatchesRevision(const DxCatches *list);
+
+/*
  * A PI newly confirmed on a channel. Returns the catch it went into, which
  * is now item[0], or NULL for a NULL argument.
  *

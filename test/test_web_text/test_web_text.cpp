@@ -158,6 +158,33 @@ static void no_place_for_the_answer_still_says_what_it_read(void) {
   TEST_ASSERT_EQUAL(WEB_NUMBER_OK, webParseNumber("3", 0, 9, NULL));
 }
 
+static void a_count_is_digits_only_up_to_32_bits(void) {
+  uint32_t v = 7;
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OK, webParseCount("0", &v));
+  TEST_ASSERT_EQUAL_UINT32(0, v);
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OK, webParseCount("1789662597", &v));
+  TEST_ASSERT_EQUAL_UINT32(1789662597u, v);
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OK, webParseCount("4294967295", &v));
+  TEST_ASSERT_EQUAL_UINT32(4294967295u, v);
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OK, webParseCount("00012", &v));
+  TEST_ASSERT_EQUAL_UINT32(12, v);
+  v = 7;
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OUT_OF_RANGE,
+                        webParseCount("4294967296", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OUT_OF_RANGE,
+                        webParseCount("99999999999999999999999", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE,
+                        webParseCount("99999999999x", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount("", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount(" 12", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount("+12", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount("-1", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount("12.5", &v));
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_NOT_WHOLE, webParseCount(NULL, &v));
+  TEST_ASSERT_EQUAL_UINT32(7, v);
+  TEST_ASSERT_EQUAL_INT(WEB_NUMBER_OK, webParseCount("5", NULL));
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
@@ -177,5 +204,6 @@ int main(int argc, char **argv) {
   RUN_TEST(a_number_outside_the_range_is_refused);
   RUN_TEST(a_number_too_big_for_a_long_is_out_of_range);
   RUN_TEST(no_place_for_the_answer_still_says_what_it_read);
+  RUN_TEST(a_count_is_digits_only_up_to_32_bits);
   return UNITY_END();
 }

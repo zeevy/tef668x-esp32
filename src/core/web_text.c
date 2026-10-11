@@ -47,6 +47,32 @@ size_t webHtmlEscapeChar(char c, char *out) {
   }
 }
 
+WebNumberResult webParseCount(const char *raw, uint32_t *out) {
+  if (raw == NULL || raw[0] == '\0') {
+    return WEB_NUMBER_NOT_WHOLE;
+  }
+  uint64_t value = 0;
+  bool tooBig = false;
+  for (const char *p = raw; *p != '\0'; p++) {
+    if (*p < '0' || *p > '9') {
+      return WEB_NUMBER_NOT_WHOLE;
+    }
+    /* Every character is still checked once it is too big, so "99999999999x"
+     * is not a number rather than one out of range. */
+    if (!tooBig) {
+      value = value * 10u + (uint64_t)(*p - '0');
+      tooBig = value > 0xFFFFFFFFull;
+    }
+  }
+  if (tooBig) {
+    return WEB_NUMBER_OUT_OF_RANGE;
+  }
+  if (out != NULL) {
+    *out = (uint32_t)value;
+  }
+  return WEB_NUMBER_OK;
+}
+
 WebNumberResult webParseNumber(const char *raw, long low, long high,
                                long *out) {
   if (raw == NULL || raw[0] == '\0') {

@@ -27,9 +27,10 @@ The keypad always types a frequency, never a preset number.
 
 ## Saving and changing presets
 
-Presets cannot be saved, renamed or cleared on the radio itself. They are written in three ways:
+Presets cannot be saved, renamed or cleared on the radio itself. They are written in four ways:
 
 - a station scan, which fills empty slots
+- the web page's [Presets](Web-Page.md#presets) screen: save the current station, add one by its frequency, change, rename or delete one, and drag one to another slot. A station already saved is not saved again
 - the HTTP API, one preset at a time
 - a CSV file loaded over Wi-Fi
 
@@ -86,7 +87,7 @@ Blank lines and lines starting with `#` are skipped. A file without the `pi` col
 curl -s -o presets.csv http://tef668x.local:8080/api/presets.csv
 ```
 
-This needs no PIN. It has every stored preset.
+This needs no PIN. It has every stored preset. On the web page's [Presets](Web-Page.md#presets) screen, **Download** gives the same file, and **Upload** imports one, with a choice of **Merge** or **Replace** as below.
 
 ### Import
 
@@ -117,16 +118,19 @@ The import does not check the band plan. A preset outside the band plan in use i
 ```bash
 curl -s -b jar -d do=set -d slot=3 -d khz=98300 -d name=NEWS $R/api/presets
 curl -s -b jar -d do=recall -d slot=3 $R/api/presets
+curl -s -b jar -d do=move -d slot=3 -d to=10 $R/api/presets
+curl -s -b jar -d do=clear -d slot=10 $R/api/presets
 ```
 
 | Field | What it is |
 |---|---|
-| `do` | `set` to store, `recall` to tune |
+| `do` | `set` to store, `recall` to tune, `move` to put it in another slot, `clear` to delete it |
 | `slot` | 1 to 99 |
+| `to` | For `move`, the slot it goes to, 1 to 99. When that slot holds a preset, the two swap. The name, width and PI go with it |
 | `khz` | The frequency in kHz. The band is worked out from it |
 | `bw` | The filter width in kHz, optional. `0` for automatic |
 | `name` | The name, optional. Left out, the old name stays. Sent empty, the name is cleared |
 
-The answer is one line, for example `Preset 3 is FM 98.30 MHz`. A recall of an empty slot answers 404 `Preset 3 is empty.`
+The answer is one line, for example `Preset 3 is FM 98.30 MHz`, `Preset 3 moved to 10.`, `Presets 3 and 10 swapped.` or `Preset 10 deleted.` A recall, move or clear of an empty slot answers 404 `Preset 3 is empty.`
 
 A station scan can also be started from the API: `POST /api/scan` with `bnd=FM`, `MW`, `SW` or `LW`.

@@ -16,6 +16,42 @@
 /* "DXS1", then the count and the next slot, then the PIs. */
 #define DX_SEEN_MAGIC 0x31535844UL
 
+/* FNV-1a, over `n` bytes, from `h`. */
+static uint32_t mix(uint32_t h, const void *data, size_t n) {
+  const uint8_t *p = (const uint8_t *)data;
+  for (size_t i = 0; i < n; i++) {
+    h = (h ^ p[i]) * 16777619u;
+  }
+  return h;
+}
+
+uint32_t dxCatchesRevision(const DxCatches *list) {
+  if (list == NULL) {
+    return 0;
+  }
+  uint32_t h = mix(2166136261u, &list->count, sizeof(list->count));
+  for (uint8_t i = 0; i < list->count && i < DX_CATCHES_MAX; i++) {
+    const DxCatch *c = &list->item[i];
+    /* Field by field, never the whole struct, whose padding is not set. */
+    h = mix(h, &c->id, sizeof(c->id));
+    h = mix(h, &c->count, sizeof(c->count));
+    h = mix(h, &c->best.levelDbuVTenths, sizeof(c->best.levelDbuVTenths));
+    h = mix(h, &c->logged, sizeof(c->logged));
+    h = mix(h, &c->pi, sizeof(c->pi));
+    h = mix(h, &c->hasPs, sizeof(c->hasPs));
+    h = mix(h, c->ps, sizeof(c->ps));
+    h = mix(h, &c->hasCountry, sizeof(c->hasCountry));
+    h = mix(h, c->country, sizeof(c->country));
+    /* When it was last heard, to the minute a page shows, so hearing it
+     * again changes this once a minute, not on every hearing. */
+    const uint32_t minute =
+        c->last.known ? c->last.value / 60u : c->last.value / 60000u;
+    h = mix(h, &minute, sizeof(minute));
+  }
+  /* Never 0, which a page takes as nothing read yet. */
+  return h != 0 ? h : 1;
+}
+
 void dxCatchesReset(DxCatches *list) {
   if (list != NULL) {
     memset(list, 0, sizeof(*list));

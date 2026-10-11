@@ -31,7 +31,7 @@ When the hour moves from day to night or back, the screen changes to the other t
 
 ### The custom theme
 
-Choose **Custom** in the menu like any other theme. Its colours are set on the web page: **Settings > Display > Theme**, in **Custom's colours**, with eight colour pickers: Background, Tile and row, Radio, Broadcast, Measurement, Good, Fault and Dead. A change shows on the radio at once while Custom is in use.
+Choose **Custom** in the menu like any other theme. Its colours are set on the web page: the **Display** group of the [Settings](Web-Page.md#settings) screen, under **The Custom theme's colours**, with eight colour pickers: Background, Tile and row, Radio, Broadcast, Measurement, Good, Fault and Dead. A change shows on the radio at once while Custom is in use.
 
 The contrast test does not cover the custom theme, so check that your colours can be read.
 

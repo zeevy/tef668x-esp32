@@ -1830,6 +1830,27 @@ static void a_band_never_tuned_shows_the_width_it_comes_up_with(void) {
   TEST_ASSERT_EQUAL_UINT16(0, radioBandWidth(&s, BAND_COUNT));
 }
 
+/* A band's step: the live one for the band tuned, else the one it was left
+ * on, else its own default, also when the plan no longer offers the kept
+ * one. */
+static void a_band_shows_the_step_it_was_left_on_or_its_own(void) {
+  RadioSettings s = r;
+  s.band = BAND_FM;
+  s.stepKHz = 200;
+  TEST_ASSERT_EQUAL_UINT16(200, radioBandStep(&s, BAND_FM, &plan));
+  s.bandStepKHz[BAND_SW] = 0;
+  TEST_ASSERT_EQUAL_UINT16(bandDefaultStep(BAND_SW, &plan),
+                           radioBandStep(&s, BAND_SW, &plan));
+  s.bandStepKHz[BAND_SW] = 1;
+  TEST_ASSERT_EQUAL_UINT16(1, radioBandStep(&s, BAND_SW, &plan));
+  s.bandStepKHz[BAND_SW] = 7;
+  TEST_ASSERT_EQUAL_UINT16(bandDefaultStep(BAND_SW, &plan),
+                           radioBandStep(&s, BAND_SW, &plan));
+  TEST_ASSERT_EQUAL_UINT16(0, radioBandStep(NULL, BAND_SW, &plan));
+  TEST_ASSERT_EQUAL_UINT16(0, radioBandStep(&s, BAND_SW, NULL));
+  TEST_ASSERT_EQUAL_UINT16(0, radioBandStep(&s, BAND_COUNT, &plan));
+}
+
 /* With DX mode's width in force, every mode turns the knob as Manual does;
  * without it, the knob does what the mode says. */
 static void dx_mode_makes_every_knob_step_a_manual_one(void) {
@@ -2289,6 +2310,7 @@ int main(int, char **) {
   RUN_TEST(a_band_width_is_set_from_another_band);
   RUN_TEST(a_band_width_the_band_does_not_offer_is_refused);
   RUN_TEST(a_band_never_tuned_shows_the_width_it_comes_up_with);
+  RUN_TEST(a_band_shows_the_step_it_was_left_on_or_its_own);
   RUN_TEST(dx_mode_makes_every_knob_step_a_manual_one);
   RUN_TEST(meter_band_mode_does_not_come_back_with_shortwave);
   RUN_TEST(a_band_never_set_takes_its_own_default);

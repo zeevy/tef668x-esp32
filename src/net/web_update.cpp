@@ -1,7 +1,7 @@
 /*
  * The server itself: the context every other web_*.cpp file is handed, the
- * vendored assets, the firmware upload, and the loop that carries out a
- * reboot once a reply has gone out.
+ * firmware upload, and the loop that carries out a reboot once a reply has
+ * gone out.
  */
 
 #include "web_update.h"
@@ -13,7 +13,6 @@
 #include "net/restart_reason.h"
 #include "net/rollback.h"
 #include "net/update_check.h"
-#include "net/web_assets.h"
 #include "radio_task.h"
 #include "reply_times.h"
 #include "settings_task.h"
@@ -53,22 +52,6 @@ static bool sUploadWritten = false;
 static int sUploadTotal = 0;
 
 /* ------------------------------------------------------------------ helpers */
-
-static void sendVendored(const char *contentType, const uint8_t *gz,
-                         size_t gzLen) {
-  sWeb->server.sendHeader("Content-Encoding", "gzip");
-  sWeb->server.sendHeader("Cache-Control",
-                          "public, max-age=31536000, immutable");
-  sWeb->server.send_P(200, contentType, (PGM_P)gz, gzLen);
-}
-
-static void handlePicoCss(void) {
-  sendVendored("text/css", kPicoCssGz, kPicoCssGzLen);
-}
-
-static void handleHtmxJs(void) {
-  sendVendored("application/javascript", kHtmxJsGz, kHtmxJsGzLen);
-}
 
 static void handleUploadData(void) {
   /* WebServer calls this same callback for two different things. For a
@@ -211,23 +194,21 @@ static void handleUploadDone(void) {
   }
 
   if (!sawImage) {
-    sendResult(400, "Nothing uploaded", "No firmware file was sent.", true);
+    sendResult(400, "No firmware file was sent.");
     return;
   }
 
   if (Update.hasError()) {
-    sendResult(500, "Update failed",
+    sendResult(500,
                "The image was not accepted. The radio is still running the "
-               "old one.",
-               true);
+               "old one.");
     return;
   }
 
-  sendResult(200, "Update written",
+  sendResult(200,
              "The radio is rebooting into the new image. If it does not come "
              "up and pass its self check, the old image comes back on its "
-             "own.",
-             false);
+             "own.");
   /* Noted here rather than where the restart happens, because that one line
    * serves this and the reboot button both, and telling them apart is the
    * whole reason the note exists. */
@@ -243,14 +224,13 @@ static void handleReboot(void) {
    * is exactly what the bootloader reads as a failed image, so the old one
    * would come back with nothing to say why. */
   if (rollbackPending()) {
-    sendResult(409, "Not restarted",
+    sendResult(409,
                "The new firmware is still proving itself, and a restart now "
                "would put the old one back. Wait until cnf in /api/state is "
-               "true, about ten seconds after the radio joins the network.",
-               true);
+               "true, about ten seconds after the radio joins the network.");
     return;
   }
-  sendResult(200, "Rebooting", "The radio is restarting.", false);
+  sendResult(200, "The radio is restarting.");
   restartReasonNote(RESTART_WHY_ASKED);
   sWeb->rebootAfterReply = true;
 }
@@ -266,28 +246,23 @@ static void handleUpdateInstall(void) {
   }
   switch (updateCheckInstall()) {
     case UPDATE_INSTALL_STARTING:
-      sendResult(202, "Installing",
+      sendResult(202,
                  "The radio is downloading the new firmware from GitHub and "
                  "writing it. Its screen shows the progress, and it restarts "
-                 "into the new firmware when it is done.",
-                 false);
+                 "into the new firmware when it is done.");
       return;
     case UPDATE_INSTALL_ON_TRIAL:
-      sendResult(409, "Not now",
+      sendResult(409,
                  "The firmware the radio is running is still proving itself, "
                  "and a restart now would put the old one back. Wait until "
-                 "cnf in /api/state is true.",
-                 true);
+                 "cnf in /api/state is true.");
       return;
     case UPDATE_INSTALL_BUSY:
-      sendResult(409, "Not now",
-                 "A station scan is running. Try again when it stops.", true);
+      sendResult(409, "A station scan is running. Try again when it stops.");
       return;
     case UPDATE_INSTALL_NOTHING:
     default:
-      sendResult(409, "Nothing to install",
-                 "No newer release was found at the check of this start.",
-                 true);
+      sendResult(409, "No newer release was found at the check of this start.");
       return;
   }
 }
@@ -314,9 +289,16 @@ void webBegin(Settings *settings, uint32_t accessPin) {
   webAuthBegin(accessPin);
 
   /* Content-Type is collected because handleUploadData needs it to tell a
-   * real upload from a raw POST body. */
-  const char *keep[] = {"Cookie", "Content-Type"};
-  sWeb->server.collectHeaders(keep, 2);
+   * real upload from a raw POST body, the next three because GET /api/live
+   * answers a WebSocket handshake, and If-None-Match because the page is not
+   * sent again to a browser that has it. */
+  const char *keep[] = {"Cookie",
+                        "Content-Type",
+                        "Upgrade",
+                        "Sec-WebSocket-Key",
+                        "Sec-WebSocket-Version",
+                        "If-None-Match"};
+  sWeb->server.collectHeaders(keep, sizeof(keep) / sizeof(keep[0]));
 
   /* Every request the server has parsed is counted once, before its route
    * or the not-found handler runs. */
@@ -325,15 +307,14 @@ void webBegin(Settings *settings, uint32_t accessPin) {
     return next();
   });
 
-  sWeb->server.on("/pico.min.css", HTTP_GET, handlePicoCss);
-  sWeb->server.on("/htmx.min.js", HTTP_GET, handleHtmxJs);
   webAuthRegisterRoutes(sWeb);
   sWeb->server.on("/update", HTTP_POST, handleUploadDone, handleUploadData);
   sWeb->server.on("/reboot", HTTP_POST, handleReboot);
   sWeb->server.on("/update/install", HTTP_POST, handleUpdateInstall);
-  webPagesRegisterRoutes(sWeb);
+  webPageRegisterRoutes(sWeb);
   webApiRegisterRoutes(sWeb);
   webStateRegisterRoutes(sWeb);
+  webLiveRegisterRoutes(sWeb);
   sWeb->server.onNotFound(handleNotFound);
   sListening = settings == NULL || settings->webEnabled;
   if (sListening) {
@@ -352,6 +333,7 @@ void webLoop(void) {
       sWeb->server.begin();
     } else {
       dropSession();
+      webLiveCloseAll();
       sWeb->server.stop();
     }
     DebugLog.println(wanted ? F("[web] listening") : F("[web] off"));
@@ -379,10 +361,14 @@ void webLoop(void) {
   if (sWeb->requests != before) {
     replyTimesNote(startMs, millis());
   }
+  webLiveLoop();
 
   if (sWeb->rebootAfterReply) {
     sWeb->rebootAfterReply = false;
     DebugLog.println("[web] rebooting on request");
+    /* Closed now, so each page hears the radio went and falls back to
+     * asking, rather than showing the last state as live. */
+    webLiveCloseAll();
     Serial.flush();
     /* The firmware upload sets the same flag. Its save in here writes
      * nothing, because the radio has been parked since the transfer started

@@ -30,6 +30,36 @@ static DxHearing heard(uint32_t khz, uint16_t pi, int16_t level, uint32_t utc) {
   return h;
 }
 
+/* The revision moves with everything a page shows of the list, and stays
+ * put when nothing changed. */
+static void the_revision_moves_when_the_list_changes(void) {
+  TEST_ASSERT_EQUAL_UINT32(0, dxCatchesRevision(NULL));
+  const uint32_t empty = dxCatchesRevision(&list);
+  TEST_ASSERT_NOT_EQUAL(0, empty);
+  DxHearing h = heard(93500, 0x0935, 455, 1000);
+  DxCatch *k = dxCatchesAdd(&list, &h, true);
+  const uint32_t added = dxCatchesRevision(&list);
+  TEST_ASSERT_NOT_EQUAL(empty, added);
+  TEST_ASSERT_EQUAL_UINT32(added, dxCatchesRevision(&list));
+  k->logged = true;
+  const uint32_t logged = dxCatchesRevision(&list);
+  TEST_ASSERT_NOT_EQUAL(added, logged);
+  DxHearing again = heard(93500, 0x0935, 455, 1200);
+  again.ps = "  RED   ";
+  dxCatchesAdd(&list, &again, false);
+  const uint32_t named = dxCatchesRevision(&list);
+  TEST_ASSERT_NOT_EQUAL(logged, named);
+  /* Heard again in the same minute: the page shows nothing new. A minute
+   * later it shows a newer time. */
+  DxHearing soon = heard(93500, 0x0935, 455, 1210);
+  soon.ps = "  RED   ";
+  dxCatchesAdd(&list, &soon, false);
+  list.item[0].count = 2;
+  const uint32_t sameMinute = dxCatchesRevision(&list);
+  list.item[0].last.value = 1290;
+  TEST_ASSERT_NOT_EQUAL(sameMinute, dxCatchesRevision(&list));
+}
+
 static void a_first_hearing_is_a_new_catch(void) {
   DxHearing h = heard(93500, 0x0935, 455, 1000);
   h.ps = "  RED   ";
@@ -1126,6 +1156,7 @@ int main(int argc, char **argv) {
   (void)argv;
   UNITY_BEGIN();
   RUN_TEST(a_first_hearing_is_a_new_catch);
+  RUN_TEST(the_revision_moves_when_the_list_changes);
   RUN_TEST(the_same_catch_again_counts_up_and_comes_first);
   RUN_TEST(the_same_pi_beside_it_is_one_catch_on_the_stronger);
   RUN_TEST(a_louder_reading_at_another_width_does_not_move_it);

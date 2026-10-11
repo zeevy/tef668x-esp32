@@ -31,18 +31,8 @@ static void handleApiTune(void) {
     return;
   }
   long khz = 0;
-  if (!apiNumber("khz", &khz, 1, 30000000L)) {
-    return;
-  }
-
-  BandPlanConfig plan;
-  if (!radioTaskPlan(&plan)) {
-    apiFail(503, "The radio is not running.");
-    return;
-  }
   BandId band;
-  if (!bandForFrequency(&plan, (uint32_t)khz, &band)) {
-    apiFail(400, "That frequency is in no band.");
+  if (!apiKhzBand(&khz, &band)) {
     return;
   }
   /* FM tunes in steps of 10 kHz on this chip, so anything finer is the
@@ -77,17 +67,6 @@ static void handleApiStep(void) {
   /* Say where it landed, not just that it moved, so a script can check the
    * answer without a second request. */
   apiSubmit(&cmd, String("stepped ") + steps, API_SAY_TUNE);
-}
-
-/* The band `bnd` names, in either case, or BAND_COUNT when it names none. */
-static BandId apiBandArg(void) {
-  const String want = sWeb->server.arg("bnd");
-  for (int b = 0; b < BAND_COUNT; b++) {
-    if (want.equalsIgnoreCase(bandName((BandId)b))) {
-      return (BandId)b;
-    }
-  }
-  return BAND_COUNT;
 }
 
 static void handleApiBand(void) {
@@ -140,6 +119,52 @@ static void handleApiBandwidth(void) {
             khz == 0 ? String("bandwidth automatic")
                      : String("bandwidth ") + khz + " kHz",
             API_SAY_BANDWIDTH);
+}
+
+/* `count` values from `at`, as a JSON array. */
+template <typename At>
+static String jsonList(size_t count, At at) {
+  String out = "[";
+  for (size_t i = 0; i < count; i++) {
+    out += (i ? "," : "") + String(at(i));
+  }
+  return out + "]";
+}
+
+/*
+ * GET /api/bands. Each band of the band plan in use: its edges in kHz, the
+ * steps and filter widths it offers, and the step and width it has now, the
+ * live ones for the band tuned. The web page reads this rather than carrying
+ * its own lists, so a band plan or spacing change shows as it is. Open to
+ * read, like the state: nothing in it is private.
+ */
+static void handleApiBands(void) {
+  BandPlanConfig plan;
+  RadioSnapshot snap;
+  if (!radioTaskPlan(&plan) || !radioGetSnapshot(&snap)) {
+    apiFail(503, "The radio is not running.");
+    return;
+  }
+  String out = "[";
+  for (int b = 0; b < BAND_COUNT; b++) {
+    const BandId band = (BandId)b;
+    uint32_t low = 0;
+    uint32_t high = 0;
+    if (!bandLimits(band, &plan, &low, &high)) {
+      continue;
+    }
+    out += out.length() > 1 ? ",{" : "{";
+    out += String("\"band\":\"") + bandName(band) + "\",\"low\":" + low +
+           ",\"high\":" + high + ",\"steps\":" +
+           jsonList(bandStepCount(band, &plan),
+                    [&](size_t i) { return bandStepAt(band, &plan, i); }) +
+           ",\"step\":" + radioBandStep(&snap.settings, band, &plan) +
+           ",\"widths\":" +
+           jsonList(bandBandwidthCount(band),
+                    [&](size_t i) { return bandBandwidthAt(band, i); }) +
+           ",\"width\":" + radioBandWidth(&snap.settings, band) + "}";
+  }
+  sWeb->server.send(200, "application/json", out + "]\n");
 }
 
 static void handleApiStepSize(void) {
@@ -569,6 +594,7 @@ void webApiTuneRoutes(WebContext *web) {
   sWeb->server.on("/api/tune", HTTP_POST, handleApiTune);
   sWeb->server.on("/api/step", HTTP_POST, handleApiStep);
   sWeb->server.on("/api/band", HTTP_POST, handleApiBand);
+  sWeb->server.on("/api/bands", HTTP_GET, handleApiBands);
   sWeb->server.on("/api/bandwidth", HTTP_POST, handleApiBandwidth);
   sWeb->server.on("/api/step-size", HTTP_POST, handleApiStepSize);
   sWeb->server.on("/api/volume", HTTP_POST, handleApiVolume);

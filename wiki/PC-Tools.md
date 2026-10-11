@@ -8,7 +8,7 @@ The radio stays yours while a PC is connected: the knobs, the keys, the touch sc
 
 ## Turn it on
 
-1. On the radio, open the menu, then **Connectivity > PC Link**, and save **On**. Or, on the web page, **Network > PC Link > On**.
+1. On the radio, open the menu, then **Connectivity > PC Link**, and save **On**. Or, on the web page's [Network](Web-Page.md#network) screen, turn on **Open port 7373** on the **PC Link** row.
 2. Look up the address to type in **Connectivity > Network Info > PC Link**: for example `tef668x.local:7373`.
 
 Off, which is how a new radio comes, nothing listens on port 7373.

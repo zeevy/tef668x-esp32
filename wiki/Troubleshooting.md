@@ -40,7 +40,7 @@ After five wrong PINs, signing in is locked for a minute.
 
 ## An update did not take
 
-- **`Update Failed` on the screen, or `Update failed` in the browser.** The file was not accepted, and the old firmware is still running. Check that you sent `firmware-ats125.bin` from a release, or `firmware.bin` from `.pio/build/ats125/` if you built it. Never `firmware-ats125-full.bin`, which is for a first install over USB.
+- **`Update Failed` on the screen, or `The image was not accepted.` in the browser.** The file was not accepted, and the old firmware is still running. Check that you sent `firmware-ats125.bin` from a release, or `firmware.bin` from `.pio/build/ats125/` if you built it. Never `firmware-ats125-full.bin`, which is for a first install over USB.
 - **The radio came back on the old firmware a few minutes after an update.** The new firmware did not reach the network its settings ask for, usually your Wi-Fi, and hold it for 10 seconds within 7 minutes, so the radio went back. **Menu > Diagnostics > Reset Reason** says `Rollback`. See [Updating](Updating.md#rollback-when-the-new-firmware-does-not-work).
 - **`403 Enter the access PIN first.`** Sign in again. The session is lost at every restart.
 
@@ -58,7 +58,7 @@ The row shows `Not checked` while the radio is on its own hotspot, since it only
 - **Check the boot screen.** If the Tuner check shows a cross, the tuner did not start. **Menu > Diagnostics > Tuner** shows `None` then.
 - **Every station reads a very low level, on every frequency.** This is what a wrong tuner crystal looks like. Check `xtl` in `http://tef668x.local:8080/api/state` against your radio. See [Supported Hardware](Supported-Hardware.md#the-tuner).
 - **Squelch.** If the volume on the volume tile, the one with the speaker, is grey, the squelch is holding the sound back. Set **Audio > Squelch > Squelch Mode** to Off to check.
-- **Mute.** If the volume tile says `MUTE`, with a cross by the speaker, the radio is muted. Mute is turned off on the web page's Radio page.
+- **Mute.** If the volume tile says `MUTE`, with a cross by the speaker, the radio is muted. Mute is turned off with the speaker button on the web page's [Home](Web-Page.md#home) or [Radio](Web-Page.md#radio) screen.
 - **The volume knob.** The bottom of its travel is -60 dB, which is almost silent.
 - **The aerial.** Pull the FM aerial out fully. Weak stations come and go with it pushed in.
 

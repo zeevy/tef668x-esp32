@@ -8,7 +8,7 @@ Your settings, presets and station log stay as they are.
 
 ## From GitHub, on the radio
 
-Turn on **Check for Updates** in the menu at **System**, or on the web page's **Settings** page under **Updates**. It is off on a new radio.
+Turn on **Check for Updates** in the menu at **System**, or **Check at each start** on the **Updates** row of the web page's [System](Web-Page.md#system) screen. It is off on a new radio.
 
 Once the radio is on your Wi-Fi, it looks once on GitHub for a newer release, and again later if that check fails. It does this at every start, and also as soon as the menu closes after you turn the setting on. When it finds one, it offers it in a box on the screen. The box shows the version the radio runs now, the new version, the size of the download, and that your settings are kept:
 
@@ -27,7 +27,7 @@ The radio waits to look until it is on your network (not on its own hotspot), a 
 
 Before it writes anything, the radio checks the release: it must be for this radio, from this repository's releases, and newer than the firmware it runs, and the download's size must match. The sha256 of the download is checked as it is written to the free slot; if it does not match, that slot is never used. Either way the old firmware keeps running. The usual rollback check runs on the new firmware too, as below.
 
-The web page's **System** page also shows what the check found, with an **Install** button, and a script can install it with `POST /update/install`. See [HTTP API](HTTP-API.md).
+The web page's [System](Web-Page.md#system) screen also shows what the check found. When it found a newer release, the **Updates** row has an **Install** button with the version, which asks first. A script can install it with `POST /update/install`. See [HTTP API](HTTP-API.md).
 
 ## From a file
 
@@ -35,11 +35,11 @@ You need the new firmware file. Download `firmware-ats125.bin` from the latest r
 
 ### From the web page
 
-1. Open the radio's web page, `http://tef668x.local:8080`, and go to the **System** page.
-2. Sign in with your access PIN.
-3. Under **Firmware**, pick the `.bin` file and press **Upload and reboot**.
+1. Open the radio's web page, `http://tef668x.local:8080`, and go to the [System](Web-Page.md#system) screen.
+2. Sign in with your access PIN: the lock at the top of the page. If you have not, the page asks for it when you send the file.
+3. In the **Updates** card, on the **Update firmware** row, press **Choose a file**, pick the `.bin` file, and press **Install this file**.
 
-The upload takes about 20 seconds. When it is written, the page says `Update written` and the radio restarts into the new firmware.
+The page shows how much of the file has been sent. The upload takes about 20 seconds. When it is written, the page says `Written. The radio restarts into it.` and waits. When the radio is back, it says `The radio is back` with the new version.
 
 ### With curl
 
@@ -51,14 +51,14 @@ curl -s -c jar -d pin=000000 $R/auth
 curl -s -b jar -F firmware=@firmware-ats125.bin $R/update
 ```
 
-Use your own PIN in place of `000000`, and the path to your own build in place of `firmware-ats125.bin` if you built it. The radio answers with a short page:
+Use your own PIN in place of `000000`, and the path to your own build in place of `firmware-ats125.bin` if you built it. The radio answers with one line of plain text:
 
 | Answer | What it means |
 |---|---|
-| 200, `Update written` | The image is written. The radio restarts into it |
+| 200, `The radio is rebooting into the new image.` | The image is written. The radio restarts into it |
 | 403, `Enter the access PIN first.` | Not signed in. Run the `/auth` line again |
-| 400, `Nothing uploaded` | The request had no file in it |
-| 500, `Update failed` | The image was not accepted. The radio is still running the old one |
+| 400, `No firmware file was sent.` | The request had no file in it |
+| 500, `The image was not accepted. The radio is still running the old one.` | The image was not accepted |
 
 The session is lost when the radio restarts, so sign in again before the next update.
 
@@ -104,7 +104,7 @@ While the new firmware is on trial, **Menu > System > Restart Radio** does not r
 
 - **Menu > About > Firmware Version** shows the version, and **Build** shows the git commit it was built from.
 - **Menu > Diagnostics > Boot Source** shows which slot it started from, `app0` or `app1`. **Reset Reason** says `Update` after an update, and `Rollback` after a new firmware did not pass its check in time and the old one came back.
-- The **System** page shows the firmware, the slot it runs from, and the **Image**: `confirmed`, or `on trial, waiting for the self check`.
+- The web page's [System](Web-Page.md#system) screen shows the version, the build and the slot it runs from. While a new firmware is on trial it also shows `On trial until it joins the Wi-Fi`.
 
 ## Go back to the firmware before
 

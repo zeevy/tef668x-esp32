@@ -1,0 +1,24 @@
+{
+  "name": "tef668x-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "dev:radio": "vite --host --mode radio",
+    "build": "vite build && node scripts/size.mjs",
+    "record": "node scripts/record-mock.mjs",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.3",
+    "preact": "11.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.4",
+    "vite-plugin-singlefile": "2.3.3"
+  }
+}

@@ -161,6 +161,37 @@ static void a_missing_entry_is_never_the_same_station(void) {
   TEST_ASSERT_FALSE(logbookSameStation(NULL, NULL));
 }
 
+static void the_ring_says_which_entry_a_slot_holds(void) {
+  LogbookRing ring;
+  logbookRingInit(&ring);
+  uint16_t i = 99;
+  TEST_ASSERT_FALSE(logbookRingIndexOf(&ring, 0, &i));
+  /* Full, the oldest in slot 240: slot 240 is entry 0, slot 239 the newest. */
+  ring.head = 240;
+  ring.count = LOGBOOK_MAX_ENTRIES;
+  TEST_ASSERT_TRUE(logbookRingIndexOf(&ring, 240, &i));
+  TEST_ASSERT_EQUAL_UINT16(0, i);
+  TEST_ASSERT_TRUE(logbookRingIndexOf(&ring, 0, &i));
+  TEST_ASSERT_EQUAL_UINT16(10, i);
+  TEST_ASSERT_TRUE(logbookRingIndexOf(&ring, 239, &i));
+  TEST_ASSERT_EQUAL_UINT16(LOGBOOK_MAX_ENTRIES - 1, i);
+  for (uint16_t k = 0; k < LOGBOOK_MAX_ENTRIES; k++) {
+    TEST_ASSERT_TRUE(
+        logbookRingIndexOf(&ring, logbookRingSlotAt(&ring, k), &i));
+    TEST_ASSERT_EQUAL_UINT16(k, i);
+  }
+  /* Three entries from slot 248: 248, 249, 0; slot 1 is not held. */
+  ring.head = 248;
+  ring.count = 3;
+  TEST_ASSERT_TRUE(logbookRingIndexOf(&ring, 0, &i));
+  TEST_ASSERT_EQUAL_UINT16(2, i);
+  TEST_ASSERT_FALSE(logbookRingIndexOf(&ring, 1, &i));
+  TEST_ASSERT_FALSE(logbookRingIndexOf(&ring, 247, &i));
+  TEST_ASSERT_FALSE(logbookRingIndexOf(&ring, LOGBOOK_MAX_ENTRIES, &i));
+  TEST_ASSERT_FALSE(logbookRingIndexOf(NULL, 0, &i));
+  TEST_ASSERT_FALSE(logbookRingIndexOf(&ring, 0, NULL));
+}
+
 static void a_record_encodes_to_the_fixed_size(void) {
   LogbookEntry e = sampleWithNameAndPi();
   uint8_t buf[LOGBOOK_RECORD_SIZE];
@@ -222,17 +253,20 @@ static void a_radio_text_with_no_terminator_is_cut_at_the_field(void) {
   LogbookEntry e = sampleWithNameAndPi();
   uint8_t buf[LOGBOOK_RECORD_SIZE];
   logbookEncode(&e, buf, sizeof(buf));
-  memset(buf + LOGBOOK_RECORD_SIZE - LOGBOOK_RT_LEN - 1, 1, LOGBOOK_RT_LEN + 1);
+  /* The flag and the text end format 2's record. */
+  memset(buf + LOGBOOK_RECORD_SIZE_V2 - LOGBOOK_RT_LEN - 1, 1,
+         LOGBOOK_RT_LEN + 1);
   LogbookEntry back;
   TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
   TEST_ASSERT_TRUE(back.hasRt);
   TEST_ASSERT_EQUAL_size_t(LOGBOOK_RT_LEN - 1, strlen(back.rt));
 }
 
-/* ------------------------------------------------------------- format 1 */
+/* --------------------------------------------------- formats 1 and 2 */
 
-/* Format 1's record is format 2's first 35 bytes, so an entry written with
- * no radio text and cut to that length is exactly what format 1 wrote. */
+/* Format 1's record is this format's first 35 bytes, so an entry written
+ * with no radio text, note or mark and cut to that length is exactly what
+ * format 1 wrote. */
 static void a_format_1_record_upgrades_to_the_same_entry(void) {
   LogbookEntry e = sampleWithNameAndPi();
   uint8_t now[LOGBOOK_RECORD_SIZE];
@@ -242,7 +276,7 @@ static void a_format_1_record_upgrades_to_the_same_entry(void) {
 
   uint8_t up[LOGBOOK_RECORD_SIZE];
   memset(up, 0xAA, sizeof(up));
-  TEST_ASSERT_TRUE(logbookUpgradeV1(old, up, sizeof(up)));
+  TEST_ASSERT_TRUE(logbookUpgrade(old, sizeof(old), up, sizeof(up)));
   TEST_ASSERT_EQUAL_MEMORY(now, up, LOGBOOK_RECORD_SIZE);
 
   LogbookEntry back;
@@ -253,12 +287,94 @@ static void a_format_1_record_upgrades_to_the_same_entry(void) {
   TEST_ASSERT_FALSE(back.hasRt);
 }
 
+/* Format 2 is the first 101 bytes: the radio text comes through, the note
+ * is empty and the name is not marked renamed. */
+static void a_format_2_record_keeps_its_radio_text_and_gains_no_note(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  e.hasRt = true;
+  snprintf(e.rt, sizeof(e.rt), "%s", "Now playing");
+  uint8_t now[LOGBOOK_RECORD_SIZE];
+  logbookEncode(&e, now, sizeof(now));
+  uint8_t old[LOGBOOK_RECORD_SIZE_V2];
+  memcpy(old, now, sizeof(old));
+  uint8_t up[LOGBOOK_RECORD_SIZE];
+  memset(up, 0xAA, sizeof(up));
+  TEST_ASSERT_TRUE(logbookUpgrade(old, sizeof(old), up, sizeof(up)));
+  TEST_ASSERT_EQUAL_MEMORY(now, up, LOGBOOK_RECORD_SIZE);
+  LogbookEntry back;
+  TEST_ASSERT_TRUE(logbookDecode(up, sizeof(up), &back));
+  TEST_ASSERT_EQUAL_STRING("Now playing", back.rt);
+  TEST_ASSERT_EQUAL_STRING("", back.note);
+  TEST_ASSERT_FALSE(back.renamed);
+}
+
 static void an_upgrade_with_no_room_is_refused(void) {
   uint8_t old[LOGBOOK_RECORD_SIZE_V1] = {0};
-  uint8_t up[LOGBOOK_RECORD_SIZE];
-  TEST_ASSERT_FALSE(logbookUpgradeV1(old, up, LOGBOOK_RECORD_SIZE - 1));
-  TEST_ASSERT_FALSE(logbookUpgradeV1(NULL, up, sizeof(up)));
-  TEST_ASSERT_FALSE(logbookUpgradeV1(old, NULL, sizeof(up)));
+  uint8_t up[LOGBOOK_RECORD_SIZE + 1];
+  TEST_ASSERT_FALSE(
+      logbookUpgrade(old, sizeof(old), up, LOGBOOK_RECORD_SIZE - 1));
+  TEST_ASSERT_FALSE(logbookUpgrade(NULL, sizeof(old), up, sizeof(up)));
+  TEST_ASSERT_FALSE(logbookUpgrade(old, sizeof(old), NULL, sizeof(up)));
+  TEST_ASSERT_FALSE(
+      logbookUpgrade(up, LOGBOOK_RECORD_SIZE + 1, up, sizeof(up)));
+}
+
+/* --------------------------------------------------------------- format 3 */
+
+static void a_note_and_the_renamed_mark_round_trip(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  snprintf(e.note, sizeof(e.note), "%s", "Heard from the roof, 40 km");
+  e.renamed = true;
+  uint8_t buf[LOGBOOK_RECORD_SIZE];
+  TEST_ASSERT_EQUAL_UINT32(LOGBOOK_RECORD_SIZE,
+                           logbookEncode(&e, buf, sizeof(buf)));
+  LogbookEntry back;
+  memset(&back, 0xAA, sizeof(back));
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_EQUAL_STRING("Heard from the roof, 40 km", back.note);
+  TEST_ASSERT_TRUE(back.renamed);
+  /* Only bit 0 is the mark: a flags byte with others set is not read as
+   * more than it says. */
+  buf[LOGBOOK_RECORD_SIZE - 1] = 0xFE;
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_FALSE(back.renamed);
+  TEST_ASSERT_EQUAL_STRING("MAGIC", back.name);
+}
+
+/* A note of 32 characters, the most, and one with no terminator, which only
+ * a damaged file holds, cut at the field. */
+static void a_full_note_round_trips_and_a_broken_one_is_cut(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  snprintf(e.note, sizeof(e.note), "%s", "01234567890123456789012345678901");
+  TEST_ASSERT_EQUAL_size_t(32, strlen(e.note));
+  uint8_t buf[LOGBOOK_RECORD_SIZE];
+  logbookEncode(&e, buf, sizeof(buf));
+  LogbookEntry back;
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_EQUAL_STRING(e.note, back.note);
+  memset(buf + LOGBOOK_RECORD_SIZE_V2, 'x', LOGBOOK_NOTE_LEN);
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_EQUAL_size_t(LOGBOOK_NOTE_LEN - 1, strlen(back.note));
+}
+
+static void a_text_fits_when_short_and_plain(void) {
+  TEST_ASSERT_TRUE(logbookTextFits("", 8));
+  TEST_ASSERT_TRUE(logbookTextFits("MAGIC FM", 8));
+  TEST_ASSERT_FALSE(logbookTextFits("MAGIC FM!", 8));
+  TEST_ASSERT_TRUE(logbookTextFits("~ and space ok", 32));
+  TEST_ASSERT_FALSE(logbookTextFits("line\nbreak", 32));
+  TEST_ASSERT_FALSE(logbookTextFits("tab\there", 32));
+  TEST_ASSERT_FALSE(logbookTextFits("caf\xC3\xA9", 32));
+  TEST_ASSERT_FALSE(logbookTextFits("\x7F", 32));
+  TEST_ASSERT_FALSE(logbookTextFits(NULL, 32));
+}
+
+static void a_note_is_the_last_csv_field_quoted_when_it_must_be(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  snprintf(e.note, sizeof(e.note), "%s", "roof, \"good\"");
+  char line[240];
+  logbookCsvLine(&e, 330, line, sizeof(line));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,,\"roof, \"\"good\"\"\",0\n"));
 }
 
 static void an_entry_with_nothing_extra_round_trips_too(void) {
@@ -308,7 +424,7 @@ static void a_null_record_call_does_not_crash(void) {
 static void the_csv_header_names_every_column(void) {
   TEST_ASSERT_EQUAL_STRING(
       "time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,"
-      "bandwidth_khz,name,pi,rt\n",
+      "bandwidth_khz,name,pi,rt,note,renamed\n",
       logbookCsvHeader());
 }
 
@@ -319,7 +435,8 @@ static void a_known_time_writes_a_calendar_date(void) {
   char line[160];
   TEST_ASSERT_TRUE(logbookCsvLine(&e, 330, line, sizeof(line)) > 0);
   TEST_ASSERT_EQUAL_STRING(
-      "2025-09-17 17:23,1,FM,106400,-345,12,8,0,-5,1,184,MAGIC,1064,\n", line);
+      "2025-09-17 17:23,1,FM,106400,-345,12,8,0,-5,1,184,MAGIC,1064,,,0\n",
+      line);
 }
 
 static void an_offset_that_crosses_midnight_moves_the_date(void) {
@@ -345,7 +462,8 @@ static void a_missing_name_and_identifier_are_empty_fields(void) {
   e.hasPi = false;
   char line[160];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_TRUE(strstr(line, ",,\n") != NULL);
+  /* Name, PI, radio text and note all empty, then the renamed mark. */
+  TEST_ASSERT_NOT_NULL(strstr(line, ",184,,,,,0\n"));
 }
 
 static void a_name_holding_a_comma_is_quoted(void) {
@@ -371,7 +489,7 @@ static void a_quote_in_the_last_place_keeps_its_escape(void) {
   snprintf(e.name, sizeof(e.name), "ABCDEFG\"");
   char line[160];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",\"ABCDEFG\"\"\",1064,\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",\"ABCDEFG\"\"\",1064,,,0\n"));
 }
 
 static void a_name_of_only_quotes_is_doubled_in_full(void) {
@@ -381,7 +499,7 @@ static void a_name_of_only_quotes_is_doubled_in_full(void) {
   logbookCsvLine(&e, 330, line, sizeof(line));
   /* The wrapping quote, sixteen for the eight doubled, the closing quote. */
   TEST_ASSERT_NOT_NULL(
-      strstr(line, ",\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\",1064,\n"));
+      strstr(line, ",\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\",1064,,,0\n"));
 }
 
 static void a_radio_text_is_the_last_column(void) {
@@ -390,7 +508,7 @@ static void a_radio_text_is_the_last_column(void) {
   snprintf(e.rt, sizeof(e.rt), "Now playing");
   char line[320];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,Now playing\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,Now playing,,0\n"));
 }
 
 static void a_radio_text_holding_a_comma_is_quoted(void) {
@@ -399,7 +517,7 @@ static void a_radio_text_holding_a_comma_is_quoted(void) {
   snprintf(e.rt, sizeof(e.rt), "Artist, \"Title\"");
   char line[320];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",1064,\"Artist, \"\"Title\"\"\"\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",1064,\"Artist, \"\"Title\"\"\",,0\n"));
 }
 
 /* Every field at its widest: the latest time a 32 bit epoch reaches, the
@@ -426,9 +544,11 @@ static void the_longest_line_fits_the_export_buffer(void) {
   e.pi = 0xFFFF;
   e.hasRt = true;
   memset(e.rt, '"', LOGBOOK_RT_LEN - 1);
+  memset(e.note, '"', LOGBOOK_NOTE_LEN - 1);
   char line[320];
   const size_t n = logbookCsvLine(&e, 14 * 60, line, sizeof(line));
-  TEST_ASSERT_EQUAL_size_t(228, n);
+  /* Under the 320 bytes the export writes each line into. */
+  TEST_ASSERT_EQUAL_size_t(297, n);
 }
 
 static void a_too_small_buffer_reports_the_length_it_needed(void) {
@@ -530,7 +650,13 @@ int main(void) {
   RUN_TEST(a_radio_text_round_trips_whole);
   RUN_TEST(a_radio_text_with_no_terminator_is_cut_at_the_field);
   RUN_TEST(a_format_1_record_upgrades_to_the_same_entry);
+  RUN_TEST(a_format_2_record_keeps_its_radio_text_and_gains_no_note);
   RUN_TEST(an_upgrade_with_no_room_is_refused);
+  RUN_TEST(a_note_and_the_renamed_mark_round_trip);
+  RUN_TEST(the_ring_says_which_entry_a_slot_holds);
+  RUN_TEST(a_full_note_round_trips_and_a_broken_one_is_cut);
+  RUN_TEST(a_text_fits_when_short_and_plain);
+  RUN_TEST(a_note_is_the_last_csv_field_quoted_when_it_must_be);
   RUN_TEST(an_entry_with_nothing_extra_round_trips_too);
   RUN_TEST(a_short_buffer_is_refused_both_ways);
   RUN_TEST(a_null_record_call_does_not_crash);

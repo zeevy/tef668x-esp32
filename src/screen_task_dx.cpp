@@ -30,6 +30,8 @@ static ScreenScopeKeep sScopeKeep;
  * goes to the dial's channel. */
 static uint16_t sScopeCursor = 0;
 static bool sScopeCursorSet = false;
+/* The dial the cursor was last put on, so a tune is seen. */
+static uint32_t sScopeDialKHz = 0;
 
 void screenTaskDxReset(void) {
   screenDxStateReset(&sKeep);
@@ -117,6 +119,13 @@ bool screenTaskDxDraw(uint8_t page, uint8_t *cursor) {
       return true;
     }
     const DxSweep *live = sweep.live;
+    /* A tune from anywhere else, the web page, a seek or a preset, puts the
+     * cursor on the new dial. The knob here moves only the cursor, so a dial
+     * that moved was moved by something the person is looking at instead. */
+    if (snap.settings.freqKHz != sScopeDialKHz) {
+      sScopeDialKHz = snap.settings.freqKHz;
+      sScopeCursorSet = false;
+    }
     /* The cursor starts on the dial's channel, or the bottom when the dial
      * is not one of the sweep's. */
     if (live != NULL && !sScopeCursorSet) {

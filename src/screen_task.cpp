@@ -193,6 +193,8 @@ static bool sRdsUp = false;
 static bool sScopeUp = false;
 static bool sScopeSpan = false;
 static uint16_t sScopeAt = 0;
+/* The dial the band scope's cursor was last put on, so a tune is seen. */
+static uint32_t sScopeDialKHz = 0;
 static uint16_t sScopeRevision = UINT16_MAX;
 
 /* The bandwidth page: its tiles, its cursor and its text, on the heap while it
@@ -1662,6 +1664,17 @@ static void scopeDraw(void) {
     const int16_t dial = dxSweepChannelOf(live, snap.settings.freqKHz);
     sScopeAt = dial >= 0 ? (uint16_t)dial : 0;
     sScopeRevision = v.revision;
+    sScopeDialKHz = snap.settings.freqKHz;
+  }
+  /* A tune from anywhere else, the web page, a seek or a preset, puts the
+   * cursor on the new dial when the sweep has it. The knob here moves only
+   * the cursor, so a dial that moved was moved by something else. */
+  if (live != NULL && snap.settings.freqKHz != sScopeDialKHz) {
+    sScopeDialKHz = snap.settings.freqKHz;
+    const int16_t dial = dxSweepChannelOf(live, snap.settings.freqKHz);
+    if (dial >= 0) {
+      sScopeAt = (uint16_t)dial;
+    }
   }
   if (live != NULL) {
     scopeMarks(live, snap.settings.band);
@@ -1889,6 +1902,14 @@ static void presetLearnPoll(uint32_t nowMs) {
   }
   MemoryChannel channel;
   if (!memoryStoreRead(snap.memorySlot, &channel)) {
+    return;
+  }
+  /* The slot the snapshot names can hold another station for a moment: a
+   * move or a swap on the web page changes the list before the radio looks
+   * its slot up again. A PI learnt then would be another station's, and a
+   * slot learns only once. */
+  if (channel.band != snap.settings.band ||
+      channel.freqKHz != snap.settings.freqKHz) {
     return;
   }
   const SeekReading reading =

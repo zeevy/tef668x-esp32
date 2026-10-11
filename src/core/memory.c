@@ -200,6 +200,25 @@ bool memorySet(MemoryStore *m, int slot, const MemoryChannel *c) {
   return true;
 }
 
+bool memoryClear(MemoryStore *m, int slot) {
+  if (m == NULL || !memorySlotInRange(slot)) {
+    return false;
+  }
+  memset(&m->slot[slot], 0, sizeof(m->slot[slot]));
+  return true;
+}
+
+bool memoryMove(MemoryStore *m, int from, int to) {
+  if (m == NULL || !memorySlotInRange(from) || !memorySlotInRange(to) ||
+      !memorySlotUsed(m, from)) {
+    return false;
+  }
+  const MemoryChannel moving = m->slot[from];
+  m->slot[from] = m->slot[to];
+  m->slot[to] = moving;
+  return true;
+}
+
 int memoryNthUsed(const MemoryStore *m, int n) {
   if (m == NULL || n < 0) {
     return MEMORY_NO_SLOT;
@@ -270,18 +289,20 @@ int memoryPick(const MemoryStore *m, int first, int second, uint8_t band,
   return memoryFind(m, band, freqKHz);
 }
 
-MemorySaveResult memorySaveChannel(MemoryStore *m, uint8_t band,
-                                   uint32_t freqKHz, uint16_t bandwidthKHz,
-                                   const char *name, int *slot) {
+MemorySaveResult memoryAddChannel(MemoryStore *m, uint8_t band,
+                                  uint32_t freqKHz, uint16_t bandwidthKHz,
+                                  const char *name, int *slot) {
   if (m == NULL || slot == NULL) {
     return MEMORY_SAVE_INVALID;
   }
-  int at = *slot;
+  const int there = memoryFind(m, band, freqKHz);
+  if (there != MEMORY_NO_SLOT) {
+    *slot = there;
+    return MEMORY_SAVE_TAKEN;
+  }
+  const int at = memoryFirstFree(m);
   if (at == MEMORY_NO_SLOT) {
-    at = memoryFirstFree(m);
-    if (at == MEMORY_NO_SLOT) {
-      return MEMORY_SAVE_FULL;
-    }
+    return MEMORY_SAVE_FULL;
   }
   MemoryChannel c;
   memset(&c, 0, sizeof(c));

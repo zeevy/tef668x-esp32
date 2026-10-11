@@ -41,7 +41,7 @@ Over DX mode there is no AUTO tile, and the width you pick is DX mode's own, whi
 
 The volume knob sets the volume from -60 dB to 0 dB. See [Controls](Controls.md#the-volume-knob). The volume tile, with the speaker, shows it, for example `-20dB`.
 
-There is no mute key on the radio. Mute is on the web page's Radio page, or `POST /api/mute on=1`. While muted, the volume tile shows a speaker with a cross and `MUTE`, in red.
+There is no mute key on the radio. Mute is the speaker button on the web page's [Home](Web-Page.md#home) and [Radio](Web-Page.md#radio) screens, or `POST /api/mute on=1`. While muted, the volume tile shows a speaker with a cross and `MUTE`, in red.
 
 **Audio > Mute Ramp** sets how long the sound fades before a mute, before the squelch closes, and around a change of filter width: 0 to 500 ms in steps of 10, 120 ms at the start. At 0 the sound is cut at once. A seek and a station scan do not use the ramp.
 
@@ -108,7 +108,7 @@ In the menu's **AM Reception** group. Each row can be set from any band.
 
 ## From the web page and the API
 
-The web page's **FM & RDS** page has the FM and AM settings, and its **Radio** page has the volume, mute and squelch mode. From a script:
+The web page's [Radio](Web-Page.md#radio) screen has the volume, mute, squelch mode, step and filter width. Its [Settings](Web-Page.md#settings) screen has the FM and AM settings in the **FM reception** and **AM reception** groups, and the squelch floor, the volume AGC and the mute ramp in the **Sound** group. From a script:
 
 ```bash
 curl -s -b jar -d khz=0 $R/api/bandwidth        # automatic width on FM

@@ -63,87 +63,106 @@ static void pick_passes_over_a_slot_outside_the_store(void) {
   TEST_ASSERT_EQUAL_INT(3, memoryPick(&store, -2, 150, BAND_FM, 102800));
 }
 
-static void save_goes_into_the_lowest_free_slot(void) {
+static void add_with_no_name_stores_an_empty_one(void) {
   twoOnOneStation();
   int slot = MEMORY_NO_SLOT;
   TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_OK,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, NULL, &slot));
+      MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_FM, 98300, 0, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(0, slot);
   TEST_ASSERT_EQUAL_UINT32(98300, memoryGet(&store, 0)->freqKHz);
   TEST_ASSERT_EQUAL_STRING("", memoryGet(&store, 0)->name);
 }
 
-static void save_replaces_a_named_slot_outright(void) {
-  MemoryChannel c = channel(BAND_FM, 92700, "Old name");
-  c.bandwidthKHz = 168;
-  TEST_ASSERT_TRUE(memorySet(&store, 7, &c));
-  int slot = 7;
-  TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_OK,
-      memorySaveChannel(&store, BAND_FM, 101900, 0, "New", &slot));
-  TEST_ASSERT_EQUAL_INT(7, slot);
-  TEST_ASSERT_EQUAL_UINT32(101900, memoryGet(&store, 7)->freqKHz);
-  TEST_ASSERT_EQUAL_UINT16(0, memoryGet(&store, 7)->bandwidthKHz);
-  TEST_ASSERT_EQUAL_STRING("New", memoryGet(&store, 7)->name);
+static void add_goes_into_the_lowest_free_slot_past_a_gap(void) {
+  MemoryChannel c = channel(BAND_FM, 92700, "First");
+  TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
+  c.freqKHz = 94100;
+  TEST_ASSERT_TRUE(memorySet(&store, 2, &c));
+  int slot = MEMORY_NO_SLOT;
+  TEST_ASSERT_EQUAL_INT(MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_FM, 98300,
+                                                         168, "Added", &slot));
+  TEST_ASSERT_EQUAL_INT(1, slot);
+  TEST_ASSERT_EQUAL_UINT32(98300, memoryGet(&store, 1)->freqKHz);
+  TEST_ASSERT_EQUAL_UINT16(168, memoryGet(&store, 1)->bandwidthKHz);
+  TEST_ASSERT_EQUAL_STRING("Added", memoryGet(&store, 1)->name);
+  /* The slots on either side are as they were. */
+  TEST_ASSERT_EQUAL_UINT32(92700, memoryGet(&store, 0)->freqKHz);
+  TEST_ASSERT_EQUAL_UINT32(94100, memoryGet(&store, 2)->freqKHz);
 }
 
-static void save_into_a_full_list_is_refused_and_changes_nothing(void) {
-  MemoryChannel c = channel(BAND_FM, 88000, "");
-  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
-    TEST_ASSERT_TRUE(memorySet(&store, i, &c));
-  }
+static void add_of_a_station_already_stored_names_it_and_changes_nothing(void) {
+  MemoryChannel c = channel(BAND_FM, 98300, "Kept");
+  TEST_ASSERT_TRUE(memorySet(&store, 4, &c));
   MemoryStore before = store;
   int slot = MEMORY_NO_SLOT;
   TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_FULL,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, NULL, &slot));
-  TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, slot);
+      MEMORY_SAVE_TAKEN,
+      memoryAddChannel(&store, BAND_FM, 98300, 0, "Other", &slot));
+  TEST_ASSERT_EQUAL_INT(4, slot);
   TEST_ASSERT_EQUAL_MEMORY(&before, &store, sizeof(store));
+  /* The same frequency on another band is another station. */
+  TEST_ASSERT_EQUAL_INT(
+      MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_SW, 9800, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(0, slot);
+  /* One kHz away is another station too. */
+  TEST_ASSERT_EQUAL_INT(
+      MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_FM, 98301, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(1, slot);
 }
 
-static void save_of_what_no_preset_can_hold_is_refused_and_changes_nothing(
+static void add_to_a_full_list_or_of_no_preset_is_refused(void) {
+  int slot = 33;
+  TEST_ASSERT_EQUAL_INT(MEMORY_SAVE_INVALID,
+                        memoryAddChannel(NULL, BAND_FM, 98300, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(
+      MEMORY_SAVE_INVALID,
+      memoryAddChannel(&store, BAND_FM, 98300, 0, NULL, NULL));
+  TEST_ASSERT_EQUAL_INT(MEMORY_SAVE_INVALID,
+                        memoryAddChannel(&store, BAND_FM, 0, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(33, slot);
+  MemoryChannel c = channel(BAND_FM, 88000, "");
+  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
+    c.freqKHz = 88000 + 100 * (uint32_t)i;
+    TEST_ASSERT_TRUE(memorySet(&store, i, &c));
+  }
+  MemoryStore before = store;
+  TEST_ASSERT_EQUAL_INT(
+      MEMORY_SAVE_FULL,
+      memoryAddChannel(&store, BAND_FM, 107900, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(33, slot);
+  TEST_ASSERT_EQUAL_MEMORY(&before, &store, sizeof(store));
+  /* A full list still says when the station is one of its presets. */
+  TEST_ASSERT_EQUAL_INT(
+      MEMORY_SAVE_TAKEN,
+      memoryAddChannel(&store, BAND_FM, 88100, 0, NULL, &slot));
+  TEST_ASSERT_EQUAL_INT(1, slot);
+}
+
+static void add_of_what_no_preset_can_hold_is_refused_and_changes_nothing(
     void) {
   twoOnOneStation();
   MemoryStore before = store;
   int slot = MEMORY_NO_SLOT;
   TEST_ASSERT_EQUAL_INT(
       MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_FM, 98300, 999, NULL, &slot));
+      memoryAddChannel(&store, BAND_FM, 98300, 999, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(
       MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, "a\nb", &slot));
+      memoryAddChannel(&store, BAND_FM, 98300, 0, "a\nb", &slot));
   TEST_ASSERT_EQUAL_INT(MEMORY_SAVE_INVALID,
-                        memorySaveChannel(&store, BAND_FM, 0, 0, NULL, &slot));
+                        memoryAddChannel(&store, BAND_FM, 0, 0, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(
       MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_COUNT, 98300, 0, NULL, &slot));
+      memoryAddChannel(&store, BAND_COUNT, 98300, 0, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(MEMORY_NO_SLOT, slot);
-  /* A named slot outside the store is refused and left as it was. */
-  int outside = MEMORY_SLOT_COUNT;
-  TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, NULL, &outside));
-  TEST_ASSERT_EQUAL_INT(MEMORY_SLOT_COUNT, outside);
-  outside = -2;
-  TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, NULL, &outside));
-  TEST_ASSERT_EQUAL_INT(-2, outside);
   TEST_ASSERT_EQUAL_MEMORY(&before, &store, sizeof(store));
-  TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_INVALID,
-      memorySaveChannel(NULL, BAND_FM, 98300, 0, NULL, &slot));
-  TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_INVALID,
-      memorySaveChannel(&store, BAND_FM, 98300, 0, NULL, NULL));
 }
 
-static void save_cuts_a_long_name_to_fit(void) {
+static void add_cuts_a_long_name_to_fit(void) {
   int slot = MEMORY_NO_SLOT;
   TEST_ASSERT_EQUAL_INT(MEMORY_SAVE_OK,
-                        memorySaveChannel(&store, BAND_FM, 98300, 0,
-                                          "Radio Mirchi Long Name", &slot));
+                        memoryAddChannel(&store, BAND_FM, 98300, 0,
+                                         "Radio Mirchi Long Name", &slot));
   TEST_ASSERT_EQUAL_STRING("Radio Mirchi Lon", memoryGet(&store, slot)->name);
 }
 
@@ -714,6 +733,82 @@ static void the_stored_form_takes_null_and_short_buffers(void) {
   TEST_ASSERT_FALSE(memoryFromBlob(blob, sizeof(blob), NULL));
 }
 
+static MemoryChannel named(uint32_t freqKHz, const char *name, uint16_t bw,
+                           uint16_t pi) {
+  MemoryChannel c = channel(BAND_FM, freqKHz, name);
+  c.bandwidthKHz = bw;
+  c.pi = pi;
+  return c;
+}
+
+static void clear_empties_a_slot_and_leaves_the_rest(void) {
+  MemoryChannel a = named(98300, "ONE", 0, 0x26FF);
+  MemoryChannel b = named(106400, "TWO", 168, 0x1064);
+  TEST_ASSERT_TRUE(memorySet(&store, 4, &a));
+  TEST_ASSERT_TRUE(memorySet(&store, 5, &b));
+  TEST_ASSERT_TRUE(memoryClear(&store, 4));
+  TEST_ASSERT_FALSE(memorySlotUsed(&store, 4));
+  TEST_ASSERT_TRUE(memorySlotUsed(&store, 5));
+  TEST_ASSERT_EQUAL_INT(1, memoryCount(&store));
+  TEST_ASSERT_NULL(memoryGet(&store, 4));
+  /* Nothing of it is left behind to come back with a later write. */
+  TEST_ASSERT_EQUAL_UINT16(0, store.slot[4].pi);
+  TEST_ASSERT_EQUAL_STRING("", store.slot[4].name);
+}
+
+static void clear_of_an_empty_slot_is_true_and_outside_the_store_false(void) {
+  TEST_ASSERT_TRUE(memoryClear(&store, 0));
+  TEST_ASSERT_TRUE(memoryClear(&store, MEMORY_SLOT_COUNT - 1));
+  TEST_ASSERT_FALSE(memoryClear(&store, -1));
+  TEST_ASSERT_FALSE(memoryClear(&store, MEMORY_SLOT_COUNT));
+  TEST_ASSERT_FALSE(memoryClear(NULL, 0));
+}
+
+static void move_to_an_empty_slot_takes_name_width_and_pi(void) {
+  MemoryChannel a = named(98300, "ONE", 168, 0x26FF);
+  TEST_ASSERT_TRUE(memorySet(&store, 2, &a));
+  TEST_ASSERT_TRUE(memoryMove(&store, 2, 40));
+  TEST_ASSERT_FALSE(memorySlotUsed(&store, 2));
+  const MemoryChannel *moved = memoryGet(&store, 40);
+  TEST_ASSERT_EQUAL_UINT32(98300, moved->freqKHz);
+  TEST_ASSERT_EQUAL_STRING("ONE", moved->name);
+  TEST_ASSERT_EQUAL_UINT16(168, moved->bandwidthKHz);
+  TEST_ASSERT_EQUAL_UINT16(0x26FF, moved->pi);
+  TEST_ASSERT_EQUAL_INT(1, memoryCount(&store));
+}
+
+static void move_onto_a_used_slot_swaps_the_two(void) {
+  MemoryChannel a = named(98300, "ONE", 0, 0x26FF);
+  MemoryChannel b = named(106400, "TWO", 168, 0x1064);
+  TEST_ASSERT_TRUE(memorySet(&store, 0, &a));
+  TEST_ASSERT_TRUE(memorySet(&store, 7, &b));
+  TEST_ASSERT_TRUE(memoryMove(&store, 0, 7));
+  TEST_ASSERT_EQUAL_STRING("TWO", memoryGet(&store, 0)->name);
+  TEST_ASSERT_EQUAL_UINT16(0x1064, memoryGet(&store, 0)->pi);
+  TEST_ASSERT_EQUAL_STRING("ONE", memoryGet(&store, 7)->name);
+  TEST_ASSERT_EQUAL_UINT16(0x26FF, memoryGet(&store, 7)->pi);
+  TEST_ASSERT_EQUAL_INT(2, memoryCount(&store));
+}
+
+static void move_onto_itself_changes_nothing(void) {
+  MemoryChannel a = named(98300, "ONE", 0, 0);
+  TEST_ASSERT_TRUE(memorySet(&store, 3, &a));
+  TEST_ASSERT_TRUE(memoryMove(&store, 3, 3));
+  TEST_ASSERT_EQUAL_STRING("ONE", memoryGet(&store, 3)->name);
+}
+
+static void move_of_nothing_or_outside_the_store_is_refused(void) {
+  MemoryChannel a = named(98300, "ONE", 0, 0);
+  TEST_ASSERT_TRUE(memorySet(&store, 3, &a));
+  TEST_ASSERT_FALSE(memoryMove(&store, 9, 3));
+  TEST_ASSERT_EQUAL_STRING("ONE", memoryGet(&store, 3)->name);
+  TEST_ASSERT_FALSE(memorySlotUsed(&store, 9));
+  TEST_ASSERT_FALSE(memoryMove(&store, 3, MEMORY_SLOT_COUNT));
+  TEST_ASSERT_FALSE(memoryMove(&store, -1, 3));
+  TEST_ASSERT_FALSE(memoryMove(NULL, 3, 4));
+  TEST_ASSERT_TRUE(memorySlotUsed(&store, 3));
+}
+
 int main(int, char **) {
   UNITY_BEGIN();
 
@@ -768,12 +863,19 @@ int main(int, char **) {
   RUN_TEST(pick_falls_to_the_second_then_to_the_lowest);
   RUN_TEST(pick_answers_no_slot_off_every_preset);
   RUN_TEST(pick_passes_over_a_slot_outside_the_store);
-  RUN_TEST(save_goes_into_the_lowest_free_slot);
-  RUN_TEST(save_replaces_a_named_slot_outright);
-  RUN_TEST(save_into_a_full_list_is_refused_and_changes_nothing);
-  RUN_TEST(save_of_what_no_preset_can_hold_is_refused_and_changes_nothing);
-  RUN_TEST(save_cuts_a_long_name_to_fit);
+  RUN_TEST(add_with_no_name_stores_an_empty_one);
+  RUN_TEST(add_goes_into_the_lowest_free_slot_past_a_gap);
+  RUN_TEST(add_of_a_station_already_stored_names_it_and_changes_nothing);
+  RUN_TEST(add_to_a_full_list_or_of_no_preset_is_refused);
+  RUN_TEST(add_of_what_no_preset_can_hold_is_refused_and_changes_nothing);
+  RUN_TEST(add_cuts_a_long_name_to_fit);
   RUN_TEST(the_nth_used_slot_passes_over_the_empty_ones);
+  RUN_TEST(clear_empties_a_slot_and_leaves_the_rest);
+  RUN_TEST(clear_of_an_empty_slot_is_true_and_outside_the_store_false);
+  RUN_TEST(move_to_an_empty_slot_takes_name_width_and_pi);
+  RUN_TEST(move_onto_a_used_slot_swaps_the_two);
+  RUN_TEST(move_onto_itself_changes_nothing);
+  RUN_TEST(move_of_nothing_or_outside_the_store_is_refused);
 
   return UNITY_END();
 }

@@ -20,9 +20,10 @@ curl -s -b jar -d khz=102800 $R/api/tune  # use the cookie
 ```
 
 ```
-HTTP/1.1 303 See Other
+HTTP/1.1 200 OK
 Set-Cookie: tefsid=<32 hex>; Path=/; Max-Age=1800; HttpOnly; SameSite=Strict
-Location: /
+
+Signed in.
 ```
 
 | Rule | What it means |
@@ -44,8 +45,8 @@ A wrong PIN, and the sixth wrong PIN in a row:
 
 ```
 $ curl -s -d pin=111111 $R/auth
-Wrong PIN: That PIN is not right.               [403, an HTML page]
-Too many tries: Too many wrong PINs. Try again in a minute.   [429, with Retry-After]
+That PIN is not right.                          [403]
+Too many wrong PINs. Try again in a minute.     [429, with Retry-After]
 ```
 
 ## How answers read
@@ -58,7 +59,7 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 202 | The radio took it but has not confirmed it yet. Read `/api/state` to see where it got to. Do not send it again |
 | 400 | Refused, and the line says why, for example `That is not a band. Use one of LW MW SW OIRT FM.` |
 | 403 | Not signed in: `Enter the access PIN first.` |
-| 404 | Under `/api/`, no such route or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` Also an empty preset or a catch no longer in the list. Any other unknown path is sent to `/` |
+| 404 | Under `/api/`, no such route or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` Also an empty preset or a catch no longer in the list. Any other unknown path, such as `/radio` from an older firmware, is sent to `/`, the web page |
 | 409 | Not now. For a key or a touch: `The last key sent has not been handled yet. Send again.` For a touch also when Touch is Off, the screen is dark or held by another screen, the calibration screen is open, or a finger could not make that gesture there |
 | 413 | A form or text body over 8192 bytes. A firmware upload is not limited by this |
 | 429 | Too many wrong PINs |
@@ -83,7 +84,7 @@ curl -s $R/api/state
 <details><summary>A sample answer</summary>
 
 ```json
-{"brd":"ats125","ver":"0.2.0","bid":"0550092+","slt":"app0","cnf":true,"upd":{"st":"none","ver":null,"sz":null},"net":"station","rssi":-63,"bars":1,"rst":"software","ip":"192.168.1.40","dpn":true,"hep":122360,"hmn":52524,"hmp":null,"hlb":77812,"stk":{"rad":2352,"lop":7340},"up":90,"slp":null,"pnl":{"lit":90,"dim":false,"sdb":25,"swp":35,"lvu":11488,"lvt":22064,"lvp":53,"lvb":10228,"lvm":13124,"psh":{"n":57,"px":247288,"us":126889,"max":2807,"ref":28047}},"bat":{"fit":true,"mv":null,"boot":3732},"clk":{"syn":true,"age":82,"now":"07:06"},"asv":{"n":0,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":16,"bad":false,"lost":0},"log":{"fit":true,"n":75},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":1837,"pdb":-19,"tch":{"on":true,"pen":false,"dn":5,"rd":23,"cal":"stored","px":166,"py":153,"x":2631,"y":2090,"z1":371,"z2":3531}},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-19,"mut":false,"tmd":"Auto","pst":9,"seq":2773,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":18,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":202,"sav":242,"usn":126,"wam":138,"off":55,"bw":184,"mod":56,"st":true,"plt":true,"qst":1000,"agc":{"on":true,"gn":0,"avg":456,"set":true},"rds":{"syn":false,"pi":"1064","psp":"1064","pim":"match","pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"rt":"HAI RE HAI - SINDHOORAM - SRINIVAS CHAKRAVARTHI - MAGICFM","min":{"ms":55765,"grp":630,"blk":[[605,6,19],[567,31,32],[563,38,29],[563,43,24]],"typ":{"0A":283,"2A":284}},"grp":984,"use":961,"cor":135,"bad":115},"scn":false,"scd":0,"sct":0,"scf":0,"sca":0,"scr":0,"scc":null}}
+{"brd":"ats125","ver":"0.2.0","bid":"eab5c49+","slt":"app0","cnf":true,"upd":{"st":"none","ver":null,"sz":null},"net":"station","apn":null,"rssi":-57,"bars":2,"rst":"software (update)","ip":"192.168.1.40","dpn":true,"pcl":{"on":false,"cli":0,"ips":[],"ref":0},"liv":{"n":1,"ref":0,"max":313},"dx":{"on":false,"pg":1,"n":1,"rev":856561604,"swr":14769,"swp":false,"scn":"idle","sck":0,"scf":0,"scd":0,"sct":0,"dst":0,"dsc":0,"ddw":25,"wup":0,"wri":0,"wms":0},"scp":{"rev":2,"run":false},"hep":116204,"hmn":59988,"hmp":64580,"hlb":42996,"stk":{"rad":1392,"lop":7424},"up":4155,"slp":null,"pnl":{"lit":0,"dim":true,"sdb":14,"cur":null,"swp":47,"lvu":11760,"lvt":22036,"lvp":54,"lvb":9816,"lvm":16940,"psh":{"n":7,"px":4536,"us":4060,"max":591,"ref":5927}},"bat":{"fit":true,"mv":null,"boot":3724},"clk":{"syn":true,"age":4146,"now":"03:37"},"asv":{"n":0,"dif":false,"due":0,"bad":false,"idl":10000},"pst":{"n":9,"bad":false,"lost":0},"log":{"fit":true,"n":0},"inp":{"pad":true,"clk":0,"prs":0,"lst":"","lms":0,"typ":"","lns":65535,"pot":334,"pdb":-44,"tch":{"on":true,"pen":false,"dn":0,"rd":0,"ges":0,"chip":true,"cal":"stored","px":null,"py":null,"x":null,"y":null,"z1":null,"z2":null}},"tun":{"prt":"TEF6686","pch":102,"xad":0,"xtl":"9.216 MHz","fsi":false,"frd":false,"dr":false,"bnd":"FM","khz":106400,"f":"106.40","unt":"MHz","stp":100,"bws":0,"dxw":0,"vol":-44,"mut":false,"tmd":"Auto","pst":9,"seq":133684,"ims":true,"eq":true,"mno":false,"dem":50,"fnb":0,"anb":90,"ahc":47,"lhc":52,"asm":28,"lsm":34,"snr":15,"cut":0,"bld":0,"hbl":0,"wid":false,"skg":false,"skf":false,"bep":false,"sql":"Off","sqo":true,"hmu":false,"sig":135,"sav":141,"usn":93,"wam":186,"off":42,"bw":184,"mod":52,"st":true,"plt":true,"qst":1000,"agc":{"on":true,"gn":0,"avg":502,"set":true},"rds":{"syn":false,"pi":"1064","psp":"1064","pim":"match","pty":12,"ptn":"Easy Listening","tp":false,"ta":false,"ms":"speech","ps":" MAGIC  ","psh":" MAGIC  ","psm":255,"min":{"ms":56130,"grp":154,"blk":[[70,18,66],[5,85,64],[7,74,73],[3,80,71]],"typ":{"0A":3,"2A":2}},"grp":9833,"use":6687,"cor":9960,"bad":10540},"scn":false,"scd":0,"sct":0,"scf":0,"sca":0,"scr":0,"scc":null}}
 ```
 
 </details>
@@ -92,21 +93,53 @@ Numbers are whole numbers. A value with a fraction is sent in tenths: `"sig":168
 
 | Key | What it is |
 |---|---|
-| `brd`, `ver`, `bid` | The board, the firmware version, and the git commit it was built from, with `+` when built with changes not committed |
+| `brd`, `ver`, `bid` | The board, the firmware version, and the git commit it was built from, with `+` when built with changes not committed. `bid` is empty when the commit is not known |
 | `slt`, `cnf` | The firmware slot it runs from, and whether that firmware is confirmed (false while on trial after an update) |
 | `upd` | The update check: `st` is `off`, `wait`, `checking`, `none`, `found` or `failed`; `ver` and `sz` are the newer release's version and image size in bytes while `st` is `found`, and null otherwise |
-| `net`, `rssi`, `bars`, `ip` | The network state (`station`, `joining`, `ap` for the hotspot, `offline`), the Wi-Fi signal in dBm and in bars, the address |
+| `net`, `rssi`, `bars`, `ip` | The network state (`station`, `joining`, `ap` for the hotspot, `offline`), the Wi-Fi signal in dBm and in bars (0 to 3, as the header draws it), the address. `rssi` and `bars` are null unless `net` is `station` |
+| `apn` | The hotspot's own name, `tef668x-setup-XXXX`, while `net` is `ap`; null otherwise. The name of your own network is never in the state |
 | `rst` | Why the radio last started, for example `power` or `software (update)` |
 | `dpn` | True while the access PIN is still `000000` |
 | `pcl` | The [PC Link](PC-Tools.md): `on` while port 7373 is open, `cli` how many PCs are signed in, `ips` their addresses, `ref` how many were turned away because three were in |
-| `hep`, `hmn`, `hmp`, `hlb` | Free memory now, the least since start, the least in the start before, and the largest free block, in bytes |
+| `scp` | The [band scope](#band-scope)'s sweeps: `rev` moves with each new sweep, `run` is true while one is waiting or running. Read `GET /api/scope` again only when `rev` moves |
+| `dx` | [DX mode](#dx-mode), as the first line of `GET /api/dx` has it: `on` whether it is open, `pg` the page the radio shows (0 DX, 1 Scope, 2 Scanner, 3 Catches), `n` how many catches and `rev` a number that moves when they change; `swr` the DX sweep's revision and `swp` true while one runs; the scanner's `scn` (`idle`, `running` or `stopped`), `sck` its channel in kHz (0 while idle), `scf` the stations found, and `scd` the channels done of `sct`; the scan settings `dst`, `dsc` and `ddw`, as [POST /api/settings](#post-apisettings) takes them; and the preset watch's last alert: `wup` the preset that came up, in kHz (0 for none), `wri` how far over its usual level, in tenths of a dB, and `wms` when, in ms since start |
+| `liv` | The [live state](#get-apilive): `n` how many pages have it open, `ref` how many were turned away because two were open, `max` the longest one send of it held the radio since start, in ms |
+| `hep`, `hmn`, `hmp`, `hlb` | Free memory now, the least since start, the least in the start before, and the largest free block, in bytes. `hmp` is there only when the radio restarted itself and noted it, as after an update. It is null after a power cycle or a crash |
+| `stk` | Stack bytes each task has never reached since start: `rad` the radio task, `lop` the loop task |
 | `up`, `slp` | Seconds since start, and seconds until Auto Off, or null when it is off |
-| `pnl` | The screen: `lit` the light in per cent, `dim` whether it is dimmed, and LVGL memory figures |
-| `bat` | The battery: `fit`, `boot` the millivolts read at start up, `mv` the millivolts now (null while Wi-Fi is on) |
-| `clk` | The clock: `syn` whether it has the time, `now` the time as `HH:MM` |
-| `pst`, `log` | How many presets and station log entries are stored |
-| `inp` | The controls: `pot` and `pdb` the volume knob, `typ` digits being typed, `lst` the last key in words, and `tch` the touch screen, below |
+| `pnl` | The screen, below |
+| `bat` | The battery: `fit` true when the board can read it at all, `boot` the millivolts read at start up, `mv` the millivolts now (null while Wi-Fi is on, or when the reading failed) |
+| `clk` | The clock: `syn` whether it has the time, `age` seconds since a time server last answered (null when none has), `now` the time as `HH:MM` (null when no server has answered) |
+| `asv` | The automatic save of the settings: `n` saves written since start, `dif` true when what a save would store now is not what is stored, `due` ms until a save (0 when none is waiting), `bad` true when the last automatic write failed, `idl` the wait in use in ms (0 when the automatic save is off). It is not `sav` in `tun` |
+| `pst` | The presets: `n` how many are stored, `rev` a number that changes whenever the list does (a rename or a move too, which leave `n` as it was), `bad` true when the last write to the list failed, `lost` how many start up threw away as unreadable |
+| `log` | The station log: `fit` true when its flash partition mounted, `n` how many entries, `rev` a number that changes with every append, edit and delete, which a full log takes without `n` moving |
+| `inp` | The controls, below |
 | `tun` | The tuner and the station, below |
+
+The `pnl` object:
+
+| Key | What it is |
+|---|---|
+| `lit`, `dim` | The light in per cent, and whether it has dimmed after being left alone |
+| `sdb` | The signal number the screen shows, in whole dBµV. The screen holds it still until the level moves a whole dB away |
+| `cur` | The scope cursor in kHz while the panel shows DX mode's Scope page or the band scope. Null otherwise |
+| `swp` | How long the last screen change took, in ms, 0 if none yet |
+| `lvu`, `lvt`, `lvp` | LVGL's own memory: bytes in use, its size in bytes, and the per cent in use. `lvu` is null when LVGL is not running, and then `swp` and the other `lv` keys are left out |
+| `lvb`, `lvm` | The largest free piece of LVGL's memory, and the most it has had in use since start, in bytes |
+| `psh` | The pushes to the screen in the last whole second: `n` how many, `px` their pixels, `us` their time in all and `max` the longest, in µs, and `ref` the longest refresh, LVGL drawing and pushing together. Null before a whole second has passed |
+
+The `inp` object:
+
+| Key | What it is |
+|---|---|
+| `pad` | True when the keypad chip answered at start up |
+| `clk`, `prs` | Knob clicks, and key and button events, since start |
+| `lst`, `lms` | The last event in words, such as `BAND long`, and when it was, in ms since start (0 for never) |
+| `typ` | Digits typed and not yet entered |
+| `lns` | The keypad's sixteen raw lines, a 0 bit for each key held. 65535 until they have been read |
+| `pot`, `pdb` | The volume knob's reading, 0 to 4095, and the volume in dB that reading gives |
+| `pcl` | While the volume knob is being calibrated, its lowest and highest readings so far, as `min` and `max`. Not there otherwise |
+| `tch` | The touch screen, below |
 
 The `tch` object inside `inp` shows what the touch controller reads, to check the touch screen works. Outside the calibration screen a touch acts on the part of the screen it starts on, as [Touch Screen](Touch-Screen.md) describes, and beeps as Key Beeps says; `lst` then names it with that part, such as `touch tap band`:
 
@@ -129,22 +162,85 @@ The `tun` object:
 
 | Key | What it is |
 |---|---|
-| `prt`, `pch`, `xtl` | The tuner chip, its patch, and its crystal |
+| `prt`, `pch`, `xad`, `xtl` | The tuner chip, its patch, what the crystal sense pin read (raw), and the crystal that reading maps to |
+| `fsi`, `frd`, `dr` | What the chip has: FM stereo improvement, full search RDS, and digital radio |
 | `bnd`, `khz`, `f`, `unt` | The band, the frequency in kHz, and the frequency as the screen shows it, with its unit |
 | `stp`, `bws`, `dxw` | The step in kHz, the filter width set (0 for automatic), and DX mode's width (0 while DX mode is closed) |
-| `vol`, `mut`, `tmd`, `pst` | The volume in dB, mute, the tuning mode (`Manual`, `Auto`, `Presets`, `Meter band`), and the preset number (0 for none) |
+| `vol`, `mut`, `tmd`, `pst` | The volume in dB, mute as it was asked for, the tuning mode (`Manual`, `Auto`, `Presets`, `Meter band`), and the preset number (0 for none) |
+| `seq` | Goes up with every new reading the radio task makes. It stops when the radio task has stalled |
 | `ims`, `eq`, `mno`, `dem` | iMS, the equaliser, forced mono, and de-emphasis in µs |
 | `fnb`, `anb`, `ahc`, `lhc`, `asm`, `lsm` | The noise blankers in per cent, the AM high cut and soft mute levels in dBµV |
+| `cut`, `bld`, `hbl` | The treble cut, the stereo blend and the combined blend the chip is applying now. They have no known unit. They are there only when the chip gave them |
+| `wid` | The adaptive filter is allowed to open |
 | `sig`, `sav` | The signal level now and its average, in tenths of a dBµV |
 | `usn`, `wam` | Noise, and on FM multipath or on AM co-channel, in tenths of a per cent |
 | `off`, `bw`, `mod` | The offset in tenths of a kHz, the filter width the tuner reports in kHz, and the modulation in per cent |
 | `snr` | Signal to noise in dB, worked out by the firmware |
 | `st`, `plt` | Stereo heard, and the stereo pilot |
-| `sql`, `sqo` | The squelch mode, and whether the squelch is open |
+| `qst` | The quality status word as the chip sent it. It carries the time stamp that says whether the readings have settled |
+| `sql`, `sqo`, `sqa` | The squelch mode (`Off`, `Auto` or `Manual`), whether the squelch is open, and the Manual threshold in tenths of a dBµV. `sqa` is there only in Manual |
+| `hmu` | The mute the tuner was told. `mut` is the mute that was asked for |
+| `per` | What the tuner last refused, in words. There only when it refused something |
 | `skg`, `skf` | A seek is running, and the last seek found a station |
-| `agc` | The volume AGC: `on`, `gn` the gain now in dB |
-| `rds` | RDS, on FM only: `pi`, `ps` the name, `pty` and `ptn` the programme type, `tp`, `ta`, `ms` speech or music, `rt` the radio text, `af` the alternative frequencies, and the decoder counts. A field shows only once it has been received |
-| `scn`, `scd`, `sct`, `scf`, `sca`, `scc` | A station scan: running, channels done and in total, then stations found, stations added, and whether it completed |
+| `bep` | A beep is sounding now |
+| `agc` | The volume AGC: `on`, `gn` the gain now in dB, `avg` the running average of the modulation it works from in tenths of a per cent, and `set` whether that average has seen enough of this station to act on |
+| `rds` | RDS, on FM only, below |
+| `scn`, `scd`, `sct`, `scf`, `sca`, `scr`, `scc` | A station scan: running, channels done and in total, then stations found, stations added to a free slot, new stations with no free slot left, and whether it covered the whole band (false when a tune stopped it, null until a scan has finished) |
+
+When the tuner did not start, `tun` holds why, so a fault can be read without a cable:
+
+| Key | What it is |
+|---|---|
+| `err` | What stopped it, in words |
+| `dev`, `hwd`, `swd` | The three identification words, in hex |
+| `saw` | Something answered at the tuner's I2C address |
+| `rbt`, `bot` | The operation status came back, and what it said. 0 means not patched yet |
+| `ptd`, `try`, `wnt` | A patch was written in this start, which patch version was written, and which one the chip then asked for |
+| `xad`, `xtl` | What the crystal sense pin read (raw), and the crystal that reading maps to |
+
+The `rds` object. A field is there only once it has been received, so a name not heard yet is not the same as an empty name. With RDS switched off, the object is only `{"off":true}`.
+
+| Key | What it is |
+|---|---|
+| `off` | True when RDS is switched off. Nothing else is there then |
+| `syn` | The tuner is locked to an RDS bit stream |
+| `pi`, `piz` | The programme identifier, four hex digits, and `piz` true when the station sends 0000, which names no station |
+| `pih` | The PI last heard but not yet sure, with `?` for each digit that changed, such as `5?A1`. Left out once it is the answer |
+| `ecc`, `cty` | The extended country code, two hex digits, and the station's country, two letters, from the ECC and the PI |
+| `cs`, `csg` | North American call letters, from RT+ or worked out from the PI, and `csg` true when they were worked out from the PI and are a guess |
+| `psp`, `pim` | The PI stored with the tuned preset, four hex digits, and `match` when this is that preset's station, `other` when not |
+| `blk` | The error level of blocks A to D of the last group: 0 clean, 1 or 2 corrected, 3 not corrected |
+| `pty`, `ptn` | The programme type, 0 to 31, and its name in the RDS region the settings name |
+| `tp`, `ta` | The station carries traffic announcements at some time, and one is on air now |
+| `ms` | `speech` or `music` |
+| `ps` | The station name, the eight characters as they were sent |
+| `psh`, `psm` | The station name as it builds up, eight characters, and which of its positions have arrived, one bit each, the lowest bit for the first. 255 when all eight have arrived |
+| `psl` | The name stitched back together, when the station splits one across two passes. The radio's screen shows this in place of `ps` |
+| `rt` | The radio text |
+| `af` | The alternative frequencies, in kHz |
+| `ct` | The date and time the station sent, in its own local time, with its offset from UTC, such as `2026-10-11T14:05+02:00` |
+| `lng`, `lgn` | The programme language code, a number, and the name of that language when it is known |
+| `rtp` | RT+: `on` the station sends it, `run` an item is playing, and `tags`, each with its type `t`, its label `l` and its words `s` (null when `rt` has no words for it) |
+| `eon`, `eom` | Other networks heard in two groups or more, each with `pi`, `ps`, `tp`, `ta` (each of the last three null until heard), `af` in kHz, and `afm` true when it had more frequencies than were kept. `eom` is true when another network was named after the list was full |
+| `min` | The last minute: `ms` the time it covers, `grp` the groups, `blk` the clean, corrected and lost counts of blocks A to D, and `typ` the count of each group type, such as `"0A"` |
+| `grp`, `use` | Groups the tuner has handed over on this station, and how many of them something was decoded from |
+| `cor`, `bad` | Blocks the tuner corrected, only counted and not used, and blocks it could not correct |
+
+### GET /api/live
+
+The same JSON as `GET /api/state`, sent to you twice a second over a WebSocket, so a page that shows the radio live does not have to keep asking. No PIN, as for `/api/state`. The web page uses it.
+
+Asking for `/api/state` costs the radio a whole request each time, and a request holds it for long enough that once a second makes its own screen stutter. Over the socket one send holds it for about 10 ms.
+
+- At most two pages at once: a third is answered 503 and should try again later.
+- It only sends. Changes still go to their own routes, such as `POST /api/volume`, with the PIN.
+- Nothing is sent while a level sweep reads the band, up to 7.5 s on MW. If nothing comes for 10 s, the radio has gone: it restarted, or left the Wi-Fi.
+- Switching the web server off closes it.
+
+```js
+const ws = new WebSocket('ws://tef668x.local:8080/api/live');
+ws.onmessage = (e) => console.log(JSON.parse(e.data).tun.f);
+```
 
 ### GET /api/settings
 
@@ -234,6 +330,13 @@ All need the PIN.
 | `POST /api/fm` | Any of the reception settings below | The whole reception state, below |
 | `POST /api/beep` | `ms`, 1 to 3000, and `hz`, 100 to 15000 (2000 if left out) | `beeping for 150 ms` |
 
+`GET /api/bands` needs no PIN. It gives each band of the band plan: `band`, its edges `low` and `high` in kHz, the `steps` and filter `widths` it offers (0 on FM is automatic), and the `step` and `width` it has now, the live ones for the band tuned. `POST /api/step-size` and `POST /api/bandwidth` with `bnd` change another band's.
+
+```
+$ curl -s $R/api/bands
+[{"band":"LW","low":144,"high":513,"steps":[1,9],"step":9,"widths":[3,4,6,8],"width":4},...]
+```
+
 `/api/fm` takes `ims`, `eq` and `mno` (0 or 1, FM only), `cut`, `bld` and `hbl` (0, or 20 to 60 dBµV, FM only), `fnb` and `anb` (0, or 50 to 150 %), `ahc` and `lhc` (0, or 20 to 60 dBµV), `asm` and `lsm` (0 to 50 dBµV), and `dem` (0, 50 or 75). It answers with every setting:
 
 ```
@@ -296,7 +399,10 @@ See [Presets and Station Scan](Presets-and-Station-Scan.md) for the CSV format.
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
 | `POST /api/presets` | Yes | `do=set` with `slot`, `khz`, and `bw` and `name` if wanted | `Preset 50 is FM 98.30 MHz` |
+| `POST /api/presets` | Yes | `do=add` with `khz`, and `bw` and `name` if wanted. The radio stores it in the lowest free slot, and refuses a station that is a preset already | `Preset 6 is FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=recall` with `slot` | `FM 98.30 MHz` |
+| `POST /api/presets` | Yes | `do=move` with `slot` and `to`. The two swap when `to` holds a preset | `Preset 3 moved to 10.`, `Presets 3 and 10 swapped.` |
+| `POST /api/presets` | Yes | `do=clear` with `slot` | `Preset 10 deleted.` |
 | `GET /api/presets.csv` | No | | The CSV file |
 | `POST /api/presets/import` | Yes | `mode=merge` or `mode=replace` in the query, the CSV as the body, `Content-Type: text/csv` | `16 of 16 lines imported, 0 refused, 0 already taken, 0 names cut short` |
 | `POST /api/scan` | Yes | `bnd`: `FM`, `MW`, `SW` or `LW`, FM if left out | `scanning FM` |
@@ -312,13 +418,15 @@ slot,band,frequency,bandwidth,name,pi
 
 ```
 Preset 99 is empty.                                                   [404, do=recall slot=99]
-do has to be set or recall.                                           [400, do=clear]
+do has to be set, add, recall, clear or move.                         [400, do=erase]
+98.30 MHz is already preset 5.                                        [409, do=add khz=98300]
+Every preset slot is taken.                                           [409, do=add with all 99 slots used]
 0 of 1 lines imported, 0 refused, 1 already taken, 0 names cut short  [200, merge into a used slot]
 Line 1 could not be read, so nothing was changed.                     [400, replace with a bad file]
 Give bnd, one of FM MW SW LW, or leave it out for FM.                 [400, scan bnd=OIRT]
 ```
 
-There is no way to clear one preset. A `replace` with only the header line clears them all.
+A `replace` with only the header line clears them all.
 
 ## Station log
 
@@ -326,22 +434,26 @@ See [Station Log](Station-Log.md).
 
 | Route | PIN | What it does |
 |---|---|---|
-| `GET /api/log` | No | The log, one JSON object per line, oldest first, after a first line with the count |
+| `GET /api/log` | No | The log, one JSON object per line, oldest first, after a first line with the count. `last=N` sends only the newest N; the count is still the whole log's |
 | `GET /api/log.csv` | No | The log as a CSV file |
 | `POST /api/log` | Yes | Logs the station the radio is on. Answers `logged`, or 409 when the station is already logged or the radio is still tuning |
+| `POST /api/log` | Yes | `do=edit` with `id`, `time`, `khz` and `name`, `note` or both: changes the entry's name (up to 8 characters) and note (up to 32), plain characters only. A name that differs from the one stored marks the entry `renamed`. The readings are never changed. `Entry changed.` |
+| `POST /api/log` | Yes | `do=delete` with `id`, `time` and `khz`: deletes the entry, frees its place, and its station can be logged again. `Entry deleted.` |
+
+`id`, `time` and `khz` are the entry's own, as `GET /api/log` gives them. When the log has moved on since it was read, so that `id` holds another entry, the answer is 409 and nothing changes. A delete gives every later entry a new `id`, so read the log again after one. Each change takes about a second, as the log's file is written again from the changed entry on; the radio's screen waits for it.
 
 ```
 $ curl -s $R/api/log
 {"n":75}
-{"time":1789662597,"real":true,"band":"FM","khz":102800,"level_dbuv":342,"usn":8,"multipath":30,"cochannel":0,"snr":25,"stereo":true,"bw_khz":184,"name":null,"pi":null,"rt":null}
+{"id":0,"time":1789662597,"real":true,"band":"FM","khz":102800,"level_dbuv":342,"usn":8,"multipath":30,"cochannel":0,"snr":25,"stereo":true,"bw_khz":184,"name":null,"pi":null,"rt":null,"note":null,"renamed":false}
 ...
 $ curl -s $R/api/log.csv
-time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt
-2026-09-17 21:59,1,FM,102800,342,8,30,0,25,1,184,,,
+time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed
+2026-09-17 21:59,1,FM,102800,342,8,30,0,25,1,184,,,,,0
 ...
 ```
 
-`time` in the JSON is seconds since 1970 in UTC, and `real` says whether the clock was set. `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths.
+`id` is the entry's place in the log, which it keeps until 250 newer ones have pushed it out. `time` in the JSON is seconds since 1970 in UTC, or milliseconds since start when `real` is false, which says whether the clock was set. `note` is your own note, null for none. `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths.
 
 ## DX mode
 
@@ -368,7 +480,7 @@ $ curl -s $R/api/dx/sweep
 {"rev":34520,"running":false,"abandoned":false,"time":1791613955,"real":true,"took_ms":3278,"width":114,"low":87000,"step":100,"count":211,"floor":19,"baseline":"fixed","baseline_sweeps":1,"level":[86,71,77,...],...,"kept":[1791613910,1791613668,1791613663,1791613645,1791605822,1791600852,1791600845],"baseline_kept":5}
 ```
 
-The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading. `kept` lists when each kept sweep but the latest was taken, in UTC seconds, newest first, null for one taken while the clock was not set. `baseline_kept` is the kept sweep fixed as the baseline, counted from 1, `0` for the median and `-1` for a fixed sweep that is not in `kept`: the latest, or one no longer kept.
+The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value per channel from `low` in steps of `step` kHz, in tenths of a dBµV, with null for no reading. `floor`, the level a quarter of the channels are below, is in tenths too. `kept` lists when each kept sweep but the latest was taken, in UTC seconds, newest first, null for one taken while the clock was not set. `baseline_kept` is the kept sweep fixed as the baseline, counted from 1, `0` for the median and `-1` for a fixed sweep that is not in `kept`: the latest, or one no longer kept.
 
 ### Band scope
 
@@ -437,6 +549,8 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 
 Stores the station and the radio's settings now, so the radio starts this way. Needs the PIN.
 
+The radio also does this by itself, 10 s after the last change, but not while a seek or a scan runs. So this route is needed only to save at once.
+
 ```
 $ curl -s -b jar -X POST $R/api/save
 Saved. It will come up on 106.40 MHz, squelch Off.
@@ -446,6 +560,7 @@ Saved. It will come up on 106.40 MHz, squelch Off.
 
 | Route | PIN | What it does |
 |---|---|---|
+| `GET /` | No | The [web page](Web-Page.md), one file, gzipped, with an `ETag` and `Cache-Control: no-cache`. A browser that sends the same ETag in `If-None-Match` gets 304 with no body, so the page is downloaded again only when a new firmware brings a new page |
 | `POST /update` | Yes | Installs a firmware, sent as the form field `firmware`. See [Updating](Updating.md) |
 | `POST /update/install` | Yes | Installs the newer release the update check found, from GitHub. Answers 202, then downloads and writes it and restarts into it. A failed download or sha256 leaves the old firmware running, with the update still offered. Answers 409 when nothing newer was found, while a new firmware is on trial, or during a station scan |
 | `POST /reboot` | Yes | Restarts the radio. Refused with 409 while a new firmware is on trial |
@@ -453,7 +568,7 @@ Saved. It will come up on 106.40 MHz, squelch Off.
 | `POST /setpin` | Yes | Sets a new PIN, field `pin`. Ends the session |
 | `POST /wifi` | Yes, except on the setup hotspot | Saves a network, fields `sid` and `pwd` |
 
-`/update`, `/update/install`, `/reboot`, `/setpin`, `/wifi` and a refused `/auth` answer with a short HTML page, made for the browser. A right PIN on `/auth` gets the 303 with no body, and a call without a session gets the plain text 403.
+`/auth`, `/update`, `/update/install`, `/reboot`, `/setpin` and `/wifi` answer as the API does: one line of plain text, with the status code saying how it went. A right PIN on `/auth` gets 200 `Signed in.` with the session cookie, and a call without a session gets 403 `Enter the access PIN first.`
 
 ## For measuring
 

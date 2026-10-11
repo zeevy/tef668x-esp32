@@ -65,6 +65,8 @@ The same page on MW, at night indoors, with one station heard, 738 kHz, stored a
 | Digits | Nothing | |
 | Volume knob | The volume | |
 
+A tune from anywhere else, such as the web page, a seek or a preset, puts the cursor on the new dial when the sweep has that channel.
+
 By touch, with Touch On:
 
 | Where | Touch | Does |
@@ -79,4 +81,4 @@ By touch, with Touch On:
 
 It stays open after a tune, so you can step from station to station. It closes when you open the menu or another screen, and when the band leaves FM. A sweep that is running stops when it closes. The check for new firmware waits while it is open.
 
-In a browser, the [Band Scope page](Web-Page.md#band-scope) draws the same sweep with a waterfall, and saves it as a picture or a CSV. From a PC, `POST /api/scope` makes the same sweep, see [HTTP API](HTTP-API.md#band-scope). A spectral scan from XDR-GTK or FM-DX Webserver shows here too, labelled with its own width; see [PC Tools](PC-Tools.md#spectral-scan).
+In a browser, the web page's [Band scope](Web-Page.md#band-scope) screen sweeps the whole band or a span, once or over and over, and draws each sweep with a waterfall of the sweeps before it. It saves the sweep as a picture or a CSV, and a tap on the chart tunes there. From a PC, `POST /api/scope` makes the same sweep, see [HTTP API](HTTP-API.md#band-scope). A spectral scan from XDR-GTK or FM-DX Webserver shows here too, labelled with its own width; see [PC Tools](PC-Tools.md#spectral-scan).

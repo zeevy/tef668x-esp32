@@ -6,7 +6,7 @@ The radio can go to sleep by itself when it is left alone, or when you ask it to
 
 Auto Off puts the radio to sleep after it has been left alone for a set time. It is off on a new radio.
 
-Set it in the menu at **System > Auto Off**: **Off**, or 5 to 600 minutes (10 hours) in steps of 5. The HTTP API takes any whole minute from 1 to 600, as `slp` in `POST /api/settings`, so a short time can be set to try it out. The web page has no Auto Off control.
+Set it in the menu at **System > Auto Off**: **Off**, or 5 to 600 minutes (10 hours) in steps of 5. The HTTP API takes any whole minute from 1 to 600, as `slp` in `POST /api/settings`, so a short time can be set to try it out. On the web page it is **Switch off after**, in the **Auto off** group of the [Settings](Web-Page.md#settings) screen, in the same steps as the menu.
 
 The count starts again every time the radio is used:
 
@@ -40,7 +40,7 @@ These keep the radio awake while they run. The count starts once they stop.
 
 To put the radio to sleep at once, open the menu and go to **Go To > Sleep**. It shows **Going to Sleep** for 5 seconds with the sound fading, then sleeps. Turn a knob or press any key or button in those 5 seconds and it stays awake.
 
-From a script, `POST /api/sleep` does the same. It needs the access PIN, and it is refused with 409 while a new firmware is written or on trial, since sleep would cut the update off or undo it. The menu shows `Update on trial - wait` in that case.
+On the web page, the **Sleep** button on the [System](Web-Page.md#system) screen does the same, after it asks. From a script, `POST /api/sleep` does the same. It needs the access PIN, and it is refused with 409 while a new firmware is written or on trial, since sleep would cut the update off or undo it. The menu shows `Update on trial - wait` in that case.
 
 ## Waking up
 

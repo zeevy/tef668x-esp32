@@ -1,0 +1,309 @@
+@import "tailwindcss";
+
+/* Every colour, corner and shadow is a token. light-dark() picks the light or
+   the dark value from the page's colour scheme: the device's own setting, or
+   the switch, which sets data-theme. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-edge: var(--edge);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-thumb-edge: var(--thumb-edge);
+  /* The accent at 15 % on a card, solid, for a lit key or a tile that may
+     sit over a card's picture, which must not show through it. */
+  --color-accent-soft: color-mix(in oklab, var(--accent) 15%, var(--surface));
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --radius-card: var(--r-card);
+  --radius-ctl: var(--r-ctl);
+  --shadow-card: var(--sh-card);
+  --font-num: var(--f-num);
+}
+
+/* Home's band picture pans from one end to the other and back, slowly.
+   100cqw is the width of the box it pans in, so it stops with its end at the
+   box's edge, whatever the screen. */
+@theme {
+  --animate-rise: rise 0.2s ease-out;
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  --animate-pan: pan 180s linear infinite alternate;
+  @keyframes pan {
+    to {
+      transform: translateX(calc(100cqw - 100%));
+    }
+  }
+  /* The pictures behind the top cards (ui/backs.jsx). */
+  --animate-flow: flow 10s linear infinite;
+  @keyframes flow {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  --animate-blip: blip 12s ease-in-out infinite;
+  @keyframes blip {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  --animate-rise-fall: rise-fall 16s ease-in-out infinite;
+  @keyframes rise-fall {
+    0%,
+    100% {
+      transform: scaleY(0.35);
+    }
+    50% {
+      transform: scaleY(1);
+    }
+  }
+  --animate-ripple: ripple 12s ease-out infinite;
+  @keyframes ripple {
+    from {
+      transform: scale(0.05);
+      opacity: 0.6;
+    }
+    to {
+      transform: scale(1);
+      opacity: 0;
+    }
+  }
+  --animate-sweep: spin 24s linear infinite;
+  /* The Presets & Log picture's stars that light up and go out. */
+  --animate-twinkle: twinkle 18s ease-in-out infinite;
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 0;
+      scale: 0.4;
+    }
+    50% {
+      opacity: var(--peak);
+      scale: 1;
+    }
+  }
+  /* The Radio picture's needle, across its scales and back. 100cqw is the
+     width of the box it moves in. */
+  --animate-needle: needle 120s ease-in-out infinite alternate;
+  @keyframes needle {
+    to {
+      transform: translateX(100cqw);
+    }
+  }
+  /* Its scales, the other way at the same pace. */
+  --animate-dial: dial 120s ease-in-out infinite alternate;
+  @keyframes dial {
+    to {
+      transform: translateX(-8%);
+    }
+  }
+  /* The Network picture's columns of bytes, falling by one column's height. */
+  --animate-rain: rain 90s linear infinite;
+  @keyframes rain {
+    to {
+      transform: translateY(240px);
+    }
+  }
+  /* The System picture's board, left by its own width of 1000. */
+  --animate-drift: drift 400s linear infinite;
+  @keyframes drift {
+    to {
+      transform: translateX(-1000px);
+    }
+  }
+}
+
+/* A small control's touch area grown to at least 44 px square, without
+   changing how it looks. The control needs a position of its own. */
+@utility hit {
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    translate: -50% -50%;
+  }
+}
+
+/* A device that asks for less motion gets the pictures standing still. */
+@media (prefers-reduced-motion: reduce) {
+  .back * {
+    animation: none !important;
+  }
+}
+
+/* Light is the page's own look, and dark the other choice; the switch sets
+   data-theme, light unless dark was picked. light-dark() picks the value for
+   it. accent fills buttons, bars and toggles; accent-ink is accent coloured
+   text, which must be darker on white to read. Light: a light grey page,
+   white cards lifted by a soft shadow, orange for what is on, numbers in the
+   system font. Dark: a dark dial with an amber glow, numbers in the fixed
+   width font, labels in small capitals. */
+:root {
+  color-scheme: light;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --bg: light-dark(#f2f3f5, #0e1013);
+  --surface: light-dark(#ffffff, #171a1f);
+  --raised: light-dark(#f2f3f5, #22262d);
+  --line: light-dark(#e6e8eb, #2c313a);
+  --edge: light-dark(transparent, #2c313a);
+  --ink: light-dark(#111418, #e9ebee);
+  --muted: light-dark(#646b76, #8d95a3);
+  --accent: light-dark(#c2410c, #ffb020);
+  --on-accent: light-dark(#ffffff, #1e1400);
+  --accent-ink: light-dark(#b03b0b, #ffb020);
+  --good: light-dark(#146c45, #3dd68c);
+  --warn: light-dark(#a3480d, #ff8a3d);
+  /* The edge of the chosen part of a segmented control: on the dark theme
+     its fill is too close to the track to see without one. */
+  --thumb-edge: light-dark(transparent, #8d95a3);
+  --bad: light-dark(#c0263a, #ff5a6e);
+  --r-card: 10px;
+  --r-ctl: 8px;
+  --sh-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 2px 8px rgb(16 24 40 / 0.06);
+  --f-num: var(--sans);
+  --w-num: 600;
+  --tt-label: none;
+  --ls-label: 0;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sh-card: none;
+  --f-num: var(--mono);
+  --tt-label: uppercase;
+  --ls-label: 0.08em;
+}
+
+/* Anything that can be clicked shows the hand, as a link does. */
+button:not(:disabled),
+[role="button"],
+summary {
+  cursor: pointer;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A small heading over a group. */
+@utility label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: var(--tt-label);
+  letter-spacing: var(--ls-label);
+}
+
+/* A big reading, such as the frequency. */
+@utility num {
+  font-family: var(--f-num);
+  font-weight: var(--w-num);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A slider drawn like a meter: the same 8 px bar in the same colours, filled
+   up to the thumb. --fill is how far, set by the Slider part. */
+input[type="range"] {
+  appearance: none;
+  /* 44 px tall to touch, laid out as 20 px. A block, so it sits in the
+     middle of its row rather than on the line of the text beside it. */
+  display: block;
+  height: 2.75rem;
+  margin-block: -0.75rem;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: var(--r-ctl);
+  background: linear-gradient(to right, var(--accent) var(--fill), var(--raised) var(--fill));
+}
+input[type="range"]::-moz-range-track {
+  height: 0.5rem;
+  border-radius: var(--r-ctl);
+  background: var(--raised);
+}
+input[type="range"]::-moz-range-progress {
+  height: 0.5rem;
+  border-radius: var(--r-ctl);
+  background: var(--accent);
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: -0.375rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+/* A change of screen or tab: a short cross fade, and the parts with a
+   view-transition-name glide from their old place to their new one. */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.2s;
+}
+
+/* The picture of the change lies over the page while it plays; clicks go
+   through it to the page, so a tap made during the 0.2 s is not lost. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* The header's volume: a slim slider, a 4 px line and a small solid dot, so
+   it sits quietly beside the frequency. */
+.range-slim input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.25rem;
+}
+.range-slim input[type="range"]::-webkit-slider-thumb {
+  margin-top: -0.25rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 0;
+  background: var(--accent);
+}
+.range-slim input[type="range"]::-moz-range-track,
+.range-slim input[type="range"]::-moz-range-progress {
+  height: 0.25rem;
+}
+.range-slim input[type="range"]::-moz-range-thumb {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 0;
+  background: var(--accent);
+}
+
