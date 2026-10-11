@@ -17,7 +17,9 @@ const SPECTRUM_H = 300;
 const PX_PER_CHANNEL = 8;
 const SPECTRUM_MIN_PX = 1600;
 export function Spectrum({ t, sweep }) {
-  const swept = sweep?.whole && sweep.band === t.bnd;
+  // A whole sweep of this band that holds the dial: on SW a sweep of one
+  // metre band says nothing once the dial is in another.
+  const swept = sweep?.whole && sweep.band === t.bnd && t.khz >= sweep.low && t.khz <= sweep.low + sweep.step * (sweep.count - 1);
   const width = Math.max(SPECTRUM_MIN_PX, swept ? sweep.count * PX_PER_CHANNEL : 0);
   // Heights from 0 at the foot to 1 at the top, against x from 0 to 1.
   const height = (v) => 1 - levelY(sweep ?? {}, v) / 100;

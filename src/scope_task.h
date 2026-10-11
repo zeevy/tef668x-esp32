@@ -22,7 +22,8 @@ typedef enum {
   SCOPE_STARTED = 0,
   SCOPE_NO_MEMORY, /* No room on the heap for the two sweeps. */
   SCOPE_REFUSED,   /* The radio cannot sweep now, see radioSweepStart. */
-  SCOPE_TOO_WIDE,  /* More channels than a sweep holds: the whole of SW. */
+  SCOPE_TOO_WIDE,  /* More channels than a sweep holds: SW between two
+                      metre bands, or a span over 2150 kHz on SW. */
 } ScopeStart;
 
 /* Start a sweep of the band the radio is on: `spanKHz` 0 for the whole band,

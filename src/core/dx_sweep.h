@@ -82,12 +82,13 @@ typedef struct {
 
 /*
  * The channels a sweep of `band` reads, on the band's own channels from its
- * bottom edge in its default step. `spanKHz` 0 is the whole band. Otherwise it
- * is `spanKHz` wide, centred on the channel nearest `dialKHz`, and moved
- * inside the band where it would cross an edge; a span as wide as the band or
- * wider is the whole band. False when it would be more than DX_SWEEP_MAX
- * channels, as the whole of shortwave is, when the band has no edges or no
- * step, or `plan` or `out` is NULL.
+ * bottom edge in its default step. `spanKHz` 0 is the whole band; on SW it
+ * is the metre band `dialKHz` is in. Otherwise it is `spanKHz` wide, centred
+ * on the channel nearest `dialKHz`, and moved inside the band where it would
+ * cross an edge; a span as wide as the band or wider is the whole band. False
+ * when it would be more than DX_SWEEP_MAX channels, as the whole of shortwave
+ * is between two metre bands, when the band has no edges or no step, or
+ * `plan` or `out` is NULL.
  */
 bool dxSweepRange(BandId band, const BandPlanConfig *plan, uint32_t dialKHz,
                   uint32_t spanKHz, DxSweepRange *out);

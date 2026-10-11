@@ -274,6 +274,15 @@ bool dxSweepRange(BandId band, const BandPlanConfig *plan, uint32_t dialKHz,
   if (step == 0) {
     return false;
   }
+  /* The whole of shortwave is more channels than a sweep holds, and most of
+   * it carries no broadcasts, so on SW the whole band is the metre band the
+   * dial is in: 61 channels for the 22 m band, 141 for the widest, 19 m. */
+  const SwMeterBand *metres =
+      band == BAND_SW && spanKHz == 0 ? swMeterBandFor(dialKHz) : NULL;
+  if (metres != NULL) {
+    lo = metres->lowKHz;
+    hi = metres->highKHz;
+  }
   const uint32_t all = (hi - lo) / step + 1;
   const uint32_t want =
       spanKHz == 0 || spanKHz / step + 1 >= all ? all : spanKHz / step + 1;

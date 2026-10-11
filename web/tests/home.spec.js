@@ -710,6 +710,20 @@ test('the band picture is drawn at 8 px a channel, wider than the card, and pans
   expect((await svg.boundingBox()).x).toBeLessThan(x0 - 5);
 });
 
+test('on SW the band picture is a metre band sweep only while the dial is in it', async ({ page }) => {
+  const sweep = { rev: 1, running: false, abandoned: false, band: 'SW', whole: true, low: 13570, step: 5, count: 61, width: 4, floor: 50, level: Array(61).fill(120) };
+  await page.route('**/api/scope', (route) => route.fulfill({ json: sweep }));
+  const live = await liveRadio(page, (s) => Object.assign(s.tun, { bnd: 'SW', khz: 13845, f: '13845', unt: 'kHz', stp: 5, mtb: '22 m' }));
+  await page.goto('/');
+  const svg = page.locator('main section').first().locator('svg[preserveAspectRatio="none"]');
+  await expect(svg.locator('rect')).toHaveCount(61);
+  await expect(svg.locator('line')).toHaveCount(1);
+  // In 31 m the 22 m sweep says nothing: the one peak of the station instead.
+  live.push((s) => Object.assign(s.tun, { khz: 9500, f: '9500', mtb: '31 m' }));
+  await expect(svg.locator('rect')).toHaveCount(201);
+  await expect(svg.locator('line')).toHaveCount(0);
+});
+
 test('with the motion turned down, the band picture stays still', async ({ page }) => {
   await page.goto('/');
   const svg = page.locator('main section').first().locator('svg[preserveAspectRatio="none"]');

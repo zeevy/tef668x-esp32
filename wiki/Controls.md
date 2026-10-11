@@ -107,7 +107,7 @@ Open it from Go To in the menu, with a tap on the scale, or with DX on LW, MW or
 | Tuning knob, turn | Moves the cursor one channel | |
 | Tuning knob, press | Sweeps again, or stops the sweep that is running | Tunes to the cursor's channel |
 | ENTER | The same as the knob press | The same as the knob hold |
-| BAND | The whole band or the span round the dial, and sweeps again. On SW, the span again | Nothing |
+| BAND | The whole band or the span round the dial, and sweeps again. On SW the whole band is the metre band; between two metre bands, the span again | Nothing |
 | MODE | Closes the band scope | The menu |
 | DX | Closes the band scope | |
 | BW, digits | Nothing | |

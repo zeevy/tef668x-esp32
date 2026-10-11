@@ -124,7 +124,7 @@ Every dialog has the same look. The title is at the top and the buttons are in a
 
 **The big card**, with the band behind it:
 
-- **The chips**: the band, then **Stereo**, **RDS**, **TP**, **TA**, **Muted**, and **Squelch open** or **Squelch shut** while the squelch is on. With Manual squelch the chip also gives the level it opens at, in dBµV. **DX** shows while DX mode is on, and **Scanning** while a scan runs; each opens its screen. The radio's clock is at the right.
+- **The chips**: the band, on SW with the metre band the dial is in, such as `SW 22 m`, then **Stereo**, **RDS**, **TP**, **TA**, **Muted**, and **Squelch open** or **Squelch shut** while the squelch is on. With Manual squelch the chip also gives the level it opens at, in dBµV. **DX** shows while DX mode is on, and **Scanning** while a scan runs; each opens its screen. The radio's clock is at the right.
 - **The frequency**, large, with the preset number over the unit. Tap it to type another frequency: MHz with a point, such as `98.3`, or kHz without, such as `738`. **Enter** tunes there. **Escape**, or a tap away, leaves it.
 - **The station name**. With none, the preset's name, else `---`. Under it the programme type and the PI. With neither, the date once the radio's clock is set. Then two lines of radio text.
 - **The buttons**: seek down, step down, mute or sound on, step up, seek up, and **Log this station**.
@@ -265,12 +265,13 @@ While DX mode watches the presets, a preset that comes up shows as a note, such 
 
 The [band scope](Band-Scope.md) in the browser, on every band.
 
-**The top card** has an analyser screen behind it, and the station on the dial. The line under the station gives the band and the channels of the sweep. The tools:
+**The top card** has an analyser screen behind it on a laptop, and the station on the dial. On SW its band chip names the metre band the dial is in, such as `SW 22 m`, as every screen's chips do. The line under the station gives the band and the channels of the sweep. The tools:
 
 - **Sweep** sweeps once.
 - **Repeat** asks for the next sweep each time one ends, to watch the band change. Each sweep mutes the radio for its seconds. So Repeat is off when the page opens, and it stops when you switch to another browser tab or a sweep is stopped on the radio.
+- **Log** logs the station on the dial to the [Station log](#station-log), as Home does.
 - **PNG** saves the chart, the waterfall and a line about the sweep as a picture. **CSV** saves the sweep in the chart: each frequency in kHz and its level in dBµV.
-- **Whole band** or **Span**: the span is the part round the dial, 3.6 MHz on FM or 360 kHz on AM. SW is too wide for one sweep, so it has the span only.
+- **Whole band** or **Span**: the span is the part round the dial, 3.6 MHz on FM or 360 kHz on AM. The whole of SW is too wide for one sweep, so on SW the choice is the metre band the dial is in, such as **22 m band**, which is the first choice there; between two metre bands SW has the span only.
 
 **The chart card**:
 

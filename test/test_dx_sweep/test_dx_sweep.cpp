@@ -345,9 +345,30 @@ static void a_range_is_the_band_or_a_span_inside_it(void) {
   TEST_ASSERT_TRUE(dxSweepRange(BAND_FM, &plan, 98300, 50, &r));
   TEST_ASSERT_EQUAL_UINT16(1, r.count);
   TEST_ASSERT_EQUAL_UINT32(98300, r.lowKHz);
-  /* Shortwave is 5061 channels: no whole band, and a span round the dial
-   * wherever it is, 73 channels of 5 kHz round 9500. */
-  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 9500, 0, &r));
+  /* Shortwave is 5061 channels, more than a sweep holds, so its whole band
+   * is the metre band the dial is in: the 22 m band, 13570 to 13870 kHz, is
+   * 61 channels from either edge or the middle. */
+  static const uint32_t kDials[] = {13570, 13845, 13870};
+  for (uint32_t dial : kDials) {
+    TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, dial, 0, &r));
+    TEST_ASSERT_EQUAL_UINT16(5, r.stepKHz);
+    TEST_ASSERT_EQUAL_UINT16(61, r.count);
+    TEST_ASSERT_EQUAL_UINT32(13570, r.lowKHz);
+  }
+  /* One channel outside it, and anywhere between two metre bands, there is
+   * no whole band. */
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 13565, 0, &r));
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 13875, 0, &r));
+  TEST_ASSERT_FALSE(dxSweepRange(BAND_SW, &plan, 8000, 0, &r));
+  /* The widest, 19 m, and 160 m at the bottom of shortwave. */
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, 15400, 0, &r));
+  TEST_ASSERT_EQUAL_UINT32(15100, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(141, r.count);
+  TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, 1900, 0, &r));
+  TEST_ASSERT_EQUAL_UINT32(1800, r.lowKHz);
+  TEST_ASSERT_EQUAL_UINT16(41, r.count);
+  /* A span is round the dial wherever it is, metre band or not: 73
+   * channels of 5 kHz round 9500. */
   TEST_ASSERT_TRUE(dxSweepRange(BAND_SW, &plan, 9500, 360, &r));
   TEST_ASSERT_EQUAL_UINT16(5, r.stepKHz);
   TEST_ASSERT_EQUAL_UINT16(73, r.count);

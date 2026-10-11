@@ -59,6 +59,10 @@ export function Frequency({ t, size = 'lg' }) {
   );
 }
 
+// The band, with the metre band on SW as the radio's header names it:
+// SW 22 m.
+const bandText = (t) => (t.mtb ? `${t.bnd} ${t.mtb}` : t.bnd);
+
 // What the radio is doing, as chips: the band, stereo, RDS, traffic, mute,
 // the squelch, DX mode and a scan; DX and a scan link to their screens.
 // `children` go at the end of the row, such as the clock.
@@ -68,7 +72,7 @@ export function StationChips({ s, children }) {
   const dxScanning = s.dx?.scn === 'running';
   return (
     <div class="flex flex-wrap items-center gap-2">
-      <Chip tone="off">{t.bnd}</Chip>
+      <Chip tone="off">{bandText(t)}</Chip>
       {t.st && !t.mno && <Chip>Stereo</Chip>}
       {r.syn && <Chip>RDS</Chip>}
       {r.tp && <Chip>TP</Chip>}
@@ -148,7 +152,7 @@ export function StationNow({ s, presetName, name, sub, back, chips, below, child
         <div class="grid content-between gap-2">
           {chips ?? (
             <div class="flex gap-2">
-              <Chip tone="off">{t.bnd}</Chip>
+              <Chip tone="off">{bandText(t)}</Chip>
               {!(t.pst > 0) && <Chip tone="off">Not a preset</Chip>}
             </div>
           )}

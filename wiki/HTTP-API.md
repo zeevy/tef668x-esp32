@@ -167,6 +167,7 @@ The `tun` object:
 | `bnd`, `khz`, `f`, `unt` | The band, the frequency in kHz, and the frequency as the screen shows it, with its unit |
 | `stp`, `bws`, `dxw` | The step in kHz, the filter width set (0 for automatic), and DX mode's width (0 while DX mode is closed) |
 | `vol`, `mut`, `tmd`, `pst` | The volume in dB, mute as it was asked for, the tuning mode (`Manual`, `Auto`, `Presets`, `Meter band`), and the preset number (0 for none) |
+| `mtb` | On SW, the metre band the dial is in, such as `22 m`, as the radio's header shows it. Left out on other bands and between two metre bands |
 | `seq` | Goes up with every new reading the radio task makes. It stops when the radio task has stalled |
 | `ims`, `eq`, `mno`, `dem` | iMS, the equaliser, forced mono, and de-emphasis in µs |
 | `fnb`, `anb`, `ahc`, `lhc`, `asm`, `lsm` | The noise blankers in per cent, the AM high cut and soft mute levels in dBµV |
@@ -484,11 +485,11 @@ The sweep's `level`, `baseline_level`, `rise` and `peak` lists have one value pe
 
 ### Band scope
 
-The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band the radio is on or of a span round the dial: FM and OIRT through DX mode's width, AM through the radio's own AM width, each AM channel read 40 ms after its tune. A PC's [spectral scan](PC-Tools.md#spectral-scan) is the same sweep over the range the PC asks for, FM through the width it asks for, and shows here too. The sound is muted while it runs, about 4 s for the whole FM band, 7.5 s for MW and under a second for a 3.6 MHz span on FM, and the web server answers nothing until it ends. The whole of SW is more channels than a sweep holds, so on SW ask for a span.
+The sweep of the [band scope](Band-Scope.md), outside DX mode, of the whole band the radio is on or of a span round the dial: FM and OIRT through DX mode's width, AM through the radio's own AM width, each AM channel read 40 ms after its tune. A PC's [spectral scan](PC-Tools.md#spectral-scan) is the same sweep over the range the PC asks for, FM through the width it asks for, and shows here too. The sound is muted while it runs, about 4 s for the whole FM band, 7.5 s for MW and under a second for a 3.6 MHz span on FM, and the web server answers nothing until it ends. The whole of SW is more channels than a sweep holds, so on SW the whole band is the metre band the dial is in, such as the 22 m band, 13570 to 13870 kHz in 61 channels. Between two metre bands, ask for a span.
 
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
-| `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band. 400 for more than 431 channels, the whole of SW | `sweeping` |
+| `POST /api/scope` | Yes | `sweep=1`, and `span` in kHz: left out or `0` for the whole band, else that much round the dial, kept inside the band. 400 for more than 431 channels: on SW the whole band between two metre bands, or a span over 2150 kHz | `sweeping` |
 | `GET /api/scope` | No | | The last sweep: `rev`, `running`, `abandoned` (the last one asked for ended early and this is the one before it), `time`, `real`, `took_ms`, `width`, `low`, `step`, `count`, `whole`, `floor` (the whole band only), `band` (the band it was swept on) and `level`, as above |
 
 ```
