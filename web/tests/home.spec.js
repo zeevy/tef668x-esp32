@@ -686,7 +686,15 @@ test('a long preset name is cut to one line, its key left aligned as the others'
   await expect(keys.nth(0)).toHaveAttribute('title', 'VIVIDH BHARATI LONG NAME');
 });
 
-test('the band picture is drawn at 8 px a channel, wider than the card, and pans slowly', async ({ page }) => {
+test('a phone draws no picture behind a card; a laptop does', async ({ page }, testInfo) => {
+  await page.goto('/');
+  const back = page.locator('main section .back').first();
+  await expect(back).toBeAttached();
+  expect(await back.evaluate((e) => getComputedStyle(e).display)).toBe(testInfo.project.name === 'phone' ? 'none' : 'block');
+});
+
+test('the band picture is drawn at 8 px a channel, wider than the card, and pans slowly', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === 'phone', 'A phone draws no picture behind a card.');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   const sweep = JSON.parse(fs.readFileSync(new URL('../mock/scope.json', import.meta.url)));
   await page.route('**/api/scope', (route) => route.fulfill({ json: sweep }));

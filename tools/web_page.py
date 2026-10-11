@@ -25,9 +25,13 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = ROOT / "web" / "dist" / "index.html"
 HEADER = ROOT / "src" / "net" / "web_page.h"
+# The most the gzipped page may weigh. Every phone and laptop that opens the
+# radio fetches it over the radio's Wi-Fi, and a bigger page also takes longer
+# to start on a phone; a change that needs more raises this on purpose.
+BUDGET = 64 * 1024
 
 
-def header_text() -> str:
+def header_text() -> tuple[str, int]:
     raw = PAGE.read_bytes()
     out = io.BytesIO()
     # No time and no name in the gzip header, so the same page gives the
@@ -52,20 +56,24 @@ static const size_t kWebPageGzLen = sizeof(kWebPageGz);
 """
     # The clang-format the format gate found, so the header is laid out as
     # the gate wants it; the first one on the PATH may be another version.
-    return subprocess.run(
+    formatted = subprocess.run(
         [os.environ.get("CLANG_FORMAT", "clang-format"), f"--assume-filename={HEADER}"],
         input=text,
         capture_output=True,
         text=True,
         check=True,
     ).stdout
+    return formatted, len(data)
 
 
 def main() -> int:
     if not PAGE.exists():
         print(f"{PAGE} is not there. Run npm --prefix web run build first.")
         return 1
-    text = header_text()
+    text, size = header_text()
+    if size > BUDGET:
+        print(f"The page gzips to {size} bytes, over its budget of {BUDGET}.")
+        return 1
     if "--check" in sys.argv[1:]:
         if not HEADER.exists() or HEADER.read_text() != text:
             print(f"{HEADER.relative_to(ROOT)} is not the page as it builds now. Run python3 tools/web_page.py and commit it.")

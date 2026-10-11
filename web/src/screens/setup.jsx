@@ -6,7 +6,7 @@ import { useState } from 'preact/hooks';
 import { act } from '../data/act.js';
 import { WiFiForm } from '../ui/wifi.jsx';
 import { Button, Card } from '../ui/kit.jsx';
-import { keep, load } from '../ui/theme.js';
+import { keep, load } from '../data/store.js';
 
 const KEY = 'tef668x-setup-skipped';
 // Kept for this tab only, so a later hotspot start asks again.

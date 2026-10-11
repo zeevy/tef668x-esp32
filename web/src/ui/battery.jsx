@@ -7,7 +7,7 @@
 import { useState } from 'preact/hooks';
 import { duration } from '../data/format.js';
 import { BATTERY_EMPTY_MV, BATTERY_FULL_MV } from '../data/limits.js';
-import { keep, load } from './theme.js';
+import { keep, load } from '../data/store.js';
 
 const KEPT = 'battery-volts';
 

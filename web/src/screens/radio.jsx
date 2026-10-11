@@ -9,7 +9,7 @@ import { act } from '../data/act.js';
 import { recall, seek, step, tune } from '../data/commands.js';
 import { Bar, Button, Card, Chip, FactRows, Figure, Meter, Segmented, Select } from '../ui/kit.jsx';
 import { KeysHelp, useKeys } from '../ui/keys.jsx';
-import { BlockTile, Frequency, StationChips, StationText } from '../ui/station.jsx';
+import { AfList, BlockTile, Frequency, StationChips, StationText } from '../ui/station.jsx';
 import { Dial } from '../ui/backs.jsx';
 
 const MODES = [
@@ -350,24 +350,7 @@ function Rds({ s }) {
           </div>
         </div>
         <FactRows rows={rows} class="grid auto-rows-fr gap-x-4 @md:grid-cols-2" />
-        {r.af?.length > 0 && (
-          <div class="grid gap-1">
-            <span class="label">Alternative frequencies</span>
-            <div class="flex flex-wrap gap-2">
-              {r.af.map((khz) => (
-                <button
-                  type="button"
-                  aria-pressed={khz === t.khz}
-                  title={`Tune to ${freq(khz, t.bnd)} ${t.unt}`}
-                  onClick={() => tune(khz)}
-                  class={`num h-9 rounded-ctl px-2 text-sm ${khz === t.khz ? 'bg-accent/15 text-accent-ink' : 'bg-raised'}`}
-                >
-                  {freq(khz, t.bnd)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        <AfList t={t} />
       </div>
     </Card>
   );

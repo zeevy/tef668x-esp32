@@ -1,5 +1,5 @@
 // The screens, one hash route each, inside the frame.
-import { computed, signal } from '@preact/signals';
+import { computed, effect, signal } from '@preact/signals';
 import { useErrorBoundary } from 'preact/hooks';
 import { Frame } from './frame.jsx';
 import { Home } from './screens/home.jsx';
@@ -15,6 +15,14 @@ import { FirstStart, setupSkipped } from './screens/setup.jsx';
 import { state } from './data/radio.js';
 import { Button, Card, Segmented } from './ui/kit.jsx';
 import { withMotion } from './data/motion.js';
+
+// The tab's title names the station on the dial, so a tab left open among
+// others says where the radio is: 104.30 MHz RADIO 1, or the PI before the
+// name comes.
+effect(() => {
+  const t = state.value?.tun;
+  document.title = t ? [`${t.f} ${t.unt}`, t.rds?.ps?.trim() || t.rds?.pi].filter(Boolean).join(' ') : 'TEF668X radio';
+});
 
 // Each screen: its route, its name and icon in the menus, and its view.
 // tab: one of the four tabs along the foot of a phone.

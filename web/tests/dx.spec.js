@@ -1,5 +1,6 @@
-// DX: the four tabs, DX mode and its width, the station in detail, the
-// scope and its baseline, the scanner, the catches.
+// DX: the station card with the meter, the readings and the tools, the
+// keys, the three tabs, DX mode and its width, the scope and its baseline,
+// the scanner, the catches.
 import { expect, test } from '@playwright/test';
 import { holdAnswers, liveRadio, nextPost } from './radio.js';
 
@@ -41,16 +42,17 @@ const tab = (page, name) => page.getByRole('radio', { name });
 
 const top = (page) => page.locator('main section').first();
 
-test('four tabs at the foot of the station card, Signal first, each showing its own part', async ({ page }) => {
+test('three tabs at the foot of the station card, Scope first, each showing its own part', async ({ page }) => {
   await radio(page);
   await page.goto('/#dx');
   await expect(top(page).getByRole('radiogroup', { name: 'DX page' })).toBeVisible();
-  await expect(tab(page, 'Signal')).toHaveAttribute('aria-checked', 'true');
-  await expect(card(page, 'Signal')).toBeVisible();
-  for (const [name, title] of [['Scope', 'Scope'], ['Scanner', 'Scanner'], ['Catches', 'Catches']]) {
+  await expect(tab(page, 'Scope')).toHaveAttribute('aria-checked', 'true');
+  await expect(card(page, 'Scope')).toBeVisible();
+  await expect(tab(page, 'Signal')).toHaveCount(0);
+  for (const name of ['Scanner', 'Catches']) {
     await tab(page, name).click();
-    await expect(card(page, title)).toBeVisible();
-    await expect(card(page, 'Signal')).toHaveCount(0);
+    await expect(card(page, name)).toBeVisible();
+    await expect(card(page, 'Scope')).toHaveCount(0);
   }
 });
 
@@ -92,12 +94,159 @@ test('the name fills in a character at a time', async ({ page }) => {
   await expect(top(page)).toContainText('MIR-----');
 });
 
-test('every reading of the station, its country and the radio text', async ({ page }) => {
-  await radio(page, { rds: { pi: '26FF', cty: 'IN', rt: 'A RADIO TEXT' } });
+test('every reading of the station, its country, ECC and the radio text, in the station card', async ({ page }) => {
+  await radio(page, { tun: { snr: 21, st: true }, rds: { pi: '26FF', cty: 'IN', ecc: 'E2', rt: 'A RADIO TEXT', tp: true, af: [98300, 101100] } });
   await page.goto('/#dx');
-  const signal = card(page, 'Signal');
-  for (const text of ['45.2 dBµV', 'Noise', '12 %', 'Multipath', '8 %', '-1.5 kHz', '114 kHz', '42 %', 'A RADIO TEXT']) await expect(signal).toContainText(text);
-  await expect(top(page)).toContainText('PI 26FF · IN');
+  for (const text of ['45.2', 'dBµV', 'SNR', '21 dB', 'Noise', '12 %', 'Multipath', '8 %', '-1.5 kHz', '114 kHz', '42 %', 'A RADIO TEXT', 'TP']) await expect(top(page)).toContainText(text);
+  // The chip, beside the meter's own key that names the colour.
+  await expect(top(page).getByText('Stereo', { exact: true })).toHaveCount(2);
+  await expect(top(page)).toContainText('PI 26FF · ECC E2 · IN');
+  const sent = nextPost(page, '/api/tune');
+  await top(page).getByTitle('Tune to 101.10 MHz').click();
+  expect(await sent).toBe('khz=101100');
+});
+
+test('the meter: the level, the highest and the average since the tune, and the last minute coloured for RDS', async ({ page }) => {
+  const live = await radio(page);
+  await page.goto('/#dx');
+  await expect(top(page)).toContainText('Peak 45.2 · Avg 45.2');
+  live.push((s) => (s.tun.sig = 500));
+  await expect(top(page)).toContainText('Peak 50.0 · Avg 47.6');
+  live.push((s) => (s.tun.sig = 400));
+  await expect(top(page)).toContainText('Peak 50.0 · Avg 45.1');
+  await expect(page.getByRole('img', { name: 'Level, last minute' }).locator('g.text-good')).toHaveCount(1);
+  // A tune starts it again.
+  live.push((s) => Object.assign(s.tun, { khz: 98300, f: '98.30', sig: 300 }));
+  await expect(top(page)).toContainText('Peak 30.0 · Avg 30.0');
+});
+
+test('a tune from the page does not count the old station\'s level on the new one', async ({ page }) => {
+  const live = await radio(page, { tun: { sig: 600 } });
+  const go = await holdAnswers(page, '**/api/tune');
+  await page.goto('/#dx');
+  await expect(top(page)).toContainText('Peak 60.0');
+  await tab(page, 'Catches').click();
+  await card(page, 'Catches').getByRole('button', { name: /MIRCHI/ }).click();
+  await expect(top(page)).toContainText('98.30');
+  // A frame of the old station while the tune is on its way counts nothing.
+  live.push((s) => (s.tun.sig = 610));
+  await expect(top(page)).toContainText('Peak -- · Avg --');
+  go();
+});
+
+test('the wheel over the graph adds up its notches and sends one step; a sideways swipe nothing', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#dx');
+  const graph = page.getByRole('img', { name: 'Level, last minute' });
+  await graph.hover();
+  const sent = nextPost(page, '/api/step');
+  await page.mouse.wheel(0, -100);
+  await page.waitForTimeout(150);
+  await page.mouse.wheel(0, -100);
+  await page.mouse.wheel(40, 0);
+  expect(await sent).toBe('stp=2');
+});
+
+test('a tap on the level changes its unit, kept by the browser, and every level follows', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#dx');
+  const level = top(page).getByTitle('Tap for dBµV, dBf or dBm');
+  await level.click();
+  await expect(level).toContainText('dBf');
+  await expect(level).toContainText(/56\.[45]/);
+  await level.click();
+  await expect(level).toContainText('dBm');
+  await page.reload();
+  await expect(top(page).getByTitle('Tap for dBµV, dBf or dBm')).toContainText('dBm');
+  await tab(page, 'Catches').click();
+  await expect(card(page, 'Catches')).toContainText('dBm');
+});
+
+test('DX keys: a typed frequency tunes, B with nothing to go back to, [ and ] the DX width, C copies', async ({ page }) => {
+  await radio(page, { tun: { dxw: 114 }, rds: { pi: '26FF', ps: 'MIRCHI  ' } });
+  await page.goto('/#dx');
+  await expect(top(page)).toContainText('MIRCHI');
+  await page.keyboard.press('b');
+  await expect(page.getByText('Nothing to go back to yet.')).toBeVisible();
+  await page.keyboard.press('c');
+  await expect(page.getByText('Copied: 87.70 MHz PI 26FF PS MIRCHI 45.2 dBµV')).toBeVisible();
+  let sent = nextPost(page, '/api/dx');
+  await page.keyboard.press(']');
+  expect(await sent).toBe('khz=133');
+  sent = nextPost(page, '/api/dx');
+  await page.keyboard.press('[');
+  expect(await sent).toBe('khz=97');
+  await page.keyboard.type('98');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText('Tune 98')).toHaveCount(0);
+  await page.keyboard.type('10439');
+  await page.keyboard.press('Backspace');
+  await expect(page.getByText('Tune 1043')).toBeVisible();
+  sent = nextPost(page, '/api/tune');
+  await page.keyboard.press('Enter');
+  expect(await sent).toBe('khz=104300');
+});
+
+test('[ and ] say DX mode must be on', async ({ page }) => {
+  await radio(page, { head: { on: false } });
+  await page.goto('/#dx');
+  await page.keyboard.press(']');
+  await expect(page.getByText('Turn DX mode on to change its width.')).toBeVisible();
+});
+
+test('Back goes to where the dial last rested 3 s or more, from any source', async ({ page }) => {
+  await page.clock.install();
+  const live = await radio(page);
+  await page.goto('/#dx');
+  const back = top(page).getByRole('button', { name: /^Back/ });
+  await expect(back).toBeDisabled();
+  await page.clock.fastForward(4000);
+  live.push((s) => Object.assign(s.tun, { khz: 98300, f: '98.30' }));
+  await expect(back).toHaveAttribute('title', 'Back to 87.70');
+  // A stop of under 3 s, as a knob turned past it, does not count.
+  await page.clock.fastForward(1000);
+  live.push((s) => Object.assign(s.tun, { khz: 98400, f: '98.40' }));
+  await expect(top(page)).toContainText('98.40');
+  await expect(back).toHaveAttribute('title', 'Back to 87.70');
+  await page.clock.fastForward(4000);
+  live.push((s) => Object.assign(s.tun, { khz: 93500, f: '93.50' }));
+  await expect(back).toHaveAttribute('title', 'Back to 98.40');
+  let sent = nextPost(page, '/api/tune');
+  await back.click();
+  expect(await sent).toBe('khz=98400');
+  // Pressed again at once, it comes back.
+  await expect(back).toHaveAttribute('title', 'Back to 93.50');
+  sent = nextPost(page, '/api/tune');
+  await back.click();
+  expect(await sent).toBe('khz=93500');
+});
+
+test('the map link: the station and each catch on the fmdx.org map once its PI is sure', async ({ page }, testInfo) => {
+  await radio(page, { rds: { pi: '26FF' } });
+  await page.goto('/#dx');
+  const map = top(page).getByRole('link', { name: 'Find on the fmdx.org map' });
+  await expect(map).toHaveAttribute('href', 'https://maps.fmdx.org/#freq=87.70&findPi=26FF');
+  await expect(map).toHaveAttribute('target', '_blank');
+  await tab(page, 'Catches').click();
+  const pin = card(page, 'Catches').getByRole('link', { name: 'Find on the fmdx.org map' }).first();
+  // A phone's row has no room for it beside the name.
+  if (testInfo.project.name === 'phone') await expect(pin).toBeHidden();
+  else await expect(pin).toHaveAttribute('href', 'https://maps.fmdx.org/#freq=98.30&findPi=26FF');
+  await page.unrouteAll();
+  await radio(page, { rds: { pih: '26?F' } });
+  await page.reload();
+  await expect(top(page)).toContainText('PI 26?F');
+  await expect(top(page).getByRole('link', { name: 'Find on the fmdx.org map' })).toHaveCount(0);
+});
+
+test("the tab's title names the station, or its PI before the name", async ({ page }) => {
+  await radio(page, { rds: { pi: '26FF', ps: 'MIRCHI  ' } });
+  await page.goto('/#dx');
+  await expect(page).toHaveTitle('87.70 MHz MIRCHI');
+  await page.unrouteAll();
+  await radio(page, { rds: { pi: '26FF' } });
+  await page.reload();
+  await expect(page).toHaveTitle('87.70 MHz 26FF');
 });
 
 test('RDS blocks A to D as the radio draws them: 4 segments clean, 3 or 2 fixed, 1 lost, none with no RDS', async ({ page }) => {

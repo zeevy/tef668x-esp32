@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { state, volHeld } from '../data/radio.js';
 import { lastHeard, logFits, presets, scopeSweep } from '../data/reads.js';
-import { dbuv, duration, readings, when } from '../data/format.js';
+import { duration, level, readings, when } from '../data/format.js';
 import { VolumeSlider } from '../ui/volume.jsx';
 import { logStation, mute, recall, seek, step, storeStation, tune } from '../data/commands.js';
 import { Spectrum } from '../ui/spectrum.jsx';
@@ -157,7 +157,7 @@ function LastHeard({ log, error }) {
   return log.map((e) => (
     <StationRow e={e} time={e.real && when(e.time)} onClick={() => tune(e.khz)}>
       <span class="truncate text-sm text-muted">
-        {dbuv(e.level_dbuv)} dBµV · {e.stereo ? 'stereo' : 'mono'}
+        {level(e.level_dbuv)} · {e.stereo ? 'stereo' : 'mono'}
       </span>
     </StationRow>
   ));

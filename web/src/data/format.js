@@ -1,4 +1,6 @@
 // How the page writes the radio's numbers.
+import { signal } from '@preact/signals';
+import { keep, load } from './store.js';
 
 // The radio's bands. FM and OIRT are FM, in MHz; LW, MW and SW are AM, in kHz.
 export const BANDS = ['FM', 'OIRT', 'LW', 'MW', 'SW'];
@@ -21,6 +23,22 @@ export function dbuv(tenths) {
   return (tenths / 10).toFixed(1);
 }
 
+// The unit this browser shows levels in: dBµV, the radio's own, or dBf or
+// dBm as XDR-GTK and FM-DX Webserver give them, dBf = dBµV + 11.25 and
+// dBm = dBf - 120. The shift is in tenths. Settings and the CSV files stay
+// in dBµV, as the radio keeps them.
+const SHIFT = { dBµV: 0, dBf: 112.5, dBm: -1087.5 };
+const UNITS = Object.keys(SHIFT);
+export const levelUnit = signal(UNITS.includes(load('unit')) ? load('unit') : 'dBµV');
+export function nextUnit() {
+  levelUnit.value = UNITS[(UNITS.indexOf(levelUnit.value) + 1) % UNITS.length];
+  keep('unit', levelUnit.value);
+}
+
+// A level in that unit, the number alone, or with its unit.
+export const inUnit = (tenths) => (tenths == null ? '--' : ((tenths + SHIFT[levelUnit.value]) / 10).toFixed(1));
+export const level = (tenths) => `${inUnit(tenths)} ${levelUnit.value}`;
+
 // A station's readings, from the state's `tun` or from a log entry, each as
 // { label, value, unit }, with `max` for a bar. The noise is an FM reading,
 // as on the radio's own screens, so it is null on AM; there the co-channel
@@ -30,7 +48,7 @@ export function readings(band, { sig, snr, usn, wam, off, bw, mod }) {
   const fm = isFm(band);
   const pc = (tenths) => (tenths / 10).toFixed(0);
   const r = {
-    level: { label: 'Level', value: dbuv(sig), unit: 'dBµV', max: 80 },
+    level: { label: 'Level', value: inUnit(sig), unit: levelUnit.value, pct: (sig / 800) * 100 },
     snr: { label: 'SNR', value: snr, unit: 'dB', max: 40 },
     noise: fm ? { label: 'Noise', value: pc(usn), unit: '%', max: 100 } : null,
     wam: { label: fm ? 'Multipath' : 'Co-channel', value: pc(wam), unit: '%', max: 100 },
@@ -73,9 +91,12 @@ export function dateLine(d) {
 
 // A typed frequency in kHz. With a point, or under 144, it is MHz: no AM
 // band starts below 144 kHz, and FM and OIRT are 65 to 108 MHz. So 98.3 and
-// 98 are 98300, 9.65 is 9650; 738, 153 and 98300 are kHz.
-export function typedKhz(text) {
-  const t = String(text).trim();
+// 98 are 98300, 9.65 is 9650; 738, 153 and 98300 are kHz. Given an FM
+// band, three or more digits with no point are MHz with the point put in, as
+// FM-DX Webserver reads them: 875 is 87.5, 1043 is 104.3, 10435 is 104.35.
+export function typedKhz(text, band) {
+  let t = String(text).trim();
+  if (isFm(band) && /^\d{3,5}$/.test(t)) t = t.startsWith('1') ? `${t.slice(0, 3)}.${t.slice(3)}` : `${t.slice(0, 2)}.${t.slice(2)}`;
   const v = Number(t.replace(',', '.'));
   if (t === '' || !Number.isFinite(v) || v <= 0) return null;
   return /[.,]/.test(t) || v < 144 ? Math.round(v * 1000) : Math.round(v);

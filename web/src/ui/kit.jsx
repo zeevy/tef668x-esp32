@@ -344,7 +344,7 @@ export function Chip({ tone = 'accent', icon, children }) {
 
 // A level as a bar, with its reading. A slider in place of the bar makes a
 // setting look the same as the readings beside it.
-export function Meter({ value, max, label, unit, children }) {
+export function Meter({ value, max, pct, label, unit, children }) {
   return (
     <div class="grid gap-1">
       <div class="flex items-baseline justify-between">
@@ -353,7 +353,7 @@ export function Meter({ value, max, label, unit, children }) {
           {value} <span class="text-muted">{unit}</span>
         </span>
       </div>
-      {children ?? <Bar pct={Math.max(0, Math.min(100, (value / max) * 100)) || 0} />}
+      {children ?? <Bar pct={Math.max(0, Math.min(100, pct ?? (value / max) * 100)) || 0} />}
     </div>
   );
 }
@@ -373,12 +373,13 @@ export function Bar({ pct, label, class: cls = '', children }) {
 
 // `warn` draws it in the warning colour, for a card whose actions can leave
 // the radio in a state it does not come back from by itself. `back` is a
-// faint picture behind its content (ui/backs.jsx).
+// faint picture behind its content (ui/backs.jsx), on a laptop only: on a
+// phone the card is too narrow for a picture behind its text.
 export function Card({ title, end, warn, back, children, class: cls = '' }) {
   return (
     <section class={`rounded-card border p-4 shadow-card ${warn ? 'border-warn/50 bg-warn/5' : 'border-edge bg-surface'} ${back ? 'relative isolate overflow-hidden' : ''} ${cls}`}>
       {back && (
-        <div aria-hidden="true" class="back pointer-events-none absolute inset-0 -z-10 overflow-hidden text-accent">
+        <div aria-hidden="true" class="back pointer-events-none absolute inset-0 -z-10 hidden overflow-hidden text-accent md:block">
           {back}
         </div>
       )}
