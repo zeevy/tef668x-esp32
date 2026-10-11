@@ -182,9 +182,13 @@ let newest = -Infinity;
 const now = () => performance.now();
 const live = () => socket?.readyState === WebSocket.OPEN;
 
+// A state with the page's own changes drawn over the radio's is marked
+// `patched`: its readings are the radio's last, not new ones, so the DX
+// meter does not count them.
 function show() {
   const s = drawn.length ? structuredClone(fromRadio) : fromRadio;
   for (const d of drawn) d.patch(s);
+  if (drawn.length) s.patched = true;
   state.value = s;
 }
 

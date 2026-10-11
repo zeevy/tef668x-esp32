@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { state } from '../data/radio.js';
 import { catches, presets, scopeSweep } from '../data/reads.js';
-import { dbuv, freq, isFm, presetTag, unit } from '../data/format.js';
+import { dbuv, freq, isFm, level, presetTag, unit } from '../data/format.js';
 import { act, say } from '../data/act.js';
 import { tune } from '../data/commands.js';
 import { Button, Card, Segmented, Switch, Unread } from '../ui/kit.jsx';
@@ -107,7 +107,7 @@ export function BandScope() {
   const facts = sweep && (
     <p class="num text-sm text-muted">
       {sweep.whole ? 'Whole band' : 'Span'} · {sweep.count} channels · width {sweep.width} kHz
-      {sweep.floor != null && ` · floor ${dbuv(sweep.floor)} dBµV`}
+      {sweep.floor != null && ` · floor ${level(sweep.floor)}`}
       {sweep.took_ms ? ` · took ${(sweep.took_ms / 1000).toFixed(1)} s` : ''}
       {shownRow > 0 && ` · an older sweep, ${shownRow} back`}
     </p>

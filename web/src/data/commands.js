@@ -2,10 +2,11 @@
 // known, what it draws at once. Every place that tunes, seeks, steps, mutes,
 // sets the volume, recalls, stores or logs sends it through here, so they all
 // do it the same way. Each resolves true when the radio took it.
+import { effect, signal } from '@preact/signals';
 import { change, state, volHeld } from './radio.js';
 import { bandAt, bandOf } from './bands.js';
 import { presets } from './reads.js';
-import { freq, printable, unit } from './format.js';
+import { freq, level, printable, unit } from './format.js';
 import { PRESET_NAME_MAX } from './limits.js';
 import { act, refused, say } from './act.js';
 
@@ -28,6 +29,53 @@ export function tune(khz) {
   const band = bandAt(khz);
   const pst = presets.peek().data?.find((p) => p.band === band && p.khz === khz)?.slot ?? 0;
   return act('/api/tune', { khz }, band && ((n) => tuned(n, khz, band, pst)));
+}
+
+// The frequency the dial rested on, 3 s or more, before it last moved, from
+// any source: the page, the knob or a PC. Tune back goes there, and from
+// there back again. A seek, a scan or a turn of the knob passes channels too
+// fast to count as one.
+const REST_MS = 3000;
+export const before = signal(null);
+let dial = null;
+let since = 0;
+effect(() => {
+  const khz = state.value?.tun?.khz;
+  if (khz == null || khz === dial) return;
+  if (dial != null && performance.now() - since >= REST_MS) before.value = dial;
+  dial = khz;
+  since = performance.now();
+});
+export function tuneBack() {
+  const to = before.value;
+  if (to == null) return false;
+  before.value = dial;
+  return tune(to);
+}
+
+// The station as one line, for a log or a message:
+// 104.30 MHz PI 9201 PS RADIO 1 54.2 dBµV.
+export function stationLine(t) {
+  const r = t.rds ?? {};
+  return [`${t.f} ${t.unt}`, r.pi && `PI ${r.pi}`, r.ps?.trim() && `PS ${r.ps.trim()}`, level(t.sig)].filter(Boolean).join(' ');
+}
+
+// A text put on the clipboard. Browsers give their clipboard call only to
+// pages served over https, and the radio serves http, so this uses the old
+// copy command, which still works over http.
+export function copy(text) {
+  const was = document.activeElement;
+  const box = document.createElement('textarea');
+  box.value = text;
+  box.setAttribute('readonly', '');
+  box.style.position = 'fixed';
+  box.style.opacity = '0';
+  document.body.append(box);
+  box.select();
+  const done = document.execCommand('copy');
+  box.remove();
+  was?.focus();
+  say(done ? `Copied: ${text}` : 'This browser did not let the page copy.', done ? 'good' : 'bad');
 }
 
 export const recall = (p) => act('/api/presets', { do: 'recall', slot: p.slot }, (n) => tuned(n, p.khz, p.band, p.slot, p.bw));

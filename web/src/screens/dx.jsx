@@ -5,16 +5,17 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { state } from '../data/radio.js';
 import { catches, dxSweep } from '../data/reads.js';
-import { dbuv, freq, isFm, readings, when } from '../data/format.js';
+import { freq, isFm, level, readings, when } from '../data/format.js';
 import { act, say } from '../data/act.js';
-import { tune } from '../data/commands.js';
-import { bandOf } from '../data/bands.js';
-import { Bar, Button, Card, Chip, Figure, Icon, Loading, Segmented, Select, Switch, Unread } from '../ui/kit.jsx';
-import { BlockTile, RadioText, StationNow, StationRow } from '../ui/station.jsx';
+import { before, copy, stationLine, tune, tuneBack } from '../data/commands.js';
+import { bandAt, bandOf } from '../data/bands.js';
+import { Bar, Button, Card, Chip, Figure, Icon, IconButton, Loading, Segmented, Select, Switch, Unread } from '../ui/kit.jsx';
+import { AfList, BlockTile, RadioText, StationChips, StationNow, StationRow } from '../ui/station.jsx';
 import { withMotion } from '../data/motion.js';
 import { SweepButton, SweepChart, age, useAsked } from '../ui/sweep.jsx';
-import { LevelHistory, useLevelHistory } from '../ui/level.jsx';
 import { Radar } from '../ui/backs.jsx';
+import { DxMeter, useMeter } from '../ui/meter.jsx';
+import { KeysHelp, useKeys } from '../ui/keys.jsx';
 
 // Where a scan goes, by the radio's number for it.
 export const SCAN_RANGE = ['Band and presets', 'Whole band', 'Presets only'];
@@ -26,8 +27,9 @@ export function Dx() {
   const head = s.dx;
   const caught = catches.use();
   const sweep = dxSweep.use();
-  const history = useLevelHistory(s.tun);
-  const [part, setPart] = useState('Signal');
+  const m = useMeter(s);
+  const typed = useKeys(null, { freqTyping: true, more: (e, st) => dxKey(e, st, send) });
+  const [part, setPart] = useState('Scope');
   useWatchNote(head);
   if (!head) return <Card><Loading /></Card>;
   async function send(fields, said) {
@@ -38,23 +40,89 @@ export function Dx() {
   const t = s.tun;
   const r = t.rds ?? {};
   const parts = {
-    Signal: () => <Signal s={s} history={history} />,
     Scope: () => <Scope s={s} head={head} sweep={sweep.data} error={sweep.error} send={send} />,
     Scanner: () => <Scanner head={head} send={send} />,
     Catches: () => <Catches list={caught.data} error={caught.error} send={send} />,
   };
-  // As Presets & Log: the station on the left, DX mode, its width and the
-  // tabs on the right, the open tab under it.
+  // As Presets & Log: the station and its readings on the left; the meter,
+  // DX mode, its width and the tabs on the right; the open tab under it.
   return (
     <div class="grid grid-cols-1 gap-4">
-      <StationNow s={s} back={<Radar />} name={<Name r={r} />} sub={[`PI ${piText(r)}`, r.cty, r.pty > 0 && r.ptn].filter(Boolean).join(' · ')}>
+      <StationNow
+        s={s}
+        back={<Radar />}
+        name={<Name r={r} />}
+        chips={
+          <div class="flex items-start justify-between gap-2">
+            <StationChips s={s} />
+            <StationTools t={t} />
+          </div>
+        }
+        sub={[`PI ${piText(r)}`, r.ecc && `ECC ${r.ecc}`, r.cty, r.pty > 0 && r.ptn].filter(Boolean).join(' · ')}
+        below={
+          <>
+            <RadioText r={r} class="" />
+            <Signal t={t} />
+          </>
+        }
+      >
+        <DxMeter m={m} />
         <DxControls s={s} head={head} send={send} />
         {!isFm(t.bnd) && <p class="text-sm text-muted">DX mode works on FM and OIRT. Switch to FM first.</p>}
         <Segmented label="DX page" options={Object.keys(parts)} value={part} onChange={(p) => withMotion(() => setPart(p))} />
       </StationNow>
       {parts[part]()}
+      <KeysHelp typedSlot={typed} typing="Tune" help={DX_HELP} />
     </div>
   );
+}
+
+// A station on the fmdx.org map, in a new tab, for an FM station whose PI is
+// sure. It needs no position: the map shows every station on the frequency
+// and finds the PI among them. The page cannot read the map's data itself,
+// which is FMLIST's, so this is a link out.
+function MapLink({ khz, band, pi }) {
+  if (!isFm(band) || !pi) return null;
+  const label = 'Find on the fmdx.org map';
+  return <Button small kind="secondary" icon="map-pin" href={`https://maps.fmdx.org/#freq=${freq(khz, band)}&findPi=${pi}`} target="_blank" rel="noopener noreferrer" aria-label={label} title={label} />;
+}
+
+// Back to the frequency before, a copy of the station line, and the map, as
+// icons at the end of the chips.
+function StationTools({ t }) {
+  const back = before.value;
+  return (
+    <div class="flex gap-2">
+      <IconButton small icon="undo-2" label={back != null ? `Back to ${freq(back, bandAt(back))}` : 'Back'} disabled={back == null} onClick={tuneBack} />
+      <IconButton small icon="copy" label="Copy the station" onClick={() => copy(stationLine(t))} />
+      <MapLink khz={t.khz} band={t.bnd} pi={t.rds?.pi} />
+    </div>
+  );
+}
+
+const DX_HELP = 'Keys: type a frequency and press Enter, B goes back, ← and → step, Shift with them seeks, [ and ] the DX width, C copies the station, ↑ and ↓ the volume, M mutes.';
+
+// DX's own keys, beside the ones every screen with keys has: B tunes back,
+// [ and ] step the DX width, C copies the station line. True for a key it
+// took.
+function dxKey(e, st, send) {
+  const k = e.key.toLowerCase();
+  if (k === 'b') {
+    if (before.value == null) say('Nothing to go back to yet.', 'bad');
+    else tuneBack();
+  } else if (k === '[' || k === ']') {
+    if (!st.dx?.on) {
+      say('Turn DX mode on to change its width.', 'bad');
+      return true;
+    }
+    const widths = (bandOf('FM')?.widths ?? []).filter((w) => w > 0);
+    const at = widths.indexOf(st.tun.dxw);
+    const next = widths[Math.max(0, Math.min(widths.length - 1, at + (k === ']' ? 1 : -1)))];
+    if (next && next !== st.tun.dxw) send({ khz: next }, `DX width ${next} kHz`);
+  } else if (k === 'c') {
+    copy(stationLine(st.tun));
+  } else return false;
+  return true;
 }
 
 // A note when the preset watch flags a preset come up, as the radio's own
@@ -110,27 +178,23 @@ function Name({ r }) {
   );
 }
 
-// The Signal tab: blocks A to D of the last group beside the readings,
-// the radio text, and the level of the last minute.
-function Signal({ s, history }) {
-  const t = s.tun;
-  const r = t.rds ?? {};
+// The signal in detail, in the station card under the radio text: blocks A
+// to D of the last group beside the readings, then the other frequencies.
+// The level is on the meter.
+function Signal({ t }) {
   const q = readings(t.bnd, t);
   return (
-    <Card title="Signal" class="@container">
-      <div class="grid gap-4">
-        <div class="grid grid-cols-1 items-start gap-4 @xs:grid-cols-[7rem_1fr]">
-          <BlockTile r={r} />
-          <div class="grid grid-cols-2 gap-x-2 gap-y-2 @md:grid-cols-3">
-            {[q.level, q.noise, q.wam, q.offset, q.width, q.mod].filter(Boolean).map((f) => (
-              <Figure {...f} />
-            ))}
-          </div>
+    <div class="grid gap-4">
+      <div class="grid items-start gap-4 @sm:grid-cols-[7rem_1fr]">
+        <BlockTile r={t.rds ?? {}} />
+        <div class="grid grid-cols-3 gap-2">
+          {[q.snr, q.noise, q.wam, q.offset, q.width, q.mod].filter(Boolean).map((f) => (
+            <Figure {...f} />
+          ))}
         </div>
-        <RadioText r={r} class="" />
-        <LevelHistory levels={history} class="h-28" />
       </div>
-    </Card>
+      <AfList t={t} />
+    </div>
   );
 }
 
@@ -165,7 +229,7 @@ function Scope({ s, head, sweep, error, send }) {
           {sweep.baseline_kept === -1 && <option value="-1">Baseline: a fixed sweep</option>}
         </Select>
         <span class="num text-sm text-muted">
-          Floor {sweep.floor != null ? dbuv(sweep.floor) : '--'} dBµV · width {sweep.width} kHz
+          Floor {level(sweep.floor)} · width {sweep.width} kHz
         </span>
       </div>
     </Card>
@@ -227,21 +291,28 @@ function Catches({ list, error, send }) {
           tag={c.new && <Chip tone="good">New</Chip>}
           onClick={() => tune(c.khz)}
           after={
-            c.logged ? (
-              <span class="flex items-center gap-1 text-sm text-muted">
-                <Icon name="circle-check" size={16} />
-                Logged
+            <span class="flex items-center gap-2">
+              {/* On a phone the row has no room beside the name: a tap
+                  tunes there, and the station card has the map. */}
+              <span class="hidden sm:flex">
+                <MapLink khz={c.khz} band={c.band} pi={c.pi} />
               </span>
-            ) : (
-              <Button kind="secondary" onClick={() => send({ logid: c.id }, `Logged ${freq(c.khz, c.band)}.`)}>
-                Log
-              </Button>
-            )
+              {c.logged ? (
+                <span class="flex items-center gap-1 text-sm text-muted">
+                  <Icon name="circle-check" size={16} />
+                  Logged
+                </span>
+              ) : (
+                <Button kind="secondary" onClick={() => send({ logid: c.id }, `Logged ${freq(c.khz, c.band)}.`)}>
+                  Log
+                </Button>
+              )}
+            </span>
           }
         >
           <span class="num text-sm text-muted">
             PI {c.pi}
-            {c.country ? ` · ${c.country}` : ''} · {dbuv(c.level_dbuv)} dBµV · ×{c.count} · {c.real ? when(c.time) : 'clock not set'}
+            {c.country ? ` · ${c.country}` : ''} · {level(c.level_dbuv)} · ×{c.count} · {c.real ? when(c.time) : 'clock not set'}
           </span>
         </StationRow>
       ))}

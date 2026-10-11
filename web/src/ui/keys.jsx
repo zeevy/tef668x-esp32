@@ -1,9 +1,9 @@
-// The keys a laptop gets on Home and Radio, and a preset as a key and the
+// The keys a laptop gets on Home, Radio and DX, and a preset as a key and the
 // key that adds one, which they share with the Presets screen.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { state, volHeld } from '../data/radio.js';
-import { freq, presetTag, unit } from '../data/format.js';
-import { mute, recall, seek, step, volume } from '../data/commands.js';
+import { freq, presetTag, typedKhz, unit } from '../data/format.js';
+import { mute, recall, seek, step, tune, volume } from '../data/commands.js';
 import { VOL_MAX, VOL_MIN } from '../data/limits.js';
 import { say } from '../data/act.js';
 import { Icon, useQuiet } from './kit.jsx';
@@ -53,12 +53,19 @@ export function AddKey({ class: cls = '', children, ...rest }) {
 // moving after; a held seek or M counts once. The keys are set up once, and
 // recall from the presets as last given. Gives the preset number being
 // typed, '' while none is.
+//
+// With `freqTyping`, as on DX, digits and a point type a frequency instead,
+// as XDR-GTK and FM-DX Webserver do: Enter tunes there, Backspace takes the
+// last one back, Escape lets it go. `more` gets the keys none of these take,
+// and says true for one it took.
 const PRESET_TYPE_MS = 1000;
 
-export function useKeys(presets) {
+export function useKeys(presets, { freqTyping, more } = {}) {
   const [typedSlot, setTypedSlot] = useState('');
   const known = useRef();
   known.current = presets;
+  const extra = useRef();
+  extra.current = more;
   const vol = useQuiet(volume);
   const steps = useQuiet((n) => n && step(n));
   useEffect(() => {
@@ -68,6 +75,12 @@ export function useKeys(presets) {
       digits = d;
       setTypedSlot(d);
     };
+    function tuneTyped() {
+      const khz = typedKhz(digits, state.value?.tun.bnd);
+      typed('');
+      if (khz === null) say('Type a frequency, such as 98.3 or 738.', 'bad');
+      else tune(khz);
+    }
     function recallTyped() {
       clearTimeout(digitTimer);
       const n = +digits;
@@ -77,16 +90,26 @@ export function useKeys(presets) {
       else if (n) say(`There is no preset ${n}.`, 'bad');
     }
     function onKey(e) {
-      if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
+      // A key a focused part took for itself, such as an arrow on a chart.
+      if (e.defaultPrevented) return;
+      // [ and ] take Option or AltGr on many keyboards, such as German ones.
+      const bracket = e.key === '[' || e.key === ']';
+      if (e.metaKey || ((e.ctrlKey || e.altKey) && !bracket) || document.querySelector('dialog[open]')) return;
       if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
       const st = state.value;
       if (!st) return;
-      if (/^[0-9]$/.test(e.key)) {
+      if (freqTyping && /^[0-9.,]$/.test(e.key)) {
+        typed((digits + e.key).slice(0, 7));
+      } else if (freqTyping && digits && e.key === 'Backspace') {
+        typed(digits.slice(0, -1));
+      } else if (!freqTyping && /^[0-9]$/.test(e.key)) {
         typed((digits + e.key).slice(-2));
         clearTimeout(digitTimer);
         digitTimer = setTimeout(recallTyped, PRESET_TYPE_MS);
       } else if (digits && e.key === 'Enter') {
-        recallTyped();
+        e.preventDefault();
+        if (freqTyping) tuneTyped();
+        else recallTyped();
       } else if (digits && e.key === 'Escape') {
         clearTimeout(digitTimer);
         typed('');
@@ -102,6 +125,8 @@ export function useKeys(presets) {
         else if (!e.repeat) seek(up);
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
         mute(!st.tun.mut);
+      } else if (!e.repeat && extra.current?.(e, st)) {
+        e.preventDefault();
       }
     }
     const onKeyUp = (e) => (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && steps.now();
@@ -117,14 +142,15 @@ export function useKeys(presets) {
 }
 
 // The keys, in a line under the screen on a laptop, and the preset number
-// being typed, large over the page.
-export function KeysHelp({ typedSlot }) {
+// or the frequency being typed, large over the page.
+const HELP = "Keys: ← and → step, Shift with them seeks, ↑ and ↓ the volume, M mutes, a preset's number recalls it.";
+export function KeysHelp({ typedSlot, help = HELP, typing = 'Preset' }) {
   return (
     <>
-      <p class="hidden text-sm text-muted md:block">Keys: ← and → step, Shift with them seeks, ↑ and ↓ the volume, M mutes, a preset's number recalls it.</p>
+      <p class="hidden text-sm text-muted md:block">{help}</p>
       {typedSlot !== '' && (
         <div aria-live="polite" class="num fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-card bg-ink px-4 py-2 text-2xl text-surface shadow-card">
-          Preset {typedSlot}
+          {typing} {typedSlot}
         </div>
       )}
     </>

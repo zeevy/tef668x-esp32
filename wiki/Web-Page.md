@@ -13,7 +13,7 @@ In the pictures on this page the network name and the address are placeholders.
 | Home | `#` | What the radio is playing, the tuning buttons, the presets and the last stations heard |
 | Radio | `#radio` | The band scale, the band, tuning mode, squelch, step and filter, the FM sound switches, RDS and the signal |
 | Presets & Log | `#presets`, `#log` | Two tabs: the 99 presets, and the station log |
-| DX | `#dx` | DX mode, as four tabs: Signal, Scope, Scanner and Catches |
+| DX | `#dx` | DX mode: the station with its meter and readings, and three tabs, Scope, Scanner and Catches |
 | Band scope | `#scope` | The level of every channel of the band, with a waterfall of the sweeps |
 | Settings | `#settings` | The settings of the radio's menu, in its groups |
 | Network | `#network` | Wi-Fi, the hotspot, the PC Link, the access PIN, and turning Wi-Fi or the web server off |
@@ -44,7 +44,7 @@ Until the radio's first state comes, each screen says "Waiting for the radio…"
 
 ### The pictures behind the cards
 
-The top card of each screen has a faint picture behind it, in the accent colour, that moves slowly:
+On a laptop, the top card of each screen has a faint picture behind it, in the accent colour, that moves slowly. A phone shows none, since its cards are too narrow for a picture behind their text.
 
 | Screen | The picture |
 |---|---|
@@ -61,6 +61,8 @@ On a device set to reduce motion, the pictures stand still.
 
 A change of screen or tab fades from the old view to the new one. The frequency and the station name glide to their new place. The same happens when the station changes, for example from the radio's own knob. On a device set to reduce motion, or in a browser without view transitions, the change is made at once.
 
+The browser tab's title names the station on the dial, such as `104.30 MHz RADIO 1`, or its PI before the name comes, so a tab left among others says where the radio is.
+
 ## Keys on a laptop
 
 On the Home and Radio screens a laptop has keys. The line "Keys: ← and → step, Shift with them seeks, ↑ and ↓ the volume, M mutes, a preset's number recalls it." under the screen says so.
@@ -74,6 +76,8 @@ On the Home and Radio screens a laptop has keys. The line "Keys: ← and → ste
 | A number | Recalls that preset. The page waits 1 second after the last digit, so `1` then `2` is preset 12. The number shows large while you type. **Enter** recalls at once, and **Escape** drops it. A number with no preset says "There is no preset 12." |
 
 The keys do nothing while you type in a box, while a dialog is open, or with Ctrl, Alt or Cmd held.
+
+DX has keys of its own, as XDR-GTK does: see [DX](#dx).
 
 The band scale on the Radio screen, and the sweep charts on DX and Band scope, also take keys once they have focus. See [Radio](#radio) and [DX](#dx).
 
@@ -209,14 +213,37 @@ The [station log](Station-Log.md), newest first, in one card for each day: Today
 
 ![The DX screen, on the Scope tab](images/web-dx.png)
 
-The same four pages as the radio's [DX mode](DX-Mode.md). The picture shows the Scope tab.
+The radio's [DX mode](DX-Mode.md), made to be worked from a laptop the way XDR-GTK is. The picture shows the Scope tab.
 
-**The top card** has a radar behind it. On the left is the station on the dial. Its name builds up one letter at a time, the letters not yet heard as dashes. Under it are the PI, the country and the programme type. The PI has a `?` for each digit not yet sure, and is `0000` for a station that sends no ID. On the right:
+**The top card** holds the station and its signal. On the left:
 
+- The chips: the band, Stereo, RDS, TP, TA and the others the [Radio](#radio) screen shows. At their right, three buttons: **Back** goes to the frequency before, **Copy** puts the station on the clipboard, and **Find on map** opens the station on the fmdx.org map in a new tab.
+- The station on the dial. Its name builds up one letter at a time, the letters not yet heard as dashes. Under it are the PI, the ECC, the country and the programme type. The PI has a `?` for each digit not yet sure, and is `0000` for a station that sends no ID.
+- Two lines of radio text.
+- The RDS blocks A to D of the last group, as on [Radio](#radio), beside the SNR, Noise, Multipath, Offset, Width and Modulation.
+- The alternative frequencies the station sends. Tap one to tune there.
+
+On the right:
+
+- **The meter**: the level now, large, with the highest (**Peak**) and the average (**Avg**) since the last tune. A bar shows the level, with the peak as an orange mark and the average as a thin one. Under it, the level of the last minute as a filled line, grey for mono, orange for stereo and green while RDS comes in. Over the line, the mouse wheel steps a channel up or down. The meter starts again on each tune.
 - **DX mode**, on or off, and the **Width**, the filter width DX mode uses. DX mode works on FM and OIRT only. On another band the card says "DX mode works on FM and OIRT. Switch to FM first."
-- The four tabs, **Signal**, **Scope**, **Scanner** and **Catches**.
+- The three tabs, **Scope**, **Scanner** and **Catches**.
 
-**Signal**: the RDS blocks A to D of the last group, as on [Radio](#radio). The Level, Noise, Multipath, Offset, Width and Modulation. Two lines of radio text. A chart, "Level, last 60 s", which starts again on each tune.
+**The level unit.** Tap the level to show it in dBµV, the radio's own unit, in dBf or in dBm, as XDR-GTK and FM-DX Webserver give them: dBf is dBµV + 11.25, and dBm is dBf - 120. This browser keeps the choice, and every level the page shows follows it. Settings and the CSV files stay in dBµV, as the radio keeps them.
+
+**Back** goes to the frequency the dial last rested on for 3 seconds or more before it moved, whether the page, the knob or a PC moved it, and pressed again comes back. A seek, a scan or a turn of the knob past a station does not count as a rest. **Copy** gives one line, such as `104.30 MHz PI 9201 PS RADIO 1 54.2 dBµV`. **Find on map** shows once the PI is sure; the map lists every station on the frequency and finds the PI among them. It needs the internet on the phone or laptop, not on the radio.
+
+**Keys on DX**, on a laptop, not while you type in a box or with a dialog open:
+
+| Key | What it does |
+|---|---|
+| A number or a point | Starts a frequency, shown large while you type. **Enter** tunes there, **Backspace** takes the last one back and **Escape** drops it. On FM, 875 is 87.5 MHz and 1043 is 104.3 MHz, as FM-DX Webserver reads them |
+| B | Back, as the button |
+| [ and ] | The DX width, narrower and wider, while DX mode is on |
+| C | Copy, as the button |
+| ← and → | Step down and up; with Shift, seek |
+| ↑ and ↓ | The volume |
+| M | Mute, or sound on |
 
 **Scope**: a chart of DX mode's last level sweep.
 
@@ -228,7 +255,7 @@ The same four pages as the radio's [DX mode](DX-Mode.md). The picture shows the 
 
 **Scanner**: what the scanner is doing (Ready, Scanning, or Stopped on a frequency), how it is set to scan, a progress bar, the channels done, and how many stations it found. **Start scan** starts it, **Stop** stops it, and **Go on** carries on after a stop. **Learn locals** runs the radio's [Learn Local Stations](DX-Mode.md#learn-local-stations).
 
-**Catches**: the stations caught in DX mode, newest first. Each shows a **New** chip for a new one, the PI, the country, the level, how many times it was heard and when. Tap one to tune there. **Log** writes it to the station log, and **Logged** marks one already written. **FMLIST CSV** gives the file for FMLIST.
+**Catches**: the stations caught in DX mode, newest first. Each shows a **New** chip for a new one, the PI, the country, the level, how many times it was heard and when. Tap one to tune there. The map pin opens it on the fmdx.org map. **Log** writes it to the station log, and **Logged** marks one already written. **FMLIST CSV** gives the file for FMLIST.
 
 While DX mode watches the presets, a preset that comes up shows as a note, such as "98.30 MHz up 12 dB".
 

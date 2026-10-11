@@ -138,22 +138,26 @@ export function RadioText({ r, class: cls = 'mt-2' }) {
 // right half, as Presets & Log and DX have it, the tabs at the foot of the
 // tools. `name`, when given, is drawn in place of the station's name. `presetName` is the
 // name of the preset the dial is on, when the station sends none; `sub` a
-// line under the name.
-export function StationNow({ s, presetName, name, sub, back, children }) {
+// line under the name; `chips` in place of the band and preset chips;
+// `below` under the line, such as the radio text.
+export function StationNow({ s, presetName, name, sub, back, chips, below, children }) {
   const t = s.tun;
   return (
     <Card class="@container" back={back}>
       <div class="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
         <div class="grid content-between gap-2">
-          <div class="flex gap-2">
-            <Chip tone="off">{t.bnd}</Chip>
-            {!(t.pst > 0) && <Chip tone="off">Not a preset</Chip>}
-          </div>
+          {chips ?? (
+            <div class="flex gap-2">
+              <Chip tone="off">{t.bnd}</Chip>
+              {!(t.pst > 0) && <Chip tone="off">Not a preset</Chip>}
+            </div>
+          )}
           <Frequency t={t} size="md" />
           <p class="truncate text-xl leading-7 font-semibold" style={{ viewTransitionName: 'station-name' }}>
             {name ?? (t.rds?.ps?.trim() || presetName || '---')}
           </p>
           <p class="text-sm text-muted">{sub || '\u00a0'}</p>
+          {below}
         </div>
         <div class="grid content-between gap-2">{children}</div>
       </div>
@@ -184,6 +188,31 @@ export function StationRow({ e, tag, time, onClick, after, children }) {
         {children}
       </button>
       {after}
+    </div>
+  );
+}
+
+// The station's alternative frequencies from RDS, a tap tunes one; nothing
+// while it sends none.
+export function AfList({ t }) {
+  const af = t.rds?.af;
+  if (!af?.length) return null;
+  return (
+    <div class="grid gap-1">
+      <span class="label">Alternative frequencies</span>
+      <div class="flex flex-wrap gap-2">
+        {af.map((khz) => (
+          <button
+            type="button"
+            aria-pressed={khz === t.khz}
+            title={`Tune to ${freq(khz, t.bnd)} ${t.unt}`}
+            onClick={() => tune(khz)}
+            class={`num h-9 rounded-ctl px-2 text-sm ${khz === t.khz ? 'bg-accent/15 text-accent-ink' : 'bg-raised'}`}
+          >
+            {freq(khz, t.bnd)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

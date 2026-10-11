@@ -3,7 +3,7 @@
 // baseline, the peaks and the rise over the baseline. A tap tunes there; so
 // does Enter, after Left and Right pick a channel.
 import { useEffect, useState } from 'preact/hooks';
-import { dbuv, freq, unit, when } from '../data/format.js';
+import { dbuv, freq, level, unit, when } from '../data/format.js';
 import { Button } from './kit.jsx';
 
 // The scale, as the radio's own scope draws it: from 3 dB under the floor,
@@ -92,7 +92,7 @@ export function SweepChart({ sweep, band, dialKhz, cursorKhz, dim, marks = [], o
   // readings and names.
   const where = `${freq(khzAt(at), band)} ${unit(band)}`;
   const about = [
-    sweep.level[at] != null ? `${dbuv(sweep.level[at])} dBµV` : 'no reading',
+    sweep.level[at] != null ? level(sweep.level[at]) : 'no reading',
     sweep.rise?.[at] != null && `${sweep.rise[at] >= 0 ? '+' : ''}${dbuv(sweep.rise[at])} dB over its baseline`,
     ...named.map((m) => m.label),
     at === cursor && at !== dial && hover === null && "the radio's cursor",
