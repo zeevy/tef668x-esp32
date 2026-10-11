@@ -63,7 +63,6 @@ void webStateRegisterRoutes(WebContext *web);
 void webLiveRegisterRoutes(WebContext *web);
 void webLiveLoop(void);
 void webLiveCloseAll(void);
-uint8_t webLivePages(void);
 uint32_t webLiveRefused(void);
 uint32_t webLiveLongestMs(void);
 

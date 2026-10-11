@@ -268,6 +268,29 @@ void wifiRetryNow(void) {
   step(true);
 }
 
+void wifiPause(void) {
+  MDNS.end();
+  sNameAnnounced = false;
+  if (!WiFi.mode(WIFI_MODE_NULL)) {
+    DebugLog.println(F("[wifi] could not pause"));
+  }
+  snprintf(sAddress, sizeof(sAddress), "0.0.0.0");
+  sNetwork[0] = '\0';
+}
+
+uint8_t wifiApClients(void) {
+  return sJoin.state == WIFI_STATE_ACCESS_POINT
+             ? (uint8_t)WiFi.softAPgetStationNum()
+             : 0;
+}
+
+void wifiResume(void) {
+  /* As at start up: the decision takes it from there, a join on the stored
+   * network or the hotspot, as the settings say. */
+  wifiJoinReset(&sJoin);
+  step(false);
+}
+
 const char *wifiAnnouncedName(void) {
   return sNameAnnounced ? BOARD_HOSTNAME : NULL;
 }

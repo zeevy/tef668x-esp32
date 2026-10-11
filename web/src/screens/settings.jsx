@@ -92,6 +92,7 @@ const GROUPS = [
       { label: 'Dim after', key: 'bds', kind: 'steps', values: range(5, 240, 5, 0), say: offOr('s', 'Never') },
       { label: 'Rotation', key: 'rot', kind: 'pair', values: [0, 180], say: (v) => `${v}°` },
       { label: 'Battery', key: 'bat', kind: 'pair', values: [0, 1, 2], say: (v) => ['Off', 'Per cent', 'Volts'][v] },
+      { label: 'Battery check', key: 'bck', kind: 'switch', note: 'Every 5 min while nobody uses the radio, Wi-Fi stops for a moment to read the battery' },
     ],
     extra: Colours,
   },
@@ -176,7 +177,7 @@ export function Settings() {
 
   const here = GROUPS.find((g) => g.name === group) ?? GROUPS[0];
   const pick = (g) => withMotion(() => setGroup(g));
-  const noteOf = (row) => [row.restart && 'At the next start', row.fm && !fmNow && 'Taken only on FM'].filter(Boolean).join(' · ');
+  const noteOf = (row) => [row.note, row.restart && 'At the next start', row.fm && !fmNow && 'Taken only on FM'].filter(Boolean).join(' · ');
   // The automatic save, as a chip: done, waiting, off or failed.
   const asv = s.asv ?? {};
   const saved = asv.bad ? ['bad', 'The last save failed'] : !asv.idl ? ['off', 'Saving by itself is off'] : asv.due > 0 ? ['accent', `Saving in ${Math.ceil(asv.due / 1000)} s`] : ['good', 'Saved'];

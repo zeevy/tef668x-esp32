@@ -51,21 +51,35 @@ test('a phone has four tabs and More; a laptop a menu across the top', async ({ 
 });
 
 test('the battery is the last button in the header, in per cent or, at a tap, in volts; none on a radio without one', async ({ page }) => {
-  let bat = { fit: true, mv: null, boot: 3724 };
+  // The start up reading, an hour and 9 minutes old.
+  let bat = { fit: true, mv: null, boot: 3724, last: 3724, age: 4146 };
   await page.route('**/api/state', async (route) => {
     const s = await (await route.fetch()).json();
     return route.fulfill({ json: { ...s, bat } });
   });
   await page.goto('/');
   const battery = page.getByRole('banner').getByRole('button').last();
-  await expect(battery).toHaveAccessibleName('Battery 60 per cent, 3.72 volts, read when the radio started');
+  await expect(battery).toHaveAccessibleName('Battery 60 per cent, 3.72 volts, read 1 h 9 min ago');
   await expect(battery).toHaveText('60%');
   await battery.click();
   await expect(battery).toHaveText('3.7');
-  bat = { fit: false, mv: null, boot: 0 };
+  bat = { fit: false, mv: null, boot: null, last: null, age: null };
   await page.reload();
   await expect(page.getByRole('banner').getByRole('button', { name: /Sign(ed)? in/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Battery/ })).toHaveCount(0);
+});
+
+test('with Battery Check on, the header battery shows the newest reading and says how old it is', async ({ page }) => {
+  // Read with Wi-Fi paused 4 min ago: 3.96 V, past the start up reading.
+  const bat = { fit: true, mv: null, boot: 3724, last: 3960, age: 240, chk: { n: 2, ms: 140, back: 3600 } };
+  await page.route('**/api/state', async (route) => {
+    const s = await (await route.fetch()).json();
+    return route.fulfill({ json: { ...s, bat } });
+  });
+  await page.goto('/');
+  const battery = page.getByRole('banner').getByRole('button').last();
+  await expect(battery).toHaveAccessibleName('Battery 80 per cent, 3.96 volts, read 4 min ago');
+  await expect(battery).toHaveText('80%');
 });
 
 test('an unknown address shows Home', async ({ page }) => {

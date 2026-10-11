@@ -57,6 +57,20 @@ bool batteryFeed(Battery *b, uint16_t milliVolts, bool ok) {
   return true;
 }
 
+bool batteryTake(Battery *b, uint16_t milliVolts) {
+  if (b == NULL) {
+    return false;
+  }
+  if (milliVolts < BATTERY_PLAUSIBLE_MV ||
+      milliVolts > BATTERY_IMPLAUSIBLE_MV) {
+    return b->have;
+  }
+  b->filteredMv = (int32_t)milliVolts;
+  b->have = true;
+  b->strikes = 0;
+  return true;
+}
+
 uint16_t batteryMilliVolts(const Battery *b) {
   if (b == NULL || !b->have) {
     return 0;

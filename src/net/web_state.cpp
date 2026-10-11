@@ -3,8 +3,10 @@
  * from a live snapshot.
  */
 #include "web_internal.h"
+#include "web_update.h"
 
 #include "band_scan_task.h"
+#include "battery_check_task.h"
 #include "board/board.h"
 #include "build_id.h"
 #include "core/band_plan.h"
@@ -864,11 +866,19 @@ static const char *netStateText(void) {
  *          drawing and pushing together.
  *
  * Inside `bat`, the battery. `mv` is null once Wi-Fi owns the converter,
- * ADC2, so `boot` is the only reading that lasts:
+ * ADC2, so `boot` is the only reading that lasts unless Battery Check
+ * pauses Wi-Fi for another:
  *
  *   `fit`   This board has a sense pin at all.
  *   `mv`    A reading taken now, mV, or null when the converter refused.
  *   `boot`  The one reading taken at start up, mV, or null.
+ *   `last`  The newest reading, mV, from start up, with Wi-Fi off, or with
+ *           Wi-Fi paused for it, or null.
+ *   `age`   Seconds since `last` was taken, or null.
+ *   `chk`   The pauses for a reading with Battery Check on: `n` how many,
+ *           `ms` how long the last held the loop, `back` how long Wi-Fi
+ *           took to be back on the network it was on before, in ms, 0
+ *           while it is not back.
  *
  * Inside `clk`, the time. Null rather than a guess, because this board has
  * no battery backed clock:
@@ -1157,7 +1167,26 @@ String buildState(void) {
       out += F("null");
     }
   }
-  out += F("}");
+  /* The newest reading and its age in seconds, whichever way it was taken:
+   * at start up, with Wi-Fi off, or with Wi-Fi paused for it. */
+  {
+    uint16_t lastMv = 0;
+    uint32_t atMs = 0;
+    bool atStart = false;
+    if (batteryAdcLast(&lastMv, &atMs, &atStart)) {
+      jsonNum(out, "last", lastMv);
+      jsonNum(out, "age", (millis() - atMs) / 1000UL);
+    } else {
+      out += F(",\"last\":null,\"age\":null");
+    }
+  }
+  /* The pauses for a reading: how many, how long the last held the loop,
+   * and how long Wi-Fi took to be back after it, in ms. */
+  out += F(",\"chk\":{\"n\":");
+  out += String((unsigned)batteryCheckTaskCount());
+  jsonNum(out, "ms", batteryCheckTaskPauseMs());
+  jsonNum(out, "back", batteryCheckTaskBackMs());
+  out += F("}}");
   /*
    * The clock.
    *

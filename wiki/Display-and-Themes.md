@@ -64,3 +64,7 @@ The screen light fades up over 750 ms when the radio starts, and dims over 750 m
 The mark turns to the theme's fault colour, red in most themes, at 20 % or less. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
 
 The battery is read once, at start up, because the ESP32's Wi-Fi uses the same part of the chip that reads it. While Wi-Fi is off it is read every second. **Menu > Diagnostics > Battery Voltage** shows the reading, with `at start` after it when it is the reading from start up.
+
+## Battery Check
+
+**Battery Check**, Off or On, Off at first, reads the battery again while Wi-Fi is on. Every 5 minutes, when nobody is using the radio, it stops Wi-Fi for a moment, reads the battery, and starts Wi-Fi again. Nobody is using it when no key, knob or touch came in the last 5 minutes, or the screen is dimmed to nothing; and no web page is open, no web request came in the last minute, no PC is on the PC Link and no phone is on the radio's hotspot. It waits while a seek, a station scan, a DX scan, a sweep or an update runs, and while a new firmware is on trial. The radio is off the network for the few seconds it takes to join again, or to start its hotspot when that is how it runs. The reading shows in the header at once, and **Battery Voltage** shows it with its age, such as `3.85 V, 4 min ago`.

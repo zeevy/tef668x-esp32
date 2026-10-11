@@ -102,4 +102,17 @@ bool wifiRssiDbm(int8_t *out);
  */
 void wifiRetryNow(void);
 
+/*
+ * Stop Wi-Fi for a moment, so the converter it holds can read the battery,
+ * and start it again. Not the Wi-Fi off setting: the PC Link, the web server
+ * and the setting stay as they are, and the start again is a fresh join, or
+ * the hotspot when that is what the settings ask for. Both on the loop task,
+ * in the one pass, so nothing else sees the paused state.
+ */
+void wifiPause(void);
+void wifiResume(void);
+
+/* Phones joined to the radio's own hotspot; 0 when it is not serving one. */
+uint8_t wifiApClients(void);
+
 #endif /* NET_WIFI_MANAGER_H */

@@ -388,6 +388,22 @@ bool batteryAdcAtBoot(uint16_t *milliVolts) {
   *milliVolts = 3950;
   return true;
 }
+/* The newest reading, taken 90 s before the clock's 3723 s. */
+bool batteryAdcLast(uint16_t *milliVolts, uint32_t *atMs, bool *atStart) {
+  *milliVolts = 3880;
+  *atMs = 3723000UL - 90000UL;
+  *atStart = false;
+  return true;
+}
+uint16_t batteryCheckTaskCount(void) {
+  return 4;
+}
+uint32_t batteryCheckTaskPauseMs(void) {
+  return 140;
+}
+uint32_t batteryCheckTaskBackMs(void) {
+  return 3600;
+}
 
 bool ntpSynchronised(void) {
   return true;
@@ -713,6 +729,17 @@ static void the_battery_is_read_only_with_wifi_off(void) {
   TEST_ASSERT_EQUAL_INT(1, batteryReads);
 }
 
+static void the_battery_says_its_newest_reading_its_age_and_the_pauses(void) {
+  const Json doc = state();
+  const Json &bat = at(doc, "bat");
+  TEST_ASSERT_EQUAL_STRING("3880", at(bat, "last").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("90", at(bat, "age").text.c_str());
+  const Json &chk = at(bat, "chk");
+  TEST_ASSERT_EQUAL_STRING("4", at(chk, "n").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("140", at(chk, "ms").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("3600", at(chk, "back").text.c_str());
+}
+
 /* The live state's pages, the ones turned away and the longest send. */
 static void the_live_state_says_its_pages_and_its_longest_send(void) {
   const Json doc = state();
@@ -902,6 +929,7 @@ int main(int argc, char **argv) {
   RUN_TEST(the_pc_link_says_who_is_signed_in);
   RUN_TEST(the_live_state_says_its_pages_and_its_longest_send);
   RUN_TEST(the_battery_is_read_only_with_wifi_off);
+  RUN_TEST(the_battery_says_its_newest_reading_its_age_and_the_pauses);
   RUN_TEST(the_last_scan_says_how_many_found_no_room);
   RUN_TEST(the_scope_cursor_is_given_only_while_a_scope_is_shown);
   RUN_TEST(the_band_scope_says_its_revision_and_whether_it_runs);

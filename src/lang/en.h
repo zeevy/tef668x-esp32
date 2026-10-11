@@ -77,6 +77,7 @@
   X(MENU_DIM_AFTER, "Dim After", "Menu row name, Display group") \
   X(MENU_ROTATION, "Display Rotation", "Menu row name, Display group") \
   X(COMMON_BATTERY, "Battery", "Menu row name, Display group; boot screen step name") \
+  X(MENU_BATTERY_CHECK, "Battery Check", "Menu row name, Display group: On to read the battery every 5 min with Wi-Fi paused while nobody uses the radio") \
   X(MENU_ENCODER, "Encoder Type", "Menu row name, Controls > Encoder") \
   X(MENU_DIRECTION, "Encoder Direction", "Menu row name, Controls > Encoder") \
   X(MENU_ENCODER_GROUP, "Encoder", "Sub-group name, Controls > Encoder") \
@@ -201,6 +202,8 @@
   X(MENU_FMT_MB, "%u MB", "Menu, value of the Flash Size row") \
   X(MENU_FMT_VOLTS, "%u.%02u V", "Menu, value of the Battery Voltage row, read now") \
   X(MENU_FMT_VOLTS_AT_START, "%u.%02u V at start", "Menu, value of the Battery Voltage row: the reading taken at start up, since Wi-Fi holds the converter while it runs") \
+  X(MENU_FMT_VOLTS_AGO, "%u.%02u V, %u min ago", "Menu, value of the Battery Voltage row: the newest reading, taken with Wi-Fi paused by Battery Check, and its age in minutes") \
+  X(MENU_FMT_VOLTS_AGO_HOURS, "%u.%02u V, %u h ago", "Menu, value of the Battery Voltage row: the newest reading, over an hour old, and its age in hours") \
   X(MENU_FMT_PATH, "%s > %s", "Menu, the title of a sub-group or of a setting's own screen: the list it sits in, then its own name") \
   X(MENU_FMT_AGC_ROW, "%u %%, %+d dB", "Menu, value of the Volume AGC row while it runs: its target and what it is doing to the sound now") \
   X(MENU_FMT_AGC_GAIN_NOW, "Gain now %+d dB", "Menu, note under the bar, or at the top of the value panel with Touch On, of the Volume AGC and AGC Boost screens: what the AGC is doing to the sound now") \

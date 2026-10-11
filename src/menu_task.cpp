@@ -99,6 +99,7 @@ typedef enum {
   ROW_BACKLIGHT_DIM,
   ROW_DIM_AFTER,
   ROW_BATTERY,
+  ROW_BATTERY_CHECK,
   ROW_THEME,
   ROW_NIGHT_THEME,
   ROW_DISPLAY_ROTATION,
@@ -598,6 +599,10 @@ static const MenuRow kDisplayRows[] = {
      false, false, false},
     {STR_COMMON_BATTERY, ROW_BATTERY, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
      false, false, NULL, "bat"},
+    /* On, the battery is read again every five minutes while nobody uses the
+     * radio, with Wi-Fi stopped for the moment the reading takes. */
+    {STR_MENU_BATTERY_CHECK, ROW_BATTERY_CHECK, SRC_STORED, TABLE_RANGE, 1,
+     NOLIST, false, false, false, NULL, "bck"},
 };
 
 /* Network Time's step below -12:00, which reads Off: the two settings,
@@ -1630,11 +1635,27 @@ static void infoText(RowId id, char *out, size_t len) {
     case ROW_SYSTEM_BATTERY: {
       /* Live only while Wi-Fi is off. GPIO 13 is ADC2, which the Wi-Fi driver
        * holds while it runs, so with it on every read fails and the reading
-       * is the one taken at start up, which the value says. */
+       * is the one taken at start up, which the value says, unless Battery
+       * Check has paused Wi-Fi for a newer one since. */
       uint16_t mv = 0;
+      uint32_t atMs = 0;
+      bool atStart = false;
       if (wifiState() == WIFI_STATE_OFFLINE && batteryAdcRead(&mv)) {
         snprintf(out, len, txt(STR_MENU_FMT_VOLTS), (unsigned)(mv / 1000),
                  (unsigned)((mv % 1000) / 10));
+      } else if (batteryAdcLast(&mv, &atMs, &atStart) && !atStart) {
+        /* Plain while under a minute old, as a reading taken now; then its
+         * age in minutes, and past an hour in hours. */
+        const unsigned minutes = (unsigned)((millis() - atMs) / 60000UL);
+        const unsigned v = mv / 1000, cv = (mv % 1000) / 10;
+        if (minutes == 0) {
+          snprintf(out, len, txt(STR_MENU_FMT_VOLTS), v, cv);
+        } else if (minutes < 60) {
+          snprintf(out, len, txt(STR_MENU_FMT_VOLTS_AGO), v, cv, minutes);
+        } else {
+          snprintf(out, len, txt(STR_MENU_FMT_VOLTS_AGO_HOURS), v, cv,
+                   minutes / 60);
+        }
       } else if (batteryAdcAtBoot(&mv)) {
         snprintf(out, len, txt(STR_MENU_FMT_VOLTS_AT_START),
                  (unsigned)(mv / 1000), (unsigned)((mv % 1000) / 10));

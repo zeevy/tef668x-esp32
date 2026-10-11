@@ -95,6 +95,16 @@ void batteryReset(Battery *b);
 #define BATTERY_STRIKES 3
 bool batteryFeed(Battery *b, uint16_t milliVolts, bool ok);
 
+/*
+ * A reading taken minutes after the one before, with Wi-Fi paused, taken as
+ * it stands rather than smoothed: smoothing steps a sixteenth of the way per
+ * reading, which suits one a second and would take over an hour to follow
+ * one every five minutes. One out of the plausible range is not a reading
+ * and changes nothing, not even the strikes, since one failed read is not a
+ * converter that keeps failing.
+ */
+bool batteryTake(Battery *b, uint16_t milliVolts);
+
 /* The smoothed voltage in millivolts, or 0 when there is nothing to say. */
 uint16_t batteryMilliVolts(const Battery *b);
 

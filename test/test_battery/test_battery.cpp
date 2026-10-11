@@ -200,9 +200,49 @@ static void a_null_battery_is_safe_everywhere(void) {
   TEST_ASSERT_EQUAL_UINT8(0, batteryPercent(NULL));
 }
 
+/* ------------------------------------------- a reading minutes apart */
+
+static void a_reading_minutes_later_is_taken_as_it_stands(void) {
+  settle(4100);
+  TEST_ASSERT_TRUE(batteryTake(&b, 3800));
+  TEST_ASSERT_EQUAL_UINT16(3800, batteryMilliVolts(&b));
+  /* The same with nothing known before it. */
+  batteryReset(&b);
+  TEST_ASSERT_TRUE(batteryTake(&b, 3900));
+  TEST_ASSERT_EQUAL_UINT16(3900, batteryMilliVolts(&b));
+}
+
+static void a_taken_reading_out_of_range_changes_nothing(void) {
+  settle(4100);
+  TEST_ASSERT_TRUE(batteryTake(&b, BATTERY_PLAUSIBLE_MV - 1));
+  TEST_ASSERT_TRUE(batteryTake(&b, BATTERY_IMPLAUSIBLE_MV + 1));
+  TEST_ASSERT_EQUAL_UINT16(4100, batteryMilliVolts(&b));
+  /* Nor does it count towards forgetting: two strikes from the feed, then
+   * a bad taken reading, still leave the value. */
+  batteryFeed(&b, 0, false);
+  batteryFeed(&b, 0, false);
+  batteryTake(&b, 0);
+  TEST_ASSERT_EQUAL_UINT16(4100, batteryMilliVolts(&b));
+  /* Nothing known and a bad reading: still nothing. */
+  batteryReset(&b);
+  TEST_ASSERT_FALSE(batteryTake(&b, 100));
+  TEST_ASSERT_EQUAL_UINT16(0, batteryMilliVolts(&b));
+  TEST_ASSERT_FALSE(batteryTake(NULL, 3800));
+}
+
+static void the_edges_of_the_plausible_range_are_readings(void) {
+  TEST_ASSERT_TRUE(batteryTake(&b, BATTERY_PLAUSIBLE_MV));
+  TEST_ASSERT_EQUAL_UINT16(BATTERY_PLAUSIBLE_MV, batteryMilliVolts(&b));
+  TEST_ASSERT_TRUE(batteryTake(&b, BATTERY_IMPLAUSIBLE_MV));
+  TEST_ASSERT_EQUAL_UINT16(BATTERY_IMPLAUSIBLE_MV, batteryMilliVolts(&b));
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(nothing_is_known_before_the_first_reading);
+  RUN_TEST(a_reading_minutes_later_is_taken_as_it_stands);
+  RUN_TEST(a_taken_reading_out_of_range_changes_nothing);
+  RUN_TEST(the_edges_of_the_plausible_range_are_readings);
   RUN_TEST(the_first_plausible_reading_is_taken_as_it_stands);
   RUN_TEST(a_driver_that_could_not_read_is_not_a_reading);
   RUN_TEST(a_zero_is_never_taken_as_a_flat_battery);

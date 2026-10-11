@@ -44,6 +44,19 @@ test('one group at a time, Sound first', async ({ page }, testInfo) => {
   await expect(page.getByText('Squelch floor', { exact: true })).toHaveCount(0);
 });
 
+test('Battery check is a switch in Display, off at first, and turns on', async ({ page }) => {
+  await radio(page, { settings: { bck: 0 } });
+  await page.goto('/#settings');
+  await open(page, 'Display');
+  const check = page.getByRole('switch', { name: 'Battery check' });
+  await expect(check).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByText('Every 5 min while nobody uses the radio', { exact: false })).toBeVisible();
+  const sent = nextPost(page, '/api/settings');
+  await check.click();
+  expect(await sent).toBe('bck=1');
+  await expect(check).toHaveAttribute('aria-checked', 'true');
+});
+
 test('less and more step through a setting\'s own values, Off first', async ({ page }) => {
   await radio(page);
   await page.goto('/#settings');

@@ -71,6 +71,10 @@
 static bool sReady = false;
 static uint16_t sBootMv = 0;
 static bool sBootHave = false;
+static uint16_t sLastMv = 0;
+static uint32_t sLastAtMs = 0;
+static bool sLastHave = false;
+static bool sLastAtStart = false;
 /* When the pin was primed, so the settle can be waited out only as far as it
  * still has to run. */
 static uint32_t sPrimedMs = 0;
@@ -117,6 +121,7 @@ void batteryAdcSampleAtBoot(void) {
   if (batteryAdcRead(&mv)) {
     sBootMv = mv;
     sBootHave = true;
+    sLastAtStart = sLastHave;
   }
 }
 
@@ -151,6 +156,25 @@ bool batteryAdcRead(uint16_t *milliVolts) {
   const uint32_t at_pin = sum / BATTERY_SAMPLES;
   *milliVolts =
       (uint16_t)((at_pin * BATTERY_DIVIDER_TOP) / BATTERY_DIVIDER_BOTTOM);
+  /* Kept only when a connected cell could give it, so a low read while the
+   * converter changes hands never stands as the newest reading. */
+  if (*milliVolts >= BATTERY_PLAUSIBLE_MV &&
+      *milliVolts <= BATTERY_IMPLAUSIBLE_MV) {
+    sLastMv = *milliVolts;
+    sLastAtMs = millis();
+    sLastHave = true;
+    sLastAtStart = false;
+  }
+  return true;
+}
+
+bool batteryAdcLast(uint16_t *milliVolts, uint32_t *atMs, bool *atStart) {
+  if (!sLastHave || milliVolts == NULL || atMs == NULL || atStart == NULL) {
+    return false;
+  }
+  *milliVolts = sLastMv;
+  *atMs = sLastAtMs;
+  *atStart = sLastAtStart;
   return true;
 }
 
@@ -167,6 +191,12 @@ bool batteryAdcFitted(void) {
 }
 bool batteryAdcRead(uint16_t *milliVolts) {
   (void)milliVolts;
+  return false;
+}
+bool batteryAdcLast(uint16_t *milliVolts, uint32_t *atMs, bool *atStart) {
+  (void)milliVolts;
+  (void)atMs;
+  (void)atStart;
   return false;
 }
 
