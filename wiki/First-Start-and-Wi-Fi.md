@@ -41,9 +41,11 @@ flowchart TD
 
 1. On a phone or a computer, join the Wi-Fi network named `tef668x-setup-XXXX`. `XXXX` is four characters, 0 to 9 and A to F, from the radio's Wi-Fi address, so two radios get different names. The hotspot has no password.
 2. Open `http://192.168.4.1:8080` in a browser. Type the address in yourself: the page does not open on its own when you join.
-3. The page shows a **Wi-Fi** box. Enter your **Network name** and **Passphrase**. Leave the passphrase empty for an open network. No PIN is needed here, on the setup hotspot.
-4. Press **Save and join**. The page says `Saved. The radio is trying that network now.`, and the hotspot stops.
+3. The page opens on its [First start](Web-Page.md#first-start-on-the-hotspot) screen, **Set up Wi-Fi**. Enter your **Network name** and **Passphrase**. For an open network, turn on **This network has no passphrase**. No PIN is needed here, on the setup hotspot.
+4. Press **Save and join**. The page says `The radio is joining` and your network's name, with the next steps, and the hotspot stops.
 5. Join your own Wi-Fi again on the phone or computer, and open `http://tef668x.local:8080`.
+
+To use the radio on its hotspot for now, press **Use the radio here, on its hotspot** in place of step 3. The page then goes to its Home screen. A new browser tab asks again.
 
 The radio needs a 2.4 GHz network. [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md) has the details of how it picks a network. If it cannot join in 20 s, for example because the passphrase was wrong, it starts the hotspot again and you can try again. While it has details stored but cannot join, it tries that network again every 5 minutes, but not while a phone or computer is on the hotspot. The radio works as a radio the whole time.
 
@@ -64,9 +66,9 @@ The web server is on port 8080, not 80, so the address always needs `:8080` at t
 
 ## Change the access PIN
 
-Every change made from a browser or the HTTP API needs the access PIN, and so does an [update](Updating.md). It starts as `000000`, and until you change it the web page's Home and Network pages show a note that the radio is still on its default PIN.
+Every change made from a browser or the HTTP API needs the access PIN, and so does an [update](Updating.md). It starts as `000000`, and until you change it the web page's Home and Network screens show a note that the radio is still on its default PIN.
 
-- **On the web page:** open the **Network** page, sign in with `000000`, and enter six digits under **Access PIN**. Press **Change PIN**. It works at once, and every browser has to sign in again, this one too.
+- **On the web page:** open the [Network](Web-Page.md#network) screen and sign in with `000000`. On the **Access PIN** row press **Change**, type six digits under **New PIN** and again under **Again**, and press **Change PIN**. It works at once. Every browser has to sign in again, this one too, and every PC on the PC Link is signed out.
 - **On the radio:** open the menu and go to **Connectivity > Web PIN**. Set one digit at a time. The new PIN is saved when the sixth digit is set.
 
 ## Set the clock

@@ -217,6 +217,12 @@ uint32_t radioChannelsRound(const RadioSettings *s, const BandPlanConfig *plan);
  * band that is not real, and on FM, where 0 is the tuner choosing. */
 uint16_t radioBandWidth(const RadioSettings *s, BandId band);
 
+/* The step `band` has, the same way: the live one when it is the band tuned,
+ * else the one it was left on, else its own default. 0 for a NULL `s` or
+ * `plan`, or a band that is not real. */
+uint16_t radioBandStep(const RadioSettings *s, BandId band,
+                       const BandPlanConfig *plan);
+
 /* The things a caller can ask the radio to do. */
 typedef enum {
   RADIO_TUNE = 0,      /* Go to a frequency. */

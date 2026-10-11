@@ -10,7 +10,9 @@
 #ifndef CORE_WEB_TEXT_H
 #define CORE_WEB_TEXT_H
 
+#include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +58,14 @@ typedef enum {
  * WEB_NUMBER_OK.
  */
 WebNumberResult webParseNumber(const char *raw, long low, long high, long *out);
+
+/*
+ * Read `raw` as a count from 0 to 4294967295 into `out`: digits only, no
+ * sign and no spaces, so " 12" and "+12" are refused rather than read as 12.
+ * More than that is out of range, not cut to the largest. `out` is written
+ * only on WEB_NUMBER_OK.
+ */
+WebNumberResult webParseCount(const char *raw, uint32_t *out);
 
 #ifdef __cplusplus
 }

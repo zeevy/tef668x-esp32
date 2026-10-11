@@ -166,6 +166,26 @@ static void drawMarks(lv_layer_t *layer, const lv_area_t *a, const Theme *t,
   }
 }
 
+/* Channel `i`'s column of the chart and of the strip, wide enough for the
+ * dial's mark, to be drawn again. */
+static void invalidateColumn(uint16_t i) {
+  const uint16_t n = sUi->shown.count;
+  if (i >= n) {
+    return;
+  }
+  lv_obj_t *const boxes[] = {sUi->chart, sUi->strip};
+  for (lv_obj_t *box : boxes) {
+    lv_area_t a;
+    lv_obj_get_coords(box, &a);
+    const int16_t inner = (int16_t)(a.x2 - a.x1 + 1 - 2 * INSET);
+    const int16_t x = columnX(i, n, inner);
+    lv_area_t column = a;
+    column.x1 = (int16_t)(a.x1 + x - DIAL_MARK_W / 2 - 1);
+    column.x2 = (int16_t)(a.x1 + x + columnW(i, n, inner) + DIAL_MARK_W / 2);
+    lv_obj_invalidate_area(box, &column);
+  }
+}
+
 static void onChartDraw(lv_event_t *e) {
   lv_obj_t *obj = (lv_obj_t *)lv_event_get_current_target(e);
   lv_layer_t *layer = lv_event_get_layer(e);
@@ -473,14 +493,13 @@ void screenScopeShow(const ScreenScope *s) {
   const Theme *t = themeCurrent();
   /* The bars are drawn again only when something they show has moved, not
    * on every poll. */
-  const bool redraw =
-      s->revision != sUi->shown.revision || s->count != sUi->shown.count ||
-      s->cursor != sUi->shown.cursor || s->dial != sUi->shown.dial ||
-      s->sweeping != sUi->shown.sweeping || s->floor != sUi->shown.floor ||
-      (s->base == NULL) != (sUi->shown.base == NULL) ||
-      (s->peak == NULL) != (sUi->shown.peak == NULL) ||
-      s->markCount != sUi->shown.markCount ||
-      s->catchCount != sUi->shown.catchCount;
+  const ScreenScope was = sUi->shown;
+  const bool redraw = s->revision != was.revision || s->count != was.count ||
+                      s->sweeping != was.sweeping || s->floor != was.floor ||
+                      (s->base == NULL) != (was.base == NULL) ||
+                      (s->peak == NULL) != (was.peak == NULL) ||
+                      s->markCount != was.markCount ||
+                      s->catchCount != was.catchCount;
   sUi->shown = *s;
   sUi->bottom = s->floor != SCREEN_SCOPE_NONE
                     ? (int16_t)(s->floor - UNDER_FLOOR_TENTHS)
@@ -500,6 +519,19 @@ void screenScopeShow(const ScreenScope *s) {
   if (redraw) {
     lv_obj_invalidate(sUi->chart);
     lv_obj_invalidate(sUi->strip);
+  } else if (s->cursor != was.cursor || s->dial != was.dial) {
+    /* Only the columns the cursor and the dial left and went to. The whole
+     * chart takes about 0.6 s to draw again, and the knob moves the cursor
+     * a channel a click, so drawing it all for each click made the cursor
+     * trail the knob and catch up in jumps. */
+    if (s->cursor != was.cursor) {
+      invalidateColumn(was.cursor);
+      invalidateColumn(s->cursor);
+    }
+    if (s->dial != was.dial) {
+      invalidateColumn(was.dial);
+      invalidateColumn(s->dial);
+    }
   }
   showLabels(s);
   showTile(s, t);

@@ -20,7 +20,7 @@ All three are in the menu at **Connectivity**. Each acts when you press to save 
 | **On** | The radio always serves its hotspot, in place of your network. Your network is not tried at all |
 | **Off** | The radio never serves the hotspot. It tries your network again and again. With no network stored, it is on no network |
 
-Change it in the menu at **Connectivity > Hotspot**, on the web page's **Network** page, or with `hsp` in [POST /api/settings](HTTP-API.md#post-apisettings).
+Change it in the menu at **Connectivity > Hotspot**, on the **Hotspot** row of the web page's [Network](Web-Page.md#network) screen, or with `hsp` in [POST /api/settings](HTTP-API.md#post-apisettings).
 
 ```mermaid
 flowchart TD
@@ -49,11 +49,11 @@ While the web server is on, the radio announces its name, `tef668x.local`, on yo
 
 The radio takes one network. Give it the name and the passphrase in one of these ways:
 
-- **On the setup hotspot**, on the page at `http://192.168.4.1:8080`. No PIN is needed there.
-- **On the web page's Network page**, while on your network. Saving needs the access PIN.
+- **On the setup hotspot**, on the page at `http://192.168.4.1:8080`, which opens on its [First start](Web-Page.md#first-start-on-the-hotspot) screen. No PIN is needed there.
+- **On the web page's [Network](Web-Page.md#network) screen**, while on your network: **Change** on the **Wi-Fi network** row. It needs the access PIN.
 - **From the API**: `POST /api/settings` with `sid` (the network name) and `pwd` (the passphrase), with the access PIN.
 
-The name can be up to 32 characters and the passphrase up to 64. Leave the passphrase empty for an open network. The network must be on 2.4 GHz.
+The name can be up to 32 characters and the passphrase up to 64. For an open network, leave the passphrase empty, or on the web page turn on **This network has no passphrase**. The network must be on 2.4 GHz.
 
 Saving new details makes the radio try that network at once. If Hotspot was On, saving a network sets it back to Auto.
 
@@ -69,7 +69,7 @@ Use On when you take the radio somewhere without your network, and want to reach
 - **Web Server Off** keeps the radio on the network, so the clock still sets, but stops the web page, the API and updates over Wi-Fi.
 - **Wi-Fi Off** also closes the [PC Link](PC-Tools.md). Web Server Off does not: the PC Link has its own switch.
 
-Both can be turned off from the HTTP API (`wif=0` and `web=0` in `POST /api/settings`), but only the radio's menu turns them back on, or **Erase Settings** on the recovery screen. So turning either off from a script cuts the script off.
+Both can be turned off from the **Turn off** buttons on the web page's [Network](Web-Page.md#network) screen, which ask first, or from the HTTP API (`wif=0` and `web=0` in `POST /api/settings`). Only the radio's menu turns them back on, or **Erase Settings** on the recovery screen. So turning either off from the web page or a script cuts that page or script off.
 
 The radio works as a radio with Wi-Fi off. Turning Wi-Fi off also lets it read the battery every second, since Wi-Fi uses the part of the chip that reads it.
 

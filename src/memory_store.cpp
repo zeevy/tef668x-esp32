@@ -65,7 +65,9 @@ bool memoryStoreBegin(void) {
   }
   bool loaded = memoryNvsLoad(&sStore, &sCleared);
   sDirty = false;
-  sGeneration++;
+  /* From a random number, not from 0, so a page kept open across a restart
+   * cannot take the new list's number for the one it read before. */
+  sGeneration = esp_random();
   return loaded;
 }
 
@@ -135,6 +137,30 @@ bool memoryStoreWrite(int slot, const MemoryChannel *c) {
     return false;
   }
   bool ok = memorySet(&sStore, slot, c);
+  if (ok) {
+    changed();
+  }
+  unlock();
+  return ok;
+}
+
+bool memoryStoreClear(int slot) {
+  if (!lock()) {
+    return false;
+  }
+  bool ok = memoryClear(&sStore, slot);
+  if (ok) {
+    changed();
+  }
+  unlock();
+  return ok;
+}
+
+bool memoryStoreMove(int from, int to) {
+  if (!lock()) {
+    return false;
+  }
+  bool ok = memoryMove(&sStore, from, to);
   if (ok) {
     changed();
   }
@@ -233,14 +259,14 @@ int memoryStoreFindNear(uint8_t band, uint32_t freqKHz, uint32_t toleranceKHz) {
   return slot;
 }
 
-MemorySaveResult memoryStoreSave(uint8_t band, uint32_t freqKHz,
-                                 uint16_t bandwidthKHz, const char *name,
-                                 int *slot) {
+MemorySaveResult memoryStoreAdd(uint8_t band, uint32_t freqKHz,
+                                uint16_t bandwidthKHz, const char *name,
+                                int *slot) {
   if (!lock()) {
     return MEMORY_SAVE_UNREACHABLE;
   }
   MemorySaveResult r =
-      memorySaveChannel(&sStore, band, freqKHz, bandwidthKHz, name, slot);
+      memoryAddChannel(&sStore, band, freqKHz, bandwidthKHz, name, slot);
   if (r == MEMORY_SAVE_OK) {
     changed();
   }

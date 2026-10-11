@@ -145,6 +145,44 @@ bool apiNumber(const char *name, long *out, long low, long high) {
   }
 }
 
+BandId apiBandArg(void) {
+  const String want = sWeb->server.arg("bnd");
+  for (int b = 0; b < BAND_COUNT; b++) {
+    if (want.equalsIgnoreCase(bandName((BandId)b))) {
+      return (BandId)b;
+    }
+  }
+  return BAND_COUNT;
+}
+
+bool apiKhzBand(long *khz, BandId *band) {
+  if (!apiNumber("khz", khz, 1, 30000000L)) {
+    return false;
+  }
+  BandPlanConfig plan;
+  if (!radioTaskPlan(&plan)) {
+    apiFail(503, "The radio is not running.");
+    return false;
+  }
+  if (sWeb->server.hasArg("bnd")) {
+    *band = apiBandArg();
+    if (*band == BAND_COUNT) {
+      apiFail(400, "bnd has to be one of LW MW SW OIRT FM.");
+      return false;
+    }
+    if (!bandContains(*band, &plan, (uint32_t)*khz)) {
+      apiFail(400, "That frequency is not on that band.");
+      return false;
+    }
+    return true;
+  }
+  if (!bandForFrequency(&plan, (uint32_t)*khz, band)) {
+    apiFail(400, "That frequency is in no band.");
+    return false;
+  }
+  return true;
+}
+
 void webApiRegisterRoutes(WebContext *web) {
   sWeb = web;
   webApiTuneRoutes(web);

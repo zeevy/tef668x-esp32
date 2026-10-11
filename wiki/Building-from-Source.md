@@ -12,6 +12,8 @@ pip install platformio==6.2.0 gcovr==8.6 clang-format==23.1.1
 
 clang-format must be 23.1.1 and no other. Other versions format this code differently, and the format check refuses them. The one that comes with Xcode on macOS is not accepted.
 
+The web page's check, and any change to the web page, also need [Node](https://nodejs.org/) 24.21.0, the version CI uses. Building the firmware alone does not need Node.
+
 Every library, tool and platform is pinned to an exact version in `platformio.ini` and the CI workflow, so a build on your computer and a build in CI use the same code.
 
 ## Build and test
@@ -25,6 +27,21 @@ pio test -e native -f test_rds    # run one test folder
 ```
 
 The firmware is written to `.pio/build/ats125/firmware.bin`.
+
+## The web page
+
+The radio's [web page](Web-Page.md) is built from `web/`, with Preact and Tailwind CSS, into one file, `web/dist/index.html`, with its script and styles inside it. `tools/web_page.py` gzips that file and writes it into `src/net/web_page.h`, which is committed, so the firmware build uses it as it is. The radio stores it gzipped in flash and sends it as it is.
+
+After a change in `web/`, build the page and write it into the firmware:
+
+```bash
+npm --prefix web ci                                       # once, and after web/package.json changes
+npm --prefix web run build && python3 tools/web_page.py   # prints the page's gzipped size
+```
+
+While you work on the page, `npm --prefix web run dev` serves it on your computer with answers recorded from a radio, so no radio is needed. `npm --prefix web run dev:radio` serves it with every call sent to the radio at `http://tef668x.lan:8080`; set `RADIO` for another address, for example `RADIO=http://192.168.1.40:8080`.
+
+`npm --prefix web test` runs the page's browser tests, at a phone size and a laptop size, against the recorded answers. They need their browser once: `cd web && npx playwright install --only-shell chromium`.
 
 ## The first build takes longer
 
@@ -53,6 +70,7 @@ tools/check.sh format     # one gate by name
 | `analysis` | Static analysis with cppcheck, through `pio check` |
 | `format` | The code matches `.clang-format`, with clang-format 23.1.1 |
 | `fonts` | No font is stored compressed, since this build cannot draw a compressed one |
+| `web` | The web page builds, its browser tests pass, and `src/net/web_page.h` is what the page builds to now. Needs Node 24.21.0 |
 | `size` | Prints the size of the firmware image |
 
 Every gate runs even when an earlier one fails, so one run shows everything that is wrong. CI runs the same script on every push and every pull request to `master`. Coverage is counted a little differently on macOS and on Linux, and the CI number is the one that counts.
@@ -97,8 +115,9 @@ A tag with a suffix, such as `v0.2.0-rc.1`, makes a prerelease instead: public a
 | `src/core/` | The radio's logic in plain C: band plan, RDS decoder, presets, settings, menu, seek, squelch, AGC, DX. No hardware, so it runs on a PC |
 | `src/ui/` | The LVGL screens and panels |
 | `src/net/` | Wi-Fi, the web server and API, updates and rollback, network time |
+| `web/` | The web page: its screens, its browser tests in `web/tests/`, and the radio's answers it is tested against in `web/mock/` |
 | `src/lang/en.h` | Every text the screen shows, one line each |
 | `test/` | The unit tests, one folder per part |
-| `tools/` | `check.sh`, the screenshot tool and the build scripts |
+| `tools/` | `check.sh`, the screenshot tool, `web_page.py` and the build scripts |
 
 The README's [Firmware architecture](https://github.com/zeevy/tef668x-esp32#firmware-architecture) section has diagrams of the layers, the two tasks, the start up and the update.

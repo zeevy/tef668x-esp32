@@ -22,6 +22,8 @@ COVERAGE_FLOOR=95
 # format gate. Install it with:
 #   python3 -m pip install --break-system-packages clang-format==23.1.1
 CLANG_FORMAT_VERSION=23.1.1
+# The Node the web page is built and tested with, the same as CI uses.
+NODE_VERSION=24.21.0
 
 cd "$(dirname "$0")/.." || exit 1
 
@@ -237,6 +239,47 @@ gate_fonts() {
   return $bad
 }
 
+# The web page: built from web/ with Node, its browser tests run, and
+# src/net/web_page.h checked to be what it builds to now, so a firmware never
+# carries an old page.
+gate_web() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "   npm not found. Install Node $NODE_VERSION."
+    return 1
+  fi
+  # The same Node as CI, and the packages the lock file names: a stale
+  # node_modules builds the page with other versions, and the header it
+  # checks then differs from the one CI builds.
+  if [ "$(node --version 2>/dev/null)" != "v$NODE_VERSION" ]; then
+    echo "   Node $(node --version 2>/dev/null) here; the page is built with $NODE_VERSION."
+    return 1
+  fi
+  if ! node -e 'const a=require("./web/package-lock.json").packages,b=require("./web/node_modules/.package-lock.json").packages;for(const k in b)if(a[k]?.version!==b[k].version)process.exit(1)' 2>/dev/null; then
+    npm --prefix web ci >/dev/null 2>&1 || {
+      echo "   npm ci failed in web/"
+      return 1
+    }
+  fi
+  npm --prefix web run build >/dev/null 2>&1 || {
+    echo "   the page did not build: npm --prefix web run build"
+    return 1
+  }
+  CLANG_FORMAT=$(find_clang_format) python3 tools/web_page.py --check || return 1
+  # The count when every test passes; each failure in full when one does not,
+  # so the run itself says what broke.
+  local out code
+  out=$(mktemp)
+  npm --prefix web test >"$out" 2>&1
+  code=$?
+  if [ "$code" -eq 0 ]; then
+    tail -3 "$out"
+  else
+    grep -v '^\[' "$out" | tail -80
+  fi
+  rm -f "$out"
+  return "$code"
+}
+
 gate_size() {
   # Not a pass or fail, a number to watch. CI posts it on a pull request.
   pio run -e ats125 2>&1 | grep -E 'RAM:|Flash:'
@@ -249,6 +292,7 @@ case "${1:-all}" in
   analysis) run "static analysis"      gate_analysis ;;
   format)   run "format"               gate_format ;;
   fonts)    run "fonts"                gate_fonts ;;
+  web)      run "web page"             gate_web ;;
   size)     run "size"                 gate_size ;;
   all)
     run "build, ats125"      gate_build
@@ -257,11 +301,12 @@ case "${1:-all}" in
     run "static analysis"    gate_analysis
     run "format"             gate_format
     run "fonts"              gate_fonts
+    run "web page"           gate_web
     run "size"               gate_size
     ;;
   *)
     echo "unknown gate: $1"
-    echo "one of: build test coverage analysis format fonts size all"
+    echo "one of: build test coverage analysis format fonts web size all"
     exit 2
     ;;
 esac

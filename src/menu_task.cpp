@@ -940,8 +940,8 @@ static RowAvailable rowAvailable(const MenuRow *row) {
  * the log gives it, so one click of the knob reads one entry and not six:
  * every read opens the logbook file, and the browser's whole log reads at
  * about 22 ms an entry. A window of six rows holds six places in a row, so
- * no two share a slot. Forgotten when the list opens and when the count
- * moves.
+ * no two share a slot. Forgotten when the list opens and when the log
+ * changes, which the browser can do with the list on screen.
  */
 typedef struct {
   bool valid;
@@ -950,7 +950,13 @@ typedef struct {
   char value[16];
 } LogRow;
 static LogRow sLogRows[SCREEN_MENU_ROWS];
-static uint16_t sLogRowsCount;
+/* The log as the rows were read: a rename or a delete followed by a new
+ * entry leaves the count as it was, so the count cannot say when to read the
+ * rows again. */
+static uint32_t sLogRowsGeneration;
+/* The preset list as the rows were drawn, for the same reason: a move from
+ * the browser leaves the count as it was. */
+static uint32_t sPresetRowsGeneration;
 
 static void logRowsForget(void) {
   for (uint8_t i = 0; i < SCREEN_MENU_ROWS; i++) {
@@ -2458,8 +2464,8 @@ static void draw(void) {
       continue;
     }
     if (shown == &sLogGroup) {
-      if (count != sLogRowsCount) {
-        sLogRowsCount = count;
+      if (logbookFsGeneration() != sLogRowsGeneration) {
+        sLogRowsGeneration = logbookFsGeneration();
         logRowsForget();
       }
       /* Newest first, and the logbook counts from the oldest. */
@@ -2469,6 +2475,7 @@ static void draw(void) {
       continue;
     }
     if (shown == &sPresetGroup) {
+      sPresetRowsGeneration = memoryStoreGeneration();
       presetRowText(at, sPresetName[i], sizeof(sPresetName[0]), sValueText[i],
                     sizeof(sValueText[0]));
       view.rows[i].name = sPresetName[i];
@@ -2887,6 +2894,28 @@ void menuTaskPoll(void) {
     return;
   }
   const MenuGroup *g = list();
+  /* A change to the log from the browser with its list on screen: the count
+   * and the rows read again, the cursor kept on the list, so a press does
+   * not tune to an entry other than the one shown. */
+  if (g == &sLogGroup && logbookFsGeneration() != sLogRowsGeneration) {
+    logCountNow();
+    if (sLogGroup.count > 0 && sMenu.row >= sLogGroup.count) {
+      sMenu.row = (uint8_t)(sLogGroup.count - 1);
+    }
+    draw();
+    return;
+  }
+  /* The same for the presets: a move, a delete or an add from the browser
+   * with the list on screen draws the rows again, so a press tunes the
+   * preset its row shows. */
+  if (g == &sPresetGroup && memoryStoreGeneration() != sPresetRowsGeneration) {
+    presetCountNow();
+    if (sPresetGroup.count > 0 && sMenu.row >= sPresetGroup.count) {
+      sMenu.row = (uint8_t)(sPresetGroup.count - 1);
+    }
+    draw();
+    return;
+  }
   static uint32_t sSquelchAtMs = 0;
   if (sMenu.level == MENU_ROWS && g->rows == kSquelchRows &&
       (uint32_t)(nowMs - sSquelchAtMs) >= 250) {

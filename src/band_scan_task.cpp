@@ -240,7 +240,7 @@ void bandScanTaskPoll(void) {
      * each station that found no room is counted instead. */
     int slot = MEMORY_NO_SLOT;
     const MemorySaveResult saved =
-        memoryStoreSave((uint8_t)sScan.walk.band, sScan.atKHz, 0, NULL, &slot);
+        memoryStoreAdd((uint8_t)sScan.walk.band, sScan.atKHz, 0, NULL, &slot);
     if (saved == MEMORY_SAVE_OK) {
       sScan.added++;
     } else if (saved == MEMORY_SAVE_FULL) {

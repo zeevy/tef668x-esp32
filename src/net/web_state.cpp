@@ -29,6 +29,7 @@
 #include "net/xdr_server.h"
 #include "radio_task.h"
 #include "screen_task.h"
+#include "screen_task_dx.h"
 #include "settings_task.h"
 #include "sleep_task.h"
 #include "system_info.h"
@@ -796,6 +797,7 @@ static const char *netStateText(void) {
  *           version and image size in bytes while `st` is `found`, null
  *           otherwise.
  *   `net`   `offline`, `joining`, `station` or `ap`.
+ *   `apn`   The hotspot's own name, while `net` is `ap`; null otherwise.
  *   `rssi`  The joined network's signal, dBm. Null unless `net` is
  *           `station`.
  *   `bars`  `rssi` as the header draws it, 0 to 3. Null when `rssi` is.
@@ -804,6 +806,21 @@ static const char *netStateText(void) {
  *   `dpn`   The access PIN is still 000000.
  *   `pcl`   The PC Link: `on` the port is open, `cli` PCs signed in, `ips`
  *           their addresses, `ref` PCs turned away because three were in.
+ *   `liv`   The live state, GET /api/live: `n` pages open, `ref` pages
+ *           turned away because two were open, `max` the longest one send
+ *           of it held the loop since boot, ms.
+ *   `scp`   The band scope's sweeps: `rev` moves with each new one, `run`
+ *           one is waiting or running. So a web page reads a sweep only
+ *           when there is a new one, without asking for it again and again.
+ *   `dx`    DX mode, as `GET /api/dx` starts: `on`, `pg` the panel's page,
+ *           `n` catches and `rev` a number that moves when they change, so a
+ *           page reads them only then; `swr` the sweep's revision and `swp`
+ *           one running; the scanner's `scn` (`idle`, `running`,
+ *           `stopped`), `sck` its channel, `scf` found, `scd` channels done
+ *           of `sct`; the scan's settings `dst`, `dsc`, `ddw`, as POST
+ *           /api/settings has them; and the preset watch's last alert, `wup`
+ *           the preset that came up in kHz (0 for none), `wri` by how much
+ *           in tenths of a dB, `wms` when, in ms since start.
  *   `hep`   Free heap, bytes.
  *   `hmn`   The lowest the free heap has been since boot, bytes.
  *   `hmp`   The lowest it went in the boot before, bytes, when that boot
@@ -829,6 +846,9 @@ static const char *netStateText(void) {
  *   `lit`  How bright the panel is now, percent.
  *   `dim`  It has been left alone long enough to have dropped.
  *   `sdb`  The signal number on the panel, held still, whole dBuV.
+ *   `cur`  The scope's cursor, which the knob moves, in kHz, while the panel
+ *          shows a scope: DX mode's Scope page or the band scope. Null
+ *          otherwise.
  *   `swp`  How long the last screen change took, ms, 0 if none yet.
  *   `lvu`  LVGL heap in use, bytes, or null when LVGL is not running.
  *   `lvt`  How big that heap is, bytes.
@@ -872,6 +892,8 @@ static const char *netStateText(void) {
  * Inside `pst`, the preset list:
  *
  *   `n`     Presets stored.
+ *   `rev`   A number that changes whenever the list does, a rename or a
+ *           move too, which leave `n` as it was.
  *   `bad`   The last write to the list failed.
  *   `lost`  Presets start up threw away as unreadable.
  *
@@ -879,6 +901,8 @@ static const char *netStateText(void) {
  *
  *   `fit`  The logbook partition mounted.
  *   `n`    Entries in the log.
+ *   `rev`  A number that changes with every append, edit and delete, which
+ *          a full log takes without `n` moving.
  */
 
 String buildState(void) {
@@ -903,7 +927,18 @@ String buildState(void) {
   out += F("}");
   out += F(",\"net\":\"");
   out += netStateText();
-  out += F("\",\"rssi\":");
+  /* The hotspot's own name, only while on it: anyone on it can see it. The
+   * home network's name is left out, as anyone on that network can read
+   * this. */
+  out += F("\",\"apn\":");
+  if (wifiState() == WIFI_STATE_ACCESS_POINT) {
+    out += F("\"");
+    out += jsonEscape(wifiNetworkName());
+    out += F("\"");
+  } else {
+    out += F("null");
+  }
+  out += F(",\"rssi\":");
   /*
    * The joined network's signal, in dBm, and the bars the header is
    * actually drawing from it. `null` rather than left out: a station radio
@@ -948,6 +983,56 @@ String buildState(void) {
   out += F("]");
   jsonNum(out, "ref", xdrServerRefused());
   out += F("}");
+  /* The live state's pages: how many are open, how many were turned away
+   * for want of a place, and the longest one send of it held the loop. */
+  out += F(",\"liv\":{\"n\":");
+  out += String((unsigned)webLivePages());
+  jsonNum(out, "ref", webLiveRefused());
+  jsonNum(out, "max", webLiveLongestMs());
+  out += F("}");
+  /* DX mode's head, so a page follows the scanner and the catches without
+   * asking `GET /api/dx` again and again. */
+  const DxCatches *catches = dxTaskCatches();
+  const DxScan *scan = dxTaskScan();
+  out += F(",\"dx\":{\"on\":");
+  out += screenTaskDxIsOpen() ? F("true") : F("false");
+  jsonNum(out, "pg", (unsigned)screenTaskDxPage());
+  jsonNum(out, "n", catches != NULL ? (unsigned)catches->count : 0u);
+  jsonNum(out, "rev", dxCatchesRevision(catches));
+  jsonNum(out, "swr", (unsigned)dxTaskSweepRevision());
+  jsonBool(out, "swp", dxTaskSweepRunning());
+  out += F(",\"scn\":\"");
+  out += scan->state == DX_SCAN_RUNNING   ? F("running")
+         : scan->state == DX_SCAN_STOPPED ? F("stopped")
+                                          : F("idle");
+  out += F("\"");
+  jsonNum(out, "sck", scan->state == DX_SCAN_IDLE ? 0u : (unsigned)scan->atKHz);
+  jsonNum(out, "scf", (unsigned)scan->found);
+  jsonNum(out, "scd", (unsigned)dxScanPassed(scan));
+  jsonNum(out, "sct", (unsigned)dxScanTotal(scan));
+  /* What a scan does: the stop rule, the range and the dwell in tenths, as
+   * the radio's own scanner page shows them. */
+  jsonNum(out, "dst", sWeb->settings->dxStopRule);
+  jsonNum(out, "dsc", sWeb->settings->dxScanRange);
+  jsonNum(out, "ddw", sWeb->settings->dxDwellTenths);
+  /* The preset watch's last alert: the preset that came up, in kHz, 0 for
+   * none, by how much over its usual level in tenths of a dB, and when, in
+   * ms since start, so a page tells a new alert from the one before. */
+  uint8_t watched = 0;
+  uint32_t upKHz = 0;
+  int16_t rise = 0;
+  uint32_t upMs = 0;
+  (void)dxTaskWatchState(&watched, &upKHz, &rise, &upMs);
+  jsonNum(out, "wup", upKHz);
+  jsonNum(out, "wri", rise);
+  jsonNum(out, "wms", upMs);
+  out += F("}");
+  ScopeView scope;
+  scopeTaskView(&scope);
+  out += F(",\"scp\":{\"rev\":");
+  out += String((unsigned)scope.revision);
+  jsonBool(out, "run", scope.running);
+  out += F("}");
   jsonNum(out, "hep", systemHeapFree());
   /* The heap's worst case, not only where it is now: the lowest it has
    * been since boot, and the largest piece left, which is what a big
@@ -986,6 +1071,16 @@ String buildState(void) {
    * whole dB away. Without this the only way to check that it sits still is
    * to stand at the radio and watch. */
   jsonNum(out, "sdb", (int)screenTaskSignalShown());
+  /* Where the knob has put the scope's cursor, so a web page can draw it
+   * where the panel does. Only while a scope is on the panel: the cursor is
+   * kept when the page changes, but nobody can see it then. */
+  uint32_t cursorKHz = 0;
+  const bool cursorShown =
+      (screenTaskDxIsOpen() && screenTaskDxPage() == SCREEN_DX_PAGE_SCOPE &&
+       screenTaskDxScopeCursorKHz(&cursorKHz)) ||
+      screenTaskScopeCursorKHz(&cursorKHz);
+  out += F(",\"cur\":");
+  out += cursorShown ? String(cursorKHz) : String("null");
   /*
    * LVGL's own heap, which is not the ESP32 heap above.
    *
@@ -1038,13 +1133,16 @@ String buildState(void) {
    * unit, and the only way to find out is to read what the radio thinks
    * against what a meter says. `mv` null means no reading: no battery, or the
    * Wi-Fi driver had the converter, and nothing here can tell those apart.
+   * The pin is on ADC2, which the Wi-Fi driver holds while it runs, so with
+   * Wi-Fi on a read is not tried: it always fails, and each failure holds
+   * the loop about 17 ms, which every state sent to a page would pay.
    */
   out += F(",\"bat\":{\"fit\":");
   out += batteryAdcFitted() ? F("true") : F("false");
   out += F(",\"mv\":");
   {
     uint16_t mv = 0;
-    if (batteryAdcRead(&mv)) {
+    if (wifiState() == WIFI_STATE_OFFLINE && batteryAdcRead(&mv)) {
       out += String((unsigned)mv);
     } else {
       out += F("null");
@@ -1107,6 +1205,7 @@ String buildState(void) {
    * normal and forgets every channel at the next power cycle. */
   out += F(",\"pst\":{\"n\":");
   out += String(memoryStoreCount());
+  jsonNum(out, "rev", memoryStoreGeneration());
   jsonBool(out, "bad", memoryStoreFailed());
   /* Channels start up threw away. A list that came back short says nothing
    * about itself, so without this the count above is the only sign and it
@@ -1120,6 +1219,7 @@ String buildState(void) {
   out += F(",\"log\":{\"fit\":");
   out += logbookFsPresent() ? F("true") : F("false");
   jsonNum(out, "n", logbookFsCount());
+  jsonNum(out, "rev", logbookFsGeneration());
   out += F("}");
   out += F(",");
   appendInputState(out);

@@ -167,6 +167,56 @@ int16_t screenTaskSignalShown(void) {
 uint16_t screenTaskSwapMs(void) {
   return 12;
 }
+/* DX mode's catches, scanner and sweep. */
+static DxCatches dxCatches;
+static DxScan dxScan;
+const DxCatches *dxTaskCatches(void) {
+  return &dxCatches;
+}
+const DxScan *dxTaskScan(void) {
+  return &dxScan;
+}
+bool dxTaskSweepRunning(void) {
+  return false;
+}
+uint16_t dxTaskSweepRevision(void) {
+  return 42;
+}
+bool dxTaskWatchState(uint8_t *watched, uint32_t *upKHz, int16_t *rise,
+                      uint32_t *upMs) {
+  *watched = 3;
+  *upKHz = 98300;
+  *rise = 92;
+  *upMs = 1000;
+  return true;
+}
+/* The band scope's last sweep and whether one runs. */
+void scopeTaskView(ScopeView *out) {
+  *out = ScopeView();
+  out->revision = 7;
+  out->running = true;
+}
+/* What the panel shows: DX mode's page, the band scope, and each cursor. */
+static bool dxOpen = false;
+static uint8_t dxPage = 0;
+static bool bandScopeUp = false;
+bool screenTaskDxIsOpen(void) {
+  return dxOpen;
+}
+uint8_t screenTaskDxPage(void) {
+  return dxPage;
+}
+bool screenTaskDxScopeCursorKHz(uint32_t *khz) {
+  *khz = 98300;
+  return true;
+}
+bool screenTaskScopeCursorKHz(uint32_t *khz) {
+  if (!bandScopeUp) {
+    return false;
+  }
+  *khz = 1440;
+  return true;
+}
 
 void bandScanProgress(uint16_t *done, uint16_t *total) {
   *done = 0;
@@ -215,7 +265,16 @@ bool inputPotCalibrating(uint16_t *, uint16_t *) {
   return false;
 }
 
+/* Wi-Fi switched off: only the menu can show the state then, so a test of
+ * the battery read is the one place this is set. */
+static bool wifiOff = false;
+const char *wifiNetworkName(void) {
+  return joined ? "HomeNet" : "tef668x-setup-A1B2";
+}
 WifiState wifiState(void) {
+  if (wifiOff) {
+    return WIFI_STATE_OFFLINE;
+  }
   return joined ? WIFI_STATE_ONLINE : WIFI_STATE_ACCESS_POINT;
 }
 bool wifiRssiDbm(int8_t *out) {
@@ -271,6 +330,17 @@ uint32_t xdrServerRefused(void) {
   return 1;
 }
 
+/* The live state: one page open, three turned away, the longest send 12 ms. */
+uint8_t webLivePages(void) {
+  return 1;
+}
+uint32_t webLiveRefused(void) {
+  return 3;
+}
+uint32_t webLiveLongestMs(void) {
+  return 12;
+}
+
 uint32_t systemHeapFree(void) {
   return 112000;
 }
@@ -307,8 +377,12 @@ bool lvglPortPushes(PushSecond *out) {
 bool batteryAdcFitted(void) {
   return true;
 }
-bool batteryAdcRead(uint16_t *) {
-  return false;
+/* A read that would work, counted, so a test can see whether one was tried. */
+static int batteryReads = 0;
+bool batteryAdcRead(uint16_t *milliVolts) {
+  batteryReads++;
+  *milliVolts = 4100;
+  return true;
 }
 bool batteryAdcAtBoot(uint16_t *milliVolts) {
   *milliVolts = 3950;
@@ -347,11 +421,17 @@ bool memoryStoreFailed(void) {
 int memoryStoreCleared(void) {
   return 0;
 }
+uint32_t memoryStoreGeneration(void) {
+  return 3000000001u;
+}
 bool logbookFsPresent(void) {
   return true;
 }
 uint16_t logbookFsCount(void) {
   return 5;
+}
+uint32_t logbookFsGeneration(void) {
+  return 7;
 }
 
 /* --------------------------------------------------- a small JSON reader */
@@ -559,6 +639,11 @@ void setUp(void) {
   joined = true;
   touchReads = 0;
   touchOn = true;
+  dxOpen = false;
+  dxPage = 0;
+  memset(&dxCatches, 0, sizeof(dxCatches));
+  memset(&dxScan, 0, sizeof(dxScan));
+  bandScopeUp = false;
   settingsDefaults(&settings);
   fillSnapshot();
 }
@@ -612,6 +697,103 @@ static void the_pc_link_says_who_is_signed_in(void) {
   const Json none = state();
   TEST_ASSERT_EQUAL_UINT32(0, at(at(none, "pcl"), "ips").items.size());
   pcClients = 2;
+}
+
+/* With Wi-Fi on the battery is not read: the Wi-Fi driver holds its
+ * converter, so a read would only fail, slowly. With Wi-Fi off it is. */
+static void the_battery_is_read_only_with_wifi_off(void) {
+  batteryReads = 0;
+  const Json on = state();
+  TEST_ASSERT_EQUAL_INT('n', at(at(on, "bat"), "mv").kind);
+  TEST_ASSERT_EQUAL_INT(0, batteryReads);
+  wifiOff = true;
+  const Json off = state();
+  wifiOff = false;
+  TEST_ASSERT_EQUAL_STRING("4100", at(at(off, "bat"), "mv").text.c_str());
+  TEST_ASSERT_EQUAL_INT(1, batteryReads);
+}
+
+/* The live state's pages, the ones turned away and the longest send. */
+static void the_live_state_says_its_pages_and_its_longest_send(void) {
+  const Json doc = state();
+  const Json &liv = at(doc, "liv");
+  TEST_ASSERT_EQUAL_STRING("1", at(liv, "n").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("3", at(liv, "ref").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("12", at(liv, "max").text.c_str());
+}
+
+/* The scope cursor shows only while a scope is on the panel, so a page draws
+ * it where the knob has put it and nowhere else. */
+/* DX mode's head: open, the page, the catches and their revision, which
+ * moves with a new catch, the sweep and the scanner. */
+static void dx_mode_says_its_head_and_a_revision_of_its_catches(void) {
+  dxOpen = true;
+  dxPage = 2;
+  dxScan.state = DX_SCAN_RUNNING;
+  dxScan.atKHz = 98300;
+  dxScan.found = 3;
+  Json doc = state();
+  const Json &dx = at(doc, "dx");
+  TEST_ASSERT_EQUAL_INT('t', at(dx, "on").kind);
+  TEST_ASSERT_EQUAL_STRING("2", at(dx, "pg").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("0", at(dx, "n").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("42", at(dx, "swr").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("running", at(dx, "scn").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("98300", at(dx, "sck").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("3", at(dx, "scf").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("98300", at(dx, "wup").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("92", at(dx, "wri").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("1000", at(dx, "wms").text.c_str());
+  const std::string before = at(dx, "rev").text;
+  dxCatches.count = 1;
+  dxCatches.item[0].id = 7;
+  const Json after = state();
+  TEST_ASSERT_EQUAL_STRING("1", at(at(after, "dx"), "n").text.c_str());
+  TEST_ASSERT_TRUE(before != at(at(after, "dx"), "rev").text);
+}
+
+/* The hotspot's name only while on it; the home network's never. The
+ * scanner's settings beside its state. */
+static void the_hotspot_name_shows_only_on_the_hotspot(void) {
+  Json doc = state();
+  TEST_ASSERT_EQUAL_INT('n', at(doc, "apn").kind);
+  TEST_ASSERT_TRUE(at(doc, "apn").text.find("HomeNet") == std::string::npos);
+  TEST_ASSERT_EQUAL_STRING("25", at(at(doc, "dx"), "ddw").text.c_str());
+  joined = false;
+  const Json ap = state();
+  TEST_ASSERT_EQUAL_STRING("tef668x-setup-A1B2", at(ap, "apn").text.c_str());
+}
+
+/* The band scope's revision and running flag, so a page reads a new sweep
+ * when there is one. */
+static void the_band_scope_says_its_revision_and_whether_it_runs(void) {
+  const Json doc = state();
+  const Json &scp = at(doc, "scp");
+  TEST_ASSERT_EQUAL_STRING("7", at(scp, "rev").text.c_str());
+  TEST_ASSERT_EQUAL_INT('t', at(scp, "run").kind);
+}
+
+/* A number past the largest a signed 32 bit value holds, so it is written
+ * as the unsigned count it is. */
+static void the_presets_and_the_log_say_a_revision_of_their_own(void) {
+  const Json doc = state();
+  TEST_ASSERT_EQUAL_STRING("3000000001",
+                           at(at(doc, "pst"), "rev").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("12", at(at(doc, "pst"), "n").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("7", at(at(doc, "log"), "rev").text.c_str());
+  TEST_ASSERT_EQUAL_STRING("5", at(at(doc, "log"), "n").text.c_str());
+}
+
+static void the_scope_cursor_is_given_only_while_a_scope_is_shown(void) {
+  TEST_ASSERT_EQUAL_INT('n', at(at(state(), "pnl"), "cur").kind);
+  dxOpen = true;
+  dxPage = SCREEN_DX_PAGE_SCOPE + 1;
+  TEST_ASSERT_EQUAL_INT('n', at(at(state(), "pnl"), "cur").kind);
+  dxPage = SCREEN_DX_PAGE_SCOPE;
+  TEST_ASSERT_EQUAL_STRING("98300", at(at(state(), "pnl"), "cur").text.c_str());
+  dxOpen = false;
+  bandScopeUp = true;
+  TEST_ASSERT_EQUAL_STRING("1440", at(at(state(), "pnl"), "cur").text.c_str());
 }
 
 /* The last scan's counts, the stations with no free slot among them, so a
@@ -718,7 +900,14 @@ int main(int argc, char **argv) {
   RUN_TEST(the_whole_document_parses_as_one_object);
   RUN_TEST(the_band_and_the_frequency_are_reported);
   RUN_TEST(the_pc_link_says_who_is_signed_in);
+  RUN_TEST(the_live_state_says_its_pages_and_its_longest_send);
+  RUN_TEST(the_battery_is_read_only_with_wifi_off);
   RUN_TEST(the_last_scan_says_how_many_found_no_room);
+  RUN_TEST(the_scope_cursor_is_given_only_while_a_scope_is_shown);
+  RUN_TEST(the_band_scope_says_its_revision_and_whether_it_runs);
+  RUN_TEST(the_presets_and_the_log_say_a_revision_of_their_own);
+  RUN_TEST(dx_mode_says_its_head_and_a_revision_of_its_catches);
+  RUN_TEST(the_hotspot_name_shows_only_on_the_hotspot);
   RUN_TEST(station_text_with_quotes_and_control_characters_comes_back_whole);
   RUN_TEST(the_image_check_and_the_stack_marks_are_reported);
   RUN_TEST(a_found_update_is_reported_with_its_version_and_size);

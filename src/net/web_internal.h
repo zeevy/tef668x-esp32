@@ -39,11 +39,10 @@ void webAuthRegisterRoutes(WebContext *web);
 /* Whether the access PIN is still the one every radio ships with. */
 bool webPinIsDefault(void);
 
-/* web_pages.cpp's own reply and redirect helpers. web_auth.cpp's sign in and
- * PIN handlers use both, and web_update.cpp's upload and reboot handlers use
- * sendResult. */
-void sendResult(int code, const char *title, const char *message, bool bad);
-const char *safeNext(const String &want);
+/* web_page.cpp's plain text answer, with its status code, for the routes
+ * outside the API: sign in, the PIN, the upload, the restart and the
+ * install. */
+void sendResult(int code, const char *message);
 
 /* web_state.cpp's own document, which web_api_tune.cpp serves as
  * GET /api/state, and its JSON helpers, which the web_api_*.cpp files use.
@@ -55,8 +54,17 @@ String jsonEscape(const char *raw);
 void jsonBool(String &out, const char *key, bool on);
 void jsonNum(String &out, const char *key, long long value);
 
-void webPagesRegisterRoutes(WebContext *web);
+void webPageRegisterRoutes(WebContext *web);
 void webApiRegisterRoutes(WebContext *web);
 void webStateRegisterRoutes(WebContext *web);
+/* web_live.cpp's: GET /api/live, the page's live state over a WebSocket.
+ * webLiveLoop sends it when it changed; webLiveCloseAll closes every page,
+ * for the web server switched off. The three counts go in the state. */
+void webLiveRegisterRoutes(WebContext *web);
+void webLiveLoop(void);
+void webLiveCloseAll(void);
+uint8_t webLivePages(void);
+uint32_t webLiveRefused(void);
+uint32_t webLiveLongestMs(void);
 
 #endif /* NET_WEB_INTERNAL_H */

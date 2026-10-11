@@ -49,7 +49,7 @@ The Scope sweeps the whole band and draws the level of every channel, so you can
 
 Press the knob to sweep. A sweep reads every channel of the band at the default step, muted, at the DX width. It takes about 4 seconds for the whole FM band. While it sweeps, the header says `sweeping`. After that it says how old the sweep is: `now`, `3 min ago` and so on.
 
-Turn the knob to move the cursor one channel. Hold it to tune to the cursor.
+Turn the knob to move the cursor one channel. Hold it to tune to the cursor. A tune from anywhere else, such as the web page, a seek or a preset, puts the cursor on the new dial.
 
 | Part | What it shows |
 |---|---|
@@ -141,4 +141,4 @@ curl -s -OJ http://tef668x.local:8080/api/dx.csv
 
 The header is `Date,Time,Frequency,PI,Signal,Stereo,TA,TP,PTY,ECC,PS,Radiotext`. The date and time are in UTC. It needs no PIN.
 
-The web page's **DX** page shows the same catches, a chart of the last sweep, and the RDS of the station you are on.
+The web page's [DX](Web-Page.md#dx) screen has the same four pages as tabs: Station, Scope, Scanner and Catches. It turns DX mode on or off and sets its width. It shows the station you are on with its RDS and a minute of its level, the last sweep against its baseline, the scanner with Start and Learn locals, and the catches. A tap on a catch tunes to it, **Log** writes it to the station log, and **FMLIST CSV** downloads `GET /api/dx.csv`.

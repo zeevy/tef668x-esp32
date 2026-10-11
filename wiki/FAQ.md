@@ -22,7 +22,7 @@ No. Only the first install goes over USB. After that, updates go over Wi-Fi, and
 
 ### Does the radio update itself?
 
-Only when you say yes. Turn on **System > Check for Updates**, and the radio looks on GitHub for a newer release once it is on your network, and offers it on the screen. Nothing is installed until you say yes: **Update** on the radio, or **Install** on the web page's System page. See [Updating](Updating.md#from-github-on-the-radio).
+Only when you say yes. Turn on **System > Check for Updates**, and the radio looks on GitHub for a newer release once it is on your network, and offers it on the screen. Nothing is installed until you say yes: **Update** on the radio, or **Install** on the web page's [System](Web-Page.md#system) screen. See [Updating](Updating.md#from-github-on-the-radio).
 
 ### Does the radio need Wi-Fi or the internet?
 
@@ -42,11 +42,11 @@ No. It is shown as CT on the first RDS page, but the radio's clock comes from th
 
 ### How do I save a preset on the radio?
 
-You cannot, on the radio itself. A station scan fills the empty presets, and presets can be set one at a time over the HTTP API or loaded from a CSV file. See [Presets and Station Scan](Presets-and-Station-Scan.md).
+You cannot, on the radio itself. A station scan fills the empty presets. Presets can be saved, changed and deleted on the web page's [Presets](Web-Page.md#presets) screen, set one at a time over the HTTP API, or loaded from a CSV file. See [Presets and Station Scan](Presets-and-Station-Scan.md).
 
 ### How do I delete a station from the station log?
 
-You cannot. The log keeps the last 250 stations and drops the oldest when it is full. See [Station Log](Station-Log.md).
+On the web page's [Station log](Web-Page.md#station-log) screen: open the station and press **Delete**. It cannot be done on the radio itself. The log keeps the last 250 stations and drops the oldest when it is full. See [Station Log](Station-Log.md).
 
 ### Why does the first key press do nothing?
 
@@ -66,7 +66,7 @@ The web server listens on port 8080, so the address is always `http://tef668x.lo
 
 ### Can two people use the web page at once?
 
-Both can look at it, but only one browser can be signed in at a time. Signing in on a second browser signs the first out. See [Web Page](Web-Page.md#signing-in).
+Yes. Any number can look at it. Two pages at once get the radio live, twice a second; a third reads it every 5 seconds instead. Only one browser can be signed in at a time, and signing in on a second browser signs the first out. See [Web Page](Web-Page.md) and [HTTP API](HTTP-API.md#signing-in).
 
 ### What is DX mode for?
 

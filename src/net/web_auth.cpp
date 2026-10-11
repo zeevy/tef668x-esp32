@@ -134,8 +134,7 @@ static void handleAuth(void) {
   if (accessPinGateLocked(&sGate, now)) {
     uint32_t waitMs = accessPinGateRetryAfterMs(&sGate, now);
     sWeb->server.sendHeader("Retry-After", String((waitMs + 999UL) / 1000UL));
-    sendResult(429, "Too many tries",
-               "Too many wrong PINs. Try again in a minute.", true);
+    sendResult(429, "Too many wrong PINs. Try again in a minute.");
     return;
   }
 
@@ -144,14 +143,14 @@ static void handleAuth(void) {
       !accessPinParse(sWeb->server.arg("pin").c_str(), &given)) {
     /* A malformed PIN still counts, or the six digit check is free to skip. */
     accessPinGateCheck(&sGate, sAccessPin, sAccessPin + 1, now);
-    sendResult(400, "Wrong PIN", "A PIN is six digits.", true);
+    sendResult(400, "A PIN is six digits.");
     return;
   }
 
   if (!accessPinGateCheck(&sGate, sAccessPin, given, now)) {
     DebugLog.printf("[web] wrong PIN from %s\n",
                     sWeb->server.client().remoteIP().toString().c_str());
-    sendResult(403, "Wrong PIN", "That PIN is not right.", true);
+    sendResult(403, "That PIN is not right.");
     return;
   }
 
@@ -161,13 +160,7 @@ static void handleAuth(void) {
   cookie += "; Path=/; Max-Age=" + String(WEB_SESSION_TTL_SECONDS) +
             "; HttpOnly; SameSite=Strict";
   sWeb->server.sendHeader("Set-Cookie", cookie);
-  /* Back to the page the form was on, checked against the pages this
-   * firmware serves. An unchecked target out of the request would send the
-   * browser wherever the poster liked. */
-  sWeb->server.sendHeader(
-      "Location", safeNext(sWeb->server.hasArg("nxt") ? sWeb->server.arg("nxt")
-                                                      : String("/")));
-  sWeb->server.send(303, "text/plain", "");
+  sendResult(200, "Signed in.");
 }
 
 static void handleSetPin(void) {
@@ -178,7 +171,7 @@ static void handleSetPin(void) {
   uint32_t wanted = 0;
   if (!sWeb->server.hasArg("pin") ||
       !accessPinParse(sWeb->server.arg("pin").c_str(), &wanted)) {
-    sendResult(400, "PIN not changed", "A PIN is six digits.", true);
+    sendResult(400, "A PIN is six digits.");
     return;
   }
 
@@ -187,18 +180,16 @@ static void handleSetPin(void) {
   /* Through the one call every other setting uses: it checks
    * the whole struct, writes it, and counts the write in `asv.n`. */
   if (!settingsTaskStore(&pending)) {
-    sendResult(500, "PIN not changed", "The settings could not be written.",
-               true);
+    sendResult(500, "The settings could not be written.");
     return;
   }
   webPinChanged(wanted);
 
-  sendResult(200, "PIN changed",
+  sendResult(200,
              accessPinIsDefault(wanted)
                  ? "That is the default PIN, so the radio is still open to "
                    "anyone on the network. Sign in again."
-                 : "Sign in again with the new PIN.",
-             accessPinIsDefault(wanted));
+                 : "Sign in again with the new PIN.");
 }
 
 bool webAuthXdrLogin(const char *salt, const char *line) {

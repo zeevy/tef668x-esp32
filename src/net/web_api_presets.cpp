@@ -60,27 +60,125 @@ static void sayPreset(int slot, BandId band, uint32_t khz) {
  *
  * | `do` | What it does |
  * |---|---|
- * | `set` | Write a slot from `khz`, and `bw` and `name` if given |
+ * | `set` | Write a slot from `khz`, and `bnd`, `bw` and `name` if given |
+ * | `add` | Store `khz`, and `bnd`, `bw` and `name` if given, in the first free slot |
  * | `recall` | Tune to a slot |
+ * | `move` | Put a slot's preset in slot `to`; the two swap if `to` holds one |
+ * | `clear` | Delete a slot's preset |
  */
+/*
+ * `add`: the radio picks the slot, the lowest free one, from the list it
+ * holds, so a page or a script working from an old copy of the list cannot
+ * write over a preset stored since. A station that is a preset already is
+ * refused with its slot, rather than stored twice.
+ */
+static void handleAdd(void) {
+  long khz = 0;
+  BandId band;
+  if (!apiKhzBand(&khz, &band)) {
+    return;
+  }
+  long bw = 0;
+  if (sWeb->server.hasArg("bw") && !apiNumber("bw", &bw, 0, 400)) {
+    return;
+  }
+  /* Refused rather than cut short, so a name that does not fit is not
+   * stored as a different one without a word. */
+  const String name = sWeb->server.arg("name");
+  if (name.length() > MEMORY_NAME_LEN - 1) {
+    apiFail(400, String("A preset name has up to ") + (MEMORY_NAME_LEN - 1) +
+                     " letters.");
+    return;
+  }
+  int slot = MEMORY_NO_SLOT;
+  char text[24];
+  switch (memoryStoreAdd((uint8_t)band, (uint32_t)khz, (uint16_t)bw,
+                         name.c_str(), &slot)) {
+    case MEMORY_SAVE_OK:
+      sayPreset(slot, band, (uint32_t)khz);
+      return;
+    case MEMORY_SAVE_TAKEN:
+      bandFormatWithUnit(band, (uint32_t)khz, text, sizeof(text));
+      apiFail(409, String(text) + " is already preset " + (slot + 1) + ".");
+      return;
+    case MEMORY_SAVE_FULL:
+      apiFail(409, "Every preset slot is taken.");
+      return;
+    case MEMORY_SAVE_INVALID:
+      apiFail(400, kPresetInvalid);
+      return;
+    default:
+      apiFail(503, "The preset list could not be reached.");
+      return;
+  }
+}
+
 static void handleApiMemoryPost(void) {
   if (!requireAuth(false)) {
     return;
   }
   if (!sWeb->server.hasArg("do")) {
-    apiFail(400, "Give do=set or recall.");
+    apiFail(400, "Give do=set, add, recall, clear or move.");
     return;
   }
   String what = sWeb->server.arg("do");
   /* Checked before anything else is read, so an action nobody recognises is
    * answered with that rather than with a complaint about a missing slot. */
-  if (what != "set" && what != "recall") {
-    apiFail(400, "do has to be set or recall.");
+  if (what != "set" && what != "add" && what != "recall" && what != "clear" &&
+      what != "move") {
+    apiFail(400, "do has to be set, add, recall, clear or move.");
+    return;
+  }
+  /* The one action without a slot: the radio picks it. */
+  if (what == "add") {
+    handleAdd();
     return;
   }
 
   int slot = MEMORY_NO_SLOT;
   if (!apiSlot(&slot)) {
+    return;
+  }
+
+  if (what == "clear" || what == "move") {
+    MemoryChannel c;
+    if (!memoryStoreRead(slot, &c)) {
+      apiFail(404, String("Preset ") + (slot + 1) + " is empty.");
+      return;
+    }
+  }
+  if (what == "clear") {
+    if (!memoryStoreClear(slot)) {
+      apiFail(503, "The preset list could not be reached.");
+      return;
+    }
+    sWeb->server.send(200, "text/plain",
+                      String("Preset ") + (slot + 1) + " deleted.\n");
+    return;
+  }
+  if (what == "move") {
+    long to = 0;
+    if (!apiNumber("to", &to, 1, MEMORY_SLOT_COUNT)) {
+      return;
+    }
+    /* Refused rather than taken: nothing would move, and the list would still
+     * be written to flash as changed. */
+    if ((int)to - 1 == slot) {
+      apiFail(400, "Give another slot to move it to.");
+      return;
+    }
+    /* Said as a swap when the other slot held a preset, so a person is not
+     * left wondering where that one went. */
+    MemoryChannel there;
+    const bool swap = memoryStoreRead((int)to - 1, &there);
+    if (!memoryStoreMove(slot, (int)to - 1)) {
+      apiFail(503, "The preset list could not be reached.");
+      return;
+    }
+    sWeb->server.send(
+        200, "text/plain",
+        swap ? String("Presets ") + (slot + 1) + " and " + to + " swapped.\n"
+             : String("Preset ") + (slot + 1) + " moved to " + to + ".\n");
     return;
   }
 
@@ -114,17 +212,8 @@ static void handleApiMemoryPost(void) {
   bool had = memoryStoreRead(slot, &c);
 
   long khz = 0;
-  if (!apiNumber("khz", &khz, 1, 30000000L)) {
-    return;
-  }
-  BandPlanConfig plan;
-  if (!radioTaskPlan(&plan)) {
-    apiFail(503, "The radio is not running.");
-    return;
-  }
   BandId band;
-  if (!bandForFrequency(&plan, (uint32_t)khz, &band)) {
-    apiFail(400, "That frequency is in no band.");
+  if (!apiKhzBand(&khz, &band)) {
     return;
   }
   if (!had || c.band != (uint8_t)band) {

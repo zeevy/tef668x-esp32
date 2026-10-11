@@ -1,0 +1,2 @@
+{"on":false,"page":1,"cursor":0,"n":1,"dropped":0,"sweeping":false,"sweep_rev":14769,"scan":"idle","scan_khz":0,"scan_found":0,"scan_passed":0,"scan_total":0,"watch":false,"watch_n":0,"watch_up":null}
+{"i":0,"id":63380,"time":1791669788,"real":true,"band":"FM","khz":106400,"pi":"1064","name":" MAGIC  ","country":null,"new":false,"count":1,"level_dbuv":148,"logged":false,"due":true}

@@ -34,6 +34,14 @@ static void rememberBand(RadioSettings *s) {
   s->bandStepKHz[s->band] = s->stepKHz;
 }
 
+/* The step `band` was left on, or its own default when it never was set or
+ * the band plan no longer offers that step. */
+static uint16_t keptStep(const RadioSettings *s, BandId band,
+                         const BandPlanConfig *plan) {
+  const uint16_t step = band < BAND_COUNT ? s->bandStepKHz[band] : 0;
+  return bandStepAllowed(band, plan, step) ? step : bandDefaultStep(band, plan);
+}
+
 /*
  * Put the settings in order after the band has changed.
  *
@@ -53,10 +61,7 @@ static void settleAfterBandChange(RadioSettings *s,
    * It is checked against the band rather than trusted, because the band plan
    * can move under a stored value. A step that was legal before a medium wave
    * spacing change may not be one the band offers now. */
-  uint16_t step = s->band < BAND_COUNT ? s->bandStepKHz[s->band] : 0;
-  s->stepKHz = bandStepAllowed(s->band, plan, step)
-                   ? step
-                   : bandDefaultStep(s->band, plan);
+  s->stepKHz = keptStep(s, s->band, plan);
 
   /* The mode comes across with the radio rather than being looked up, since
    * it describes what the person at the knob is doing, not what is on air in
@@ -426,6 +431,14 @@ uint32_t radioChannelsRound(const RadioSettings *s,
     return 0;
   }
   return (hi - lo) / s->stepKHz + 1;
+}
+
+uint16_t radioBandStep(const RadioSettings *s, BandId band,
+                       const BandPlanConfig *plan) {
+  if (s == NULL || plan == NULL || band >= BAND_COUNT) {
+    return 0;
+  }
+  return band == s->band ? s->stepKHz : keptStep(s, band, plan);
 }
 
 uint16_t radioBandWidth(const RadioSettings *s, BandId band) {

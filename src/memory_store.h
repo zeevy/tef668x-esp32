@@ -60,6 +60,10 @@ uint16_t memoryStorePi(int slot);
 
 bool memoryStoreWrite(int slot, const MemoryChannel *c);
 
+/* memoryClear and memoryMove under the store's lock, saved as a write is. */
+bool memoryStoreClear(int slot);
+bool memoryStoreMove(int from, int to);
+
 int memoryStoreCount(void);
 /* The n-th used slot, n from 0 in slot order, read into `out` under one lock,
  * or MEMORY_NO_SLOT. */
@@ -76,16 +80,13 @@ int memoryStoreFind(uint8_t band, uint32_t freqKHz);
 
 int memoryStoreFindNear(uint8_t band, uint32_t freqKHz, uint32_t toleranceKHz);
 
-/*
- * memorySaveChannel on the list, under one take of its lock.
- *
- * The call a station scan saves what it finds through.
- * MEMORY_SAVE_UNREACHABLE when the store has no lock, which means it did not
- * start.
- */
-MemorySaveResult memoryStoreSave(uint8_t band, uint32_t freqKHz,
-                                 uint16_t bandwidthKHz, const char *name,
-                                 int *slot);
+/* memoryAddChannel on the list, under one take of its lock, so no other
+ * write comes between the check for the station and the store. The call a
+ * page, a script and a station scan add a preset through.
+ * MEMORY_SAVE_UNREACHABLE when the store has no lock. */
+MemorySaveResult memoryStoreAdd(uint8_t band, uint32_t freqKHz,
+                                uint16_t bandwidthKHz, const char *name,
+                                int *slot);
 
 /* memoryPick on the list, under one take of its lock. MEMORY_NO_SLOT when the
  * lock could not be taken. */

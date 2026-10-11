@@ -1,0 +1,46 @@
+{
+  "/api/state": {
+    "file": "state.json",
+    "type": "application/json"
+  },
+  "/api/bands": {
+    "file": "bands.json",
+    "type": "application/json"
+  },
+  "/api/settings": {
+    "file": "settings.json",
+    "type": "application/json"
+  },
+  "/api/dx": {
+    "file": "dx.ndjson",
+    "type": "application/x-ndjson"
+  },
+  "/api/dx/sweep": {
+    "file": "dx-sweep.json",
+    "type": "application/json"
+  },
+  "/api/scope": {
+    "file": "scope.json",
+    "type": "application/json"
+  },
+  "/api/presets.csv": {
+    "file": "presets.csv",
+    "type": "text/csv"
+  },
+  "/api/log": {
+    "file": "log.ndjson",
+    "type": "application/x-ndjson"
+  },
+  "/api/log.csv": {
+    "file": "log.csv",
+    "type": "text/csv"
+  },
+  "/api/dx.csv": {
+    "file": "dx.csv",
+    "type": "text/csv"
+  },
+  "/status.json": {
+    "file": "state.json",
+    "type": "application/json"
+  }
+}

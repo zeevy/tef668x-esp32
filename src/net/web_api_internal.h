@@ -55,6 +55,18 @@ void apiSubmit(const RadioCommand *command, const String &said,
 
 bool apiNumber(const char *name, long *out, long low, long high);
 
+/* The band `bnd` names, in either case, or BAND_COUNT when it names none. */
+BandId apiBandArg(void);
+
+/*
+ * The frequency a request names, `khz`, and the band it goes on. `bnd`, if
+ * given, names the band, which must hold the frequency: 65 to 74 MHz is on
+ * both OIRT and FM when the FM region is Full, and the caller knows which it
+ * means. Without it the radio picks, the lowest band first and OIRT before
+ * FM. On false the caller has been answered.
+ */
+bool apiKhzBand(long *khz, BandId *band);
+
 /* The `/api` routes of web_api_tune.cpp. */
 void webApiTuneRoutes(WebContext *web);
 
