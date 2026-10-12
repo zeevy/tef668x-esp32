@@ -54,6 +54,7 @@
 #include "core/rds_country.h"
 #include "core/settings.h"
 #include "core/signal.h"
+#include "core/station_page.h"
 #include "core/strings.h"
 #include "dx_task.h"
 #include "lvgl_port.h"
@@ -1797,6 +1798,78 @@ int main(int argc, char **argv) {
       TouchZone zones[TOUCH_ZONES_MAX];
       snprintf(path, sizeof(path), "%s/touch-question.bmp", dir);
       saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
+    }
+
+    /* A saved station's card: a station log entry heard on FM, with RDS
+     * and a note, the knob on Tune; the same with Delete waiting for its
+     * second press; an entry on shortwave; and a preset. The station is
+     * one the radio heard, its readings as it logged them. */
+    {
+      LogbookEntry e;
+      memset(&e, 0, sizeof(e));
+      e.timeKnown = true;
+      e.timeValue = 1791619436 - 3600;
+      e.band = BAND_FM;
+      e.freqKHz = 106400;
+      e.levelDbuVTenths = 452;
+      e.usnTenths = 124;
+      e.multipathTenths = 26;
+      e.snrDb = 28;
+      e.stereo = true;
+      e.bandwidthKHz = 236;
+      e.hasName = true;
+      strcpy(e.name, " MAGIC  ");
+      e.hasPi = true;
+      e.pi = 0x1064;
+      e.hasRt = true;
+      strcpy(e.rt, "MAGICFM VINTOO MAIMARACHIPODAAM!");
+      strcpy(e.note, "Clear on the balcony");
+      e.hasPty = true;
+      e.pty = 10;
+      static StationPage page;
+      stationPageLog(&e, true, 1791619436, 330, RDS_REGION_EUROPE, &page);
+      ScreenMenuStation card;
+      memset(&card, 0, sizeof(card));
+      card.page = &page;
+      card.button[0] = txt(STR_PAGE_TUNE);
+      card.button[1] = txt(STR_PAGE_DELETE);
+      screenMenuStationShow(&card);
+      saveShot("%s/menu-station-entry.bmp", dir);
+      TouchZone zones[TOUCH_ZONES_MAX];
+      snprintf(path, sizeof(path), "%s/touch-station.bmp", dir);
+      saveZones(zones, screenMenuZones(zones, TOUCH_ZONES_MAX), path);
+      card.cursor = 1;
+      card.asking = true;
+      card.button[1] = txt(STR_RECOVERY_PRESS_AGAIN);
+      screenMenuStationShow(&card);
+      saveShot("%s/menu-station-delete.bmp", dir);
+
+      memset(&e, 0, sizeof(e));
+      e.timeKnown = true;
+      e.timeValue = 1791619436 - 86400;
+      e.band = BAND_SW;
+      e.freqKHz = 13845;
+      e.levelDbuVTenths = 194;
+      e.coChannelTenths = 74;
+      e.snrDb = 21;
+      e.bandwidthKHz = 4;
+      stationPageLog(&e, true, 1791619436, 330, RDS_REGION_EUROPE, &page);
+      memset(&card, 0, sizeof(card));
+      card.page = &page;
+      card.button[0] = txt(STR_PAGE_TUNE);
+      card.button[1] = txt(STR_PAGE_DELETE);
+      screenMenuStationShow(&card);
+      saveShot("%s/menu-station-am.bmp", dir);
+
+      MemoryChannel c;
+      memset(&c, 0, sizeof(c));
+      c.freqKHz = 93500;
+      c.band = BAND_FM;
+      strcpy(c.name, "Morning Classics");
+      c.pi = 0x0935;
+      stationPagePreset(&c, 3, &page);
+      screenMenuStationShow(&card);
+      saveShot("%s/menu-station-preset.bmp", dir);
     }
 
     /* The About group, the last one, with nothing to edit. The build is a

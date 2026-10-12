@@ -5,7 +5,7 @@ import { useState } from 'preact/hooks';
 import { state } from '../data/radio.js';
 import { logFits, stationLog } from '../data/reads.js';
 import { logStation, tune } from '../data/commands.js';
-import { freq, isFm, printable, readings, unit } from '../data/format.js';
+import { country, freq, isFm, printable, readings, unit } from '../data/format.js';
 import { LOG_MAX, LOG_NAME_MAX, LOG_NOTE_MAX } from '../data/limits.js';
 import { act, say } from '../data/act.js';
 import { Button, Card, Figure, Icon, INPUT, Loading, Modal, Unread } from '../ui/kit.jsx';
@@ -16,6 +16,12 @@ import { Stars } from '../ui/backs.jsx';
 function entryReadings(e) {
   const r = readings(e.band, { sig: e.level_dbuv, snr: e.snr, usn: e.usn, wam: isFm(e.band) ? e.multipath : e.cochannel, bw: e.bw_khz });
   return [{ label: 'Band', value: e.band }, r.level, r.snr, r.noise, r.wam, r.width, { label: 'Sound', value: e.stereo ? 'Stereo' : 'Mono' }, { label: 'PI', value: e.pi ?? '---' }].filter(Boolean);
+}
+
+// What RDS said of the station besides its name and PI, for the dialog: each
+// only when the radio kept it with the entry.
+function entryRds(e) {
+  return [e.ptn && { label: 'Programme type', value: e.ptn }, e.cty && { label: 'Country', value: country(e.cty) }].filter(Boolean);
 }
 
 // When an entry was logged: the date and time, or the time alone under its
@@ -173,7 +179,7 @@ function EntryDialog({ entry: e, close, saved }) {
       <p class="text-sm text-muted">{whenText(e)}</p>
       {e.rt && <p class="text-sm">{e.rt}</p>}
       <div class="grid grid-cols-3 gap-4">
-        {entryReadings(e).map((f) => (
+        {[...entryReadings(e), ...entryRds(e)].map((f) => (
           <Figure {...f} />
         ))}
       </div>

@@ -38,7 +38,9 @@ SCREENS = [
     # The menu.
     "menu-groups", "touch-menu", "menu-sub", "menu-value", "touch-value",
     "menu-theme", "touch-picker", "menu-presets",
-    "menu-station-log", "menu-network-info", "menu-diagnostics",
+    "menu-station-log", "menu-station-entry", "menu-station-delete",
+    "menu-station-am", "menu-station-preset", "touch-station",
+    "menu-network-info", "menu-diagnostics",
     "menu-about", "menu-typed-choice", "menu-update-offer", "touch-question",
     "touch-pin",
     # The bandwidth page.

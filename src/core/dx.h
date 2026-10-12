@@ -74,7 +74,8 @@ bool dxOnChannel(const SeekReading *reading);
  * that station's name and confirms its PI, and logging them would put the
  * station 100 kHz from where it is. The name has no PI to test, so it takes
  * the offset alone, which keeps the name of a station that sends PI 0000.
- * Neither is kept when `rds` or `reading` is NULL.
+ * The programme type and the extended country code take the same test as
+ * the name. None is kept when `rds` or `reading` is NULL.
  */
 void dxLogIdentity(LogbookEntry *e, const RdsInfo *rds,
                    const SeekReading *reading);

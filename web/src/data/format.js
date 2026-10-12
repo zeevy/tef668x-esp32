@@ -60,6 +60,18 @@ export function readings(band, { sig, snr, usn, wam, off, bw, mod }) {
   return r;
 }
 
+const REGION = new Intl.DisplayNames(['en'], { type: 'region' });
+
+// The country's name from its two letters, or the letters when the browser
+// does not know them.
+export function country(code) {
+  try {
+    return REGION.of(code);
+  } catch {
+    return code;
+  }
+}
+
 // A text the radio keeps: printable ASCII, `max` characters at most.
 export const printable = (text, max) => text.replace(/[^\x20-\x7e]/g, '').slice(0, max);
 

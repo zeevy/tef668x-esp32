@@ -96,6 +96,27 @@
 #define DIALOG_BUTTON_Y (DIALOG_Y + DIALOG_H - UI_PAD - DIALOG_BUTTON_H)
 #define DIALOG_BUTTON_BASE (DIALOG_BUTTON_Y + DIALOG_BUTTON_H / 2 + 6)
 
+/* A saved station's card: nearly the whole screen, its content inset by a
+ * panel's padding. The tiles are three across with the gap between them;
+ * two lines of text under them, then the two buttons. */
+#define CARD_X 8
+#define CARD_Y 8
+#define CARD_W 304
+#define CARD_H 224
+#define CARD_IN (CARD_X + UI_PAD)
+#define CARD_ROOM (CARD_W - 2 * UI_PAD)
+#define CARD_TITLE_BASE (CARD_Y + 28)
+#define CARD_SUB_BASE (CARD_Y + 48)
+#define CARD_TILE_Y (CARD_Y + 58)
+#define CARD_TILE_W ((CARD_ROOM - 2 * UI_GAP) / 3)
+#define CARD_TILE_H 40
+#define CARD_TILE_PITCH (CARD_TILE_H + 6)
+#define CARD_TEXT_BASE (CARD_Y + 160)
+#define CARD_NOTE_BASE (CARD_Y + 176)
+#define CARD_BUTTON_Y (CARD_Y + 184)
+#define CARD_BUTTON_H 32
+#define CARD_BUTTON_W ((CARD_ROOM - UI_GAP) / 2)
+
 static lv_obj_t *sMenu;
 static UiFrame sFrame;
 /* The list or picker on show, for its touch zones: how many rows are drawn,
@@ -154,6 +175,18 @@ static lv_obj_t *sDialogLabel[SCREEN_DIALOG_FACTS];
 static lv_obj_t *sDialogValue[SCREEN_DIALOG_FACTS];
 static lv_obj_t *sButton[2];
 static lv_obj_t *sButtonWord[2];
+/* A saved station's card, every part a child of one layer, as the dialog. */
+static lv_obj_t *sStation;
+static lv_obj_t *sStationBack;
+static lv_obj_t *sStationTitle;
+static lv_obj_t *sStationSub;
+static lv_obj_t *sStationTile[STATION_PAGE_TILES];
+static lv_obj_t *sStationLabel[STATION_PAGE_TILES];
+static lv_obj_t *sStationValue[STATION_PAGE_TILES];
+static lv_obj_t *sStationText;
+static lv_obj_t *sStationNote;
+static lv_obj_t *sStationButton[2];
+static lv_obj_t *sStationWord[2];
 
 static void hideRows(void) {
   for (uint8_t i = 0; i < SCREEN_MENU_ROWS; i++) {
@@ -176,6 +209,14 @@ static void hideDigits(void) {
   sDigitPlace = NULL;
   sDigitCount = 0;
   sDigitAt = 0;
+}
+
+static void hideStation(void) {
+  if (sStation == NULL) {
+    return;
+  }
+  lv_obj_delete(sStation);
+  sStation = NULL;
 }
 
 static void hideDialog(void) {
@@ -516,6 +557,7 @@ void screenMenuShow(const ScreenMenu *menu) {
   showEditor(false);
   hideRows();
   hideDialog();
+  hideStation();
   sListRows = 0;
   sEditBar = false;
   sListCursor = -1;
@@ -686,6 +728,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   uiShowIf(sFrame.sleep, false);
   hideRows();
   hideDialog();
+  hideStation();
   if (v->isPicker) {
     showEditor(false);
     showPicker(v);
@@ -797,6 +840,7 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
    * would still show round it, so they go. */
   showEditor(false);
   hideRows();
+  hideStation();
   showScroll(0, 0);
   uiFrameShow(&sFrame, NULL, NULL, NULL, NULL, NULL, NULL);
   uiShowIf(sFrame.sleep, false);
@@ -837,6 +881,115 @@ void screenMenuDialogShow(const ScreenMenuDialog *d) {
   }
 }
 
+static void buildStation(const Theme *t) {
+  if (sStation != NULL) {
+    return;
+  }
+  sStation = wholeScreen();
+  (void)uiRound(sStation, t->rule, CARD_X, CARD_Y, CARD_W, CARD_H, UI_RADIUS);
+  sStationBack = uiLabel(sStation, &roboto_icons, t->radio);
+  uiSetTextStatic(sStationBack, ICON_CHEVRON_LEFT);
+  lv_obj_set_pos(sStationBack, CARD_IN - 4, uiIconTop(CARD_TITLE_BASE));
+  sStationTitle = uiLabel(sStation, &roboto_title, t->radio);
+  sStationSub = uiLabel(sStation, &roboto_label, t->dead);
+  for (uint8_t i = 0; i < STATION_PAGE_TILES; i++) {
+    const int16_t x = (int16_t)(CARD_IN + (i % 3) * (CARD_TILE_W + UI_GAP));
+    const int16_t y = (int16_t)(CARD_TILE_Y + (i / 3) * CARD_TILE_PITCH);
+    sStationTile[i] =
+        uiRound(sStation, t->ground, x, y, CARD_TILE_W, CARD_TILE_H, UI_TILE_R);
+    sStationLabel[i] = uiLabel(sStation, &roboto_label, t->dead);
+    sStationValue[i] = uiLabel(sStation, &roboto_small, t->measurement);
+  }
+  sStationText = uiLabel(sStation, &roboto_label, t->measurement);
+  sStationNote = uiLabel(sStation, &roboto_label, t->dead);
+  for (uint8_t i = 0; i < 2; i++) {
+    sStationButton[i] = uiRound(
+        sStation, t->ground, (int16_t)(CARD_IN + i * (CARD_BUTTON_W + UI_GAP)),
+        CARD_BUTTON_Y, CARD_BUTTON_W, CARD_BUTTON_H, UI_TILE_R);
+    sStationWord[i] = uiLabel(sStation, &roboto_text, t->measurement);
+  }
+}
+
+/* A line set to fit its room, shortened with the ellipsis when it does not;
+ * hidden when there is nothing to say. */
+static void stationLine(lv_obj_t *o, const lv_font_t *font, const char *text,
+                        int16_t x, int16_t base, int16_t room) {
+  char fit[LOGBOOK_RT_LEN + 4];
+  const bool shown = text != NULL && text[0] != '\0';
+  uiShowIf(o, shown);
+  if (shown) {
+    uiSetText(o, uiFitText(text, font, room, fit, sizeof(fit)));
+    uiBaseline(o, font, x, base);
+  }
+}
+
+void screenMenuStationShow(const ScreenMenuStation *s) {
+  if (sMenu == NULL || s == NULL || s->page == NULL) {
+    return;
+  }
+  const StationPage *p = s->page;
+  sListRows = 0;
+  sEditBar = false;
+  const Theme *t = themeCurrent();
+  showEditor(false);
+  hideRows();
+  hideDialog();
+  showScroll(0, 0);
+  uiFrameShow(&sFrame, NULL, NULL, NULL, NULL, NULL, NULL);
+  uiShowIf(sFrame.sleep, false);
+  buildStation(t);
+
+  /* The mark that a tap on the title goes back, while touch is in use, as
+   * every screen's title has it. */
+  const bool marks = uiTouchMarks();
+  uiShowIf(sStationBack, marks);
+  const int16_t titleX = (int16_t)(CARD_IN + (marks ? UI_ICON_SIZE : 0));
+  stationLine(sStationTitle, &roboto_title, p->title, titleX, CARD_TITLE_BASE,
+              (int16_t)(CARD_X + CARD_W - UI_PAD - titleX));
+  uiSetColour(sStationSub, s->note != NULL ? t->fault : t->dead);
+  stationLine(sStationSub, &roboto_label, s->note != NULL ? s->note : p->sub,
+              CARD_IN, CARD_SUB_BASE, CARD_ROOM);
+  for (uint8_t i = 0; i < STATION_PAGE_TILES; i++) {
+    const bool shown = p->label[i] != NULL;
+    uiShowIf(sStationTile[i], shown);
+    uiShowIf(sStationLabel[i], shown);
+    uiShowIf(sStationValue[i], shown);
+    if (!shown) {
+      continue;
+    }
+    const int16_t x =
+        (int16_t)(CARD_IN + (i % 3) * (CARD_TILE_W + UI_GAP) + UI_GAP);
+    const int16_t y = (int16_t)(CARD_TILE_Y + (i / 3) * CARD_TILE_PITCH);
+    uiSetText(sStationLabel[i], p->label[i]);
+    uiBaseline(sStationLabel[i], &roboto_label, x, (int16_t)(y + 15));
+    uiSetText(sStationValue[i], p->value[i]);
+    uiBaseline(sStationValue[i], &roboto_small, x, (int16_t)(y + 33));
+  }
+  /* The radio text on the first line, the note under it; a note alone
+   * takes the first line. */
+  const bool text = p->text[0] != '\0';
+  stationLine(sStationText, &roboto_label, text ? p->text : p->note, CARD_IN,
+              CARD_TEXT_BASE, CARD_ROOM);
+  stationLine(sStationNote, &roboto_label, text ? p->note : NULL, CARD_IN,
+              CARD_NOTE_BASE, CARD_ROOM);
+  for (uint8_t i = 0; i < 2; i++) {
+    const bool on = i == s->cursor;
+    /* Delete waiting for its second press is in the fault colour, so the
+     * press that deletes is never a surprise. */
+    const bool asking = i == 1 && s->asking;
+    uiSetBgColour(sStationButton[i], asking ? t->fault
+                                     : on   ? t->radio
+                                            : t->ground);
+    uiSetColour(sStationWord[i], asking || on ? t->ground : t->measurement);
+    uiSetText(sStationWord[i], s->button[i] != NULL ? s->button[i] : "");
+    const int16_t w = uiTextWidth(sStationWord[i], &roboto_text);
+    uiBaseline(sStationWord[i], &roboto_text,
+               (int16_t)(CARD_IN + i * (CARD_BUTTON_W + UI_GAP) +
+                         (CARD_BUTTON_W - w) / 2),
+               (int16_t)(CARD_BUTTON_Y + CARD_BUTTON_H / 2 + 6));
+  }
+}
+
 void screenMenuEnd(void) {
   sListRows = 0;
   sEditBar = false;
@@ -845,6 +998,7 @@ void screenMenuEnd(void) {
   }
   hideDigits();
   hideDialog();
+  hideStation();
   uiDropRoot(&sMenu);
   sPanel = NULL;
   sLabel = NULL;
@@ -906,6 +1060,23 @@ int screenMenuZones(TouchZone *out, int max) {
                     (uint8_t)(MENU_ZONE_PIN_KEY + i)};
     }
     return 1 + SCREEN_PIN_KEYS;
+  }
+  /* A station's card: its title line is Back, and its two buttons are
+   * the answers, reaching halfway across the gap between them. */
+  if (sMenu != NULL && sStation != NULL) {
+    if (max < 3) {
+      return 0;
+    }
+    out[0] = {CARD_X, CARD_Y, CARD_W, (int16_t)(CARD_SUB_BASE - 12 - CARD_Y),
+              MENU_ZONE_BACK};
+    for (uint8_t i = 0; i < 2; i++) {
+      out[1 + i] = {
+          (int16_t)(CARD_IN + i * (CARD_BUTTON_W + UI_GAP) - UI_GAP / 2),
+          (int16_t)(CARD_BUTTON_Y - UI_GAP / 2),
+          (int16_t)(CARD_BUTTON_W + UI_GAP), (int16_t)(CARD_BUTTON_H + UI_GAP),
+          (uint8_t)(MENU_ZONE_BUTTON + i)};
+    }
+    return 3;
   }
   /* A question box's two answers, each reaching halfway across the gap
    * between them and a gap above and below. */

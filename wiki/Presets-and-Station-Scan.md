@@ -19,15 +19,27 @@ Presets are kept in the radio's flash, over power cycles and updates.
 There are two ways on the radio:
 
 - **Tuning mode MEM.** Press MODE until the first tile shows `MEM`. Each click of the tuning knob goes to the next stored preset, across all bands, and round again. The radio screen shows the preset number, such as `P03`.
-- **The menu.** Open **Stations > Presets**. It lists the stored presets in slot order, each as `P03` with its name, and the frequency. Press a row to tune it. The menu stays open, so you can try the next one.
+- **The menu.** Open **Stations > Presets**. It lists the stored presets in slot order, each as `P03` with its name, and the frequency. Press a row to open its card, then **Tune**.
 
-A preset whose frequency is not on the band plan in use, for example after a change of FM Band Plan, is skipped in MEM mode. In the menu, pressing it shows the note `Not on the band plan` and tunes nothing.
+A preset whose frequency is not on the band plan in use, for example after a change of FM Band Plan, is skipped in MEM mode. On its card, **Tune** shows the note `Not on the band plan` and tunes nothing.
+
+### A preset's card
+
+![A preset's card](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-preset.png)
+
+A press on a preset in **Stations > Presets** opens its card: the frequency and the name, the slot such as `P03`, and tiles for the band, the width (`Auto` or its own) and the PI, once the preset has learnt one.
+
+- **Tune** tunes to it and leaves the card open, so you can hear it.
+- **Delete** clears the slot. The first press turns the button red and says `Press again`; a second press within 5 seconds clears it and goes back to the list. Turning the knob off it, going back or waiting 5 seconds lets it go. The last preset cleared takes you back to **Stations**.
+- Turn the knob to move between the two, and press it to act. MODE, or a hold of the knob, goes back to the list, and so does a tap on the title while Touch is On.
+
+If the preset was moved or cleared on the web page while its card was open, **Tune** and **Delete** say `Changed since this opened` and do nothing; go back and open it again. If the radio cannot write the clear, it says `Not deleted`.
 
 The keypad always types a frequency, never a preset number.
 
 ## Saving and changing presets
 
-Presets cannot be saved, renamed or cleared on the radio itself. They are written in four ways:
+Presets cannot be saved or renamed on the radio itself; a preset can be cleared from its card, above. They are written in four ways:
 
 - a station scan, which fills empty slots
 - the web page's [Presets](Web-Page.md#presets) screen: save the current station, add one by its frequency, change, rename or delete one, and drag one to another slot. A station already saved is not saved again

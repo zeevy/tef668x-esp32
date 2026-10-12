@@ -446,15 +446,17 @@ See [Station Log](Station-Log.md).
 ```
 $ curl -s $R/api/log
 {"n":75}
-{"id":0,"time":1789662597,"real":true,"band":"FM","khz":102800,"level_dbuv":342,"usn":8,"multipath":30,"cochannel":0,"snr":25,"stereo":true,"bw_khz":184,"name":null,"pi":null,"rt":null,"note":null,"renamed":false}
+{"id":0,"time":1789662597,"real":true,"band":"FM","khz":102800,"level_dbuv":342,"usn":8,"multipath":30,"cochannel":0,"snr":25,"stereo":true,"bw_khz":184,"name":null,"pi":null,"pty":null,"ptn":null,"cty":null,"rt":null,"note":null,"renamed":false}
+{"id":1,"time":1789663012,"real":true,"band":"FM","khz":106400,"level_dbuv":521,"usn":5,"multipath":12,"cochannel":0,"snr":31,"stereo":true,"bw_khz":184,"name":"MAGIC FM","pi":"5201","pty":10,"ptn":"Pop Music","cty":"IN","rt":null,"note":null,"renamed":false}
 ...
 $ curl -s $R/api/log.csv
-time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed
-2026-09-17 21:59,1,FM,102800,342,8,30,0,25,1,184,,,,,0
+time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed,pty,country
+2026-09-17 21:59,1,FM,102800,342,8,30,0,25,1,184,,,,,0,,
+2026-09-17 22:06,1,FM,106400,521,5,12,0,31,1,184,MAGIC FM,5201,,,0,10,IN
 ...
 ```
 
-`id` is the entry's place in the log, which it keeps until 250 newer ones have pushed it out. `time` in the JSON is seconds since 1970 in UTC, or milliseconds since start when `real` is false, which says whether the clock was set. `note` is your own note, null for none. `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths.
+`id` is the entry's place in the log, which it keeps until 250 newer ones have pushed it out. `time` in the JSON is seconds since 1970 in UTC, or milliseconds since start when `real` is false, which says whether the clock was set. `note` is your own note, null for none. `pty` is the programme type's number and `ptn` its name, in the RDS region the settings name, as in `/api/state`; both null when none was received. `cty` is the two letter ISO country code from the PI and the ECC together, null when either was not received or the pair names no country. `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths.
 
 ## DX mode
 

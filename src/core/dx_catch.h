@@ -180,7 +180,8 @@ void dxCatchesRefresh(DxCatches *list, const DxHearing *h);
 bool dxCatchDueLog(const DxCatch *k);
 
 /* The logbook entry for a catch: its strongest hearing on its own channel
- * since the last entry, at the width last heard, with that hearing's time. */
+ * since the last entry, at the width last heard, with that hearing's time,
+ * and its name, programme type and country code as last heard. */
 void dxCatchToLog(const DxCatch *k, LogbookEntry *out);
 
 /* The places of `list`'s catches in the order of `timedAt`, oldest first,

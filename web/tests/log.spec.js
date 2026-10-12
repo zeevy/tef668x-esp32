@@ -96,6 +96,19 @@ test('an entry: every reading, tune to it', async ({ page }) => {
   expect(await sent).toBe('khz=98300');
 });
 
+test('an entry: its programme type and country when the radio kept them, else neither', async ({ page }) => {
+  await radio(page, entries.map((e) => (e.id === 4 ? { ...e, pty: 10, ptn: 'Pop Music', cty: 'DE' } : { ...e, pty: null, ptn: null, cty: null })));
+  await page.goto('/#log');
+  await rows(page).nth(0).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('106.40');
+  await expect(dialog).not.toContainText('Programme type');
+  await expect(dialog).not.toContainText('Country');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await rows(page).nth(2).click();
+  for (const text of ['Programme type', 'Pop Music', 'Country', 'Germany']) await expect(dialog).toContainText(text);
+});
+
 test('on AM the co-channel reading, no noise', async ({ page }) => {
   await radio(page);
   await page.goto('/#log');

@@ -207,7 +207,7 @@ The [station log](Station-Log.md), newest first, in one card for each day: Today
 - **Download** gives the log as a CSV file, `logbook.csv`.
 - **The search box** finds entries by frequency, band, name, PI, note or radio text. A line over the cards says how many entries match.
 - Each entry shows the frequency, the name or the PI, and the time. "renamed" marks a name you typed. A chip shows each reading: Band, Level, SNR, Noise on FM, Multipath on FM or Co-channel on AM, Width, Sound (Stereo or Mono) and PI. The note shows under them.
-- **Tap an entry** to open it. It shows when it was logged, the radio text and every reading. You can change the **Name**, up to 8 letters, and write a **Note**, up to 32 letters, then press **Save**. **Tune** tunes the radio to it. **Delete** deletes it.
+- **Tap an entry** to open it. It shows when it was logged, the radio text, every reading, and the programme type and the country when the radio kept them. You can change the **Name**, up to 8 letters, and write a **Note**, up to 32 letters, then press **Save**. **Tune** tunes the radio to it. **Delete** deletes it.
 
 ## DX
 

@@ -21,14 +21,16 @@
 /*
  * Mount littlefs and open the log, creating it if it is not there yet.
  *
- * A format 1 or 2 file, from before the radio text or the note, is copied
- * into the current format, in a file of its own, with every entry kept; the
- * old file is left as it was, for firmware from before to find after a
- * rollback. It is copied again only when it has changed since the last
- * copy, which means firmware from before has logged to it. Any other file that does not start with the magic number and a version this
- * code knows is treated the same as one that is not there: started fresh
- * rather than read as whatever the bytes happen to decode to. Call once, at
- * start up.
+ * An older file, format 3 from before the programme type and the country
+ * code, or else format 1 or 2 from before the note, is copied into the
+ * current format, in a file of its own, with every entry kept in its ring
+ * order; the old file is left as it was, for firmware from before to find
+ * after a rollback. It is copied again only when it has changed since the
+ * last copy, which means firmware from before has logged to it. Any other
+ * file that does not start with the magic number and a version this code
+ * knows is treated the same as one that is not there: started fresh rather
+ * than read as whatever the bytes happen to decode to. Call once, at start
+ * up.
  */
 bool logbookFsBegin(void);
 

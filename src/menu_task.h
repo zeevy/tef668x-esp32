@@ -62,8 +62,9 @@ bool menuTaskOpenUpdateOffer(void);
  */
 void menuTaskTapRow(int32_t by);
 
-/* A tap on an answer of Restart Radio's question box, 0 for No on the left:
- * taken as the knob would take it. Nothing while that box is not up. */
+/* A tap on an answer of Restart Radio's question box, 0 for No on the left,
+ * or on a station card's Tune or Delete, 0 for Tune: taken as the knob would
+ * take it. Nothing while neither is up. */
 void menuTaskTapButton(uint8_t button);
 
 /*
@@ -82,7 +83,7 @@ void menuTaskPage(int dir);
 
 /*
  * Where the menu is: its level, group and sub-group, or a dialog, as one
- * number under 2^13 that changes whenever the screen under a finger does. 0
+ * number under 2^14 that changes whenever the screen under a finger does. 0
  * while it is shut.
  */
 uint32_t menuTaskPlace(void);

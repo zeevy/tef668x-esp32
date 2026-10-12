@@ -362,7 +362,23 @@
   X(RECOVERY_ERASE_SETTINGS, "Erase Settings", "Recovery screen row name") \
   X(RECOVERY_EXIT_AND_START_RADIO, "Exit & Start Radio", "Recovery screen row name") \
   X(RECOVERY_FAILED, "Failed", "Recovery screen, value of the Restore Previous Firmware row after a failed roll back, and of a row whose settings could not be written") \
-  X(RECOVERY_PRESS_AGAIN, "Press again", "Recovery screen, value of a row waiting for its second press") \
+  X(RECOVERY_PRESS_AGAIN, "Press again", "Recovery screen, value of a row waiting for its second press; the station page's Delete button waiting for its second press") \
+  X(PAGE_TUNE, "Tune", "Station page, the button that tunes to the preset or log entry shown") \
+  X(PAGE_DELETE, "Delete", "Station page, the button that deletes the preset or log entry shown, after a second press") \
+  X(PAGE_LEVEL, "Level", "Station page, tile label: the signal level") \
+  X(PAGE_SNR, "SNR", "Station page, tile label: signal to noise") \
+  X(PAGE_NOISE, "Noise", "Station page, tile label: the FM noise reading") \
+  X(PAGE_MULTIPATH, "Multipath", "Station page, tile label: the FM multipath reading") \
+  X(PAGE_COCHANNEL, "Co-channel", "Station page, tile label: the AM co-channel reading") \
+  X(PAGE_STEREO, "Stereo", "Station page, tile label: whether the station was in stereo") \
+  X(PAGE_WIDTH, "Width", "Station page, tile label: the filter width") \
+  X(PAGE_BAND, "Band", "Station page, tile label on a preset: its band") \
+  X(PAGE_FMT_DB, "%d dB", "Station page, value of the SNR tile") \
+  X(PAGE_FMT_PERCENT, "%u %%", "Station page, value of the Noise, Multipath and Co-channel tiles") \
+  X(PAGE_FMT_DBUV, "%s dBuV", "Station page, value of the Level tile, such as 45.2 dBuV") \
+  X(PAGE_NOTE_CHANGED, "Changed since this opened", "Station page, note in place of the line under the title when the preset or log entry shown was moved or deleted elsewhere since the page opened") \
+  X(PAGE_NOTE_NOT_DELETED, "Not deleted", "Station page, note in place of the line under the title when the delete could not be written") \
+  X(PAGE_TIME_UNKNOWN, "Time not known", "Station page, the time of a log entry made before the clock was set") \
   X(RECOVERY_ASK_ROTATE, "Press again to turn the display over", "Recovery screen foot line while Rotate Display waits for its second press") \
   X(RECOVERY_ASK_TOUCH_OFF, "Press again to turn touch off and restart", "Recovery screen foot line while Touch, now On, waits for its second press") \
   X(RECOVERY_ASK_TOUCH_ON, "Press again to turn touch on and restart", "Recovery screen foot line while Touch, now Off, waits for its second press") \

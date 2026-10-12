@@ -252,6 +252,13 @@ void dxCatchToLog(const DxCatch *k, LogbookEntry *out) {
   memcpy(out->name, k->ps, sizeof(out->name));
   out->hasPi = true;
   out->pi = k->pi;
+  /* The station's own, as its name is: a hearing is made only with its PI
+   * confirmed on the channel's own carrier. Type 0 says the station sends
+   * none. */
+  out->hasPty = k->rds.hasPty && k->rds.pty != 0;
+  out->pty = out->hasPty ? k->rds.pty : 0;
+  out->hasEcc = k->rds.hasEcc;
+  out->ecc = k->rds.hasEcc ? k->rds.ecc : 0;
 }
 
 /* The PE5PVB firmware's own header, so the converter finds every column. */

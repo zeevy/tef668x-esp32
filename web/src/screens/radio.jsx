@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { state } from '../data/radio.js';
 import { presets as presetsRead } from '../data/reads.js';
 import { bandOf } from '../data/bands.js';
-import { BANDS, freq, isFm, readings, unit } from '../data/format.js';
+import { BANDS, country, freq, isFm, readings, unit } from '../data/format.js';
 import { act } from '../data/act.js';
 import { recall, seek, step, tune } from '../data/commands.js';
 import { Bar, Button, Card, Chip, FactRows, Figure, Meter, Segmented, Select } from '../ui/kit.jsx';
@@ -273,18 +273,6 @@ function Signal({ s }) {
   );
 }
 
-
-const REGION = new Intl.DisplayNames(['en'], { type: 'region' });
-
-// The country's name from its two letters, or the letters when the browser
-// does not know them.
-function country(code) {
-  try {
-    return REGION.of(code);
-  } catch {
-    return code;
-  }
-}
 
 // How well RDS is heard on this station: of the blocks the tuner handed over,
 // four a group, the shares that came clean, that it fixed and that it lost;

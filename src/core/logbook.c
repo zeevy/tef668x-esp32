@@ -10,6 +10,7 @@
 #include "core/strings.h"
 #include "csv.h"
 #include "rds.h"
+#include "rds_country.h"
 
 void logbookRingInit(LogbookRing *ring) {
   if (ring == NULL) {
@@ -101,7 +102,12 @@ size_t logbookEncode(const LogbookEntry *e, uint8_t *out, size_t cap) {
   /* Copied whole, as the name is. */
   memcpy(p, e->note, LOGBOOK_NOTE_LEN);
   p += LOGBOOK_NOTE_LEN;
-  *p++ = e->renamed ? 1 : 0; /* Flags: bit 0 renamed, the rest kept 0. */
+  /* Flags: bit 0 renamed, bit 1 a programme type, bit 2 a country code, the
+   * rest kept 0. */
+  *p++ = (uint8_t)((e->renamed ? 1 : 0) | (e->hasPty ? 2 : 0) |
+                   (e->hasEcc ? 4 : 0));
+  *p++ = e->pty;
+  *p++ = e->ecc;
   return (size_t)(p - out);
 }
 
@@ -143,6 +149,11 @@ bool logbookDecode(const uint8_t *in, size_t len, LogbookEntry *out) {
   out->note[LOGBOOK_NOTE_LEN - 1] = '\0';
   p += LOGBOOK_NOTE_LEN;
   out->renamed = (*p & 1) != 0;
+  out->hasPty = (*p & 2) != 0;
+  out->hasEcc = (*p & 4) != 0;
+  p++;
+  out->pty = *p++;
+  out->ecc = *p;
   return true;
 }
 
@@ -171,7 +182,7 @@ bool logbookTextFits(const char *text, size_t max) {
 
 const char *logbookCsvHeader(void) {
   return "time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,"
-         "bandwidth_khz,name,pi,rt,note,renamed\n";
+         "bandwidth_khz,name,pi,rt,note,renamed,pty,country\n";
 }
 
 size_t logbookCsvLine(const LogbookEntry *e, int16_t offsetMinutes, char *out,
@@ -230,13 +241,21 @@ size_t logbookCsvLine(const LogbookEntry *e, int16_t offsetMinutes, char *out,
     csvQuote(e->note, LOGBOOK_NOTE_LEN - 1, noteField, sizeof(noteField));
   }
 
+  char ptyField[4];
+  ptyField[0] = '\0';
+  if (e->hasPty) {
+    snprintf(ptyField, sizeof(ptyField), "%u", (unsigned)e->pty);
+  }
+
+  const char *country = logbookEntryCountry(e);
+
   return (size_t)snprintf(
-      out, cap, "%s,%d,%s,%u,%d,%u,%u,%u,%d,%d,%u,%s,%s,%s,%s,%d\n", timeText,
-      e->timeKnown ? 1 : 0, bandName((BandId)e->band), (unsigned)e->freqKHz,
-      (int)e->levelDbuVTenths, (unsigned)e->usnTenths,
+      out, cap, "%s,%d,%s,%u,%d,%u,%u,%u,%d,%d,%u,%s,%s,%s,%s,%d,%s,%s\n",
+      timeText, e->timeKnown ? 1 : 0, bandName((BandId)e->band),
+      (unsigned)e->freqKHz, (int)e->levelDbuVTenths, (unsigned)e->usnTenths,
       (unsigned)e->multipathTenths, (unsigned)e->coChannelTenths, (int)e->snrDb,
       e->stereo ? 1 : 0, (unsigned)e->bandwidthKHz, nameField, piField, rtField,
-      noteField, e->renamed ? 1 : 0);
+      noteField, e->renamed ? 1 : 0, ptyField, country != NULL ? country : "");
 }
 
 void logbookEntryLabel(const LogbookEntry *e, char *out, size_t len) {
@@ -269,4 +288,9 @@ bool logbookEntryFrequency(const LogbookEntry *e, char *out, size_t len) {
     return false;
   }
   return bandFormatWithUnit((BandId)e->band, e->freqKHz, out, len);
+}
+
+const char *logbookEntryCountry(const LogbookEntry *e) {
+  return e != NULL && e->hasPi && e->hasEcc ? rdsCountryCode(e->pi, e->ecc)
+                                            : NULL;
 }

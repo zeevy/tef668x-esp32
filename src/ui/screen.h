@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../core/station_page.h"
 #include "../core/touch.h"
 
 /* Why there is no sound, which decides what the volume tile shows. */
@@ -420,6 +421,24 @@ typedef struct {
 } ScreenMenuDialog;
 
 void screenMenuDialogShow(const ScreenMenuDialog *dialog);
+
+/*
+ * A saved station's page, a preset's or a station log entry's, as a card:
+ * the frequency and the name, a line of what RDS said, the readings as
+ * tiles, the radio text and the note, and two buttons, Tune and Delete. A
+ * tap on the title line goes back, marked with a `<` while touch is in use.
+ * `asking` draws Delete waiting for its second press. Drawn on the menu's screen, as the question box is.
+ */
+typedef struct {
+  const StationPage *page;
+  const char *button[2];
+  uint8_t cursor; /* The button the knob is on, 0 or 1. */
+  bool asking;    /* Delete waits for its second press. */
+  /* Why a press did nothing, in place of the line under the title, or NULL. */
+  const char *note;
+} ScreenMenuStation;
+
+void screenMenuStationShow(const ScreenMenuStation *station);
 
 /*
  * Everything the RDS decoder knows, over four pages: the station, its radio

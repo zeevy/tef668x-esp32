@@ -28,18 +28,41 @@ Other ways to log:
 | Band and frequency | |
 | Signal | The level in dBµV, USN (noise), multipath, co-channel and SNR, the filter width, and stereo |
 | Name and PI | The station's RDS name and PI, only when they belong to that channel |
+| Programme type and country | The RDS programme type, such as Pop Music, and the extended country code (ECC), only when they belong to that channel. With the PI, the ECC names the country |
 | Radio text | When DX Scanner > Log Radio Text is On, which it is at the start |
 | Note | Your own note, up to 32 characters, written on the web page |
 
 The log holds 250 stations. When it is full, the oldest one is dropped to make room, so a new one is never refused.
 
-On the web page's [Station log](Web-Page.md#station-log) screen a station can be renamed (up to 8 characters, as RDS names are), given a note, or deleted. The readings are never changed. A deleted station can be logged again. Logging, renaming or deleting takes about a second; the radio's screen waits for it, the sound does not. On the radio itself the log can only be read, and there is no way to clear the whole log.
+On the web page's [Station log](Web-Page.md#station-log) screen a station can be renamed (up to 8 characters, as RDS names are), given a note, or deleted. The readings are never changed. A deleted station can be logged again. Logging, renaming or deleting takes about a second; the radio's screen waits for it, the sound does not. On the radio itself a station can be deleted from its card, below; there is no way to clear the whole log.
 
 ## View it on the radio
 
-Open the menu and go to **Stations > Station Log**. The newest station is first. Each row shows the RDS name, or `PI` and the code when there was no name, or the band, and the frequency. Press a row to tune to that frequency. The menu stays open.
+Open the menu and go to **Stations > Station Log**. The newest station is first. Each row shows the RDS name, or `PI` and the code when there was no name, or the band, and the frequency. Press a row to open its card.
 
 ![The Station Log in the menu](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-log.png)
+
+### An entry's card
+
+![A station's card](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-entry.png)
+
+The card shows everything the log kept for the station:
+
+- The frequency and the name as its title.
+- Under it, when it was logged (such as `Today 17:08`, or the day and time while the radio's clock is not set, or `Time not known` for a station logged before the clock was ever set), the PI, the country and the programme type, each when the log has it.
+- The readings as tiles: Level, SNR, Noise, Multipath, Stereo and Width on FM; Level, SNR, Co-channel and Width on AM.
+- The radio text, and your note.
+
+![An entry on shortwave](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-am.png)
+
+Two buttons sit at the foot. Turn the knob to move between them, and press it to act:
+
+- **Tune** tunes to the station and leaves the card open, so you can hear it. A station whose frequency is not on the band plan in use shows `Not on the band plan` and tunes nothing.
+- **Delete** deletes the entry. The first press turns the button red and says `Press again`; a second press within 5 seconds deletes it and goes back to the list. Turning the knob off it, going back or waiting 5 seconds lets it go. The last entry deleted takes you back to **Stations**.
+
+![Delete waiting for its second press](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-delete.png)
+
+If the entry was changed or deleted on the web page while its card was open, the card says `Changed since this opened` and does nothing; go back and open it again. If the radio cannot write the delete, it says `Not deleted`. MODE, or a hold of the knob, goes back to the list, and so does a tap on the title while Touch is On.
 
 ## Export it
 
@@ -49,7 +72,7 @@ As a CSV file for a spreadsheet, with **Download** on the web page's Station log
 curl -s -o logbook.csv http://tef668x.local:8080/api/log.csv
 ```
 
-The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed`. `renamed` is 1 when the name was typed on the web page, not received. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
+The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed,pty,country`. `renamed` is 1 when the name was typed on the web page, not received. `pty` is the programme type's number, 1 to 31. `country` is the two letter ISO code, such as `IN`, from the PI and the ECC together. Each is empty when it was not received. A country is never worked out from the PI alone, since one PI digit is shared by many countries. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
 
 `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths: `452` means 45.2 dBµV.
 
