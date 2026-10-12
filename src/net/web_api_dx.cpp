@@ -450,8 +450,8 @@ static void handleApiDxSweepGet(void) {
  * POST /api/scope sweep=1: a sweep of the band the radio is on for the band
  * scope, outside DX mode too, FM through DX mode's width and AM through the
  * radio's own. `span` in kHz, 0 or left out for the whole band, else that
- * span round the dial; the whole of SW is too many channels, so SW takes a
- * span. It returns at once; GET /api/scope has it once `running` is false.
+ * span round the dial; on SW the whole band is the metre band the dial is in,
+ * and between two metre bands SW takes a span. It returns at once; GET /api/scope has it once `running` is false.
  * Muted while it runs, about 4 s for the whole FM band and 7.5 s for MW, and
  * the web server answers nothing then.
  */
@@ -474,8 +474,8 @@ static void handleApiScopePost(void) {
       return;
     case SCOPE_TOO_WIDE:
       apiFail(400,
-              "More channels than a sweep holds, 431. On SW ask for a span, "
-              "for example span=360.");
+              "More channels than a sweep holds, 431. On SW ask for a span of "
+              "2150 kHz or less, for example span=360.");
       return;
     default:
       apiFail(409,

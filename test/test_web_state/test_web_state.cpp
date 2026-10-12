@@ -699,6 +699,27 @@ static void the_band_and_the_frequency_are_reported(void) {
   TEST_ASSERT_EQUAL_STRING("106400", at(tun, "khz").text.c_str());
 }
 
+/* Whether the object has `key` at all. */
+static bool hasKey(const Json &object, const char *key) {
+  for (size_t i = 0; i < object.keys.size(); i++) {
+    if (object.keys[i] == key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/* The metre band on SW, as the header shows it, and nothing on FM or
+ * between two metre bands. */
+static void the_metre_band_is_given_on_sw_only(void) {
+  TEST_ASSERT_FALSE(hasKey(at(state(), "tun"), "mtb"));
+  snapshot.settings.band = BAND_SW;
+  snapshot.settings.freqKHz = 13845;
+  TEST_ASSERT_EQUAL_STRING("22 m", at(at(state(), "tun"), "mtb").text.c_str());
+  snapshot.settings.freqKHz = 8000;
+  TEST_ASSERT_FALSE(hasKey(at(state(), "tun"), "mtb"));
+}
+
 /* The PC Link: open, who is in by address, and how many were turned away. */
 static void the_pc_link_says_who_is_signed_in(void) {
   const Json doc = state();
@@ -926,6 +947,7 @@ int main(int argc, char **argv) {
   RUN_TEST(the_reader_refuses_broken_json);
   RUN_TEST(the_whole_document_parses_as_one_object);
   RUN_TEST(the_band_and_the_frequency_are_reported);
+  RUN_TEST(the_metre_band_is_given_on_sw_only);
   RUN_TEST(the_pc_link_says_who_is_signed_in);
   RUN_TEST(the_live_state_says_its_pages_and_its_longest_send);
   RUN_TEST(the_battery_is_read_only_with_wifi_off);

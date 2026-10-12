@@ -1724,7 +1724,14 @@ static void scopeDraw(void) {
   /* The span of the sweep on show, or before the first, of the one asked
    * for. */
   in.span = live != NULL ? !v.whole : sScopeSpan;
-  in.position = in.span ? span : txt(STR_SCOPE_FULL);
+  /* On SW the whole band is a metre band, named as the header names it. */
+  char metres[8];
+  const bool metreBand =
+      !in.span &&
+      swMeterBandFormat(sScopeBand,
+                        live != NULL ? live->lowKHz : snap.settings.freqKHz,
+                        metres, sizeof(metres));
+  in.position = in.span ? span : metreBand ? metres : txt(STR_SCOPE_FULL);
   if (live != NULL) {
     in.marks = sScopeMarks;
     in.markCount = sScopeMarkN;
@@ -1818,6 +1825,9 @@ ScopeStart screenTaskScopeSweep(void) {
 
 void screenTaskScopeSpanToggle(void) {
   sScopeSpan = !sScopeSpan;
+  /* Picked with BAND, the span is the person's own and outlasts a close; a
+   * whole band too wide for a sweep forces it again. */
+  sScopeSpanForced = false;
   /* The page names the span of the sweep on show, so a refused one leaves
    * the choice as it was. */
   if (screenTaskScopeSweep() != SCOPE_STARTED) {

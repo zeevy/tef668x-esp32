@@ -75,7 +75,7 @@ test('the whole band or the span round the dial', async ({ page }) => {
   expect(await sent).toBe('sweep=1&span=3600');
 });
 
-test('on MW the span is 360 kHz, and SW has the span only', async ({ page }) => {
+test('on MW the span is 360 kHz, and SW between two metre bands has the span only', async ({ page }) => {
   await radio(page, { tun: { bnd: 'MW', khz: 738, f: '738', unt: 'kHz', stp: 9 }, sweep: null, rev: 0 });
   await page.goto('/#scope');
   await page.getByRole('radio', { name: 'Span' }).click();
@@ -83,12 +83,37 @@ test('on MW the span is 360 kHz, and SW has the span only', async ({ page }) => 
   await page.getByRole('button', { name: 'Sweep', exact: true }).click();
   expect(await sent).toBe('sweep=1&span=360');
   await page.unrouteAll();
-  await radio(page, { tun: { bnd: 'SW', khz: 9500, f: '9500', unt: 'kHz', stp: 5 }, sweep: null, rev: 0 });
+  await radio(page, { tun: { bnd: 'SW', khz: 8000, f: '8000', unt: 'kHz', stp: 5 }, sweep: null, rev: 0 });
   await page.reload();
-  await expect(page.getByRole('radio', { name: 'Whole band' })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'What to sweep' })).toHaveCount(0);
   sent = nextPost(page, '/api/scope');
   await page.getByRole('button', { name: 'Sweep', exact: true }).click();
   expect(await sent).toBe('sweep=1&span=360');
+});
+
+test('on SW in a metre band the band chip names it, and the whole of it is swept first', async ({ page }) => {
+  await radio(page, { tun: { bnd: 'SW', khz: 13845, f: '13845', unt: 'kHz', stp: 5, mtb: '22 m' }, sweep: null, rev: 0 });
+  await page.goto('/#scope');
+  const top = page.locator('main section').first();
+  await expect(top.getByText('SW 22 m', { exact: true })).toBeVisible();
+  await expect(page.getByRole('radio', { name: '22 m band' })).toHaveAttribute('aria-checked', 'true');
+  let sent = nextPost(page, '/api/scope');
+  await page.getByRole('button', { name: 'Sweep', exact: true }).click();
+  expect(await sent).toBe('sweep=1&span=0');
+  await page.getByRole('radio', { name: 'Span' }).click();
+  sent = nextPost(page, '/api/scope');
+  await page.getByRole('button', { name: 'Sweep', exact: true }).click();
+  expect(await sent).toBe('sweep=1&span=360');
+});
+
+test('Log logs the station on the dial', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#scope');
+  const sent = nextPost(page, '/api/log');
+  await page.getByRole('button', { name: 'Log', exact: true }).click();
+  // The log takes the station on the dial: the post carries nothing.
+  expect(await sent).toBeNull();
+  await expect(page.getByText(/^Logged /)).toBeVisible();
 });
 
 test('a sweep is read only when the radio has a new one; the chart dims until it comes', async ({ page }) => {

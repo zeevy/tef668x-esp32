@@ -16,7 +16,7 @@ It sweeps as soon as it opens. A sweep reads every channel at the band's default
 |---|---|---|---|
 | FM and OIRT | DX mode's filter width, **Scan Bandwidth** (114 kHz at the start), so a level here means the same as on DX mode's Scope page | About 4 seconds for FM | 3.6 MHz, under a second |
 | MW and LW | Your own AM filter width | About 7.5 seconds for MW, 2 for LW | 360 kHz, about 2 seconds on MW |
-| SW | Your own AM filter width | Too many channels for one sweep, so SW shows the span only | 360 kHz, about 4 seconds |
+| SW | Your own AM filter width | The metre band the dial is in, such as the 22 m band, 13570 to 13870 kHz in about 3 seconds; between two metre bands, the span only | 360 kHz, about 4 seconds |
 
 On AM each channel is read 40 ms after the tune. Measured on this radio, an AM reading taken sooner is too high on average, and 1 reading in 20 is off by 6 to 9 dB; a channel just above a strong station reads low at first. From 40 ms a reading is as good as one taken much later, at every AM width. On FM 5 ms is enough.
 
@@ -33,7 +33,7 @@ The page closes when the band changes.
 | Dial mark | Where the dial is: a short bar at the foot of the chart and of the strip |
 | Cursor | The thin line, on the channel the foot shows |
 | Foot | The cursor's frequency, in MHz on FM and kHz on AM, and its level |
-| Header | The band, for example `FM Scope` or `MW Scope`, how old the sweep is, `Full` or the span, and the clock |
+| Header | The band, for example `FM Scope` or `MW Scope`, how old the sweep is, `Full` or the span (on SW the metre band, such as `22 m`), and the clock |
 
 A peak with no tick and no square is a station you have not stored and have not caught.
 
@@ -43,7 +43,7 @@ The strip under the chart is DX mode's rise over a baseline. The band scope keep
 
 ![The band scope over 3.6 MHz round the dial](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/band-scope-span.png)
 
-A tap of BAND switches between the whole band (`Full`) and the span round the dial, the same width the tuning scale shows: `3.6 MHz` on FM and `360 kHz` on AM. It sweeps again. The span has wide bars, so one channel is easy to pick, and it sweeps quicker. Near the end of the band the span moves inside the band. The span has no floor line, since a span round a strong station gives a wrong floor. On SW, BAND sweeps the span again.
+A tap of BAND switches between the whole band (`Full`) and the span round the dial, the same width the tuning scale shows: `3.6 MHz` on FM and `360 kHz` on AM. It sweeps again. The span has wide bars, so one channel is easy to pick, and it sweeps quicker. Near the end of the band the span moves inside the band. The span has no floor line, since a span round a strong station gives a wrong floor. On SW the whole band is the metre band the dial is in, named in the header, such as `22 m`; between two metre bands, BAND sweeps the span again.
 
 ## Medium wave
 
@@ -58,7 +58,7 @@ The same page on MW, at night indoors, with one station heard, 738 kHz, stored a
 | Tuning knob, turn | Moves the cursor one channel | |
 | Tuning knob, press | Sweeps again, or stops the sweep that is running | Tunes to the cursor's channel |
 | ENTER | The same as the knob press | The same as the knob hold |
-| BAND | The whole band or the span, and sweeps again. On SW, the span again | Nothing |
+| BAND | The whole band or the span, and sweeps again. On SW the whole band is the metre band; between two metre bands, the span again | Nothing |
 | BW | Nothing | Nothing |
 | MODE | Closes the band scope | The menu |
 | DX | Closes the band scope | |

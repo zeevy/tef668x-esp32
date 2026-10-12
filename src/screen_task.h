@@ -149,7 +149,8 @@ void screenTaskRdsPage(int32_t clicks);
  * marked. Opening it sweeps the band at once; the knob moves the cursor, its
  * press sweeps again or ends the sweep running, and its hold tunes to the
  * cursor; BAND switches between the whole band and the span round the dial.
- * Shortwave, too many channels for one sweep, has the span only. It closes
+ * On shortwave, too many channels for one sweep, the whole band is the metre
+ * band the dial is in, and between two metre bands the span only. It closes
  * when the band changes. False when the panel is busy.
  */
 bool screenTaskScopeOpen(void);

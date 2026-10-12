@@ -8,7 +8,7 @@ import { state } from '../data/radio.js';
 import { catches, presets, scopeSweep } from '../data/reads.js';
 import { dbuv, freq, isFm, level, presetTag, unit } from '../data/format.js';
 import { act, say } from '../data/act.js';
-import { tune } from '../data/commands.js';
+import { logStation, tune } from '../data/commands.js';
 import { Button, Card, Segmented, Switch, Unread } from '../ui/kit.jsx';
 import { SweepButton, SweepChart, age, levelY, useAsked } from '../ui/sweep.jsx';
 import { dark } from '../ui/theme.js';
@@ -48,7 +48,7 @@ export function BandScope() {
   const presetList = presets.use().data;
   const caught = catches.use().data;
   const [shownRow, setShownRow] = useState(0);
-  const [span, setSpan] = useState(null);
+  const [spanPicked, setSpanPicked] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const running = s.scp?.run ?? false;
   const band = s.tun.bnd;
@@ -67,8 +67,12 @@ export function BandScope() {
 
   // Repeat: the next sweep each time one ends. A sweep stopped on the radio
   // stops it, and so does leaving the page, since each sweep mutes the radio.
-  const wantSpan = span ?? (band === 'SW' ? 'Span' : 'Whole band');
-  const spanKhz = wantSpan === 'Span' ? (isFm(band) ? SPAN_KHZ.fm : SPAN_KHZ.am) : 0;
+  // A whole sweep covers the band, or on SW the metre band the dial is in,
+  // since the whole of shortwave is more channels than a sweep holds;
+  // between two metre bands only a span fits.
+  const wholeLabel = band !== 'SW' ? 'Whole band' : s.tun.mtb ? `${s.tun.mtb} band` : null;
+  const wantWhole = wholeLabel !== null && !spanPicked;
+  const spanKhz = wantWhole ? 0 : isFm(band) ? SPAN_KHZ.fm : SPAN_KHZ.am;
   async function sweepNow() {
     if (await act('/api/scope', { sweep: 1, span: spanKhz })) markAsked();
     else setRepeat(false);
@@ -106,7 +110,7 @@ export function BandScope() {
   const waterfall = sweep && <Waterfall sweeps={seen.sweeps} shown={shownRow} onPick={setShownRow} />;
   const facts = sweep && (
     <p class="num text-sm text-muted">
-      {sweep.whole ? 'Whole band' : 'Span'} · {sweep.count} channels · width {sweep.width} kHz
+      {sweep.whole ? (sweep.band === 'SW' ? 'Metre band' : 'Whole band') : 'Span'} · {sweep.count} channels · width {sweep.width} kHz
       {sweep.floor != null && ` · floor ${level(sweep.floor)}`}
       {sweep.took_ms ? ` · took ${(sweep.took_ms / 1000).toFixed(1)} s` : ''}
       {shownRow > 0 && ` · an older sweep, ${shownRow} back`}
@@ -126,7 +130,12 @@ export function BandScope() {
       }}
     />
   );
-  const what = band !== 'SW' && <Segmented label="What to sweep" options={['Whole band', 'Span']} value={wantSpan} onChange={setSpan} />;
+  const what = wholeLabel && <Segmented label="What to sweep" options={[wholeLabel, 'Span']} value={wantWhole ? wholeLabel : 'Span'} onChange={(v) => setSpanPicked(v === 'Span')} />;
+  const log = (
+    <Button kind="secondary" icon="scroll-text" onClick={logStation}>
+      Log
+    </Button>
+  );
   const png = (
     <Button kind="secondary" icon="download" onClick={() => sweep && savePng(sweep, band)}>
       PNG
@@ -152,7 +161,8 @@ export function BandScope() {
           <SweepButton kind="primary" sweeping={sweeping} onClick={sweepNow} />
           {repeatSwitch}
         </div>
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-3 gap-2">
+          {log}
           {png}
           {csv}
         </div>

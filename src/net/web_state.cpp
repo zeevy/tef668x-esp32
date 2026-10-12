@@ -388,6 +388,8 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
  *   `vol`  Volume, dB.
  *   `mut`  Muted, as the person asked for it.
  *   `tmd`  Tuning mode: Manual, Auto, Presets or Meter band.
+ *   `mtb`  On SW, the metre band the dial is in, "22 m", as the radio's
+ *          header shows it. Left out on other bands and between metre bands.
  *   `pst`  The preset the radio is on, counted from 1, 0 for none.
  *   `seq`  Goes up with every new snapshot. A stalled radio task stops it.
  *   `ims`  Multipath suppression, iMS on the old radio.
@@ -498,6 +500,13 @@ static void appendRadioState(String &out) {
                  snap.memorySlot == MEMORY_NO_SLOT ? 0 : snap.memorySlot + 1,
                  (unsigned)snap.sequence);
         out += tuned;
+        char metres[8];
+        if (swMeterBandFormat(snap.settings.band, snap.settings.freqKHz, metres,
+                              sizeof(metres))) {
+          out += ",\"mtb\":\"";
+          out += metres;
+          out += "\"";
+        }
       }
       /* The FM features, none of which turns itself on. */
       jsonBool(out, "ims", snap.settings.multipathSuppression);
