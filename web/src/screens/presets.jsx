@@ -5,13 +5,13 @@ import { useRef, useState } from 'preact/hooks';
 import { change, postBody, state } from '../data/radio.js';
 import { presets } from '../data/reads.js';
 import { bandAt, bandOf } from '../data/bands.js';
-import { BANDS, freq, printable, typedKhz, unit } from '../data/format.js';
+import { BANDS, country, freq, printable, typedKhz, unit, when } from '../data/format.js';
 import { PRESET_NAME_MAX, PRESET_SLOTS } from '../data/limits.js';
 import { act, refused, say } from '../data/act.js';
 import { AddKey, PresetKey } from '../ui/keys.jsx';
 import { recall, storeStation } from '../data/commands.js';
 import { withMotion } from '../data/motion.js';
-import { Banner, Button, Card, FileButton, Icon, INPUT, Loading, Modal, Segmented, Select, Unread } from '../ui/kit.jsx';
+import { Banner, Button, Card, Figure, FileButton, Icon, INPUT, Loading, Modal, Segmented, Select, Unread } from '../ui/kit.jsx';
 import { StationNow } from '../ui/station.jsx';
 import { Stars } from '../ui/backs.jsx';
 
@@ -23,7 +23,7 @@ const firstFreeSlot = (list) => {
 
 // The largest body the radio takes in one request, in bytes; it refuses a
 // bigger one.
-const BODY_MAX = 8192;
+const BODY_MAX = 16384;
 
 export function Presets({ tabs }) {
   const s = state.value;
@@ -76,7 +76,7 @@ export function Presets({ tabs }) {
             class="text-sm sm:text-base"
             onFile={async (file) => {
               if (!file.size) return say('That file is empty.', 'bad');
-              if (file.size > BODY_MAX) return say(`${file.name} is ${Math.ceil(file.size / 1024)} KB; the radio takes a preset file of up to 8 KB.`, 'bad');
+              if (file.size > BODY_MAX) return say(`${file.name} is ${Math.ceil(file.size / 1024)} KB; the radio takes a preset file of up to 16 KB.`, 'bad');
               setUpload({ name: file.name, text: await file.text() });
             }}
           >
@@ -226,6 +226,25 @@ function Keys({ list, title, current, edit, add, move, editMode, setEditMode, ch
   );
 }
 
+// What the radio learnt or kept of a preset's station, each only when it
+// has it: the PI, the programme type, the country and when it was saved.
+function PresetFacts({ p }) {
+  const facts = [
+    p.pi && { label: 'PI', value: p.pi },
+    p.ptn && { label: 'Programme type', value: p.ptn },
+    p.cty && { label: 'Country', value: country(p.cty) },
+    p.saved > 0 && { label: 'Saved', value: when(p.saved) },
+  ].filter(Boolean);
+  if (!facts.length) return null;
+  return (
+    <div class="grid grid-cols-2 gap-4">
+      {facts.map((f) => (
+        <Figure {...f} />
+      ))}
+    </div>
+  );
+}
+
 // Add or change one preset: slot, frequency, width and name; Delete for one
 // that is stored. Another slot for a stored preset moves it there, so a
 // preset moves without a drag: onto a taken slot the two swap. A new preset
@@ -325,6 +344,7 @@ function PresetDialog({ preset, list, close, saved }) {
           ))}
         </Select>
       </div>
+      {!isNew && <PresetFacts p={preset} />}
       {error && <p class="text-sm text-bad">{error}</p>}
     </Modal>
   );

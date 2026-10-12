@@ -170,6 +170,10 @@
   X(MENU_GO_TO_SCOPE, "Band Scope", "Menu row name, Go To group: opens the band scope of the band the radio is on") \
   X(MENU_GO_TO_BAND, "Next Band", "Menu row name, Go To group: steps to the next band, as BAND does") \
   X(MENU_GO_TO_LOG, "Log Current Station", "Menu row name, Go To group: writes the station to the logbook") \
+  X(MENU_GO_TO_SAVE, "Save Current Station", "Menu row name, Go To group: saves the station on the dial to the lowest empty preset slot") \
+  X(MENU_FMT_SAVED_AS, "Saved as P%02d", "Radio screen, in the station name's place for a moment after Go To > Save Current Station saved the station") \
+  X(MENU_FMT_ALREADY_PRESET, "Already P%02d", "Menu, note on the Save Current Station row when the station is a preset already") \
+  X(MENU_NOTE_PRESETS_FULL, "Every slot is taken", "Menu, note on the Save Current Station row when all 99 preset slots hold a station") \
   X(MENU_GO_TO_SLEEP, "Sleep", "Menu row name, Go To group: the radio fades and sleeps until the knob is pressed") \
   X(MENU_STATIONS, "Stations", "Menu group name: the presets, the station scans and the station log") \
   X(MENU_MEMORY, "Presets", "Sub-group name, Stations > Presets, also its title when open") \
@@ -378,6 +382,7 @@
   X(PAGE_FMT_DBUV, "%s dBuV", "Station page, value of the Level tile, such as 45.2 dBuV") \
   X(PAGE_NOTE_CHANGED, "Changed since this opened", "Station page, note in place of the line under the title when the preset or log entry shown was moved or deleted elsewhere since the page opened") \
   X(PAGE_NOTE_NOT_DELETED, "Not deleted", "Station page, note in place of the line under the title when the delete could not be written") \
+  X(PAGE_FMT_SAVED, "Saved %s", "Station page of a preset, the line under the tiles: when it was saved, such as Saved Today 21:10") \
   X(PAGE_TIME_UNKNOWN, "Time not known", "Station page, the time of a log entry made before the clock was set") \
   X(RECOVERY_ASK_ROTATE, "Press again to turn the display over", "Recovery screen foot line while Rotate Display waits for its second press") \
   X(RECOVERY_ASK_TOUCH_OFF, "Press again to turn touch off and restart", "Recovery screen foot line while Touch, now On, waits for its second press") \

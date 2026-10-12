@@ -1672,10 +1672,29 @@ int main(int argc, char **argv) {
     menu.rows[2].name = txt(STR_MENU_GO_TO_RDS);
     menu.rows[3].name = txt(STR_MENU_GO_TO_DX);
     menu.rows[3].selected = true;
-    menu.rows[4].name = txt(STR_MENU_GO_TO_LOG);
-    menu.rows[5].name = txt(STR_MENU_GO_TO_SLEEP);
+    menu.rows[4].name = txt(STR_MENU_GO_TO_SCOPE);
+    menu.rows[5].name = txt(STR_MENU_GO_TO_LOG);
     screenMenuShow(&menu);
     saveShot("%s/menu-note.bmp", dir);
+
+    /* Save Current Station on a station that is a preset already: its note,
+     * and the menu still open, scrolled to the end of Go To. */
+    memset(&menu, 0, sizeof(menu));
+    menu.title = txt(STR_MENU_GO_TO);
+    static char already[24];
+    snprintf(already, sizeof(already), txt(STR_MENU_FMT_ALREADY_PRESET), 5);
+    menu.note = already;
+    menu.rows[0].name = txt(STR_MENU_GO_TO_RDS);
+    menu.rows[1].name = txt(STR_MENU_GO_TO_DX);
+    menu.rows[2].name = txt(STR_MENU_GO_TO_SCOPE);
+    menu.rows[3].name = txt(STR_MENU_GO_TO_LOG);
+    menu.rows[4].name = txt(STR_MENU_GO_TO_SAVE);
+    menu.rows[4].selected = true;
+    menu.rows[5].name = txt(STR_MENU_GO_TO_SLEEP);
+    menu.total = 8;
+    menu.top = 2;
+    screenMenuShow(&menu);
+    saveShot("%s/menu-save-already.bmp", dir);
 
     /* The Station Log, newest first, six stations from this radio's own
      * logbook, one entry each as the log keeps them: the band where a station
@@ -1867,7 +1886,9 @@ int main(int argc, char **argv) {
       c.band = BAND_FM;
       strcpy(c.name, "Morning Classics");
       c.pi = 0x0935;
-      stationPagePreset(&c, 3, &page);
+      c.pty = 10;
+      c.savedUtc = 1791619436 - 7200;
+      stationPagePreset(&c, 3, true, 1791619436, 330, RDS_REGION_EUROPE, &page);
       screenMenuStationShow(&card);
       saveShot("%s/menu-station-preset.bmp", dir);
     }

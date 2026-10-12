@@ -101,12 +101,26 @@ DxPresetPi dxPresetPi(const RdsInfo *rds, const SeekReading *reading,
 }
 
 bool dxPresetLearn(const RdsInfo *rds, const SeekReading *reading,
-                   uint16_t storedPi, uint16_t *out) {
-  if (out == NULL || storedPi != 0 || !dxPiConfirmed(rds, reading)) {
+                   MemoryChannel *c) {
+  if (c == NULL || !dxPiConfirmed(rds, reading) ||
+      (c->pi != 0 && c->pi != rds->pi)) {
     return false;
   }
-  *out = rds->pi;
-  return true;
+  bool learnt = false;
+  if (c->pi == 0) {
+    c->pi = rds->pi;
+    learnt = true;
+  }
+  /* Type 0 says the station sends none, and code 0 is no country's. */
+  if (c->pty == 0 && rds->hasPty && rds->pty != 0) {
+    c->pty = rds->pty;
+    learnt = true;
+  }
+  if (c->ecc == 0 && rds->hasEcc && rds->ecc != 0) {
+    c->ecc = rds->ecc;
+    learnt = true;
+  }
+  return learnt;
 }
 
 DxPiTile dxPiTile(const RdsInfo *rds, const SeekReading *reading) {

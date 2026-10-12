@@ -231,6 +231,23 @@ test('change: rename, and delete', async ({ page }) => {
   expect((await sent).body).toBe('do=clear&slot=1');
 });
 
+test('change: the dialog shows what the radio learnt about the station, and nothing for a preset with none', async ({ page }) => {
+  const csv = 'slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved\n1,FM,91100,0,ONE,,,,,,\n5,FM,98300,168,FIVE,26FF,10,Pop Music,E2,IN,2026-10-10 08:03\n';
+  await radio(page, { csv });
+  await page.goto('/#presets');
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('button', { name: 'Change preset 5' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('26FF');
+  await expect(dialog).toContainText('Pop Music');
+  await expect(dialog).toContainText('India');
+  await expect(dialog).toContainText('Saved');
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('button', { name: 'Change preset 1' }).click();
+  await expect(dialog).not.toContainText('Programme type');
+  await expect(dialog).not.toContainText('Saved');
+});
+
 test('change mode: a drag onto another key, and onto an empty slot, moves', async ({ page }) => {
   await radio(page);
   await page.goto('/#presets');
@@ -382,13 +399,13 @@ test('download is the CSV file', async ({ page }) => {
   await expect(link).toHaveAttribute('download', 'presets.csv');
 });
 
-test('upload: a file over 8 KB is refused in plain words, and nothing is sent', async ({ page }) => {
+test('upload: a file over 16 KB is refused in plain words, and nothing is sent', async ({ page }) => {
   await radio(page);
   let posts = 0;
   page.on('request', (r) => r.method() === 'POST' && posts++);
   await page.goto('/#presets');
-  await page.locator('input[type=file]').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: Buffer.alloc(8193, 'a') });
-  await expect(page.getByRole('status').filter({ hasText: 'big.csv is 9 KB; the radio takes a preset file of up to 8 KB.' })).toBeVisible();
+  await page.locator('input[type=file]').setInputFiles({ name: 'big.csv', mimeType: 'text/csv', buffer: Buffer.alloc(16385, 'a') });
+  await expect(page.getByRole('status').filter({ hasText: 'big.csv is 17 KB; the radio takes a preset file of up to 16 KB.' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(posts).toBe(0);
 });

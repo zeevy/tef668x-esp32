@@ -37,7 +37,7 @@ This is a ground up rewrite, not a fork. It takes its hardware knowledge and man
 - While DX mode is open, the presets are watched in the background, with a beep when one comes up.
 
 **Presets and logbook**
-- 99 presets, each with a band, a frequency, a width and a name, walked with the knob.
+- 99 presets, each with a band, a frequency, a width, a name, the station's PI, programme type and country, and when it was saved. Walked with the knob, and saved from the menu or the web page.
 - Import and export as CSV, so a band plan can be made in a spreadsheet.
 - A station scan per band that fills the empty presets.
 - A 250 entry logbook: hold the knob and the radio writes down the time, frequency, signal and RDS name.

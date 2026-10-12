@@ -61,7 +61,7 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 403 | Not signed in: `Enter the access PIN first.` |
 | 404 | Under `/api/`, no such route or the wrong method: `Nothing on the API answers this. Check the path, and whether it takes GET or POST.` Also an empty preset or a catch no longer in the list. Any other unknown path, such as `/radio` from an older firmware, is sent to `/`, the web page |
 | 409 | Not now. For a key or a touch: `The last key sent has not been handled yet. Send again.` For a touch also when Touch is Off, the screen is dark or held by another screen, the calibration screen is open, or a finger could not make that gesture there |
-| 413 | A form or text body over 8192 bytes. A firmware upload is not limited by this |
+| 413 | A form or text body over 16384 bytes. A firmware upload is not limited by this |
 | 429 | Too many wrong PINs |
 | 500 | It could not be stored |
 | 502 | `Not done: the tuner did not take it, and the radio is trying again.` |
@@ -400,7 +400,7 @@ See [Presets and Station Scan](Presets-and-Station-Scan.md) for the CSV format.
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
 | `POST /api/presets` | Yes | `do=set` with `slot`, `khz`, and `bw` and `name` if wanted | `Preset 50 is FM 98.30 MHz` |
-| `POST /api/presets` | Yes | `do=add` with `khz`, and `bw` and `name` if wanted. The radio stores it in the lowest free slot, and refuses a station that is a preset already | `Preset 6 is FM 98.30 MHz` |
+| `POST /api/presets` | Yes | `do=add` with `khz`, and `bw` and `name` if wanted. The radio stores it in the lowest free slot, with the time and, when it is on that station, the PI, programme type and ECC it has confirmed. It refuses a station that is a preset already, and a frequency the band plan puts on another band | `Preset 6 is FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=recall` with `slot` | `FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=move` with `slot` and `to`. The two swap when `to` holds a preset | `Preset 3 moved to 10.`, `Presets 3 and 10 swapped.` |
 | `POST /api/presets` | Yes | `do=clear` with `slot` | `Preset 10 deleted.` |
@@ -410,10 +410,10 @@ See [Presets and Station Scan](Presets-and-Station-Scan.md) for the CSV format.
 
 ```
 $ curl -s $R/api/presets.csv
-slot,band,frequency,bandwidth,name,pi
-1,FM,91100,0,,3712
-2,FM,92700,0,,
-3,FM,93500,0,,0935
+slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved
+1,FM,91100,0,,3712,,,,,
+2,FM,92700,0,,,,,,,2026-10-12 15:38
+3,FM,93500,0,,0935,10,Pop Music,E2,IN,2026-10-12 15:40
 ...
 ```
 

@@ -611,10 +611,10 @@ static void fillSome(MemoryStore *m) {
  * teach memoryFromBlob to read the versions before into the new shape, and
  * move this number.
  */
-static void a_store_is_the_size_version_2_writes(void) {
-  TEST_ASSERT_EQUAL_UINT32(2772, sizeof(MemoryStore));
-  TEST_ASSERT_EQUAL_INT(2, MEMORY_BLOB_VERSION);
-  TEST_ASSERT_EQUAL_UINT32(8 + 2772, memoryBlobSize());
+static void a_store_is_the_size_version_3_writes(void) {
+  TEST_ASSERT_EQUAL_UINT32(3168, sizeof(MemoryStore));
+  TEST_ASSERT_EQUAL_INT(3, MEMORY_BLOB_VERSION);
+  TEST_ASSERT_EQUAL_UINT32(8 + 3168, memoryBlobSize());
 }
 
 /* A list in version 1's layout, 24 bytes a channel and no PI. */
@@ -663,7 +663,10 @@ static void a_list_comes_back_from_its_stored_form(void) {
   MemoryStore before;
   fillSome(&before);
   before.slot[41].pi = 0x5A17;
-  static uint8_t blob[8 + 2772];
+  before.slot[41].pty = 10;
+  before.slot[41].ecc = 0xF2;
+  before.slot[41].savedUtc = 1791619436;
+  static uint8_t blob[8 + 3168];
   TEST_ASSERT_EQUAL_UINT32(sizeof(blob),
                            memoryToBlob(&before, blob, sizeof(blob)));
   MemoryStore after;
@@ -671,6 +674,48 @@ static void a_list_comes_back_from_its_stored_form(void) {
   TEST_ASSERT_EQUAL_MEMORY(&before, &after, sizeof(MemoryStore));
   TEST_ASSERT_EQUAL_STRING("Vividh Bharati", memoryGet(&after, 41)->name);
   TEST_ASSERT_EQUAL_UINT16(0x5A17, memoryGet(&after, 41)->pi);
+  TEST_ASSERT_EQUAL_UINT8(10, memoryGet(&after, 41)->pty);
+  TEST_ASSERT_EQUAL_HEX8(0xF2, memoryGet(&after, 41)->ecc);
+  TEST_ASSERT_EQUAL_UINT32(1791619436, memoryGet(&after, 41)->savedUtc);
+}
+
+/* A version 2 list, as every radio has in flash before the programme type:
+ * 28 bytes a channel, the PI, then two bytes of padding that were never
+ * cleared. Every channel and PI kept; type, code and time 0, whatever the
+ * padding held. */
+static void a_version_2_list_is_read_with_no_type_country_or_time(void) {
+  MemoryStore before;
+  fillSome(&before);
+  before.slot[41].pi = 0x5A17;
+  static uint8_t blob[8 + 2772];
+  memset(blob, 0xAA, sizeof(blob));
+  const uint32_t magic = 0x4D454D53UL;
+  const uint16_t version = 2;
+  const uint16_t body = 2772;
+  memcpy(blob, &magic, 4);
+  memcpy(blob + 4, &version, 2);
+  memcpy(blob + 6, &body, 2);
+  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
+    const MemoryChannel *c = &before.slot[i];
+    uint8_t *at = blob + 8 + i * 28;
+    memcpy(at, &c->freqKHz, 4);
+    memcpy(at + 4, &c->bandwidthKHz, 2);
+    at[6] = c->band;
+    memcpy(at + 7, c->name, MEMORY_NAME_LEN);
+    memcpy(at + 24, &c->pi, 2);
+  }
+  MemoryStore after;
+  TEST_ASSERT_TRUE(memoryFromBlob(blob, sizeof(blob), &after));
+  TEST_ASSERT_EQUAL_INT(memoryCount(&before), memoryCount(&after));
+  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
+    TEST_ASSERT_EQUAL_UINT32(before.slot[i].freqKHz, after.slot[i].freqKHz);
+    TEST_ASSERT_EQUAL_STRING(before.slot[i].name, after.slot[i].name);
+    TEST_ASSERT_EQUAL_UINT16(before.slot[i].pi, after.slot[i].pi);
+    TEST_ASSERT_EQUAL_UINT8(0, after.slot[i].pty);
+    TEST_ASSERT_EQUAL_UINT8(0, after.slot[i].ecc);
+    TEST_ASSERT_EQUAL_UINT32(0, after.slot[i].savedUtc);
+  }
+  TEST_ASSERT_EQUAL_UINT16(0x5A17, after.slot[41].pi);
 }
 
 /* What the first firmware wrote: the bare version 1 list, no header. */
@@ -687,7 +732,7 @@ static void a_bare_list_from_the_first_firmware_is_read(void) {
 static void a_later_version_is_refused_and_leaves_the_list_empty(void) {
   MemoryStore before;
   fillSome(&before);
-  static uint8_t blob[8 + 2772];
+  static uint8_t blob[8 + 3168];
   memoryToBlob(&before, blob, sizeof(blob));
   const uint16_t later = MEMORY_BLOB_VERSION + 1;
   memcpy(blob + 4, &later, sizeof(later));
@@ -700,13 +745,13 @@ static void a_later_version_is_refused_and_leaves_the_list_empty(void) {
 static void a_header_that_does_not_match_what_follows_is_refused(void) {
   MemoryStore before;
   fillSome(&before);
-  static uint8_t blob[8 + 2772];
+  static uint8_t blob[8 + 3168];
   memoryToBlob(&before, blob, sizeof(blob));
   MemoryStore after;
   /* One byte short of what the header says. */
   TEST_ASSERT_FALSE(memoryFromBlob(blob, sizeof(blob) - 1, &after));
   /* A body length that is not this list's. */
-  const uint16_t wrong = 2771;
+  const uint16_t wrong = 3167;
   memcpy(blob + 6, &wrong, sizeof(wrong));
   TEST_ASSERT_FALSE(memoryFromBlob(blob, sizeof(blob), &after));
 }
@@ -724,7 +769,7 @@ static void a_bare_list_of_another_length_is_refused(void) {
 static void the_stored_form_takes_null_and_short_buffers(void) {
   MemoryStore m;
   fillSome(&m);
-  static uint8_t blob[8 + 2772];
+  static uint8_t blob[8 + 3168];
   TEST_ASSERT_EQUAL_UINT32(0, memoryToBlob(NULL, blob, sizeof(blob)));
   TEST_ASSERT_EQUAL_UINT32(0, memoryToBlob(&m, NULL, sizeof(blob)));
   TEST_ASSERT_EQUAL_UINT32(0, memoryToBlob(&m, blob, sizeof(blob) - 1));
@@ -851,7 +896,8 @@ int main(int, char **) {
   RUN_TEST(sanitize_counts_only_the_slots_that_held_a_channel);
   RUN_TEST(sanitize_takes_a_null_store);
 
-  RUN_TEST(a_store_is_the_size_version_2_writes);
+  RUN_TEST(a_store_is_the_size_version_3_writes);
+  RUN_TEST(a_version_2_list_is_read_with_no_type_country_or_time);
   RUN_TEST(a_version_1_list_is_read_with_no_pi);
   RUN_TEST(a_list_comes_back_from_its_stored_form);
   RUN_TEST(a_bare_list_from_the_first_firmware_is_read);

@@ -69,7 +69,7 @@ int memoryStoreCount(void);
  * or MEMORY_NO_SLOT. */
 int memoryStoreNthUsed(int n, MemoryChannel *out);
 
-size_t memoryStoreLine(int slot, char *out, size_t cap);
+size_t memoryStoreLine(int slot, RdsRegion region, char *out, size_t cap);
 
 bool memoryStoreImport(MemoryImportMode mode, const char *text, size_t len,
                        MemoryImportResult *out);
@@ -82,7 +82,10 @@ int memoryStoreFindNear(uint8_t band, uint32_t freqKHz, uint32_t toleranceKHz);
 
 /* memoryAddChannel on the list, under one take of its lock, so no other
  * write comes between the check for the station and the store. The call a
- * page, a script and a station scan add a preset through.
+ * page, a script, a station scan and the menu add a preset through. The
+ * preset is stamped with the time and, when the radio is on that station,
+ * with what RDS confirmed of it. MEMORY_SAVE_INVALID too for a frequency
+ * the band plan in use puts on another band, or on none.
  * MEMORY_SAVE_UNREACHABLE when the store has no lock. */
 MemorySaveResult memoryStoreAdd(uint8_t band, uint32_t freqKHz,
                                 uint16_t bandwidthKHz, const char *name,

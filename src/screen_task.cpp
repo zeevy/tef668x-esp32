@@ -1896,10 +1896,11 @@ const char *screenTaskShowing(uint8_t *page) {
 
 /*
  * A preset with no PI learns the one confirmed on it, so it can later tell
- * its own station from another on the same channel. Twice a second: a PI
- * takes seconds to be confirmed, and the read is a copy under the store's
- * lock. The store writes to flash on its own, after the list has been
- * still for a while, and a slot learns once.
+ * its own station from another on the same channel, and with it, or later,
+ * the station's programme type and ECC. Twice a second: a PI takes seconds
+ * to be confirmed, and the read is a copy under the store's lock. The store
+ * writes to flash on its own, after the list has been still for a while,
+ * and a slot learns each of these once.
  */
 #define PRESET_LEARN_MS 500
 
@@ -1924,22 +1925,21 @@ static void presetLearnPoll(uint32_t nowMs) {
   }
   /* The slot the snapshot names can hold another station for a moment: a
    * move or a swap on the web page changes the list before the radio looks
-   * its slot up again. A PI learnt then would be another station's, and a
-   * slot learns only once. */
+   * its slot up again. What it learnt then would be another station's, and a
+   * slot learns each thing only once. */
   if (channel.band != snap.settings.band ||
       channel.freqKHz != snap.settings.freqKHz) {
     return;
   }
   const SeekReading reading =
       radioSeekReading(&snap.quality, snap.qualityValid);
-  uint16_t pi = 0;
-  if (!dxPresetLearn(&snap.rds, &reading, channel.pi, &pi)) {
+  if (!dxPresetLearn(&snap.rds, &reading, &channel)) {
     return;
   }
-  channel.pi = pi;
   if (memoryStoreWrite(snap.memorySlot, &channel)) {
-    DebugLog.printf("[memory] P%02d learnt PI %04X\n", snap.memorySlot + 1,
-                    (unsigned)pi);
+    DebugLog.printf("[memory] P%02d learnt PI %04X, type %u, ECC %02X\n",
+                    snap.memorySlot + 1, (unsigned)channel.pi,
+                    (unsigned)channel.pty, (unsigned)channel.ecc);
   }
 }
 

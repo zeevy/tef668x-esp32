@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "logbook.h"
+#include "memory.h"
 #include "rds.h"
 #include "rds_country.h"
 #include "seek.h"
@@ -141,13 +142,15 @@ DxPresetPi dxPresetPi(const RdsInfo *rds, const SeekReading *reading,
                       uint16_t storedPi);
 
 /*
- * The PI a preset with none should learn: true, and `*out` set, when
- * `storedPi` is 0 and a PI is confirmed as this channel's own. A stored PI
- * is never replaced this way, so another station passing through cannot
- * take the preset over.
+ * What a preset learns of its station from RDS heard on its own channel:
+ * the PI, once one is confirmed here and the preset has none, then the
+ * programme type and the ECC, each when the preset has none and the PI
+ * confirmed here is the preset's own. True when anything was learnt. Nothing
+ * stored is ever replaced this way, so another station passing through
+ * cannot take the preset over.
  */
 bool dxPresetLearn(const RdsInfo *rds, const SeekReading *reading,
-                   uint16_t storedPi, uint16_t *out);
+                   MemoryChannel *c);
 
 /* ------------------------------------------------------------ the page -- */
 

@@ -42,7 +42,7 @@ A short note shows when something could not be done: in a list, on the row in pl
 
 ## Go To
 
-Each row does one thing and closes the menu. When it cannot, for example DX Mode on AM, the menu stays open and shows a note.
+Each row does one thing and closes the menu. When it cannot, for example DX Mode on AM or a station that is a preset already, the menu stays open and shows a note.
 
 | Row | What it does |
 |---|---|
@@ -52,6 +52,7 @@ Each row does one thing and closes the menu. When it cannot, for example DX Mode
 | DX Mode | Opens DX mode. FM and OIRT only |
 | Band Scope | Opens the [band scope](Band-Scope.md) of the band you are on |
 | Log Current Station | Writes the station to the station log |
+| Save Current Station | Saves the station on the dial as a preset, in the lowest free slot, with its RDS name. The radio screen says `Saved as P10`. A station that is a preset already shows `Already P05`, a full list `Every slot is taken`, and a frequency the band plan puts on another band `Not on the band plan`. See [Presets](Presets-and-Station-Scan.md#saving-and-changing-presets) |
 | Sleep | The radio fades and sleeps until the knob is pressed. See [Sleep and Auto Off](Sleep-and-Auto-Off.md) |
 
 ## Stations

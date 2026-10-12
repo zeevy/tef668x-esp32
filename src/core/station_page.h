@@ -41,9 +41,11 @@ typedef struct {
 bool stationPageLog(const LogbookEntry *e, bool nowKnown, uint32_t nowUtc,
                     int16_t offsetMinutes, RdsRegion region, StationPage *out);
 
-/* A preset's page: slot `slot`, counted from 1. False for a NULL pointer or
- * an empty slot. */
-bool stationPagePreset(const MemoryChannel *c, uint8_t slot, StationPage *out);
+/* A preset's page: slot `slot`, counted from 1, its time written as a log
+ * entry's is. False for a NULL pointer or an empty slot. */
+bool stationPagePreset(const MemoryChannel *c, uint8_t slot, bool nowKnown,
+                       uint32_t nowUtc, int16_t offsetMinutes, RdsRegion region,
+                       StationPage *out);
 
 #ifdef __cplusplus
 }
