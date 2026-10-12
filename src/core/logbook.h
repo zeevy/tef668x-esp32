@@ -94,6 +94,13 @@ typedef struct {
   /* The name was typed by a person, not received: a log keeps the two
    * apart, since a received name is evidence of what was heard. Format 3. */
   bool renamed;
+  /* The programme type the station sent, 1 to 31, and its extended country
+   * code, which with the PI names the country. Each only when heard from the
+   * channel's own station. Format 4. */
+  bool hasPty;
+  uint8_t pty;
+  bool hasEcc;
+  uint8_t ecc;
 } LogbookEntry;
 
 /*
