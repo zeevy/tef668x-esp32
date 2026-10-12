@@ -60,12 +60,12 @@ See [Presets and Station Scan](Presets-and-Station-Scan.md) and [Station Log](St
 
 | Row | What it does |
 |---|---|
-| Presets | A list of the stored presets, such as `P03 NEWS` and the frequency. Press one to tune it. The menu stays open |
+| Presets | A list of the stored presets, such as `P03 NEWS` and the frequency. Press one to open its card: its slot, band, width and PI, with **Tune** and **Delete**. See [Presets and Station Scan](Presets-and-Station-Scan.md#a-presets-card) |
 | FM Station Scan | Walks the FM band and saves each station found to an empty preset, except stations already stored. Press again to stop |
 | AM Station Scan | The same, for medium wave |
 | SW Station Scan | The same, for the shortwave broadcast bands |
 | LW Station Scan | The same, for long wave |
-| Station Log | The station log, newest first. Press an entry to tune it. The menu stays open |
+| Station Log | The station log, newest first. Press an entry to open its card: everything the log kept, with **Tune** and **Delete**. See [Station Log](Station-Log.md#an-entrys-card) |
 
 ## Audio
 

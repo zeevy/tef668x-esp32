@@ -1,6 +1,6 @@
 # Touch Screen
 
-The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Web PIN, the Restart Radio question, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The update offer is still worked with the knobs and the buttons, or from the web page. A touch does what a knob or a key does there, with two more: the volume tile mutes, and a tap on the frequency opens the frequency keypad.
+The ATS-125's screen has a resistive touch panel, read by an XPT2046 controller. The radio screen, the frequency keypad, the menu's lists, its lists of choices, its values with a bar, the Web PIN, the Restart Radio question, a preset's or a log entry's card, the bandwidth page, the RDS screen and DX mode's four pages can be worked by touch, below. The update offer is still worked with the knobs and the buttons, or from the web page. A touch does what a knob or a key does there, with two more: the volume tile mutes, and a tap on the frequency opens the frequency keypad.
 
 While Touch is On, a `<` before a screen's title marks that a tap on the title goes back, and a `>` after a page position such as `2/4` marks that a tap on it goes to the next page.
 
@@ -97,6 +97,18 @@ The digits never show in [GET /api/screen](HTTP-API.md#get-apiscreen), which rea
 |---|---|---|
 | No, on the left | Tap | Nothing is done, and the box closes |
 | Yes, on the right | Tap | The radio restarts |
+
+## A station's card
+
+![A log entry's card, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-station.png)
+
+A press on a preset or a log entry in **Stations** opens its card. See [Station Log](Station-Log.md#an-entrys-card).
+
+| Where | Touch | Does |
+|---|---|---|
+| The title line, with its `<` | Tap | Back to the list |
+| Tune | Tap | Tunes to the station; the card stays open |
+| Delete | Tap | The first tap says `Press again`; a second tap within 5 seconds deletes and goes back to the list |
 
 The knob starts on No. Turning it moves between the two, and a press takes the one that is lit. A tap takes an answer at once, with no second step.
 

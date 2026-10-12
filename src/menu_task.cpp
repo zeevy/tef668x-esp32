@@ -2445,7 +2445,168 @@ static void drawValue(void) {
   screenTaskMenuDrawn();
 }
 
+/* A saved station's card over its list, opened by a press on a preset or a
+ * station log row. It keeps the entry as it was when opened, so Tune and
+ * Delete act on the station shown even if the list moves under it. Delete
+ * acts on a second press within DELETE_ASK_MS, the way the recovery
+ * screen's rows that cannot be undone ask; turning off it, going back or
+ * the time running out lets it go. Five seconds is time to look at the
+ * panel and press again, and short enough that a press much later is not
+ * taken as the second. */
+#define DELETE_ASK_MS 5000
+
+static struct {
+  bool open;
+  bool log;       /* A station log entry, else a preset. */
+  uint8_t cursor; /* 0 Tune, 1 Delete. */
+  bool asking;    /* Delete was pressed once. */
+  uint32_t askedMs;
+  uint16_t logSlot; /* Where the entry was when the card opened. */
+  LogbookEntry entry;
+  int presetSlot;
+  MemoryChannel channel;
+} sCard;
+
+static void drawCard(void) {
+  static StationPage page;
+  uint32_t now = 0;
+  const bool nowKnown = ntpEpochUtc(&now);
+  if (sCard.log) {
+    (void)stationPageLog(&sCard.entry, nowKnown, now, ntpOffsetMinutes(),
+                         (RdsRegion)(sLive != NULL ? sLive->rdsRegion : 0),
+                         &page);
+  } else {
+    (void)stationPagePreset(&sCard.channel, (uint8_t)(sCard.presetSlot + 1),
+                            &page);
+  }
+  ScreenMenuStation card;
+  memset(&card, 0, sizeof(card));
+  card.page = &page;
+  card.button[0] = txt(STR_PAGE_TUNE);
+  card.button[1] =
+      txt(sCard.asking ? STR_RECOVERY_PRESS_AGAIN : STR_PAGE_DELETE);
+  card.cursor = sCard.cursor;
+  card.asking = sCard.asking;
+  card.note = sNote;
+  screenMenuStationShow(&card);
+}
+
+static void openCard(bool log) {
+  sCard.open = true;
+  sCard.log = log;
+  sCard.cursor = 0;
+  sCard.asking = false;
+  sNote = NULL;
+}
+
+static void closeCard(void) {
+  sCard.open = false;
+  sCard.asking = false;
+  sNote = NULL;
+}
+
+/* Tunes to a log entry with the command `POST /api/tune` sends, after the
+ * check a preset gets: an entry whose frequency the band plan now gives to
+ * another band would land there. */
+static void tuneLogEntry(const LogbookEntry *e) {
+  BandPlanConfig plan;
+  BandId band = BAND_COUNT;
+  if (!radioTaskPlan(&plan)) {
+    sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+    return;
+  }
+  if (!bandForFrequency(&plan, e->freqKHz, &band) || band != e->band) {
+    sNote = txt(STR_MENU_NOTE_OFF_PLAN);
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_TUNE;
+  cmd.freqKHz = e->freqKHz;
+  if (!radioPost(&cmd)) {
+    sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+    return;
+  }
+  DebugLog.printf("[menu] tuned to log entry at %u kHz\n",
+                  (unsigned)e->freqKHz);
+}
+
+/* Tunes to a preset with the same check and the same command as
+ * `POST /api/presets` with do=recall. */
+static void recallPreset(int slot, const MemoryChannel *c) {
+  BandPlanConfig plan;
+  if (!radioTaskPlan(&plan)) {
+    sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+    return;
+  }
+  if (!memoryChannelTunable(c, &plan)) {
+    DebugLog.printf("[menu] preset %d is not on the band plan\n", slot + 1);
+    sNote = txt(STR_MENU_NOTE_OFF_PLAN);
+    return;
+  }
+  RadioCommand cmd = {};
+  cmd.kind = RADIO_RECALL;
+  cmd.memorySlot = slot;
+  if (!radioPost(&cmd)) {
+    sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+    return;
+  }
+  DebugLog.printf("[menu] tuned to preset %d\n", slot + 1);
+}
+
+/* Deletes the station shown with the call its web route makes: the log
+ * entry by its slot, with its time and frequency as the check that the slot
+ * still holds it; the preset by its slot, once it is seen to still hold the
+ * same station. Either way the card closes onto the list, and an emptied
+ * list goes back to Stations. */
+static void deleteCard(void) {
+  if (sCard.log) {
+    const LogbookChange r = logbookFsDelete(
+        sCard.logSlot, sCard.entry.timeValue, sCard.entry.freqKHz);
+    DebugLog.printf("[menu] log entry at %u kHz deleted: %d\n",
+                    (unsigned)sCard.entry.freqKHz, (int)r);
+  } else {
+    MemoryChannel now;
+    if (memoryStoreRead(sCard.presetSlot, &now) &&
+        now.freqKHz == sCard.channel.freqKHz &&
+        now.band == sCard.channel.band) {
+      (void)memoryStoreClear(sCard.presetSlot);
+      DebugLog.printf("[menu] preset %d cleared\n", sCard.presetSlot + 1);
+    }
+  }
+  closeCard();
+  logCountNow();
+  presetCountNow();
+  const uint8_t count = list()->count;
+  if (count == 0) {
+    (void)menuBack(&sMenu);
+  } else if (sMenu.row >= count) {
+    sMenu.row = (uint8_t)(count - 1);
+  }
+}
+
+static void pressCard(void) {
+  sNote = NULL;
+  if (sCard.cursor == 0) {
+    if (sCard.log) {
+      tuneLogEntry(&sCard.entry);
+    } else {
+      recallPreset(sCard.presetSlot, &sCard.channel);
+    }
+    return;
+  }
+  if (!sCard.asking) {
+    sCard.asking = true;
+    sCard.askedMs = millis();
+    return;
+  }
+  deleteCard();
+}
+
 static void draw(void) {
+  if (sCard.open) {
+    drawCard();
+    return;
+  }
   if (sMenu.level == MENU_EDIT) {
     drawValue();
     return;
@@ -2575,64 +2736,29 @@ static void fire(const MenuRow *row) {
   }
   switch (row->id) {
     case ROW_LOG_ENTRY: {
-      /* Tunes to the entry with the command `POST /api/tune` sends, after the
-       * check a preset gets: an entry whose frequency the band plan now gives
-       * to another band would land there. The menu stays open, as on the
-       * preset rows. Newest first, and the logbook counts from the oldest. */
+      /* Newest first, and the logbook counts from the oldest. */
       const uint16_t count = logbookFsCount();
-      LogbookEntry e;
-      BandPlanConfig plan;
-      BandId band = BAND_COUNT;
-      if (sMenu.row >= count ||
-          !logbookFsEntryAt((uint16_t)(count - 1 - sMenu.row), &e) ||
-          !radioTaskPlan(&plan)) {
+      if (sMenu.row >= count) {
+        return;
+      }
+      const uint16_t at = (uint16_t)(count - 1 - sMenu.row);
+      if (!logbookFsEntryAt(at, &sCard.entry)) {
         sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
         return;
       }
-      if (!bandForFrequency(&plan, e.freqKHz, &band) || band != e.band) {
-        sNote = txt(STR_MENU_NOTE_OFF_PLAN);
-        return;
-      }
-      RadioCommand cmd = {};
-      cmd.kind = RADIO_TUNE;
-      cmd.freqKHz = e.freqKHz;
-      if (!radioPost(&cmd)) {
-        sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
-        return;
-      }
-      DebugLog.printf("[menu] tuned to log entry at %u kHz\n",
-                      (unsigned)e.freqKHz);
+      sCard.logSlot = logbookFsSlotAt(at);
+      openCard(true);
       return;
     }
     case ROW_PRESET_ENTRY: {
-      /* Tunes to the preset with the same check and the same command as
-       * `POST /api/presets` with do=recall. The menu stays open, so presets
-       * can be heard one after another. */
-      MemoryChannel c;
-      const int slot = memoryStoreNthUsed((int)sMenu.row, &c);
+      const int slot = memoryStoreNthUsed((int)sMenu.row, &sCard.channel);
       if (slot == MEMORY_NO_SLOT) {
         /* Cleared from the browser since the row was drawn: the redraw after
          * this press shows the list as it is now. */
         return;
       }
-      BandPlanConfig plan;
-      if (!radioTaskPlan(&plan)) {
-        sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
-        return;
-      }
-      if (!memoryChannelTunable(&c, &plan)) {
-        DebugLog.printf("[menu] preset %d is not on the band plan\n", slot + 1);
-        sNote = txt(STR_MENU_NOTE_OFF_PLAN);
-        return;
-      }
-      RadioCommand cmd = {};
-      cmd.kind = RADIO_RECALL;
-      cmd.memorySlot = slot;
-      if (!radioPost(&cmd)) {
-        sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
-        return;
-      }
-      DebugLog.printf("[menu] tuned to preset %d\n", slot + 1);
+      sCard.presetSlot = slot;
+      openCard(false);
       return;
     }
     case ROW_FM_SCAN:
@@ -2881,6 +3007,13 @@ void menuTaskPoll(void) {
     cpuTick();
   }
   if (!menuIsOpen(&sMenu)) {
+    return;
+  }
+  if (sCard.open) {
+    if (sCard.asking && (uint32_t)(nowMs - sCard.askedMs) >= DELETE_ASK_MS) {
+      sCard.asking = false;
+      drawCard();
+    }
     return;
   }
   if (sMenu.level == MENU_EDIT) {
@@ -3170,6 +3303,7 @@ bool menuTaskOpenSquelchMode(void) {
 }
 
 void menuTaskClose(void) {
+  closeCard();
   sNote = NULL;
   if (sChoice.active) {
     choiceEnd();
@@ -3205,6 +3339,16 @@ void menuTaskTurn(int32_t clicks) {
   if (!menuIsOpen(&sMenu) || clicks == 0) {
     return;
   }
+  if (sCard.open) {
+    const uint8_t to = clicks < 0 ? 0 : 1;
+    if (to != sCard.cursor) {
+      sCard.cursor = to;
+      sCard.asking = false;
+      sNote = NULL;
+      drawCard();
+    }
+    return;
+  }
   if (pinEditing()) {
     accessPinEditTurn(&sPin, clicks);
     sMenu.value = (int32_t)accessPinEditValue(&sPin);
@@ -3231,6 +3375,14 @@ void menuTaskTurn(int32_t clicks) {
 }
 
 void menuTaskTapButton(uint8_t button) {
+  if (sCard.open && button <= 1) {
+    if (button != sCard.cursor) {
+      sCard.cursor = button;
+      sCard.asking = false;
+    }
+    menuTaskPress();
+    return;
+  }
   const MenuRow *row = rowAt(sMenu.row);
   if (button > 1 || sChoice.active || sMenu.level != MENU_EDIT || row == NULL ||
       !row->confirm) {
@@ -3258,7 +3410,7 @@ void menuTaskTapRow(int32_t by) {
 
 void menuTaskBarTo(int32_t value) {
   const MenuRow *row = rowAt(sMenu.row);
-  if (sMenu.level != MENU_EDIT || row == NULL || !hasRange(row) ||
+  if (sCard.open || sMenu.level != MENU_EDIT || row == NULL || !hasRange(row) ||
       pinEditing()) {
     return;
   }
@@ -3270,7 +3422,7 @@ void menuTaskBarTo(int32_t value) {
 }
 
 void menuTaskPage(int dir) {
-  if (!menuIsOpen(&sMenu) || sChoice.active || pinEditing()) {
+  if (!menuIsOpen(&sMenu) || sChoice.active || sCard.open || pinEditing()) {
     return;
   }
   const MenuRow *row = rowAt(sMenu.row);
@@ -3298,6 +3450,9 @@ void menuTaskPage(int dir) {
 uint32_t menuTaskPlace(void) {
   if (sChoice.active) {
     return 1u << 12;
+  }
+  if (sCard.open) {
+    return 1u << 13;
   }
   if (!menuIsOpen(&sMenu)) {
     return 0;
@@ -3335,6 +3490,11 @@ void menuTaskPress(void) {
     return;
   }
   if (!menuIsOpen(&sMenu)) {
+    return;
+  }
+  if (sCard.open) {
+    pressCard();
+    draw();
     return;
   }
   /* Before the sixth digit a press only moves on; the sixth keeps the PIN
@@ -3419,6 +3579,11 @@ void menuTaskBack(void) {
     return;
   }
   if (!menuIsOpen(&sMenu)) {
+    return;
+  }
+  if (sCard.open) {
+    closeCard();
+    draw();
     return;
   }
   const MenuRow *row = rowAt(sMenu.row);
