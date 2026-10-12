@@ -376,6 +376,8 @@
   X(PAGE_FMT_DB, "%d dB", "Station page, value of the SNR tile") \
   X(PAGE_FMT_PERCENT, "%u %%", "Station page, value of the Noise, Multipath and Co-channel tiles") \
   X(PAGE_FMT_DBUV, "%s dBuV", "Station page, value of the Level tile, such as 45.2 dBuV") \
+  X(PAGE_NOTE_CHANGED, "Changed since this opened", "Station page, note in place of the line under the title when the preset or log entry shown was moved or deleted elsewhere since the page opened") \
+  X(PAGE_NOTE_NOT_DELETED, "Not deleted", "Station page, note in place of the line under the title when the delete could not be written") \
   X(PAGE_TIME_UNKNOWN, "Time not known", "Station page, the time of a log entry made before the clock was set") \
   X(RECOVERY_ASK_ROTATE, "Press again to turn the display over", "Recovery screen foot line while Rotate Display waits for its second press") \
   X(RECOVERY_ASK_TOUCH_OFF, "Press again to turn touch off and restart", "Recovery screen foot line while Touch, now On, waits for its second press") \

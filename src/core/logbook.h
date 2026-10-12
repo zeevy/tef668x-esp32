@@ -214,6 +214,11 @@ void logbookEntryLabel(const LogbookEntry *e, char *out, size_t len);
  */
 bool logbookEntryFrequency(const LogbookEntry *e, char *out, size_t len);
 
+/* The entry's country as two letters, "IN", from its PI and ECC together,
+ * or NULL: the PI alone is shared by many countries, so a country from it
+ * would be a guess. */
+const char *logbookEntryCountry(const LogbookEntry *e);
+
 /*
  * One entry as a line of CSV, in local time.
  *

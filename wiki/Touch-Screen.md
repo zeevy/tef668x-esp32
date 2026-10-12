@@ -98,6 +98,10 @@ The digits never show in [GET /api/screen](HTTP-API.md#get-apiscreen), which rea
 | No, on the left | Tap | Nothing is done, and the box closes |
 | Yes, on the right | Tap | The radio restarts |
 
+The knob starts on No. Turning it moves between the two, and a press takes the one that is lit. A tap takes an answer at once, with no second step.
+
+The update offer looks like this box but takes no taps: it opens by itself over the radio screen, where a finger already on its way to the scale could land on Update. Answer it with the knob.
+
 ## A station's card
 
 ![A log entry's card, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-station.png)
@@ -109,10 +113,6 @@ A press on a preset or a log entry in **Stations** opens its card. See [Station 
 | The title line, with its `<` | Tap | Back to the list |
 | Tune | Tap | Tunes to the station; the card stays open |
 | Delete | Tap | The first tap says `Press again`; a second tap within 5 seconds deletes and goes back to the list |
-
-The knob starts on No. Turning it moves between the two, and a press takes the one that is lit. A tap takes an answer at once, with no second step.
-
-The update offer looks like this box but takes no taps: it opens by itself over the radio screen, where a finger already on its way to the scale could land on Update. Answer it with the knob.
 
 ## The bandwidth page
 

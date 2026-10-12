@@ -180,10 +180,7 @@ static void sendJsonLine(uint16_t id, const LogbookEntry *e, void *ctx) {
         jsonEscape(rdsPtyNameIn(e->pty, (RdsRegion)sWeb->settings->rdsRegion)) +
         "\"";
   }
-  /* Only from the PI and the ECC together: the PI alone is shared by many
-   * countries, so a country from it would be a guess. */
-  const char *country =
-      e->hasPi && e->hasEcc ? rdsCountryCode(e->pi, e->ecc) : NULL;
+  const char *country = logbookEntryCountry(e);
   char ctyField[8] = "null";
   if (country != NULL) {
     snprintf(ctyField, sizeof(ctyField), "\"%s\"", country);

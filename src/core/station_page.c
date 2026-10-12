@@ -84,10 +84,7 @@ bool stationPageLog(const LogbookEntry *e, bool nowKnown, uint32_t nowUtc,
     char pi[12];
     snprintf(pi, sizeof(pi), txt(STR_LOG_FMT_PI), (unsigned)e->pi);
     addPart(out->sub, sizeof(out->sub), pi);
-    /* A country only from the PI and the ECC together, never a guess. */
-    if (e->hasEcc) {
-      addPart(out->sub, sizeof(out->sub), rdsCountryCode(e->pi, e->ecc));
-    }
+    addPart(out->sub, sizeof(out->sub), logbookEntryCountry(e));
   }
   if (e->hasPty && e->pty > 0) {
     addPart(out->sub, sizeof(out->sub), rdsPtyNameIn(e->pty, region));

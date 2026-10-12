@@ -333,7 +333,7 @@ static const MenuRow kPresetEntryRow[] = {
 static MenuGroup sPresetGroup = {STR_MENU_MEMORY, kPresetEntryRow, 0};
 
 /*
- * The logbook, newest first; a press tunes to an entry's frequency. Its rows
+ * The logbook, newest first; a press opens an entry's card. Its rows
  * are not a table: there can be up to 250 entries, so every one is the same
  * row, its words read from the logbook when it is drawn, and the count is the
  * logbook's own, taken again before every use.
@@ -2530,9 +2530,22 @@ static void tuneLogEntry(const LogbookEntry *e) {
                   (unsigned)e->freqKHz);
 }
 
+/* Whether the preset slot still holds the station the card opened on: the
+ * browser may have moved or cleared it since, and a recall or a clear goes
+ * by the slot alone. */
+static bool presetStillThere(int slot, const MemoryChannel *c) {
+  MemoryChannel now;
+  return memoryStoreRead(slot, &now) && now.freqKHz == c->freqKHz &&
+         now.band == c->band;
+}
+
 /* Tunes to a preset with the same check and the same command as
  * `POST /api/presets` with do=recall. */
 static void recallPreset(int slot, const MemoryChannel *c) {
+  if (!presetStillThere(slot, c)) {
+    sNote = txt(STR_PAGE_NOTE_CHANGED);
+    return;
+  }
   BandPlanConfig plan;
   if (!radioTaskPlan(&plan)) {
     sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
@@ -2556,22 +2569,30 @@ static void recallPreset(int slot, const MemoryChannel *c) {
 /* Deletes the station shown with the call its web route makes: the log
  * entry by its slot, with its time and frequency as the check that the slot
  * still holds it; the preset by its slot, once it is seen to still hold the
- * same station. Either way the card closes onto the list, and an emptied
- * list goes back to Stations. */
+ * same station. Done, the card closes onto the list, and an emptied list
+ * goes back to Stations; not done, the card stays and says why, so a delete
+ * that did not happen never looks like one that did. */
 static void deleteCard(void) {
+  bool done = false;
+  bool moved = false;
   if (sCard.log) {
     const LogbookChange r = logbookFsDelete(
         sCard.logSlot, sCard.entry.timeValue, sCard.entry.freqKHz);
     DebugLog.printf("[menu] log entry at %u kHz deleted: %d\n",
                     (unsigned)sCard.entry.freqKHz, (int)r);
+    done = r == LOGBOOK_CHANGED;
+    moved = r == LOGBOOK_NO_ENTRY || r == LOGBOOK_NOT_IT;
+  } else if (!presetStillThere(sCard.presetSlot, &sCard.channel)) {
+    moved = true;
   } else {
-    MemoryChannel now;
-    if (memoryStoreRead(sCard.presetSlot, &now) &&
-        now.freqKHz == sCard.channel.freqKHz &&
-        now.band == sCard.channel.band) {
-      (void)memoryStoreClear(sCard.presetSlot);
-      DebugLog.printf("[menu] preset %d cleared\n", sCard.presetSlot + 1);
-    }
+    done = memoryStoreClear(sCard.presetSlot);
+    DebugLog.printf("[menu] preset %d cleared: %d\n", sCard.presetSlot + 1,
+                    (int)done);
+  }
+  if (!done) {
+    sCard.asking = false;
+    sNote = txt(moved ? STR_PAGE_NOTE_CHANGED : STR_PAGE_NOTE_NOT_DELETED);
+    return;
   }
   closeCard();
   logCountNow();
@@ -3050,7 +3071,7 @@ void menuTaskPoll(void) {
   const MenuGroup *g = list();
   /* A change to the log from the browser with its list on screen: the count
    * and the rows read again, the cursor kept on the list, so a press does
-   * not tune to an entry other than the one shown. */
+   * not open an entry other than the one shown. */
   if (g == &sLogGroup && logbookFsGeneration() != sLogRowsGeneration) {
     logCountNow();
     if (sLogGroup.count > 0 && sMenu.row >= sLogGroup.count) {
@@ -3060,7 +3081,7 @@ void menuTaskPoll(void) {
     return;
   }
   /* The same for the presets: a move, a delete or an add from the browser
-   * with the list on screen draws the rows again, so a press tunes the
+   * with the list on screen draws the rows again, so a press opens the
    * preset its row shows. */
   if (g == &sPresetGroup && memoryStoreGeneration() != sPresetRowsGeneration) {
     presetCountNow();

@@ -33,11 +33,13 @@ A press on a preset in **Stations > Presets** opens its card: the frequency and 
 - **Delete** clears the slot. The first press turns the button red and says `Press again`; a second press within 5 seconds clears it and goes back to the list. Turning the knob off it, going back or waiting 5 seconds lets it go. The last preset cleared takes you back to **Stations**.
 - Turn the knob to move between the two, and press it to act. MODE, or a hold of the knob, goes back to the list, and so does a tap on the title while Touch is On.
 
+If the preset was moved or cleared on the web page while its card was open, **Tune** and **Delete** say `Changed since this opened` and do nothing; go back and open it again. If the radio cannot write the clear, it says `Not deleted`.
+
 The keypad always types a frequency, never a preset number.
 
 ## Saving and changing presets
 
-Presets cannot be saved or renamed on the radio itself; a preset can be cleared from its card, below. They are written in four ways:
+Presets cannot be saved or renamed on the radio itself; a preset can be cleared from its card, above. They are written in four ways:
 
 - a station scan, which fills empty slots
 - the web page's [Presets](Web-Page.md#presets) screen: save the current station, add one by its frequency, change, rename or delete one, and drag one to another slot. A station already saved is not saved again

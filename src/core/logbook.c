@@ -247,10 +247,7 @@ size_t logbookCsvLine(const LogbookEntry *e, int16_t offsetMinutes, char *out,
     snprintf(ptyField, sizeof(ptyField), "%u", (unsigned)e->pty);
   }
 
-  /* Only from the PI and the ECC together: the PI alone is shared by many
-   * countries, so a country from it would be a guess. */
-  const char *country =
-      e->hasPi && e->hasEcc ? rdsCountryCode(e->pi, e->ecc) : NULL;
+  const char *country = logbookEntryCountry(e);
 
   return (size_t)snprintf(
       out, cap, "%s,%d,%s,%u,%d,%u,%u,%u,%d,%d,%u,%s,%s,%s,%s,%d,%s,%s\n",
@@ -291,4 +288,9 @@ bool logbookEntryFrequency(const LogbookEntry *e, char *out, size_t len) {
     return false;
   }
   return bandFormatWithUnit((BandId)e->band, e->freqKHz, out, len);
+}
+
+const char *logbookEntryCountry(const LogbookEntry *e) {
+  return e != NULL && e->hasPi && e->hasEcc ? rdsCountryCode(e->pi, e->ecc)
+                                            : NULL;
 }
