@@ -6,6 +6,7 @@
 #include "web_chunked.h"
 #include "web_internal.h"
 
+#include "core/rds_country.h"
 #include "core/web_text.h"
 #include "drivers/logbook_fs.h"
 #include "input_task.h"
@@ -149,11 +150,13 @@ static void sendJsonLine(uint16_t id, const LogbookEntry *e, void *ctx) {
   ChunkedReply &out = *reply.out;
   /* Wide enough for every field at its type's own worst case, not just a
    * realistic one: ten digit epoch and frequency, "OIRT", both bools spelled
-   * "false", every number at its type's widest and an eight character name
-   * with every character escaped as \u00XX all landing in the same line is
-   * 256 characters with the id, so a line that fit every entry seen so far
-   * could still be cut short by the next one. */
-  char line[288];
+   * "false", every number at its type's widest, an eight character name
+   * with every character escaped as \u00XX, a three digit programme type
+   * with the longest name, "Soft Rhythm and Blues" at 21 characters, and a
+   * country all landing in the same line is 307 characters with the id, so a
+   * line that fit every entry seen so far could still be cut short by the
+   * next one. */
+  char line[320];
   /* Escaped: a station's name is whatever it broadcast, and a quote or a
    * backslash in it written raw ends the string early and breaks the line
    * for any JSON reader. Six bytes a character at worst, plus the quotes. */
@@ -166,17 +169,37 @@ static void sendJsonLine(uint16_t id, const LogbookEntry *e, void *ctx) {
   if (e->hasPi) {
     snprintf(piField, sizeof(piField), "\"%04X\"", e->pi);
   }
+  /* The programme type's number, and its name in the region the settings
+   * name, as the state gives them. */
+  char ptyField[5] = "null";
+  String ptnField = "null";
+  if (e->hasPty) {
+    snprintf(ptyField, sizeof(ptyField), "%u", (unsigned)e->pty);
+    ptnField =
+        "\"" +
+        jsonEscape(rdsPtyNameIn(e->pty, (RdsRegion)sWeb->settings->rdsRegion)) +
+        "\"";
+  }
+  /* Only from the PI and the ECC together: the PI alone is shared by many
+   * countries, so a country from it would be a guess. */
+  const char *country =
+      e->hasPi && e->hasEcc ? rdsCountryCode(e->pi, e->ecc) : NULL;
+  char ctyField[8] = "null";
+  if (country != NULL) {
+    snprintf(ctyField, sizeof(ctyField), "\"%s\"", country);
+  }
   size_t need = (size_t)snprintf(
       line, sizeof(line),
       "{\"id\":%u,\"time\":%u,\"real\":%s,\"band\":\"%s\",\"khz\":%u,"
       "\"level_dbuv\":%d,\"usn\":%u,\"multipath\":%u,"
       "\"cochannel\":%u,\"snr\":%d,\"stereo\":%s,\"bw_khz\":%u,"
-      "\"name\":%s,\"pi\":%s,\"rt\":",
+      "\"name\":%s,\"pi\":%s,\"pty\":%s,\"ptn\":%s,\"cty\":%s,\"rt\":",
       (unsigned)id, (unsigned)e->timeValue, e->timeKnown ? "true" : "false",
       bandName((BandId)e->band), (unsigned)e->freqKHz, (int)e->levelDbuVTenths,
       (unsigned)e->usnTenths, (unsigned)e->multipathTenths,
       (unsigned)e->coChannelTenths, (int)e->snrDb, e->stereo ? "true" : "false",
-      (unsigned)e->bandwidthKHz, nameField, piField);
+      (unsigned)e->bandwidthKHz, nameField, piField, ptyField, ptnField.c_str(),
+      ctyField);
   if (need == 0 || need >= sizeof(line)) {
     /* Cut rather than sent short: a truncated line is not valid JSON, and a
      * line missing entirely is at least honestly missing. */
@@ -233,7 +256,7 @@ struct CsvReply {
 static void sendCsvLine(uint16_t, const LogbookEntry *e, void *ctx) {
   CsvReply &reply = *static_cast<CsvReply *>(ctx);
   /* The longest line, every field at its widest and a name, a radio text
-   * and a note of nothing but doubled quotes, is 297 bytes. */
+   * and a note of nothing but doubled quotes, is 304 bytes. */
   char line[320];
   const size_t need =
       logbookCsvLine(e, reply.offsetMinutes, line, sizeof(line));

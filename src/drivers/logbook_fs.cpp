@@ -8,10 +8,12 @@
 #include "core/bytes.h"
 #include "core/rds.h"
 
-/* Format 3's file. A format 1 or 2 log stays in LOGBOOK_OLD_PATH as it was:
- * copied, never changed, so firmware from before format 3, which a rollback
- * can go back to, still finds its own log there. */
-#define LOGBOOK_PATH "/logbook3.bin"
+/* Format 4's file. An older log stays in its own file as it was: copied,
+ * never changed, so firmware from before, which a rollback can go back to,
+ * still finds its own log there. Format 3 is in LOGBOOK_V3_PATH, and format 1
+ * or 2 in LOGBOOK_OLD_PATH. */
+#define LOGBOOK_PATH "/logbook4.bin"
+#define LOGBOOK_V3_PATH "/logbook3.bin"
 #define LOGBOOK_OLD_PATH "/logbook.bin"
 /* Where a copy is written before it takes LOGBOOK_PATH's place: an older log
  * copied into this format, or the log with one entry deleted. */
@@ -20,7 +22,7 @@
  * Only firmware from before writes to the old file, after a rollback or a
  * downgrade, so the copy is made again when they differ, and never just
  * because an update has started. */
-#define LOGBOOK_MARK_PATH "/logbook3.mark"
+#define LOGBOOK_MARK_PATH "/logbook4.mark"
 
 /*
  * Changes if the header or record layout ever does. An older file is copied
@@ -28,12 +30,13 @@
  * misread.
  */
 #define LOGBOOK_MAGIC 0x4C4F4731UL /* "LOG1" */
-#define LOGBOOK_VERSION 3
-#define LOGBOOK_VERSION_2 2 /* No note, no renamed mark. */
+#define LOGBOOK_VERSION 4
+#define LOGBOOK_VERSION_3 3 /* No programme type, no country code. */
+#define LOGBOOK_VERSION_2 2 /* No note, no renamed mark either. */
 #define LOGBOOK_VERSION_1 1 /* No radio text either. */
 
 #define LOGBOOK_HEADER_SIZE 10 /* magic(4) + version(2) + head(2) + count(2) */
-#define LOGBOOK_MARK_MAX (LOGBOOK_HEADER_SIZE + LOGBOOK_RECORD_SIZE_V2)
+#define LOGBOOK_MARK_MAX (LOGBOOK_HEADER_SIZE + LOGBOOK_RECORD_SIZE_V3)
 
 static bool sPresent = false;
 static LogbookRing sRing;
@@ -84,6 +87,16 @@ static bool createEmpty(void) {
   return ok;
 }
 
+/* The size of one record of format `version`, or 0 for a format this code
+ * does not know. */
+static size_t recordSize(uint16_t version) {
+  return version == LOGBOOK_VERSION     ? LOGBOOK_RECORD_SIZE
+         : version == LOGBOOK_VERSION_3 ? LOGBOOK_RECORD_SIZE_V3
+         : version == LOGBOOK_VERSION_2 ? LOGBOOK_RECORD_SIZE_V2
+         : version == LOGBOOK_VERSION_1 ? LOGBOOK_RECORD_SIZE_V1
+                                        : 0;
+}
+
 /* The format of the file at `path`, with its ring in `ring`, or 0 when there
  * is no file there this code can read. */
 static uint16_t readHeader(const char *path, LogbookRing *ring) {
@@ -95,10 +108,7 @@ static uint16_t readHeader(const char *path, LogbookRing *ring) {
   bool ok = f.read(buf, sizeof(buf)) == (int)sizeof(buf) &&
             getU32(buf) == LOGBOOK_MAGIC;
   const uint16_t version = ok ? getU16(buf + 4) : 0;
-  const long record = version == LOGBOOK_VERSION     ? LOGBOOK_RECORD_SIZE
-                      : version == LOGBOOK_VERSION_2 ? LOGBOOK_RECORD_SIZE_V2
-                      : version == LOGBOOK_VERSION_1 ? LOGBOOK_RECORD_SIZE_V1
-                                                     : 0;
+  const long record = (long)recordSize(version);
   ok = ok && record != 0 &&
        f.size() >= LOGBOOK_HEADER_SIZE + (long)LOGBOOK_MAX_ENTRIES * record;
   f.close();
@@ -126,13 +136,13 @@ static bool takeNew(bool ok) {
 }
 
 /*
- * Copy an older log into this format, slot for slot, into its own file. The
- * old file is only read: a power cut part way leaves it to copy again at the
- * next start up, and a copy that fails leaves the logbook absent until then
- * rather than started fresh over it.
+ * Copy the older log at `path` into this format, slot for slot, into its own
+ * file. The old file is only read: a power cut part way leaves it to copy
+ * again at the next start up, and a copy that fails leaves the logbook absent
+ * until then rather than started fresh over it.
  */
-static bool upgrade(const LogbookRing &ring, size_t oldSize) {
-  File in = LittleFS.open(LOGBOOK_OLD_PATH, "r");
+static bool upgrade(const char *path, const LogbookRing &ring, size_t oldSize) {
+  File in = LittleFS.open(path, "r");
   File out = LittleFS.open(LOGBOOK_NEW_PATH, "w");
   bool ok = in && out && in.seek(LOGBOOK_HEADER_SIZE) && writeHeader(out, ring);
   uint8_t old[LOGBOOK_RECORD_SIZE];
@@ -157,8 +167,9 @@ static bool upgrade(const LogbookRing &ring, size_t oldSize) {
 
 /* The old file's header and newest record into `mark`: their length, or 0
  * when they cannot be read. */
-static size_t oldMark(const LogbookRing &ring, size_t oldSize, uint8_t *mark) {
-  File f = LittleFS.open(LOGBOOK_OLD_PATH, "r");
+static size_t oldMark(const char *path, const LogbookRing &ring, size_t oldSize,
+                      uint8_t *mark) {
+  File f = LittleFS.open(path, "r");
   if (!f) {
     return 0;
   }
@@ -218,21 +229,27 @@ bool logbookFsBegin(void) {
   }
   LogbookRing ring;
   bool ok = true;
+  /* The newest older log to copy: format 3's file, which holds all format 1
+   * or 2's file held when it was made and all logged since, else that one. */
   LogbookRing oldRing;
-  const uint16_t old = readHeader(LOGBOOK_OLD_PATH, &oldRing);
-  const bool haveOld = old == LOGBOOK_VERSION_2 || old == LOGBOOK_VERSION_1;
-  const size_t oldSize = old == LOGBOOK_VERSION_2 ? LOGBOOK_RECORD_SIZE_V2
-                                                  : LOGBOOK_RECORD_SIZE_V1;
+  const char *oldPath = LOGBOOK_V3_PATH;
+  uint16_t old = readHeader(oldPath, &oldRing);
+  if (old != LOGBOOK_VERSION_3) {
+    oldPath = LOGBOOK_OLD_PATH;
+    old = readHeader(oldPath, &oldRing);
+  }
+  const size_t oldSize = recordSize(old);
+  const bool haveOld = oldSize != 0 && old != LOGBOOK_VERSION;
   uint8_t mark[LOGBOOK_MARK_MAX];
   /* An old file whose mark cannot be read is taken as unchanged: copying it
    * again would throw away this format's changes for a file that may not
    * copy anyway. */
-  const size_t markLen = haveOld ? oldMark(oldRing, oldSize, mark) : 0;
+  const size_t markLen = haveOld ? oldMark(oldPath, oldRing, oldSize, mark) : 0;
   const bool oldChanged = markLen != 0 && !sameMark(mark, markLen);
   if (readHeader(LOGBOOK_PATH, &ring) == LOGBOOK_VERSION && !oldChanged) {
     sRing = ring;
   } else if (haveOld) {
-    ok = upgrade(oldRing, oldSize);
+    ok = upgrade(oldPath, oldRing, oldSize);
     if (ok && markLen != 0) {
       keepMark(mark, markLen);
     }

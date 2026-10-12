@@ -50,6 +50,13 @@ void dxLogIdentity(LogbookEntry *e, const RdsInfo *rds,
   }
   e->hasPi = dxPiConfirmed(rds, reading);
   e->pi = e->hasPi ? rds->pi : 0;
+  /* The offset alone, as the name: neither needs the PI. Type 0 says the
+   * station sends none. */
+  const bool onChannel = rds != NULL && dxOnChannel(reading);
+  e->hasPty = onChannel && rds->hasPty && rds->pty != 0;
+  e->pty = e->hasPty ? rds->pty : 0;
+  e->hasEcc = onChannel && rds->hasEcc;
+  e->ecc = e->hasEcc ? rds->ecc : 0;
 }
 
 bool dxPiConfirmed(const RdsInfo *rds, const SeekReading *reading) {

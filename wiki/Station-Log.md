@@ -28,6 +28,7 @@ Other ways to log:
 | Band and frequency | |
 | Signal | The level in dBµV, USN (noise), multipath, co-channel and SNR, the filter width, and stereo |
 | Name and PI | The station's RDS name and PI, only when they belong to that channel |
+| Programme type and country | The RDS programme type, such as Pop Music, and the extended country code (ECC), only when they belong to that channel. With the PI, the ECC names the country |
 | Radio text | When DX Scanner > Log Radio Text is On, which it is at the start |
 | Note | Your own note, up to 32 characters, written on the web page |
 
@@ -49,7 +50,7 @@ As a CSV file for a spreadsheet, with **Download** on the web page's Station log
 curl -s -o logbook.csv http://tef668x.local:8080/api/log.csv
 ```
 
-The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed`. `renamed` is 1 when the name was typed on the web page, not received. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
+The columns are `time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,bandwidth_khz,name,pi,rt,note,renamed,pty,country`. `renamed` is 1 when the name was typed on the web page, not received. `pty` is the programme type's number, 1 to 31. `country` is the two letter ISO code, such as `IN`, from the PI and the ECC together. Each is empty when it was not received. A country is never worked out from the PI alone, since one PI digit is shared by many countries. The time is written as `YYYY-MM-DD HH:MM` at the clock's UTC offset, or as the time since start, such as `+12345ms`, when the radio had no time.
 
 `level_dbuv`, `usn`, `multipath` and `cochannel` are in tenths: `452` means 45.2 dBµV.
 

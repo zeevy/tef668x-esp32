@@ -29,8 +29,8 @@ extern "C" {
  *
  * A DX log is a rolling record of recent catches, not an archive, so the
  * oldest is dropped rather than a write ever being refused. At the packed
- * record size below, 250 of them and the file's header are 25,260 bytes, a
- * small slice of the 2 MB littlefs partition.
+ * record size below, 250 of them and the file's ten byte header are 34,260
+ * bytes, a small slice of the 2 MB littlefs partition.
  */
 #define LOGBOOK_MAX_ENTRIES 250
 
@@ -52,13 +52,14 @@ extern "C" {
  * a new format version in drivers/logbook_fs.h and a way to read the old
  * records, which logbookUpgrade is.
  */
-#define LOGBOOK_RECORD_SIZE 135
+#define LOGBOOK_RECORD_SIZE 137
 
 /* The formats before: format 1 had no radio text, format 2 no note and no
- * renamed mark. Each is the start of the one after, the same bytes in the
- * same place. */
+ * renamed mark, format 3 no programme type and no country code. Each is the
+ * start of the one after, the same bytes in the same place. */
 #define LOGBOOK_RECORD_SIZE_V1 35
 #define LOGBOOK_RECORD_SIZE_V2 101
+#define LOGBOOK_RECORD_SIZE_V3 135
 
 /* One catch, everything the radio knew about it at the moment it was held. */
 typedef struct {
@@ -222,9 +223,10 @@ bool logbookEntryFrequency(const LogbookEntry *e, char *out, size_t len);
  * asking from now, the same as the panel clock already does. Ignored, and
  * UTC is written instead, when the entry's time is not known.
  *
- * A missing name, identifier or radio text is an empty field, which is how
- * CSV already says "no value" without a placeholder that could be mistaken
- * for one.
+ * A missing name, identifier, radio text or programme type is an empty
+ * field, which is how CSV already says "no value" without a placeholder that
+ * could be mistaken for one. The country, last, is the ISO code the PI and
+ * the ECC name together, empty without both.
  *
  * Returns the length that would have been written, the same convention
  * snprintf uses, so a caller can tell a line that did not fit from one that

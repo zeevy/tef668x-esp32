@@ -333,12 +333,65 @@ static void a_note_and_the_renamed_mark_round_trip(void) {
   TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
   TEST_ASSERT_EQUAL_STRING("Heard from the roof, 40 km", back.note);
   TEST_ASSERT_TRUE(back.renamed);
-  /* Only bit 0 is the mark: a flags byte with others set is not read as
-   * more than it says. */
-  buf[LOGBOOK_RECORD_SIZE - 1] = 0xFE;
+  /* Bits 0 to 2 are the marks: a flags byte with others set is not read as
+   * more than it says. The flags byte ends format 3's record. */
+  buf[LOGBOOK_RECORD_SIZE_V3 - 1] = 0xF8;
   TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
   TEST_ASSERT_FALSE(back.renamed);
+  TEST_ASSERT_FALSE(back.hasPty);
+  TEST_ASSERT_FALSE(back.hasEcc);
   TEST_ASSERT_EQUAL_STRING("MAGIC", back.name);
+}
+
+/* --------------------------------------------------------------- format 4 */
+
+static void a_programme_type_and_a_country_code_round_trip(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  e.renamed = true;
+  e.hasPty = true;
+  e.pty = 10;
+  e.hasEcc = true;
+  e.ecc = 0xF2;
+  uint8_t buf[LOGBOOK_RECORD_SIZE];
+  TEST_ASSERT_EQUAL_UINT32(137, logbookEncode(&e, buf, sizeof(buf)));
+  LogbookEntry back;
+  memset(&back, 0xAA, sizeof(back));
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_TRUE(back.renamed);
+  TEST_ASSERT_TRUE(back.hasPty);
+  TEST_ASSERT_EQUAL_UINT8(10, back.pty);
+  TEST_ASSERT_TRUE(back.hasEcc);
+  TEST_ASSERT_EQUAL_HEX8(0xF2, back.ecc);
+  /* Each has its own flag: one without the other. */
+  e.hasPty = false;
+  e.pty = 0;
+  logbookEncode(&e, buf, sizeof(buf));
+  TEST_ASSERT_TRUE(logbookDecode(buf, sizeof(buf), &back));
+  TEST_ASSERT_FALSE(back.hasPty);
+  TEST_ASSERT_TRUE(back.hasEcc);
+  TEST_ASSERT_TRUE(back.renamed);
+}
+
+/* Format 3 is the first 135 bytes: its note and renamed mark come through,
+ * and it has no programme type and no country code. */
+static void a_format_3_record_upgrades_with_no_pty_or_ecc(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  snprintf(e.note, sizeof(e.note), "%s", "Roof");
+  e.renamed = true;
+  uint8_t now[LOGBOOK_RECORD_SIZE];
+  logbookEncode(&e, now, sizeof(now));
+  uint8_t old[LOGBOOK_RECORD_SIZE_V3];
+  memcpy(old, now, sizeof(old));
+  uint8_t up[LOGBOOK_RECORD_SIZE];
+  memset(up, 0xAA, sizeof(up));
+  TEST_ASSERT_TRUE(logbookUpgrade(old, sizeof(old), up, sizeof(up)));
+  TEST_ASSERT_EQUAL_MEMORY(now, up, LOGBOOK_RECORD_SIZE);
+  LogbookEntry back;
+  TEST_ASSERT_TRUE(logbookDecode(up, sizeof(up), &back));
+  TEST_ASSERT_EQUAL_STRING("Roof", back.note);
+  TEST_ASSERT_TRUE(back.renamed);
+  TEST_ASSERT_FALSE(back.hasPty);
+  TEST_ASSERT_FALSE(back.hasEcc);
 }
 
 /* A note of 32 characters, the most, and one with no terminator, which only
@@ -374,7 +427,8 @@ static void a_note_is_the_last_csv_field_quoted_when_it_must_be(void) {
   snprintf(e.note, sizeof(e.note), "%s", "roof, \"good\"");
   char line[240];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,,\"roof, \"\"good\"\"\",0\n"));
+  TEST_ASSERT_NOT_NULL(
+      strstr(line, ",MAGIC,1064,,\"roof, \"\"good\"\"\",0,,\n"));
 }
 
 static void an_entry_with_nothing_extra_round_trips_too(void) {
@@ -424,8 +478,37 @@ static void a_null_record_call_does_not_crash(void) {
 static void the_csv_header_names_every_column(void) {
   TEST_ASSERT_EQUAL_STRING(
       "time,real,band,khz,level_dbuv,usn,multipath,cochannel,snr,stereo,"
-      "bandwidth_khz,name,pi,rt,note,renamed\n",
+      "bandwidth_khz,name,pi,rt,note,renamed,pty,country\n",
       logbookCsvHeader());
+}
+
+/* The programme type as its number and the country as its ISO code, last:
+ * PI 1064 starts with 1 and ECC E0 is Germany there. */
+static void a_programme_type_and_a_country_are_the_last_columns(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  e.hasPty = true;
+  e.pty = 10;
+  e.hasEcc = true;
+  e.ecc = 0xE0;
+  char line[160];
+  logbookCsvLine(&e, 330, line, sizeof(line));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,,,0,10,DE\n"));
+}
+
+/* No country without the PI, since the ECC alone names none, nor for a pair
+ * the table leaves empty. */
+static void a_country_needs_the_pi_and_a_known_pair(void) {
+  LogbookEntry e = sampleWithNameAndPi();
+  e.hasEcc = true;
+  e.ecc = 0xE0;
+  e.hasPi = false;
+  char line[160];
+  logbookCsvLine(&e, 330, line, sizeof(line));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,,,,0,,\n"));
+  e.hasPi = true;
+  e.ecc = 0x00;
+  logbookCsvLine(&e, 330, line, sizeof(line));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,,,0,,\n"));
 }
 
 static void a_known_time_writes_a_calendar_date(void) {
@@ -435,7 +518,7 @@ static void a_known_time_writes_a_calendar_date(void) {
   char line[160];
   TEST_ASSERT_TRUE(logbookCsvLine(&e, 330, line, sizeof(line)) > 0);
   TEST_ASSERT_EQUAL_STRING(
-      "2025-09-17 17:23,1,FM,106400,-345,12,8,0,-5,1,184,MAGIC,1064,,,0\n",
+      "2025-09-17 17:23,1,FM,106400,-345,12,8,0,-5,1,184,MAGIC,1064,,,0,,\n",
       line);
 }
 
@@ -463,7 +546,7 @@ static void a_missing_name_and_identifier_are_empty_fields(void) {
   char line[160];
   logbookCsvLine(&e, 330, line, sizeof(line));
   /* Name, PI, radio text and note all empty, then the renamed mark. */
-  TEST_ASSERT_NOT_NULL(strstr(line, ",184,,,,,0\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",184,,,,,0,,\n"));
 }
 
 static void a_name_holding_a_comma_is_quoted(void) {
@@ -489,7 +572,7 @@ static void a_quote_in_the_last_place_keeps_its_escape(void) {
   snprintf(e.name, sizeof(e.name), "ABCDEFG\"");
   char line[160];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",\"ABCDEFG\"\"\",1064,,,0\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",\"ABCDEFG\"\"\",1064,,,0,,\n"));
 }
 
 static void a_name_of_only_quotes_is_doubled_in_full(void) {
@@ -499,7 +582,7 @@ static void a_name_of_only_quotes_is_doubled_in_full(void) {
   logbookCsvLine(&e, 330, line, sizeof(line));
   /* The wrapping quote, sixteen for the eight doubled, the closing quote. */
   TEST_ASSERT_NOT_NULL(
-      strstr(line, ",\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\",1064,,,0\n"));
+      strstr(line, ",\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\",1064,,,0,,\n"));
 }
 
 static void a_radio_text_is_the_last_column(void) {
@@ -508,7 +591,7 @@ static void a_radio_text_is_the_last_column(void) {
   snprintf(e.rt, sizeof(e.rt), "Now playing");
   char line[320];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,Now playing,,0\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",MAGIC,1064,Now playing,,0,,\n"));
 }
 
 static void a_radio_text_holding_a_comma_is_quoted(void) {
@@ -517,7 +600,7 @@ static void a_radio_text_holding_a_comma_is_quoted(void) {
   snprintf(e.rt, sizeof(e.rt), "Artist, \"Title\"");
   char line[320];
   logbookCsvLine(&e, 330, line, sizeof(line));
-  TEST_ASSERT_NOT_NULL(strstr(line, ",1064,\"Artist, \"\"Title\"\"\",,0\n"));
+  TEST_ASSERT_NOT_NULL(strstr(line, ",1064,\"Artist, \"\"Title\"\"\",,0,,\n"));
 }
 
 /* Every field at its widest: the latest time a 32 bit epoch reaches, the
@@ -545,10 +628,14 @@ static void the_longest_line_fits_the_export_buffer(void) {
   e.hasRt = true;
   memset(e.rt, '"', LOGBOOK_RT_LEN - 1);
   memset(e.note, '"', LOGBOOK_NOTE_LEN - 1);
+  e.hasPty = true;
+  e.pty = 255; /* A byte read back as it is. */
+  e.hasEcc = true;
+  e.ecc = 0xE0; /* With PI FFFF, a country. */
   char line[320];
   const size_t n = logbookCsvLine(&e, 14 * 60, line, sizeof(line));
   /* Under the 320 bytes the export writes each line into. */
-  TEST_ASSERT_EQUAL_size_t(297, n);
+  TEST_ASSERT_EQUAL_size_t(304, n);
 }
 
 static void a_too_small_buffer_reports_the_length_it_needed(void) {
@@ -653,6 +740,8 @@ int main(void) {
   RUN_TEST(a_format_2_record_keeps_its_radio_text_and_gains_no_note);
   RUN_TEST(an_upgrade_with_no_room_is_refused);
   RUN_TEST(a_note_and_the_renamed_mark_round_trip);
+  RUN_TEST(a_programme_type_and_a_country_code_round_trip);
+  RUN_TEST(a_format_3_record_upgrades_with_no_pty_or_ecc);
   RUN_TEST(the_ring_says_which_entry_a_slot_holds);
   RUN_TEST(a_full_note_round_trips_and_a_broken_one_is_cut);
   RUN_TEST(a_text_fits_when_short_and_plain);
@@ -662,6 +751,8 @@ int main(void) {
   RUN_TEST(a_null_record_call_does_not_crash);
 
   RUN_TEST(the_csv_header_names_every_column);
+  RUN_TEST(a_programme_type_and_a_country_are_the_last_columns);
+  RUN_TEST(a_country_needs_the_pi_and_a_known_pair);
   RUN_TEST(a_known_time_writes_a_calendar_date);
   RUN_TEST(an_offset_that_crosses_midnight_moves_the_date);
   RUN_TEST(an_unknown_time_writes_how_long_since_boot);

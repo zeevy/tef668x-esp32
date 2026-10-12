@@ -448,6 +448,39 @@ static void a_hand_entry_keeps_the_name_without_a_pi(void) {
   TEST_ASSERT_FALSE(e.hasPi);
 }
 
+/* The programme type and the country code take the name's test: kept on the
+ * channel's own carrier, beside a strong station neither. Type 0 says the
+ * station sends none, so it is not kept. */
+static void a_hand_entry_keeps_the_pty_and_the_ecc_only_on_channel(void) {
+  RdsInfo info = withPiAndEcc();
+  info.hasPty = true;
+  info.pty = 10;
+  SeekReading r = atOffset(60);
+  LogbookEntry e;
+  memset(&e, 0, sizeof(e));
+  dxLogIdentity(&e, &info, &r);
+  TEST_ASSERT_TRUE(e.hasPty);
+  TEST_ASSERT_EQUAL_UINT8(10, e.pty);
+  TEST_ASSERT_TRUE(e.hasEcc);
+  TEST_ASSERT_EQUAL_HEX8(0xF2, e.ecc);
+
+  r = atOffset(SEEK_OFFSET_FM_TENTHS);
+  memset(&e, 0xAA, sizeof(e));
+  dxLogIdentity(&e, &info, &r);
+  TEST_ASSERT_FALSE(e.hasPty);
+  TEST_ASSERT_EQUAL_UINT8(0, e.pty);
+  TEST_ASSERT_FALSE(e.hasEcc);
+  TEST_ASSERT_EQUAL_HEX8(0, e.ecc);
+
+  info.pty = 0;
+  r = atOffset(0);
+  dxLogIdentity(&e, &info, &r);
+  TEST_ASSERT_FALSE(e.hasPty);
+  TEST_ASSERT_TRUE(e.hasEcc);
+  dxLogIdentity(&e, NULL, &r);
+  TEST_ASSERT_FALSE(e.hasEcc);
+}
+
 static void a_hand_entry_with_nothing_to_go_on_keeps_nothing(void) {
   RdsInfo info = named(" MAGIC  ", true);
   SeekReading r = atOffset(0);
@@ -959,6 +992,7 @@ int main(int argc, char **argv) {
   RUN_TEST(a_hand_entry_on_channel_keeps_the_name_and_the_pi);
   RUN_TEST(a_hand_entry_beside_a_strong_station_keeps_neither);
   RUN_TEST(a_hand_entry_keeps_the_name_without_a_pi);
+  RUN_TEST(a_hand_entry_keeps_the_pty_and_the_ecc_only_on_channel);
   RUN_TEST(a_hand_entry_with_nothing_to_go_on_keeps_nothing);
   RUN_TEST(a_preset_with_no_pi_says_nothing);
   RUN_TEST(one_matching_block_is_the_presets_station);

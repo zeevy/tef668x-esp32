@@ -396,6 +396,37 @@ static void the_log_entry_is_the_catch_at_its_best(void) {
   dxCatchToLog(k, NULL);
 }
 
+/* The entry takes the programme type and the country code the catch kept
+ * from its hearings, which are made only on the channel's own carrier. A
+ * catch never heard with them gives an entry with neither, and type 0 says
+ * the station sends none. */
+static void the_log_entry_keeps_the_pty_and_the_ecc_heard(void) {
+  DxHearing h = heard(93500, 0x0935, 455, 1000);
+  DxCatch *k = dxCatchesAdd(&list, &h, true);
+  LogbookEntry e;
+  dxCatchToLog(k, &e);
+  TEST_ASSERT_FALSE(e.hasPty);
+  TEST_ASSERT_FALSE(e.hasEcc);
+
+  h = heard(93500, 0x0935, 455, 1001);
+  h.rds.hasPty = true;
+  h.rds.pty = 10;
+  h.rds.hasEcc = true;
+  h.rds.ecc = 0xE0;
+  k = dxCatchesAdd(&list, &h, true);
+  dxCatchToLog(k, &e);
+  TEST_ASSERT_TRUE(e.hasPty);
+  TEST_ASSERT_EQUAL_UINT8(10, e.pty);
+  TEST_ASSERT_TRUE(e.hasEcc);
+  TEST_ASSERT_EQUAL_HEX8(0xE0, e.ecc);
+
+  k->rds.pty = 0;
+  dxCatchToLog(k, &e);
+  TEST_ASSERT_FALSE(e.hasPty);
+  TEST_ASSERT_EQUAL_UINT8(0, e.pty);
+  TEST_ASSERT_TRUE(e.hasEcc);
+}
+
 static void nothing_happens_without_somewhere_to_put_it(void) {
   DxHearing h = heard(93500, 0x0935, 455, 1);
   TEST_ASSERT_NULL(dxCatchesAdd(NULL, &h, true));
@@ -1174,6 +1205,7 @@ int main(int argc, char **argv) {
   RUN_TEST(a_write_that_fails_marks_nothing);
   RUN_TEST(an_oirt_catch_is_logged_as_oirt);
   RUN_TEST(the_log_entry_is_the_catch_at_its_best);
+  RUN_TEST(the_log_entry_keeps_the_pty_and_the_ecc_heard);
   RUN_TEST(nothing_happens_without_somewhere_to_put_it);
   RUN_TEST(the_seen_set_marks_a_pi_once);
   RUN_TEST(a_full_seen_set_forgets_the_first_caught);
