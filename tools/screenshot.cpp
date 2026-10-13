@@ -1603,7 +1603,7 @@ int main(int argc, char **argv) {
     static const StrId kNames[] = {STR_MENU_GO_TO,    STR_MENU_STATIONS,
                                    STR_MENU_AUDIO,    STR_MENU_FM_SETUP,
                                    STR_MENU_AM_SETUP, STR_MENU_DX_SETUP};
-    static const char *const kCounts[] = {"7", "6", "4", "10", "7", "13"};
+    static const char *const kCounts[] = {"6", "6", "4", "10", "7", "13"};
     for (int i = 0; i < SCREEN_MENU_ROWS; i++) {
       menu.rows[i].name = txt(kNames[i]);
       menu.rows[i].value = kCounts[i];
@@ -1663,36 +1663,37 @@ int main(int argc, char **argv) {
     screenMenuShow(&menu);
     saveShot("%s/menu-sub.bmp", dir);
 
-    /* A note on the row it answers: DX Mode pressed on AM. */
+    /* A note on the row it answers: DX Mode pressed on AM, on a radio with
+     * no keypad, the one whose Go To has DX Mode. */
     memset(&menu, 0, sizeof(menu));
     menu.title = txt(STR_MENU_GO_TO);
     menu.note = txt(STR_MENU_NOTE_SWITCH_TO_FM);
     menu.rows[0].name = txt(STR_MENU_GO_TO_BAND);
-    menu.rows[1].name = txt(STR_MENU_GO_TO_BANDWIDTH);
-    menu.rows[2].name = txt(STR_MENU_GO_TO_RDS);
-    menu.rows[3].name = txt(STR_MENU_GO_TO_DX);
-    menu.rows[3].selected = true;
-    menu.rows[4].name = txt(STR_MENU_GO_TO_SCOPE);
-    menu.rows[5].name = txt(STR_MENU_GO_TO_LOG);
+    menu.rows[1].name = txt(STR_MENU_GO_TO_RDS);
+    menu.rows[2].name = txt(STR_MENU_GO_TO_DX);
+    menu.rows[2].selected = true;
+    menu.rows[3].name = txt(STR_MENU_GO_TO_SCOPE);
+    menu.rows[4].name = txt(STR_MENU_GO_TO_LOG);
+    menu.rows[5].name = txt(STR_MENU_GO_TO_SAVE);
+    menu.total = 7;
     screenMenuShow(&menu);
     saveShot("%s/menu-note.bmp", dir);
 
     /* Save Current Station on a station that is a preset already: its note,
-     * and the menu still open, scrolled to the end of Go To. */
+     * and the menu still open, on Go To's six rows with the keypad. */
     memset(&menu, 0, sizeof(menu));
     menu.title = txt(STR_MENU_GO_TO);
     static char already[24];
     snprintf(already, sizeof(already), txt(STR_MENU_FMT_ALREADY_PRESET), 5);
     menu.note = already;
-    menu.rows[0].name = txt(STR_MENU_GO_TO_RDS);
-    menu.rows[1].name = txt(STR_MENU_GO_TO_DX);
+    menu.rows[0].name = txt(STR_MENU_GO_TO_BAND);
+    menu.rows[1].name = txt(STR_MENU_GO_TO_RDS);
     menu.rows[2].name = txt(STR_MENU_GO_TO_SCOPE);
     menu.rows[3].name = txt(STR_MENU_GO_TO_LOG);
     menu.rows[4].name = txt(STR_MENU_GO_TO_SAVE);
     menu.rows[4].selected = true;
     menu.rows[5].name = txt(STR_MENU_GO_TO_SLEEP);
-    menu.total = 8;
-    menu.top = 2;
+    menu.total = 6;
     screenMenuShow(&menu);
     saveShot("%s/menu-save-already.bmp", dir);
 

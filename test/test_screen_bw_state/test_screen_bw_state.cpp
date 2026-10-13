@@ -113,7 +113,7 @@ static void more_tiles_than_the_page_holds_are_cut(void) {
 
 /* ------------------------------------------------------------- FM */
 
-static void fm_lists_automatic_first_then_the_widths_and_the_switches(void) {
+static void fm_lists_automatic_first_then_the_widths_switches_and_close(void) {
   const ScreenBwInputs in = inputs(BAND_FM, false);
   build(&in);
   TEST_ASSERT_EQUAL_STRING("FM" DOT "kHz", view.context);
@@ -129,13 +129,13 @@ static void fm_lists_automatic_first_then_the_widths_and_the_switches(void) {
   for (uint8_t i = 0; i < 17; i++) {
     TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_WIDTH, view.tile[i].kind);
   }
-  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_CLOSE, view.tile[17].kind);
-  TEST_ASSERT_EQUAL_STRING("Close", view.tile[17].text);
-  TEST_ASSERT_FALSE(view.tile[17].filled);
-  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_IMS, view.tile[18].kind);
-  TEST_ASSERT_EQUAL_STRING("iMS Off", view.tile[18].text);
-  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_EQ, view.tile[19].kind);
-  TEST_ASSERT_EQUAL_STRING("EQ Off", view.tile[19].text);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_IMS, view.tile[17].kind);
+  TEST_ASSERT_EQUAL_STRING("iMS Off", view.tile[17].text);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_EQ, view.tile[18].kind);
+  TEST_ASSERT_EQUAL_STRING("EQ Off", view.tile[18].text);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_CLOSE, view.tile[19].kind);
+  TEST_ASSERT_EQUAL_STRING("Close", view.tile[19].text);
+  TEST_ASSERT_FALSE(view.tile[19].filled);
 }
 
 /* On automatic, the automatic tile is the one filled, and the cursor sits
@@ -169,11 +169,11 @@ static void the_width_in_use_is_filled_and_the_cursor_starts_on_it(void) {
 static void the_cursor_can_sit_on_another_tile(void) {
   ScreenBwInputs in = inputs(BAND_FM, false);
   in.widthKHz = 114;
-  in.cursor = 17;
+  in.cursor = 19;
   build(&in);
-  TEST_ASSERT_EQUAL_STRING("18/20", view.position);
-  TEST_ASSERT_TRUE(view.tile[17].cursor);
-  TEST_ASSERT_EQUAL_STRING("Close", view.tile[17].text);
+  TEST_ASSERT_EQUAL_STRING("20/20", view.position);
+  TEST_ASSERT_TRUE(view.tile[19].cursor);
+  TEST_ASSERT_EQUAL_STRING("Close", view.tile[19].text);
   TEST_ASSERT_FALSE(view.tile[6].cursor);
   TEST_ASSERT_TRUE(view.tile[6].filled);
   TEST_ASSERT_EQUAL_UINT8(1, cursorCount());
@@ -185,18 +185,18 @@ static void the_switches_show_the_radio_s_state(void) {
   in.ims = true;
   in.eq = false;
   build(&in);
-  TEST_ASSERT_EQUAL_STRING("iMS On", view.tile[18].text);
-  TEST_ASSERT_TRUE(view.tile[18].filled);
-  TEST_ASSERT_EQUAL_STRING("EQ Off", view.tile[19].text);
-  TEST_ASSERT_FALSE(view.tile[19].filled);
+  TEST_ASSERT_EQUAL_STRING("iMS On", view.tile[17].text);
+  TEST_ASSERT_TRUE(view.tile[17].filled);
+  TEST_ASSERT_EQUAL_STRING("EQ Off", view.tile[18].text);
+  TEST_ASSERT_FALSE(view.tile[18].filled);
 
   in.ims = false;
   in.eq = true;
   build(&in);
-  TEST_ASSERT_EQUAL_STRING("iMS Off", view.tile[18].text);
-  TEST_ASSERT_FALSE(view.tile[18].filled);
-  TEST_ASSERT_EQUAL_STRING("EQ On", view.tile[19].text);
-  TEST_ASSERT_TRUE(view.tile[19].filled);
+  TEST_ASSERT_EQUAL_STRING("iMS Off", view.tile[17].text);
+  TEST_ASSERT_FALSE(view.tile[17].filled);
+  TEST_ASSERT_EQUAL_STRING("EQ On", view.tile[18].text);
+  TEST_ASSERT_TRUE(view.tile[18].filled);
   /* The width tile and the switch that is on: two filled. */
   TEST_ASSERT_EQUAL_UINT8(2, filledCount());
 }
@@ -208,7 +208,8 @@ static void oirt_has_the_switches_too(void) {
   TEST_ASSERT_EQUAL_STRING("OIRT" DOT "kHz", view.context);
   TEST_ASSERT_TRUE(view.hasSwitches);
   TEST_ASSERT_EQUAL_STRING("AUTO", view.tile[0].text);
-  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_EQ, view.tile[view.count - 1].kind);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_EQ, view.tile[view.count - 2].kind);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_CLOSE, view.tile[view.count - 1].kind);
 }
 
 /* ------------------------------------------------------------- DX mode */
@@ -229,6 +230,7 @@ static void dx_mode_leaves_out_automatic(void) {
   TEST_ASSERT_TRUE(view.tile[5].cursor);
   TEST_ASSERT_EQUAL_UINT8(1, filledCount());
   TEST_ASSERT_TRUE(view.hasSwitches);
+  TEST_ASSERT_EQUAL_UINT8(SCREEN_BW_CLOSE, view.tile[18].kind);
 }
 
 /* ------------------------------------------------------------- AM */
@@ -317,7 +319,7 @@ int main(int, char **) {
   RUN_TEST(a_band_that_is_not_one_gives_an_empty_page);
   RUN_TEST(more_tiles_than_the_page_holds_are_cut);
 
-  RUN_TEST(fm_lists_automatic_first_then_the_widths_and_the_switches);
+  RUN_TEST(fm_lists_automatic_first_then_the_widths_switches_and_close);
   RUN_TEST(automatic_in_use_fills_its_own_tile);
   RUN_TEST(the_width_in_use_is_filled_and_the_cursor_starts_on_it);
   RUN_TEST(the_cursor_can_sit_on_another_tile);

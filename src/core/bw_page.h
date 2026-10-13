@@ -1,7 +1,7 @@
 /*
- * The bandwidth page: every width the band takes as a tile, then a Close
- * tile, and on FM the iMS and equaliser switches after them. A hold of BW opens it and the knob
- * picks.
+ * The bandwidth page: every width the band takes as a tile, then on FM the
+ * iMS and equaliser switches, and a Close tile last. A hold of BW opens it
+ * and the knob picks.
  *
  * Pure logic: which tiles, in what order, where the cursor starts and how
  * it moves. The widths are the band plan's own list, the one the BW key,
@@ -20,8 +20,8 @@
 extern "C" {
 #endif
 
-/* The most tiles: automatic and sixteen FM widths, Close, iMS and the
- * equaliser. */
+/* The most tiles: automatic and sixteen FM widths, iMS, the equaliser and
+ * Close. */
 #define BW_PAGE_MAX 20
 
 typedef enum {
@@ -38,9 +38,9 @@ typedef struct {
 
 /*
  * The tiles for `band`, widths first in the band plan's order, then on an
- * FM band the two switches. In DX mode automatic is left out, since DX mode
- * is one fixed width. Returns how many, 0 for a band that is not one or no
- * room.
+ * FM band the two switches, then Close, so the knob's last stop is the way
+ * out. In DX mode automatic is left out, since DX mode is one fixed width.
+ * Returns how many, 0 for a band that is not one or no room.
  */
 uint8_t bwPageTiles(BandId band, bool dxMode, BwTile *out, uint8_t cap);
 

@@ -6,7 +6,7 @@ DX mode is for finding far away FM stations. It has four pages: **DX** shows the
 
 DX mode works on FM and OIRT. On AM the radio says `Switch to FM first`.
 
-- **Open:** press DX, or **Menu > Go To > DX Mode**. **DX Scanner > Start Scan** opens it and starts a scan.
+- **Open:** press DX on the keypad. On a radio without the keypad, use **Menu > Go To > DX Mode**. **DX Scanner > Start Scan** opens it and starts a scan.
 - **Leave:** press DX, tap MODE, or hold the tuning knob on the DX or Scanner page. DX mode also closes if the radio goes to an AM band.
 
 Opened with the DX key or from Go To, DX mode starts on the DX page. Start Scan and Learn Local Stations start on the Scanner page. On entry the filter is set to **Scan Bandwidth**, 114 kHz at the start: the narrowest width that keeps RDS whole and stops a strong station next door from being decoded on this channel. This width is not saved: your own width comes back when you leave.
