@@ -28,7 +28,7 @@ export function Battery({ bat }) {
         <span class="h-1.5 w-[2px] rounded-r-sm bg-muted" />
       </span>
       {/* Volts with no unit, as on the radio: the battery says what it is. */}
-      <span class="num text-sm font-semibold">{bat.shw === SHOW_VOLTS ? (mv / 1000).toFixed(1) : `${pc}%`}</span>
+      <span class="num text-sm font-semibold max-[379px]:text-xs">{bat.shw === SHOW_VOLTS ? (mv / 1000).toFixed(1) : `${pc}%`}</span>
     </span>
   );
 }

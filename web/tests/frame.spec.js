@@ -367,6 +367,13 @@ test('the open screen is marked for a reader, and notes are spoken as they come'
 
 test('on a 320 and a 360 px phone the header keeps the frequency and the battery on every screen, the name cut short instead', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone', 'a phone only');
+  // The widest the battery gets, 100%, with a two digit preset.
+  await page.route('**/api/state', async (route) => {
+    const s = await (await route.fetch()).json();
+    Object.assign(s.bat, { last: 4200, shw: 1 });
+    s.tun.pst = 99;
+    return route.fulfill({ json: s });
+  });
   for (const width of [320, 360]) for (const screen of ['', '#radio', '#settings', '#network', '#system']) {
     await page.setViewportSize({ width, height: 780 });
     await page.goto('/' + screen);
