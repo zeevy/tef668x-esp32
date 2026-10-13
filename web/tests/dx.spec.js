@@ -190,6 +190,8 @@ test('DX keys: a typed frequency tunes, B with nothing to go back to, [ and ] th
 test('[ and ] say DX mode must be on', async ({ page }) => {
   await radio(page, { head: { on: false } });
   await page.goto('/#dx');
+  // The page takes no key before it has the radio's state.
+  await expect(top(page)).toContainText('87.70');
   await page.keyboard.press(']');
   await expect(page.getByText('Turn DX mode on to change its width.')).toBeVisible();
 });
