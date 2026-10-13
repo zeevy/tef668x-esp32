@@ -380,7 +380,7 @@ static void sceneFmMemory(ScreenState *s) {
   s->memoryName = "MORNING COMMUTE";
 }
 
-/* The battery shown as volts: the upright battery, then the number. */
+/* The battery shown as volts: the battery, then the number. */
 static void sceneFmVolts(ScreenState *s) {
   sceneFm(s);
   s->batteryText = fmt(STR_COMMON_FMT_VOLTS_TENTHS, 4u, 1u);

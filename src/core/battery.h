@@ -61,7 +61,7 @@ extern "C" {
 typedef enum {
   BATTERY_SHOW_OFF = 0, /* Nothing on the panel. */
   BATTERY_SHOW_PERCENT, /* "78%" */
-  BATTERY_SHOW_VOLTS,   /* "3.9", with the upright battery before it */
+  BATTERY_SHOW_VOLTS,   /* "3.9", after the battery */
   BATTERY_SHOW_COUNT
 } BatteryShow;
 

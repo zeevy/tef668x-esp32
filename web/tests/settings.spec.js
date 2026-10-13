@@ -40,7 +40,7 @@ test('one group at a time, Sound first', async ({ page }, testInfo) => {
   await expect(page.getByRole('navigation', { name: 'Groups' }).getByRole('button', { name: 'Sound', exact: true })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByText('Squelch floor', { exact: true })).toBeVisible();
   await open(page, 'DX scanner');
-  await expect(page.getByText('Dwell on each channel', { exact: true })).toBeVisible();
+  await expect(page.getByText('Scan dwell', { exact: true })).toBeVisible();
   await expect(page.getByText('Squelch floor', { exact: true })).toHaveCount(0);
 });
 
@@ -110,7 +110,7 @@ test('stereo blend, high blend and high cut show the stored levels, not the chip
   await page.goto('/#settings');
   await open(page, 'FM reception');
   await expect(page.getByLabel('Stereo blend', { exact: true })).toHaveText('30 dBµV');
-  await expect(page.getByLabel('High blend', { exact: true })).toHaveText('40 dBµV');
+  await expect(page.getByLabel('Stereo / high blend', { exact: true })).toHaveText('40 dBµV');
   await expect(page.getByLabel('High cut', { exact: true })).toHaveText('Off');
   const sent = nextPost(page, '/api/fm');
   await page.getByRole('button', { name: 'More High cut' }).click();

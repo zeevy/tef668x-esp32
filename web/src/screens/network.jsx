@@ -5,7 +5,7 @@ import { useState } from 'preact/hooks';
 import { pinAsked, signedIn, state } from '../data/radio.js';
 import { useStoredSettings } from '../data/reads.js';
 import { say } from '../data/act.js';
-import { Ask, Banner, Button, Card, Chip, INPUT, Loading, Modal, PinNeeded, Segmented, SettingRow, StatusHead, Toggle, Unread } from '../ui/kit.jsx';
+import { Ask, Banner, Button, Card, Chip, INPUT, Loading, Modal, PinNeeded, Segmented, SettingRow, StatusHead, Switch, Unread } from '../ui/kit.jsx';
 import { Bytes } from '../ui/backs.jsx';
 import { WiFiForm } from '../ui/wifi.jsx';
 
@@ -81,8 +81,8 @@ function StatusAndRows({ s, stored, set }) {
         <SettingRow title="Hotspot" note="Auto: only when the Wi-Fi cannot be joined">
           <Segmented label="Hotspot" options={HOTSPOT} value={HOTSPOT[stored.hsp] ?? 'Auto'} onChange={hotspot} />
         </SettingRow>
-        <SettingRow inline title="PC Link" note={stored.pcl ? (ips.length ? `Connected: ${ips.join(', ')}` : 'Port 7373, no PC connected') : 'Port 7373, for XDR-GTK and FM-DX Webserver'}>
-          <Toggle label="PC Link" on={!!stored.pcl} onChange={pcl} />
+        <SettingRow title="PC Link" note={stored.pcl ? (ips.length ? `Connected: ${ips.join(', ')}` : 'Port 7373, no PC connected') : 'Port 7373, for XDR-GTK and FM-DX Webserver'}>
+          <Switch label="PC Link" text={stored.pcl ? 'On' : 'Off'} on={!!stored.pcl} onChange={pcl} />
         </SettingRow>
         <SettingRow title="Access PIN" note={s.dpn ? 'Still the default PIN: anyone on your network can change the radio' : 'Changed from the default'} warn={s.dpn}>
           <Button kind="secondary" class="w-full" onClick={() => setOpen('pin')}>

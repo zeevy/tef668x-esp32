@@ -538,3 +538,26 @@ test('an alternative frequency is drawn at once, before the radio answers', asyn
   await expect(reading(page).locator('p').filter({ hasText: 'KOOL FM' })).toBeVisible();
   answer();
 });
+
+test('the dial behind the radio has its needle at the frequency tuned, on its band\'s scale, and none on LW', async ({ page }) => {
+  const radio = await liveRadio(page, FM);
+  await page.goto('/#radio');
+  const needle = page.locator('main [data-mark=needle]');
+  const left = async () => parseFloat(await needle.evaluate((e) => e.style.left));
+  await expect(needle).toHaveCount(1);
+  const high = await left();
+  radio.push((s) => Object.assign(s.tun, { khz: 88000, f: '88.00' }));
+  await expect.poll(left).toBeLessThan(high);
+  radio.push((s) => Object.assign(s.tun, { bnd: 'LW', khz: 198, f: '198', unt: 'kHz' }));
+  await expect(needle).toHaveCount(0);
+  // OIRT below the FM scale's low end: no needle, rather than one at its end.
+  radio.push((s) => Object.assign(s.tun, { bnd: 'OIRT', khz: 70000, f: '70.00', unt: 'MHz' }));
+  await expect(needle).toHaveCount(0);
+});
+
+test('a card\'s picture fades out over the card\'s left part, where its text is', async ({ page }) => {
+  await page.goto('/#radio');
+  const mask = await page.locator('main .back').first().evaluate((e) => getComputedStyle(e).maskImage || getComputedStyle(e).webkitMaskImage);
+  expect(mask).toContain('linear-gradient');
+});
+

@@ -153,4 +153,4 @@ curl -s -b jar -d do=clear -d slot=10 $R/api/presets
 
 The answer is one line, for example `Preset 3 is FM 98.30 MHz`, `Preset 3 moved to 10.`, `Presets 3 and 10 swapped.` or `Preset 10 deleted.` A recall, move or clear of an empty slot answers 404 `Preset 3 is empty.`
 
-A station scan can also be started from the API: `POST /api/scan` with `bnd=FM`, `MW`, `SW` or `LW`.
+A station scan can also be started from the web page's [Presets](Web-Page.md#presets) screen, which shows its progress and result, or from the API: `POST /api/scan` with `bnd=FM`, `MW`, `SW` or `LW`.

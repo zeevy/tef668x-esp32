@@ -1,7 +1,7 @@
 // The radio's everyday commands, each with its route and, when its result is
-// known, what it draws at once. Every place that tunes, seeks, steps, mutes,
-// sets the volume, recalls, stores or logs sends it through here, so they all
-// do it the same way. Each resolves true when the radio took it.
+// known, what it draws at once. Every place that tunes, seeks, steps, scans,
+// mutes, sets the volume, recalls, stores or logs sends it through here, so
+// they all do it the same way. Each resolves true when the radio took it.
 import { effect, signal } from '@preact/signals';
 import { change, state, volHeld } from './radio.js';
 import { bandAt, bandOf } from './bands.js';
@@ -84,6 +84,12 @@ export const recall = (p) => act('/api/presets', { do: 'recall', slot: p.slot },
 // neither is drawn: the state is read back at once.
 export const step = (n) => act('/api/step', { stp: n });
 export const seek = (up) => act('/api/seek', { dir: up ? 'up' : 'down' });
+
+// A station scan of one band: FM, MW, SW or LW. The radio saves each new
+// station it finds in an empty slot and changes no preset. How far it has
+// got comes in the state, so nothing is drawn: the state is read back at
+// once.
+export const scan = (band) => act('/api/scan', { bnd: band });
 
 export const mute = (on) => act('/api/mute', { on: +on }, (n) => (n.tun.mut = on));
 

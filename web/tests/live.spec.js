@@ -29,6 +29,18 @@ const handSockets = (page) =>
 const made = (page) => page.evaluate(() => window.sockets.length);
 // The radio turns the newest socket away: it closes, never having opened.
 const turnAway = (page) => page.evaluate(() => window.sockets.at(-1).onclose());
+// The tab goes out of view, or comes back.
+const hide = (page, hidden) =>
+  page.evaluate((hidden) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, hidden);
+// Each request the page makes to a route, as the radio would see them.
+const requests = (page, path) => {
+  const seen = [];
+  page.on('request', (r) => new URL(r.url()).pathname === path && seen.push(r));
+  return seen;
+};
 
 test('while the radio sends the state, nothing is polled', async ({ page }) => {
   await page.clock.install();
@@ -97,21 +109,58 @@ test('a hidden tab closes the socket and opens a new one when shown', async ({ p
   await page.goto('/');
   await expect.poll(() => radio.sockets.length).toBe(1);
   radio.sockets[0].onClose(() => (closed = true));
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
+  await hide(page, true);
   await expect.poll(() => closed).toBe(true);
   const before = await reads();
   // Past the 5 s poll and the 5 s wait for a new socket.
   await page.clock.runFor(6000);
   expect(await reads()).toBe(before);
   expect(radio.sockets.length).toBe(1);
-  await page.evaluate(() => {
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
-    document.dispatchEvent(new Event('visibilitychange'));
-  });
+  await hide(page, false);
   await expect.poll(() => radio.sockets.length).toBe(2);
+});
+
+test('a page that opens with the socket working reads no state of its own', async ({ page }) => {
+  await stopClock(page);
+  const states = requests(page, '/api/state');
+  const radio = await liveRadio(page);
+  await page.goto('/');
+  await expect.poll(() => radio.sockets.length).toBe(1);
+  await expect(page.getByRole('link', { name: /106\.40/ })).toBeVisible();
+  // Past the 1 s wait for the socket and the 5 s poll.
+  await page.clock.runFor(6000);
+  expect(states).toHaveLength(0);
+});
+
+test('a socket that has not opened 1 s on leaves the page to read the state once', async ({ page }) => {
+  await stopClock(page);
+  await handSockets(page);
+  const states = requests(page, '/api/state');
+  await page.goto('/');
+  await page.clock.runFor(999);
+  expect(states).toHaveLength(0);
+  await page.clock.runFor(1);
+  await expect(page.getByRole('link', { name: /106\.40/ })).toBeVisible();
+  expect(states).toHaveLength(1);
+});
+
+test('back in view, the page reads neither the state nor the settings, and still shows it is signed in', async ({ page }) => {
+  await stopClock(page);
+  const states = requests(page, '/api/state');
+  const settings = requests(page, '/api/settings');
+  const radio = await liveRadio(page);
+  await page.goto('/');
+  await expect.poll(() => radio.sockets.length).toBe(1);
+  // The recorded settings answer, so the one check as the page opens says
+  // this browser is signed in.
+  await expect(page.getByRole('button', { name: 'Signed in' })).toBeVisible();
+  await hide(page, true);
+  await hide(page, false);
+  await expect.poll(() => radio.sockets.length).toBe(2);
+  await page.clock.runFor(6000);
+  expect(states).toHaveLength(0);
+  expect(settings).toHaveLength(1);
+  await expect(page.getByRole('button', { name: 'Signed in' })).toBeVisible();
 });
 
 test('a change is drawn at once, and a state from before the radio took it cannot undo it', async ({ page }) => {
@@ -158,14 +207,25 @@ test('a seek needs no read of its own while the socket is open', async ({ page }
 });
 
 test('a read that started before a state the socket brought cannot put the older one back', async ({ page }) => {
-  // The socket brings 98.30 while the first read, which started before it,
-  // is still on its way with the recorded 106.40.
-  await liveRadio(page, at9830);
+  // The socket is slow to open, so the page reads the state. The socket then
+  // brings 98.30 while that read is still on its way with the recorded 106.40.
+  await stopClock(page);
+  await handSockets(page);
   let answer;
   await page.route('**/api/state', (route) => (answer = () => route.fulfill({ json: recorded })));
   await page.goto('/');
-  await expect(page.getByRole('link', { name: /98\.30/ })).toBeVisible();
+  await page.clock.runFor(1000);
   await expect.poll(() => answer).toBeTruthy();
+  await page.clock.runFor(100);
+  const later = structuredClone(recorded);
+  at9830(later);
+  await page.evaluate((s) => {
+    const ws = window.sockets.at(-1);
+    ws.readyState = 1;
+    ws.onopen();
+    ws.onmessage({ data: JSON.stringify(s) });
+  }, later);
+  await expect(page.getByRole('link', { name: /98\.30/ })).toBeVisible();
   const landed = page.waitForEvent('requestfinished', (r) => r.url().endsWith('/api/state'));
   await answer();
   await landed;
@@ -299,9 +359,11 @@ test('a socket that hangs while it connects is closed after 10 s, and polling go
   await handSockets(page);
   const reads = await countReads(page);
   await page.goto('/');
-  // The first state is in, so the next poll is set for 5 s on.
+  // The socket has not opened 1 s on, so the page reads the state, and the
+  // next poll is set for 5 s on.
+  await page.clock.runFor(1000);
   await expect(page.getByRole('link', { name: /MHz|kHz/ })).toBeVisible();
-  await page.clock.runFor(9999);
+  await page.clock.runFor(8999);
   expect(await page.evaluate(() => window.shut)).toBe(0);
   await page.clock.runFor(1);
   expect(await page.evaluate(() => window.shut)).toBe(1);

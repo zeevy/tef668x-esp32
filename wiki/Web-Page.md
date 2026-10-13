@@ -32,11 +32,11 @@ The address is the part after `#`, so `http://tef668x.local:8080/#scope` opens t
 
 - **The name.** On a phone it is the name of the screen. From tablet width it is **TEF668X**, because the menu shows the screen.
 - **The volume.** From tablet width it is a box with the mute key, a slim slider from -60 to 0 dB, and the volume in dB. On a phone the speaker button opens the same box in a strip under the header, and closes it again.
-- **The frequency**, in a box, with the preset number, such as `P09`, over the unit. Tap it to open the Radio screen. A screen narrower than 380 pixels has no room for it.
+- **The frequency**, in a box, with the preset number, such as `P09`, over the unit. Tap it to open the Radio screen. On a narrow phone the screen's name is cut short to leave room for it.
 - **The link word.** It shows only when the link to the radio is not well. An orange dot is **Slow**: the last answer took more than 3 seconds. A red dot is **No answer**. The word shows next to the dot from tablet width. With no answer, a red bar also says "The radio is not answering. Trying again.", and the screen is dimmed.
 - **The sun or the moon** switches between the light and the dark look. Until you press it, the page follows your device's own setting. After you press it, this browser keeps your choice.
 - **The lock** opens the PIN dialog. It shows open when this browser is signed in.
-- **The battery**, last. It shows only on a radio with a battery. It stands upright, filled from the foot to its level, with the level written along it. It is orange at 20 % or less and red at 10 % or less. Tap it to switch between per cent and volts; this browser keeps your choice. The per cent is a straight line from 3.0 V, empty, to 4.2 V, full. While Wi-Fi runs the radio cannot read the battery, so it shows the reading taken at start, or, with [Battery Check](Display-and-Themes.md#battery-check) on, the newest reading it stopped Wi-Fi for. Point at it to see how old the reading is.
+- **The battery**, last, in a box: a small battery on its side, filled to its level, and the level beside it, in per cent or in volts as the radio's own **Battery** setting says, in the menu's Display group. With that setting Off, or on a radio with no battery, there is none. It is orange at 20 % or less and red at 10 % or less. The per cent is a straight line from 3.0 V, empty, to 4.2 V, full. While Wi-Fi runs the radio cannot read the battery, so it shows the reading taken at start, or, with [Battery Check](Display-and-Themes.md#battery-check) on, the newest reading it stopped Wi-Fi for. Point at it to see how old the reading is.
 
 **The foot** of each screen shows the firmware version, such as `TEF668X 0.2.0`, and a **Source on GitHub** link. The link opens only with an internet connection.
 
@@ -44,18 +44,20 @@ Until the radio's first state comes, each screen says "Waiting for the radio…"
 
 ### The pictures behind the cards
 
-On a laptop, the top card of each screen has a faint picture behind it, in the accent colour, that moves slowly. A phone shows none, since its cards are too narrow for a picture behind their text.
+On a laptop, the top card of each screen has a faint picture behind it, in the accent colour, most of them moving slowly. A phone shows none, since its cards are too narrow for a picture behind their text.
 
 | Screen | The picture |
 |---|---|
 | Home | The band as the band scope last swept it, with the dial marked and the station there drawn from its level now. With no sweep of this band yet, one peak as tall as the signal, on a floor as high as the noise. It pans slowly across the card |
-| Radio | An old radio's glass dial, with a scale each for FM, AM and SW and the shortwave broadcast bands marked. The needle moves slowly along it |
+| Radio | An old radio's glass dial, with a scale each for FM, AM and SW and the shortwave broadcast bands marked. The needle stands at the frequency the radio is on, on its band's scale. On LW, which has no scale, there is no needle |
 | Presets & Log | A night sky. A few stars light up and go out, each time somewhere new |
 | DX | A radar with its beam turning. Up to three far stations light up and go out |
 | Band scope | An analyser screen with its grid. The stations on it rise and fall slowly |
 | Settings | Three gears that turn together |
 | Network | Bytes in hex, falling in columns |
 | System | The ESP32 module and the TEF6686 tuner on a circuit board, with data running along the traces |
+
+Each picture fades out over the left part of its card, where the card's main text is, so no line crosses the frequency or a name.
 
 On a device set to reduce motion, the pictures stand still.
 
@@ -109,7 +111,7 @@ When you make a change without signing in, the page opens the PIN dialog: "Chang
 
 ## Dialogs
 
-Every dialog has the same look. The title is at the top and the buttons are in a row at the foot.
+Every dialog has the same look. The title is at the top and the buttons are in a row at the foot. On a phone, a dialog with a button on the left, such as **Delete** or **Replace**, has its buttons in halves, two to a row, and a last one on its own takes the whole row.
 
 - A button that deletes, such as **Delete**, is on the left.
 - On the right is a quiet button that closes it, such as **Cancel**, **Not now** or **Keep it on**, then the main button last.
@@ -128,7 +130,7 @@ Every dialog has the same look. The title is at the top and the buttons are in a
 - **The frequency**, large, with the preset number over the unit. Tap it to type another frequency: MHz with a point, such as `98.3`, or kHz without, such as `738`. **Enter** tunes there. **Escape**, or a tap away, leaves it.
 - **The station name**. With none, the preset's name, else `---`. Under it the programme type and the PI. With neither, the date once the radio's clock is set. Then two lines of radio text.
 - **The buttons**: seek down, step down, mute or sound on, step up, seek up, and **Log this station**.
-- **The bars**: **Level**, **Signal to noise**, and **Volume**, a slider from -60 to 0 dB.
+- **The bars**: **Level** and **Signal to noise**. The volume is in the header, on every screen.
 - **The readings** at the foot: Noise on FM, Multipath on FM or Co-channel on AM, Width and Offset.
 
 **The facts card**: the Wi-Fi signal (or Hotspot), the battery at start, how long the radio has been on, and the firmware version, with "Up to date" or the newer version that is ready.
@@ -154,7 +156,7 @@ Every dialog has the same look. The title is at the top and the buttons are in a
 
 - **Band**: FM, OIRT, LW, MW, SW.
 - Two drop-downs. The tuning mode: **Tuning manual**, **Tuning auto**, **Tuning presets** or **Tuning meter band**. The squelch: **Squelch off**, **Squelch auto** or **Squelch manual**.
-- **Mono**, **iMS** and **EQ**, on FM only. Each is a key with a lamp, lit when on. They are the same switches as **Force mono**, **iMS** and **Equaliser** in the FM reception group of [Settings](#settings).
+- **Mono**, **iMS** and **EQ**, on FM only. Each is a key with a lamp, lit when on. They are the same switches as **Force mono**, **iMS** and **Equalizer** in the FM reception group of [Settings](#settings).
 - Two more drop-downs: the step, such as **Step 100 kHz**, and the filter, such as **Filter 114 kHz**, from what this band offers. **Filter auto** lets the tuner choose the width.
 - Four buttons: seek down, step down, step up, seek up.
 
@@ -179,12 +181,14 @@ The two tabs share the top card. It shows the station on the dial, with the band
 
 The line under the station says how many of the 99 slots are used. The presets show as keys, like the preset buttons on a radio. Each key has the band, the preset number, the frequency and the name. The preset on the dial is lit. Tap a key to recall it.
 
-- **Save current** saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
+- **Save current station**, **Save current** on a phone, saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
 - **Add** opens a dialog for a new preset, in the first free slot.
 - **Download** gives the presets as a CSV file, `presets.csv`.
 - **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file.
 - **The band filter**: with presets on more than one band, **All** and each band with presets. The card title says how many are shown.
 - **Change** puts the keys in Change mode. It shows every slot up to one past the last used, the empty ones dashed. Tap a key to change it, or tap an empty slot to add one there. Drag a key onto another slot to move it: onto another preset the two swap, onto an empty slot it goes there. Dragging works with a finger too. **Done** leaves Change mode.
+
+**Station scan**, the card under the keys, walks a band and saves each new station it finds, one that is not a preset yet, as the radio's own station scan does. Pick **FM**, **MW**, **SW** or **LW**, and press **Scan**. It saves into empty slots only, so no preset is changed. While it runs, the card shows **Scanning** and the channels done, such as `120 of 211 channels`, with a bar. After it, it shows **Complete** or **Stopped** and the result, such as `Found 13, saved 1.`, with `Full, 2 not saved.` when the slots ran out. A scan started on the radio shows here too. Any tune, seek or change of band stops it, from the radio or from this page, such as a tap on a preset key. FM takes about 30 seconds, SW about 4 minutes.
 
 **The preset dialog** is "Add a preset", or "Preset 9" for a stored one.
 
@@ -227,7 +231,7 @@ The radio's [DX mode](DX-Mode.md), made to be worked from a laptop the way XDR-G
 On the right:
 
 - **The meter**: the level now, large, with the highest (**Peak**) and the average (**Avg**) since the last tune. A bar shows the level, with the peak as an orange mark and the average as a thin one. Under it, the level of the last minute as a filled line, grey for mono, orange for stereo and green while RDS comes in. Over the line, the mouse wheel steps a channel up or down. The meter starts again on each tune.
-- **DX mode**, on or off, and the **Width**, the filter width DX mode uses. DX mode works on FM and OIRT only. On another band the card says "DX mode works on FM and OIRT. Switch to FM first."
+- **DX mode**, on or off, and the **Width**, the filter width DX mode uses. Picking a width while DX mode is off turns it on first, as **Start scan** and **Sweep** do. DX mode works on FM and OIRT only. On another band the card says "DX mode works on FM and OIRT. Switch to FM first."
 - The three tabs, **Scope**, **Scanner** and **Catches**.
 
 **The level unit.** Tap the level to show it in dBµV, the radio's own unit, in dBf or in dBm, as XDR-GTK and FM-DX Webserver give them: dBf is dBµV + 11.25, and dBm is dBf - 120. This browser keeps the choice, and every level the page shows follows it. Settings and the CSV files stay in dBµV, as the radio keeps them.
@@ -250,7 +254,7 @@ On the right:
 
 - It shows a bar for each channel, the baseline, the highest levels, the floor as a dashed line, and the dial. While the radio shows its own scope, its cursor is a green line.
 - A strip under the chart shows the rise of each channel over its baseline.
-- A line under the chart gives the channel pointed at: its frequency, its level and its rise. Point at a channel to read it, and tap it to tune there. With the focus on the chart, ← and → pick a channel and **Enter** tunes there.
+- A line under the chart gives the channel pointed at: its frequency, its level, and how far it is over or under its baseline, such as `20.0 dB over its baseline`. Point at a channel to read it, and tap it to tune there. With the focus on the chart, ← and → pick a channel and **Enter** tunes there.
 - **Sweep** sweeps the band again, which takes about 4 seconds. The chart is dim until the new sweep comes.
 - **Baseline** picks what the sweep is compared with: the median of the kept sweeps, or one kept sweep by its time.
 
@@ -291,7 +295,7 @@ The settings of the radio's menu, in the same groups: **Sound**, **FM reception*
 **The top card** has gears behind it. It shows the open group, how many settings it has, and a chip for the radio's own save: **Saved**, **Saving in** a few seconds, **Saving by itself is off**, or **The last save failed**. Each group is a tile: beside the group on a laptop, under it on a phone. Tap a tile to open that group. Its settings are in the card under it, one row each.
 
 - A change goes to the radio at once.
-- A setting is a switch, a row of choices, a drop-down, or a value with **-** and **+**. Hold **-** or **+** to step on. The value is sent once, a moment after you let go.
+- A setting is a switch, a box that reads **On** or **Off** and is tinted while on, a row of choices, a drop-down, or a value with **-** and **+**. Hold **-** or **+** to step on. The value is sent once, a moment after you let go.
 - **At the next start** marks a setting the radio takes only after a restart, such as the band plan or the MW channel spacing. A note says so when you change one.
 - **Taken only on FM** marks an FM setting while the radio is on another band.
 - **Display** also has the Custom theme's colours, eight colour pickers. See [Display and Themes](Display-and-Themes.md).
@@ -306,7 +310,7 @@ The settings of the radio's menu, in the same groups: **Sound**, **FM reception*
 
 Then one row each:
 
-- **Wi-Fi network**: the network stored. **Change** opens a dialog with the **Network name** and the **Passphrase**. **Show** shows what you typed. Turn on **This network has no passphrase** for an open network. **Save and join** moves the radio to that network at once, so this page may lose it while it does.
+- **Wi-Fi network**: the network stored. **Change** opens a dialog with the **Network name** and the **Passphrase**. **Show** shows what you typed. Turn on **No passphrase** for an open network. **Save and join** moves the radio to that network at once, so this page may lose it while it does.
 - **Hotspot**: Auto, On or Off. Auto brings up the radio's own hotspot only when the Wi-Fi cannot be joined. A choice that takes the radio off the network this page reaches it on asks first. See [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md).
 - **PC Link**: opens port 7373 for XDR-GTK and FM-DX Webserver. The row lists the address of each PC connected. See [PC Tools](PC-Tools.md).
 - **Access PIN**: **Change** opens a dialog. Type the new PIN under **New PIN** and **Again**, then press **Change PIN**. It works at once and signs every browser and every PC out, so the page asks you to sign in with the new PIN.

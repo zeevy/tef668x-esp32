@@ -50,34 +50,39 @@ test('a phone has four tabs and More; a laptop a menu across the top', async ({ 
   }
 });
 
-test('the battery is the last button in the header, in per cent or, at a tap, in volts; none on a radio without one', async ({ page }) => {
+test('the battery is last in the header, in per cent or in volts as the radio\'s Battery setting says, and none with it Off or on a radio without one', async ({ page }) => {
   // The start up reading, an hour and 9 minutes old.
-  let bat = { fit: true, mv: null, boot: 3724, last: 3724, age: 4146 };
+  let bat = { fit: true, mv: null, boot: 3724, last: 3724, age: 4146, shw: 1 };
   await page.route('**/api/state', async (route) => {
     const s = await (await route.fetch()).json();
     return route.fulfill({ json: { ...s, bat } });
   });
   await page.goto('/');
-  const battery = page.getByRole('banner').getByRole('button').last();
+  const battery = page.getByRole('banner').getByRole('img', { name: /^Battery/ });
   await expect(battery).toHaveAccessibleName('Battery 60 per cent, 3.72 volts, read 1 h 9 min ago');
   await expect(battery).toHaveText('60%');
-  await battery.click();
+  bat = { ...bat, shw: 2 };
+  await page.reload();
   await expect(battery).toHaveText('3.7');
-  bat = { fit: false, mv: null, boot: null, last: null, age: null };
+  bat = { ...bat, shw: 0 };
   await page.reload();
   await expect(page.getByRole('banner').getByRole('button', { name: /Sign(ed)? in/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Battery/ })).toHaveCount(0);
+  await expect(battery).toHaveCount(0);
+  bat = { fit: false, mv: null, boot: null, last: null, age: null, shw: 1 };
+  await page.reload();
+  await expect(page.getByRole('banner').getByRole('button', { name: /Sign(ed)? in/ })).toBeVisible();
+  await expect(battery).toHaveCount(0);
 });
 
 test('with Battery Check on, the header battery shows the newest reading and says how old it is', async ({ page }) => {
   // Read with Wi-Fi paused 4 min ago: 3.96 V, past the start up reading.
-  const bat = { fit: true, mv: null, boot: 3724, last: 3960, age: 240, chk: { n: 2, ms: 140, back: 3600 } };
+  const bat = { fit: true, mv: null, boot: 3724, last: 3960, age: 240, shw: 1, chk: { n: 2, ms: 140, back: 3600 } };
   await page.route('**/api/state', async (route) => {
     const s = await (await route.fetch()).json();
     return route.fulfill({ json: { ...s, bat } });
   });
   await page.goto('/');
-  const battery = page.getByRole('banner').getByRole('button').last();
+  const battery = page.getByRole('banner').getByRole('img', { name: /^Battery/ });
   await expect(battery).toHaveAccessibleName('Battery 80 per cent, 3.96 volts, read 4 min ago');
   await expect(battery).toHaveText('80%');
 });
@@ -340,11 +345,13 @@ test.describe('motion, with the device not asking for less', () => {
   });
 });
 
-test('the header volume is the slim slider; the one on Home keeps its size', async ({ page }, testInfo) => {
+test('the volume is the header\'s slim slider, and no screen has one of its own', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'laptop', 'the volume sits in the header on a laptop');
-  await page.goto('/');
-  await expect(page.locator('header .range-slim').getByRole('slider', { name: 'Volume' })).toHaveCount(1);
-  await expect(page.locator('main .range-slim')).toHaveCount(0);
+  for (const screen of ['', '#radio', '#dx', '#presets', '#scope', '#log', '#settings', '#network', '#system']) {
+    await page.goto('/' + screen);
+    await expect(page.locator('header .range-slim').getByRole('slider', { name: 'Volume' })).toHaveCount(1);
+    await expect(page.locator('main').getByRole('slider', { name: 'Volume' })).toHaveCount(0);
+  }
 });
 
 test('the open screen is marked for a reader, and notes are spoken as they come', async ({ page }) => {
@@ -357,3 +364,19 @@ test('the open screen is marked for a reader, and notes are spoken as they come'
   await expect(nav.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current', 'page');
   await expect(page.locator('[aria-live="polite"]')).toHaveCount(1);
 });
+
+test('on a 320 and a 360 px phone the header keeps the frequency and the battery on every screen, the name cut short instead', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone', 'a phone only');
+  for (const width of [320, 360]) for (const screen of ['', '#radio', '#settings', '#network', '#system']) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.goto('/' + screen);
+    const freq = page.getByRole('banner').getByRole('link', { name: /106\.40/ });
+    await expect(freq).toBeVisible();
+    const box = await freq.boundingBox();
+    const head = await page.getByRole('banner').boundingBox();
+    expect(box.x + box.width).toBeLessThanOrEqual(head.x + head.width);
+    await expect(page.getByRole('banner').getByRole('img', { name: /^Battery/ })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  }
+});
+

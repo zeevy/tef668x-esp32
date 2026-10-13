@@ -7,7 +7,7 @@ import { useStoredSettings } from '../data/reads.js';
 import { duration } from '../data/format.js';
 import { LIVE_PAGES_MAX, LOG_MAX, PC_LINK_MAX, PRESET_SLOTS } from '../data/limits.js';
 import { act, refused, say } from '../data/act.js';
-import { Ask, Bar, Button, Card, Chip, FactRows, FileButton, SettingRow, StatusHead, Toggle } from '../ui/kit.jsx';
+import { Ask, Bar, Button, Card, Chip, FactRows, FileButton, SettingRow, StatusHead, Switch } from '../ui/kit.jsx';
 import { Board } from '../ui/backs.jsx';
 
 // What the update check says, and how its chip looks.
@@ -62,12 +62,7 @@ export function System() {
             {away && <p class="mt-4 text-sm font-semibold text-accent-ink">{away.why} This page waits for it.</p>}
           </div>
           <div class="grid content-center gap-2">
-            {/* On a box of its own, so the board behind does not show through. */}
-            <div class="rounded-ctl bg-raised px-4">
-              <SettingRow inline icon="refresh-cw" title="Check for updates" note="At each start, once the Wi-Fi is up">
-                <Toggle label="Check for updates" on={stored ? !!stored.upc : s.upd?.st !== 'off'} onChange={(on) => set({ upc: +on })} />
-              </SettingRow>
-            </div>
+            <Switch label="Check for updates" note="At each start, once the Wi-Fi is up" on={stored ? !!stored.upc : s.upd?.st !== 'off'} onChange={(on) => set({ upc: +on })} />
             <div class="grid grid-cols-2 gap-2">
               <Button kind="secondary" icon="power" onClick={() => setAsking('reboot')}>
                 Restart

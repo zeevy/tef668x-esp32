@@ -36,7 +36,7 @@ export function Radio() {
   // last.
   return (
     <div class="grid grid-cols-1 gap-4">
-      <Card class="@container" back={<Dial />}>
+      <Card class="@container" back={<Dial t={s.tun} />}>
         <div class="grid grid-cols-1 gap-4 @3xl:grid-cols-2">
           <Reading s={s} presets={presets} />
           <Controls s={s} />

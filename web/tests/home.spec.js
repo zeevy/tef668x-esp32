@@ -263,12 +263,21 @@ test('no PIN warning once the PIN is changed', async ({ page }) => {
   await expect(page.getByText('The PIN is still')).toHaveCount(0);
 });
 
-test('the volume: shows what the radio has, and sends a new one when let go', async ({ page }) => {
+// The volume is in the header alone: in its box on a laptop, behind the
+// speaker on a phone.
+async function headerVolume(page) {
+  await expect(page.getByText('106.40').first()).toBeVisible();
+  const speaker = page.locator('header').getByRole('button', { name: 'Volume' });
+  if (await speaker.isVisible()) await speaker.click();
+  return page.getByRole('slider', { name: 'Volume' });
+}
+
+test('Home has no volume of its own; the header\'s shows what the radio has and sends a new one when let go', async ({ page }) => {
   await withState(page, (s) => (s.tun.vol = -35));
   await page.goto('/');
-  const slider = page.locator('main').getByRole('slider', { name: 'Volume' });
+  await expect(page.locator('main').getByRole('slider', { name: 'Volume' })).toHaveCount(0);
+  const slider = await headerVolume(page);
   await expect(slider).toHaveValue('-35');
-  await expect(page.getByText('-35 dB', { exact: true })).toBeVisible();
   const sent = nextPost(page, '/api/volume');
   await slider.fill('-20');
   expect(await sent).toBe('db=-20');
@@ -392,7 +401,7 @@ test.describe('a change is drawn at once from the radio state the page keeps', (
 test('the volume bar is full at 0 dB, the top of the knob', async ({ page }) => {
   await withState(page, (s) => (s.tun.vol = 0));
   await page.goto('/');
-  const slider = page.locator('main').getByRole('slider', { name: 'Volume' });
+  const slider = await headerVolume(page);
   await expect(slider).toHaveValue('0');
   await expect(slider).toHaveAttribute('style', /--fill: 100%/);
 });
@@ -438,13 +447,12 @@ test('nothing on the page moves when RDS comes or goes', async ({ page }) => {
   expect(without[1].y).toBe(withRds[1].y);
 });
 
-test('the dial buttons, the volume and the presets show the hand on hover', async ({ page }) => {
+test('the dial buttons and the presets show the hand on hover', async ({ page }) => {
   await page.goto('/');
   const cursor = (l) => l.evaluate((e) => getComputedStyle(e).cursor);
   for (const name of ['Seek down', 'Step down', 'Mute', 'Step up', 'Seek up']) {
     expect(await cursor(page.locator('main').getByRole('button', { name, exact: true }))).toBe('pointer');
   }
-  expect(await cursor(page.locator('main').getByRole('slider', { name: 'Volume' }))).toBe('pointer');
   const preset = page.locator('section').filter({ hasText: 'Presets' }).getByRole('button').first();
   expect(await cursor(preset)).toBe('pointer');
 });
@@ -485,7 +493,7 @@ test('the date line writes the day as the radio does', () => {
   expect(lines[0]).toBe('THURSDAY, 1st October 2026');
 });
 
-test('the preset keys are one width, 128 px, the first in view whole at the start and the one on the dial second', async ({ page }) => {
+test('the preset keys are one width, 128 px, the first in view whole after the arrow\'s 16 px and the one on the dial second', async ({ page }) => {
   await page.goto('/');
   await expect(presetKeys(page)).toHaveCount(16);
   const strip = keyStrip(page);
@@ -494,13 +502,14 @@ test('the preset keys are one width, 128 px, the first in view whole at the star
       box: el.getBoundingClientRect().toJSON(),
       keys: [...el.children].map((k) => ({ ...k.getBoundingClientRect().toJSON(), on: k.getAttribute('aria-pressed') === 'true' })),
     }));
-  const inView = ({ box, keys }) => keys.filter((k) => k.right > box.left + 1 && k.left < box.right - 1);
+  // The strip's ends are the arrows' room: a key there is under an arrow.
+  const inView = ({ box, keys }) => keys.filter((k) => k.right > box.left + 17 && k.left < box.right - 17);
   // The strip moves to the one on the dial once the keys are drawn.
   await expect.poll(async () => inView(await look())[1]?.on).toBe(true);
   const { box, keys } = await look();
   for (const k of keys) expect(k.width).toBe(128);
   const seen = inView({ box, keys });
-  expect(Math.abs(seen[0].left - box.left)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(seen[0].left - (box.left + 16))).toBeLessThanOrEqual(0.5);
   expect(seen[1].on).toBe(true);
 });
 
@@ -528,7 +537,7 @@ test('arrows on both sides of the preset strip show when there are more keys tha
 test('the station on the dial can be saved from the strip, the radio picking the slot', async ({ page }) => {
   await withState(page, (s) => Object.assign(s.tun, { khz: 107900, f: '107.90', pst: 0, bws: 0 }));
   await page.goto('/');
-  const save = page.getByRole('button', { name: 'Save this station as a preset' });
+  const save = page.getByRole('button', { name: 'Save current station' });
   const sent = nextPost(page, '/api/presets');
   await save.click();
   expect(await sent).toBe('do=add&khz=107900&bnd=FM&bw=0&name=MAGIC');
@@ -621,11 +630,11 @@ test('arrow keys up and down: the volume moves at once, the radio is sent it onc
   test.skip(testInfo.project.name !== 'laptop', 'keys are for a laptop');
   await withState(page, (s) => (s.tun.vol = -20));
   await page.goto('/');
-  await expect(page.getByText('-20 dB')).toBeVisible();
+  await expect(page.locator('header').getByRole('slider', { name: 'Volume' })).toHaveValue('-20');
   const posts = [];
   page.on('request', (r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/volume' && posts.push(r.postData()));
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp');
-  await expect(page.getByText('-17 dB')).toBeVisible();
+  await expect(page.locator('header').getByRole('slider', { name: 'Volume' })).toHaveValue('-17');
   await expect.poll(() => posts).toEqual(['db=-17']);
 });
 
@@ -833,7 +842,7 @@ test('the volume keys: leaving the screen sends the volume at once, and the radi
     s.tun.vol = -20;
   });
   await page.goto('/');
-  await expect(page.getByText('-20 dB')).toBeVisible();
+  await expect(page.locator('header').getByRole('slider', { name: 'Volume' })).toHaveValue('-20');
   const sent = nextPost(page, '/api/volume');
   const landed = page.waitForEvent('requestfinished', (r) => r.url().endsWith('/api/volume'));
   await page.keyboard.press('ArrowUp');
@@ -857,7 +866,7 @@ test('an older volume send does not let go of the volume still being moved', asy
   let answer;
   await page.route('**/api/volume', (route) => (answer = () => route.fulfill({ body: 'ok' })));
   await page.goto('/');
-  await expect(page.getByText('-20 dB')).toBeVisible();
+  await expect(page.locator('header').getByRole('slider', { name: 'Volume' })).toHaveValue('-20');
   const slider = page.locator('header').getByRole('slider', { name: 'Volume' });
   const asked = page.waitForRequest((r) => new URL(r.url()).pathname === '/api/volume');
   await page.keyboard.press('ArrowUp');

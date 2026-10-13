@@ -110,7 +110,7 @@ bool batteryFormat(const Battery *b, BatteryShow show, char *out,
     const uint16_t mv = batteryMilliVolts(b);
     /* One decimal, rounded: the battery is read once at start up, so a
      * second decimal never moves while the radio is on. No
-     * unit: the header draws a small upright battery just before it. */
+     * unit: the header draws the battery just before it. */
     const unsigned tenths = (unsigned)((mv + 50) / 100);
     snprintf(out, outLen, txt(STR_COMMON_FMT_VOLTS_TENTHS), tenths / 10,
              tenths % 10);
