@@ -3312,6 +3312,14 @@ bool menuTaskIsOpen(void) {
   return menuIsOpen(&sMenu) || sChoice.active;
 }
 
+void menuTaskRedraw(void) {
+  if (sChoice.active) {
+    drawChoice();
+  } else if (menuIsOpen(&sMenu)) {
+    draw();
+  }
+}
+
 void menuTaskOpen(void) {
   gestureBegins();
   if (sLive == NULL || menuIsOpen(&sMenu) || sChoice.active) {

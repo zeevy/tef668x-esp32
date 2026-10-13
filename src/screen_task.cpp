@@ -1951,12 +1951,22 @@ static void presetLearnPoll(uint32_t nowMs) {
  * The radio screen sees a new theme for itself and rebuilds. The others take
  * their fills, borders and fixed texts as they open, so without this a
  * screen that is up when the hour turns to night keeps the day's colours
- * for everything it does not redraw.
- * The menu needs nothing: it closes these screens as it opens, and closing
- * it builds the radio screen fresh. A screen the pool cannot hold again
- * falls back the way closing it does.
+ * for everything it does not redraw. The menu is one of them: its rows are
+ * drawn in the new theme, but its header, ground and scroll bar keep the
+ * colours it opened in, so a theme picked in the menu would show under the
+ * old one's title. A screen the pool cannot hold again falls back the way
+ * closing it does.
  */
 static void reopenForTheme(void) {
+  if (sMenuUp) {
+    screenMenuEnd();
+    if (screenMenuBegin()) {
+      menuTaskRedraw();
+    } else {
+      menuTaskClose();
+    }
+    return;
+  }
   if (sKeypadUp) {
     screenKeypadEnd();
     if (screenKeypadBegin()) {
