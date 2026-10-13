@@ -133,30 +133,64 @@ static void a_preset_page_has_its_slot_band_width_and_pi(void) {
   strcpy(c.name, "RED FM ");
   c.pi = 0x0935;
   StationPage p;
-  TEST_ASSERT_TRUE(stationPagePreset(&c, 2, &p));
+  TEST_ASSERT_TRUE(
+      stationPagePreset(&c, 2, true, kNow, 330, RDS_REGION_EUROPE, &p));
   TEST_ASSERT_EQUAL_STRING("93.50 MHz  RED FM", p.title);
-  TEST_ASSERT_EQUAL_STRING("P02", p.sub);
+  TEST_ASSERT_EQUAL_STRING("P02 \xC2\xB7 PI 0935", p.sub);
   TEST_ASSERT_EQUAL_STRING("Band", p.label[0]);
   TEST_ASSERT_EQUAL_STRING("FM", p.value[0]);
   TEST_ASSERT_EQUAL_STRING("Width", p.label[1]);
   TEST_ASSERT_EQUAL_STRING("Auto", p.value[1]);
-  TEST_ASSERT_EQUAL_STRING("PI", p.label[2]);
-  TEST_ASSERT_EQUAL_STRING("0935", p.value[2]);
-  TEST_ASSERT_NULL(p.label[3]);
+  TEST_ASSERT_NULL(p.label[2]);
+  // No time kept: no line for it.
+  TEST_ASSERT_EQUAL_STRING("", p.text);
   // A width of its own, and no PI learnt yet.
   c.bandwidthKHz = 114;
   c.pi = 0;
-  TEST_ASSERT_TRUE(stationPagePreset(&c, 2, &p));
+  TEST_ASSERT_TRUE(
+      stationPagePreset(&c, 2, true, kNow, 330, RDS_REGION_EUROPE, &p));
   TEST_ASSERT_EQUAL_STRING("114 kHz", p.value[1]);
-  TEST_ASSERT_NULL(p.label[2]);
+  TEST_ASSERT_EQUAL_STRING("P02", p.sub);
+}
+
+// The programme type and the country it learnt or was saved with, and when
+// it was saved; a country only from the PI and the ECC together.
+static void a_preset_page_has_its_type_country_and_time(void) {
+  MemoryChannel c;
+  memset(&c, 0, sizeof(c));
+  c.freqKHz = 93500;
+  c.band = BAND_FM;
+  c.pi = 0x5123;
+  c.pty = 10;
+  c.ecc = 0xF2;
+  c.savedUtc = kNow - 3600;
+  StationPage p;
+  TEST_ASSERT_TRUE(
+      stationPagePreset(&c, 3, true, kNow, 330, RDS_REGION_EUROPE, &p));
+  char sub[96];
+  snprintf(sub, sizeof(sub), "P03 \xC2\xB7 PI 5123 \xC2\xB7 IN \xC2\xB7 %s",
+           rdsPtyNameIn(10, RDS_REGION_EUROPE));
+  TEST_ASSERT_EQUAL_STRING(sub, p.sub);
+  char when[CLOCK_WHEN_LEN];
+  TEST_ASSERT_TRUE(clockFormatWhen(c.savedUtc, kNow, 330, CLOCK_WHEN_ROW, when,
+                                   sizeof(when)));
+  char saved[40];
+  snprintf(saved, sizeof(saved), "Saved %s", when);
+  TEST_ASSERT_EQUAL_STRING(saved, p.text);
+  c.pi = 0;
+  TEST_ASSERT_TRUE(
+      stationPagePreset(&c, 3, true, kNow, 330, RDS_REGION_EUROPE, &p));
+  TEST_ASSERT_NULL(strstr(p.sub, "IN"));
 }
 
 static void nothing_is_written_for_an_empty_slot_or_no_pointer(void) {
   MemoryChannel c;
   memset(&c, 0, sizeof(c));
   StationPage p;
-  TEST_ASSERT_FALSE(stationPagePreset(&c, 1, &p));
-  TEST_ASSERT_FALSE(stationPagePreset(NULL, 1, &p));
+  TEST_ASSERT_FALSE(
+      stationPagePreset(&c, 1, true, kNow, 0, RDS_REGION_EUROPE, &p));
+  TEST_ASSERT_FALSE(
+      stationPagePreset(NULL, 1, true, kNow, 0, RDS_REGION_EUROPE, &p));
   TEST_ASSERT_FALSE(stationPageLog(NULL, true, kNow, 0, RDS_REGION_EUROPE, &p));
   const LogbookEntry e = fmEntry();
   TEST_ASSERT_FALSE(stationPageLog(&e, true, kNow, 0, RDS_REGION_EUROPE, NULL));
@@ -171,6 +205,7 @@ int main(int argc, char **argv) {
   RUN_TEST(an_am_entry_has_the_co_channel_reading);
   RUN_TEST(the_time_says_when_it_is_not_known);
   RUN_TEST(a_preset_page_has_its_slot_band_width_and_pi);
+  RUN_TEST(a_preset_page_has_its_type_country_and_time);
   RUN_TEST(nothing_is_written_for_an_empty_slot_or_no_pointer);
   return UNITY_END();
 }

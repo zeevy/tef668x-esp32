@@ -10,7 +10,10 @@
 
 #include <atomic>
 
+#include "core/dx.h"
 #include "drivers/memory_nvs.h"
+#include "net/ntp.h"
+#include "radio_task.h"
 
 /* The one copy of the list. */
 static MemoryStore sStore;
@@ -189,11 +192,11 @@ int memoryStoreCount(void) {
   return count;
 }
 
-size_t memoryStoreLine(int slot, char *out, size_t cap) {
+size_t memoryStoreLine(int slot, RdsRegion region, char *out, size_t cap) {
   if (!lock()) {
     return 0;
   }
-  size_t n = memoryCsvLine(&sStore, slot, out, cap);
+  size_t n = memoryCsvLine(&sStore, slot, region, out, cap);
   unlock();
   return n;
 }
@@ -259,15 +262,51 @@ int memoryStoreFindNear(uint8_t band, uint32_t freqKHz, uint32_t toleranceKHz) {
   return slot;
 }
 
+/* What a save knows of the station besides what it was given: when, by the
+ * network clock, and, when the radio is on that very station, its PI,
+ * programme type and ECC, under the rule a preset learns them by. Read
+ * before the store's lock is taken, since the snapshot has a lock of its
+ * own. */
+static void stamp(uint8_t band, uint32_t freqKHz, MemoryChannel *c) {
+  memset(c, 0, sizeof(*c));
+  uint32_t now = 0;
+  if (ntpEpochUtc(&now)) {
+    c->savedUtc = now;
+  }
+  RadioSnapshot snap;
+  if (radioGetSnapshot(&snap) && snap.settings.band == band &&
+      snap.settings.freqKHz == freqKHz) {
+    const SeekReading reading =
+        radioSeekReading(&snap.quality, snap.qualityValid);
+    (void)dxPresetLearn(&snap.rds, &reading, c);
+  }
+}
+
 MemorySaveResult memoryStoreAdd(uint8_t band, uint32_t freqKHz,
                                 uint16_t bandwidthKHz, const char *name,
                                 int *slot) {
+  /* The band the plan picks for the frequency has to be the band given:
+   * the full FM region covers OIRT, and FM at 70 MHz stored would be a
+   * preset the radio never tunes. */
+  BandPlanConfig plan;
+  BandId planned;
+  if (radioTaskPlan(&plan) &&
+      (!bandForFrequency(&plan, freqKHz, &planned) || planned != band)) {
+    return MEMORY_SAVE_INVALID;
+  }
+  MemoryChannel known;
+  stamp(band, freqKHz, &known);
   if (!lock()) {
     return MEMORY_SAVE_UNREACHABLE;
   }
   MemorySaveResult r =
       memoryAddChannel(&sStore, band, freqKHz, bandwidthKHz, name, slot);
   if (r == MEMORY_SAVE_OK) {
+    MemoryChannel *c = &sStore.slot[*slot];
+    c->pi = known.pi;
+    c->pty = known.pty;
+    c->ecc = known.ecc;
+    c->savedUtc = known.savedUtc;
     changed();
   }
   unlock();

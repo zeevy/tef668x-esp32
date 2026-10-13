@@ -31,6 +31,38 @@ typedef struct {
   char name[MEMORY_NAME_LEN];
 } MemoryChannelV1;
 
+/* One channel as version 2 wrote it: version 1's, then the PI, then the two
+ * bytes the compiler pads it with, which were never cleared, so they are not
+ * read as anything. */
+typedef struct {
+  uint32_t freqKHz;
+  uint16_t bandwidthKHz;
+  uint8_t band;
+  char name[MEMORY_NAME_LEN];
+  uint16_t pi;
+} MemoryChannelV2;
+
+/* Version 2's list, 99 channels of 28 bytes. */
+#define MEMORY_BLOB_V2_BYTES 2772u
+
+static bool fromVersion2(const uint8_t *body, MemoryStore *out) {
+  if (sizeof(MemoryChannelV2) * MEMORY_SLOT_COUNT != MEMORY_BLOB_V2_BYTES) {
+    return false;
+  }
+  for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
+    MemoryChannelV2 old;
+    memcpy(&old, body + (size_t)i * sizeof(old), sizeof(old));
+    MemoryChannel *c = &out->slot[i];
+    memset(c, 0, sizeof(*c));
+    c->freqKHz = old.freqKHz;
+    c->bandwidthKHz = old.bandwidthKHz;
+    c->band = old.band;
+    memcpy(c->name, old.name, sizeof(c->name));
+    c->pi = old.pi;
+  }
+  return true;
+}
+
 /* A version 1 list, `MEMORY_BLOB_BARE_BYTES` of them, into the list as it
  * is now, every PI 0. */
 static bool fromVersion1(const uint8_t *body, MemoryStore *out) {
@@ -97,6 +129,9 @@ bool memoryFromBlob(const uint8_t *blob, size_t len, MemoryStore *out) {
   if (version == 1 && body == MEMORY_BLOB_BARE_BYTES) {
     return fromVersion1(blob + MEMORY_BLOB_HEADER_BYTES, out);
   }
+  if (version == 2 && body == MEMORY_BLOB_V2_BYTES) {
+    return fromVersion2(blob + MEMORY_BLOB_HEADER_BYTES, out);
+  }
   if (version != MEMORY_BLOB_VERSION || body != sizeof(MemoryStore)) {
     /* A later version, or a header that does not describe what follows. */
     return false;
@@ -110,7 +145,7 @@ bool memorySlotInRange(int slot) {
 }
 
 bool memoryChannelValid(const MemoryChannel *c) {
-  if (c == NULL || c->freqKHz == 0 || c->band >= BAND_COUNT) {
+  if (c == NULL || c->freqKHz == 0 || c->band >= BAND_COUNT || c->pty > 31) {
     return false;
   }
   /* 0 means let the radio choose the width, on every band. On FM that is

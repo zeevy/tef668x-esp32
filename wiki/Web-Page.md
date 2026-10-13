@@ -182,7 +182,7 @@ The line under the station says how many of the 99 slots are used. The presets s
 - **Save current** saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
 - **Add** opens a dialog for a new preset, in the first free slot.
 - **Download** gives the presets as a CSV file, `presets.csv`.
-- **Upload** reads a CSV file of up to 8 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file.
+- **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file.
 - **The band filter**: with presets on more than one band, **All** and each band with presets. The card title says how many are shown.
 - **Change** puts the keys in Change mode. It shows every slot up to one past the last used, the empty ones dashed. Tap a key to change it, or tap an empty slot to add one there. Drag a key onto another slot to move it: onto another preset the two swap, onto an empty slot it goes there. Dragging works with a finger too. **Done** leaves Change mode.
 
@@ -193,6 +193,7 @@ The line under the station says how many of the 99 slots are used. The presets s
 - It refuses a frequency another preset already has.
 - **Name**, up to 16 letters.
 - **Bandwidth**: **The radio chooses**, or a width of the band.
+- For a stored preset, what the radio knows of the station, each when it has it: **PI**, **Programme type**, **Country** and **Saved**, the time it was saved.
 - **Save** stores it. **Delete** deletes a stored preset.
 
 The CSV format is in [Presets and Station Scan](Presets-and-Station-Scan.md#presets-as-a-csv-file).

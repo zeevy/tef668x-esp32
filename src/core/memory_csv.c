@@ -3,19 +3,26 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "csv.h"
 
-/* The header line this writes and accepts back, and the one written before
- * the PI column, accepted too so an older file still reads. */
-static const char kHeader[] = "slot,band,frequency,bandwidth,name,pi\n";
+/* The header line this writes and accepts back, and the two written before,
+ * without the programme type and the time and without the PI, accepted too
+ * so an older file still reads. `ptn`, the programme type's name, and
+ * `country`, from the PI and the ECC, are for reading the file: an import
+ * passes over them, since `pty` and `ecc` say the same. */
+static const char kHeader[] =
+    "slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved\n";
+static const char kHeaderV2[] = "slot,band,frequency,bandwidth,name,pi\n";
 static const char kHeaderNoPi[] = "slot,band,frequency,bandwidth,name\n";
 
 const char *memoryCsvHeader(void) {
   return kHeader;
 }
 
-size_t memoryCsvLine(const MemoryStore *m, int slot, char *out, size_t cap) {
+size_t memoryCsvLine(const MemoryStore *m, int slot, RdsRegion region,
+                     char *out, size_t cap) {
   const MemoryChannel *c = memoryGet(m, slot);
   if (c == NULL || out == NULL) {
     return 0;
@@ -33,12 +40,38 @@ size_t memoryCsvLine(const MemoryStore *m, int slot, char *out, size_t cap) {
   if (c->pi != 0) {
     snprintf(pi, sizeof(pi), "%04X", (unsigned)c->pi);
   }
+  /* The programme type as its number and its name, the ECC as two hex
+   * digits and the country they name with the PI, each empty for none. */
+  char pty[4] = "";
+  const char *ptn = "";
+  if (c->pty != 0) {
+    snprintf(pty, sizeof(pty), "%u", (unsigned)c->pty);
+    ptn = rdsPtyNameIn(c->pty, region);
+  }
+  char ecc[3] = "";
+  const char *country = NULL;
+  if (c->ecc != 0) {
+    snprintf(ecc, sizeof(ecc), "%02X", (unsigned)c->ecc);
+    country = c->pi != 0 ? rdsCountryCode(c->pi, c->ecc) : NULL;
+  }
+  /* When it was saved, in UTC, as the station log writes a time. */
+  char saved[20] = "";
+  if (c->savedUtc != 0) {
+    const time_t t = (time_t)c->savedUtc;
+    struct tm tm;
+    if (gmtime_r(&t, &tm) == NULL ||
+        strftime(saved, sizeof(saved), "%Y-%m-%d %H:%M", &tm) == 0) {
+      saved[0] = '\0';
+    }
+  }
   /* The slot counted from 1, the way it is shown on the panel and typed on
    * the keypad. A file whose first channel is called 0 would be read back
    * onto the wrong slot by anybody editing it by hand. */
-  const int n = snprintf(out, cap, "%d,%s,%lu,%u,%s,%s\n", slot + 1,
-                         bandName((BandId)c->band), (unsigned long)c->freqKHz,
-                         (unsigned)c->bandwidthKHz, name, pi);
+  const int n =
+      snprintf(out, cap, "%d,%s,%lu,%u,%s,%s,%s,%s,%s,%s,%s\n", slot + 1,
+               bandName((BandId)c->band), (unsigned long)c->freqKHz,
+               (unsigned)c->bandwidthKHz, name, pi, pty, ptn, ecc,
+               country != NULL ? country : "", saved);
   return n < 0 ? 0 : (size_t)n;
 }
 
@@ -148,15 +181,16 @@ static bool isHeader(const char *line, size_t len, const char *header) {
   return true;
 }
 
-/* Four hex digits in either case, or an empty field for none. False for
- * anything else, and for 0000, which names no station. */
-static bool piField(const char *text, uint16_t *out) {
+/* Exactly `digits` hex digits in either case, or an empty field for none.
+ * False for anything else, and for all zeros: PI 0000 names no station and
+ * ECC 00 no country. */
+static bool hexField(const char *text, int digits, uint16_t *out) {
   if (text[0] == '\0') {
     *out = 0;
     return true;
   }
   uint16_t value = 0;
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < digits; i++) {
     char a = text[i];
     uint16_t digit;
     if (a >= '0' && a <= '9') {
@@ -170,7 +204,7 @@ static bool piField(const char *text, uint16_t *out) {
     }
     value = (uint16_t)(value * 16u + digit);
   }
-  if (text[4] != '\0' || value == 0) {
+  if (text[digits] != '\0' || value == 0) {
     return false;
   }
   *out = value;
@@ -188,7 +222,75 @@ static bool isSkippable(const char *line, size_t len) {
    * any case, and nothing else that merely fails to be a number. A line
    * that is not a header and not a channel is an error worth reporting, not
    * something to pass over. */
-  return isHeader(line, len, kHeader) || isHeader(line, len, kHeaderNoPi);
+  return isHeader(line, len, kHeader) || isHeader(line, len, kHeaderV2) ||
+         isHeader(line, len, kHeaderNoPi);
+}
+
+/* A whole number of exactly `digits` digits from `text`. */
+static bool digitsAt(const char *text, int digits, int *out) {
+  int v = 0;
+  for (int i = 0; i < digits; i++) {
+    if (text[i] < '0' || text[i] > '9') {
+      return false;
+    }
+    v = v * 10 + (text[i] - '0');
+  }
+  *out = v;
+  return true;
+}
+
+/* Days from 1970-01-01 to the date, by the proleptic Gregorian calendar. */
+static int64_t daysFromCivil(int y, int m, int d) {
+  y -= m <= 2;
+  const int64_t era = (y >= 0 ? y : y - 399) / 400;
+  const int64_t yoe = y - era * 400;
+  const int64_t doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  const int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + doe - 719468;
+}
+
+/* "2026-10-12 21:10" in UTC, as memoryCsvLine writes it, or an empty field
+ * for none. False for anything else, a day the month does not have, and a
+ * date before 1971 or after 2105, which no clock set from the network
+ * gives. */
+static bool savedField(const char *text, uint32_t *out) {
+  if (text[0] == '\0') {
+    *out = 0;
+    return true;
+  }
+  int y, mo, d, h, mi;
+  if (strlen(text) != 16 || text[4] != '-' || text[7] != '-' ||
+      text[10] != ' ' || text[13] != ':' || !digitsAt(text, 4, &y) ||
+      !digitsAt(text + 5, 2, &mo) || !digitsAt(text + 8, 2, &d) ||
+      !digitsAt(text + 11, 2, &h) || !digitsAt(text + 14, 2, &mi) || y < 1971 ||
+      y > 2105 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) {
+    return false;
+  }
+  /* A day past the end of its month, 31 June, would land in the next. */
+  const time_t t =
+      (time_t)(daysFromCivil(y, mo, d) * 86400 + h * 3600 + mi * 60);
+  struct tm tm;
+  if (gmtime_r(&t, &tm) == NULL || tm.tm_mday != d) {
+    return false;
+  }
+  *out = (uint32_t)t;
+  return true;
+}
+
+/* One of the columns after the PI, whole: each but the last ends in its
+ * comma and the last ends the line, so a line short of a column, or with one
+ * more, is not read as if it had the right shape. */
+static bool nextField(const char **at, const char *end, char *out, size_t cap,
+                      bool last) {
+  bool wide = false;
+  const char *start = *at;
+  if (!readField(at, end, out, cap, &wide) || wide) {
+    return false;
+  }
+  /* readField steps over the comma after a field: a field that took one is
+   * followed by another column, and one that took none ends the line. */
+  const bool tookComma = *at > start && (*at)[-1] == ',';
+  return last ? *at == end && !tookComma : tookComma;
 }
 
 static bool parseLine(const char *line, size_t len, int *slot,
@@ -225,14 +327,43 @@ static bool parseLine(const char *line, size_t len, int *slot,
   if (!readField(&at, end, out->name, MEMORY_NAME_LEN, cut)) {
     return false;
   }
-  /* The PI, or nothing in a file written before the column. Nothing may
-   * follow it: a seventh field means a shape this does not understand, and
-   * reading the first six anyway would import a channel from a line whose
-   * meaning is not known. */
+  /* The PI, or nothing in a file written before the column. */
   if (at != end) {
     if (!readField(&at, end, field, sizeof(field), &wide) || wide ||
-        !piField(field, &out->pi) || at != end) {
+        !hexField(field, 4, &out->pi)) {
       return false;
+    }
+  }
+  /* Then nothing, in a file written before the programme type, or all five
+   * of its columns. Any other shape is one this does not understand, and
+   * reading part of it would import a channel from a line whose meaning is
+   * not known. */
+  if (at != end) {
+    if (!nextField(&at, end, field, sizeof(field), false)) {
+      return false;
+    }
+    if (field[0] != '\0') {
+      if (!wholeNumber(field, &number) || number == 0 || number > 31) {
+        return false;
+      }
+      out->pty = (uint8_t)number;
+    }
+    /* The type's name and the country are for a person reading the file:
+     * the type and the ECC say the same. */
+    uint16_t ecc = 0;
+    if (!nextField(&at, end, field, sizeof(field), false) ||
+        !nextField(&at, end, field, sizeof(field), false) ||
+        !hexField(field, 2, &ecc) ||
+        !nextField(&at, end, field, sizeof(field), false) ||
+        !nextField(&at, end, field, sizeof(field), true)) {
+      return false;
+    }
+    out->ecc = (uint8_t)ecc;
+    /* The time only says when the preset was saved, and a spreadsheet that
+     * saves the file again writes dates in its own way, so one this cannot
+     * read is taken as not known rather than costing the preset. */
+    if (!savedField(field, &out->savedUtc)) {
+      out->savedUtc = 0;
     }
   }
   return memoryChannelValid(out);

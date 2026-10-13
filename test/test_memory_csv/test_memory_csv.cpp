@@ -31,50 +31,132 @@ static bool import(const char *text, MemoryImportMode mode) {
 
 static const char *line(int slot) {
   static char buffer[MEMORY_CSV_LINE_MAX];
-  size_t need = memoryCsvLine(&store, slot, buffer, sizeof(buffer));
+  size_t need =
+      memoryCsvLine(&store, slot, RDS_REGION_EUROPE, buffer, sizeof(buffer));
   TEST_ASSERT_LESS_THAN_UINT32(sizeof(buffer), need);
   return buffer;
 }
 
 static void the_header_names_every_column(void) {
-  TEST_ASSERT_EQUAL_STRING("slot,band,frequency,bandwidth,name,pi\n",
-                           memoryCsvHeader());
+  TEST_ASSERT_EQUAL_STRING(
+      "slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved\n",
+      memoryCsvHeader());
+}
+
+// The programme type with its name, the ECC with the country it names with
+// the PI, and the time it was saved, in UTC, read back as they were written.
+static void type_country_and_time_go_out_and_come_back(void) {
+  memoryInit(&store);
+  MemoryChannel c = channel(BAND_FM, 93500, "RED");
+  c.pi = 0x5123;
+  c.pty = 10;
+  c.ecc = 0xF2;
+  c.savedUtc = 1791619380;
+  memorySet(&store, 0, &c);
+  char expected[MEMORY_CSV_LINE_MAX];
+  snprintf(expected, sizeof(expected),
+           "1,FM,93500,0,RED,5123,10,%s,F2,IN,2026-10-10 08:03\n",
+           rdsPtyNameIn(10, RDS_REGION_EUROPE));
+  TEST_ASSERT_EQUAL_STRING(expected, line(0));
+  char text[200];
+  snprintf(text, sizeof(text), "%s%s", memoryCsvHeader(), expected);
+  memoryInit(&store);
+  TEST_ASSERT_TRUE(import(text, MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(1, result.imported);
+  const MemoryChannel *got = memoryGet(&store, 0);
+  TEST_ASSERT_EQUAL_UINT16(0x5123, got->pi);
+  TEST_ASSERT_EQUAL_UINT8(10, got->pty);
+  TEST_ASSERT_EQUAL_HEX8(0xF2, got->ecc);
+  TEST_ASSERT_EQUAL_UINT32(1791619380, got->savedUtc);
+  // Each of them empty is none.
+  memoryInit(&store);
+  TEST_ASSERT_TRUE(
+      import("1,FM,93500,0,RED,5123,,,,,\n", MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT8(0, memoryGet(&store, 0)->pty);
+  TEST_ASSERT_EQUAL_UINT32(0, memoryGet(&store, 0)->savedUtc);
+}
+
+// A type over 31, an ECC of 00 or not two hex digits, or a line of another
+// shape is refused, never read in part.
+static void a_bad_type_or_country_is_refused_and_a_bad_time_is_not_known(void) {
+  const char *bad[] = {
+      "1,FM,93500,0,RED,5123,32,,,,\n", "1,FM,93500,0,RED,5123,,,00,,\n",
+      "1,FM,93500,0,RED,5123,,,F,,\n",  "1,FM,93500,0,RED,5123,10\n",
+      "1,FM,93500,0,RED,5123,,,,,,\n",
+  };
+  for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+    memoryInit(&store);
+    TEST_ASSERT_FALSE_MESSAGE(import(bad[i], MEMORY_IMPORT_REPLACE), bad[i]);
+  }
+  // A time that cannot be read, or a day the month does not have, costs
+  // only the time: a spreadsheet writes dates its own way.
+  const char *noTime[] = {
+      "1,FM,93500,0,RED,5123,,,,,2026-13-01 00:00\n",
+      "1,FM,93500,0,RED,5123,,,,,12 Oct 2026\n",
+      "1,FM,93500,0,RED,5123,,,,,1969-12-31 23:59\n",
+      "1,FM,93500,0,RED,5123,,,,,2026-02-29 10:00\n",
+      "1,FM,93500,0,RED,5123,,,,,2026-06-31 10:00\n",
+  };
+  for (size_t i = 0; i < sizeof(noTime) / sizeof(noTime[0]); i++) {
+    memoryInit(&store);
+    TEST_ASSERT_TRUE_MESSAGE(import(noTime[i], MEMORY_IMPORT_REPLACE),
+                             noTime[i]);
+    TEST_ASSERT_EQUAL_UINT32_MESSAGE(0, memoryGet(&store, 0)->savedUtc,
+                                     noTime[i]);
+  }
+  // The last day of a month, and 29 February in a leap year, are days.
+  memoryInit(&store);
+  TEST_ASSERT_TRUE(
+      import("1,FM,93500,0,RED,5123,,,,,2028-02-29 10:00\n2,FM,93600,0,X,,,"
+             ",,,2026-12-31 23:59\n",
+             MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT32(1835431200u, memoryGet(&store, 0)->savedUtc);
+  TEST_ASSERT_EQUAL_UINT32(1798761540u, memoryGet(&store, 1)->savedUtc);
+  // The header of the files before still reads.
+  memoryInit(&store);
+  TEST_ASSERT_TRUE(
+      import("slot,band,frequency,bandwidth,name,pi\n1,FM,93500,0,RED,5123\n",
+             MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(1, result.imported);
 }
 
 static void a_channel_writes_one_line(void) {
   MemoryChannel c = channel(BAND_FM, 92700, "Radio City");
   c.bandwidthKHz = 56;
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
-  TEST_ASSERT_EQUAL_STRING("1,FM,92700,56,Radio City,\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,FM,92700,56,Radio City,,,,,,\n", line(0));
 }
 
 static void the_slot_is_counted_from_one(void) {
   MemoryChannel c = channel(BAND_MW, 1071, "AIR");
   TEST_ASSERT_TRUE(memorySet(&store, 98, &c));
-  TEST_ASSERT_EQUAL_STRING("99,MW,1071,0,AIR,\n", line(98));
+  TEST_ASSERT_EQUAL_STRING("99,MW,1071,0,AIR,,,,,,\n", line(98));
 }
 
 static void an_empty_slot_writes_nothing(void) {
   char buffer[MEMORY_CSV_LINE_MAX];
-  TEST_ASSERT_EQUAL_UINT32(0, memoryCsvLine(&store, 0, buffer, sizeof(buffer)));
-  TEST_ASSERT_EQUAL_UINT32(0,
-                           memoryCsvLine(&store, -1, buffer, sizeof(buffer)));
-  TEST_ASSERT_EQUAL_UINT32(0, memoryCsvLine(NULL, 0, buffer, sizeof(buffer)));
+  TEST_ASSERT_EQUAL_UINT32(
+      0, memoryCsvLine(&store, 0, RDS_REGION_EUROPE, buffer, sizeof(buffer)));
+  TEST_ASSERT_EQUAL_UINT32(
+      0, memoryCsvLine(&store, -1, RDS_REGION_EUROPE, buffer, sizeof(buffer)));
+  TEST_ASSERT_EQUAL_UINT32(
+      0, memoryCsvLine(NULL, 0, RDS_REGION_EUROPE, buffer, sizeof(buffer)));
   MemoryChannel c = channel(BAND_FM, 92700, "a");
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
-  TEST_ASSERT_EQUAL_UINT32(0, memoryCsvLine(&store, 0, NULL, 10));
+  TEST_ASSERT_EQUAL_UINT32(
+      0, memoryCsvLine(&store, 0, RDS_REGION_EUROPE, NULL, 10));
 }
 
 static void a_name_with_a_comma_is_wrapped_in_quotes(void) {
   MemoryChannel c = channel(BAND_MW, 1071, "AIR, Some Town");
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
-  TEST_ASSERT_EQUAL_STRING("1,MW,1071,0,\"AIR, Some Town\",\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,MW,1071,0,\"AIR, Some Town\",,,,,,\n", line(0));
 }
 
 static void a_quote_inside_a_name_is_doubled(void) {
   MemoryChannel c = channel(BAND_FM, 92700, "The \"One\"");
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
-  TEST_ASSERT_EQUAL_STRING("1,FM,92700,0,\"The \"\"One\"\"\",\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,FM,92700,0,\"The \"\"One\"\"\",,,,,,\n", line(0));
 }
 
 static void the_longest_line_fits_the_buffer(void) {
@@ -84,7 +166,8 @@ static void the_longest_line_fits_the_buffer(void) {
   c.bandwidthKHz = 311;
   TEST_ASSERT_TRUE(memorySet(&store, 98, &c));
   char buffer[MEMORY_CSV_LINE_MAX];
-  size_t need = memoryCsvLine(&store, 98, buffer, sizeof(buffer));
+  size_t need =
+      memoryCsvLine(&store, 98, RDS_REGION_EUROPE, buffer, sizeof(buffer));
   TEST_ASSERT_LESS_THAN_UINT32(MEMORY_CSV_LINE_MAX, need);
 }
 
@@ -93,7 +176,8 @@ static void a_buffer_too_small_says_so_and_still_terminates(void) {
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
   char small[8];
   memset(small, 'x', sizeof(small));
-  size_t need = memoryCsvLine(&store, 0, small, sizeof(small));
+  size_t need =
+      memoryCsvLine(&store, 0, RDS_REGION_EUROPE, small, sizeof(small));
   TEST_ASSERT_GREATER_OR_EQUAL_UINT32(sizeof(small), need);
   TEST_ASSERT_EQUAL_CHAR('\0', small[sizeof(small) - 1]);
   TEST_ASSERT_EQUAL_STRING("1,FM,92", small);
@@ -114,7 +198,8 @@ static void a_written_list_reads_back_the_same(void) {
   size_t at = 0;
   at += (size_t)snprintf(text + at, sizeof(text) - at, "%s", memoryCsvHeader());
   for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
-    at += memoryCsvLine(&store, i, text + at, sizeof(text) - at);
+    at += memoryCsvLine(&store, i, RDS_REGION_EUROPE, text + at,
+                        sizeof(text) - at);
   }
 
   MemoryStore back;
@@ -284,7 +369,7 @@ static void a_known_pi_is_written_as_four_hex_digits(void) {
   MemoryChannel c = channel(BAND_FM, 98300, "MIRCHI");
   c.pi = 0x26FF;
   TEST_ASSERT_TRUE(memorySet(&store, 0, &c));
-  TEST_ASSERT_EQUAL_STRING("1,FM,98300,0,MIRCHI,26FF\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,FM,98300,0,MIRCHI,26FF,,,,,\n", line(0));
 }
 
 /* A file written before the PI column, header and all, still reads, every
@@ -406,7 +491,7 @@ static void a_name_that_never_ends_is_written_up_to_the_field(void) {
   MemoryChannel c = channel(BAND_FM, 104000, "");
   memset(c.name, 'A', MEMORY_NAME_LEN);
   store.slot[0] = c;
-  TEST_ASSERT_EQUAL_STRING("1,FM,104000,0,AAAAAAAAAAAAAAAA,\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,FM,104000,0,AAAAAAAAAAAAAAAA,,,,,,\n", line(0));
 }
 
 static void a_name_that_never_ends_and_holds_a_comma_is_quoted(void) {
@@ -414,7 +499,8 @@ static void a_name_that_never_ends_and_holds_a_comma_is_quoted(void) {
   memset(c.name, 'A', MEMORY_NAME_LEN);
   c.name[MEMORY_NAME_LEN - 2] = ',';
   store.slot[0] = c;
-  TEST_ASSERT_EQUAL_STRING("1,FM,104000,0,\"AAAAAAAAAAAAAAA,\",\n", line(0));
+  TEST_ASSERT_EQUAL_STRING("1,FM,104000,0,\"AAAAAAAAAAAAAAA,\",,,,,,\n",
+                           line(0));
 }
 
 static void a_field_is_cut_short_but_never_between_a_quote_and_its_double(
@@ -456,6 +542,8 @@ int main(int, char **) {
 
   RUN_TEST(the_header_names_every_column);
   RUN_TEST(a_channel_writes_one_line);
+  RUN_TEST(type_country_and_time_go_out_and_come_back);
+  RUN_TEST(a_bad_type_or_country_is_refused_and_a_bad_time_is_not_known);
   RUN_TEST(the_slot_is_counted_from_one);
   RUN_TEST(an_empty_slot_writes_nothing);
   RUN_TEST(a_name_with_a_comma_is_wrapped_in_quotes);

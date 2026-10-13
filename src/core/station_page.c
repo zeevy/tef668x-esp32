@@ -55,6 +55,35 @@ static void tenths(int16_t v, char *out, size_t len) {
   snprintf(out, len, "%s%u.%u", v < 0 ? "-" : "", a / 10, a % 10);
 }
 
+/* When it was, as the lists write it. With the radio's own clock not set,
+ * a time of 0 for now writes the day and time, which is how a moment after
+ * now is written; one made before the clock was ever set says so. */
+static void whenText(bool known, uint32_t at, bool nowKnown, uint32_t nowUtc,
+                     int16_t offsetMinutes, char *out, size_t len) {
+  out[0] = '\0';
+  if (!known) {
+    snprintf(out, len, "%s", txt(STR_PAGE_TIME_UNKNOWN));
+  } else {
+    (void)clockFormatWhen(at, nowKnown ? nowUtc : 0, offsetMinutes,
+                          CLOCK_WHEN_ROW, out, len);
+  }
+}
+
+/* The PI, the country and the programme type, each when known, on the line
+ * under the title. */
+static void identity(StationPage *out, uint16_t pi, const char *country,
+                     uint8_t pty, RdsRegion region) {
+  if (pi != 0) {
+    char text[12];
+    snprintf(text, sizeof(text), txt(STR_LOG_FMT_PI), (unsigned)pi);
+    addPart(out->sub, sizeof(out->sub), text);
+    addPart(out->sub, sizeof(out->sub), country);
+  }
+  if (pty > 0) {
+    addPart(out->sub, sizeof(out->sub), rdsPtyNameIn(pty, region));
+  }
+}
+
 bool stationPageLog(const LogbookEntry *e, bool nowKnown, uint32_t nowUtc,
                     int16_t offsetMinutes, RdsRegion region, StationPage *out) {
   if (e == NULL || out == NULL) {
@@ -67,28 +96,12 @@ bool stationPageLog(const LogbookEntry *e, bool nowKnown, uint32_t nowUtc,
   trimmed(e->hasName ? e->name : "", name, sizeof(name));
   title(out, freq, name);
 
-  /* When it was heard, as the lists write it. With the radio's own clock
-   * not set, a time of 0 for now writes the entry's day and time, which is
-   * how a moment after now is written; an entry made before the clock was
-   * ever set says so. */
   char when[CLOCK_WHEN_LEN];
-  when[0] = '\0';
-  if (!e->timeKnown) {
-    snprintf(when, sizeof(when), "%s", txt(STR_PAGE_TIME_UNKNOWN));
-  } else {
-    (void)clockFormatWhen(e->timeValue, nowKnown ? nowUtc : 0, offsetMinutes,
-                          CLOCK_WHEN_ROW, when, sizeof(when));
-  }
+  whenText(e->timeKnown, e->timeValue, nowKnown, nowUtc, offsetMinutes, when,
+           sizeof(when));
   addPart(out->sub, sizeof(out->sub), when);
-  if (e->hasPi) {
-    char pi[12];
-    snprintf(pi, sizeof(pi), txt(STR_LOG_FMT_PI), (unsigned)e->pi);
-    addPart(out->sub, sizeof(out->sub), pi);
-    addPart(out->sub, sizeof(out->sub), logbookEntryCountry(e));
-  }
-  if (e->hasPty && e->pty > 0) {
-    addPart(out->sub, sizeof(out->sub), rdsPtyNameIn(e->pty, region));
-  }
+  identity(out, e->hasPi ? e->pi : 0, logbookEntryCountry(e),
+           e->hasPty ? e->pty : 0, region);
 
   const bool fm =
       e->band < BAND_COUNT && bandModulation((BandId)e->band) == MODULATION_FM;
@@ -128,7 +141,9 @@ bool stationPageLog(const LogbookEntry *e, bool nowKnown, uint32_t nowUtc,
   return true;
 }
 
-bool stationPagePreset(const MemoryChannel *c, uint8_t slot, StationPage *out) {
+bool stationPagePreset(const MemoryChannel *c, uint8_t slot, bool nowKnown,
+                       uint32_t nowUtc, int16_t offsetMinutes, RdsRegion region,
+                       StationPage *out) {
   if (c == NULL || out == NULL || c->freqKHz == 0 || c->band >= BAND_COUNT) {
     return false;
   }
@@ -143,6 +158,18 @@ bool stationPagePreset(const MemoryChannel *c, uint8_t slot, StationPage *out) {
   char tag[8];
   snprintf(tag, sizeof(tag), txt(STR_RADIO_FMT_MEMORY_SLOT), (int)slot);
   addPart(out->sub, sizeof(out->sub), tag);
+  /* A country only from the PI and the ECC together, never a guess. */
+  identity(out, c->pi,
+           c->pi != 0 && c->ecc != 0 ? rdsCountryCode(c->pi, c->ecc) : NULL,
+           c->pty, region);
+  /* When it was saved, in the place a log entry's radio text takes; nothing
+   * for a preset saved before the radio kept the time. */
+  if (c->savedUtc != 0) {
+    char when[CLOCK_WHEN_LEN];
+    whenText(true, c->savedUtc, nowKnown, nowUtc, offsetMinutes, when,
+             sizeof(when));
+    snprintf(out->text, sizeof(out->text), txt(STR_PAGE_FMT_SAVED), when);
+  }
   uint8_t n = 0;
   snprintf(out->value[n], sizeof(out->value[n]), "%s", bandName(band));
   tile(out, &n, STR_PAGE_BAND);
@@ -153,10 +180,5 @@ bool stationPagePreset(const MemoryChannel *c, uint8_t slot, StationPage *out) {
     snprintf(out->value[n], sizeof(out->value[n]), "%s", txt(STR_MENU_AUTO));
   }
   tile(out, &n, STR_PAGE_WIDTH);
-  /* The PI the preset learnt the first time one was confirmed on it. */
-  if (c->pi != 0) {
-    snprintf(out->value[n], sizeof(out->value[n]), "%04X", (unsigned)c->pi);
-    tile(out, &n, STR_COMMON_PI);
-  }
   return true;
 }

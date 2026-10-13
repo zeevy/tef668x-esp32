@@ -4,17 +4,23 @@
  * One line per channel:
  *
  * ```
- * slot,band,frequency,bandwidth,name,pi
- * 1,FM,92700,0,Radio Example,4F21
- * 2,MW,1071,6,"Talk Radio, North",
+ * slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved
+ * 1,FM,92700,0,Radio Example,4F21,10,Pop Music,E1,GB,2026-10-12 21:10
+ * 2,MW,1071,6,"Talk Radio, North",,,,,,
  * ```
  *
  * The slot is counted from 1, the way it is shown on the panel. Frequency and
  * bandwidth are in kHz on every band, which is the unit the whole of core/
  * uses. A bandwidth of 0 means let the radio choose. The band is its name
  * rather than a number, so a file stays readable and a band added later cannot
- * silently change what an old file means. The PI is four hex digits, or
- * empty when none is known.
+ * silently change what an old file means. The PI is four hex digits, the
+ * programme type a number from 1 to 31 and the ECC two hex digits, each
+ * empty when none is known. `ptn`, the type's name in the radio's RDS
+ * region, and `country`, from the PI and the ECC, are for a person reading
+ * the file, and an import passes over them. `saved` is when the preset was
+ * saved, in UTC, or empty when the radio's clock was not set; one that
+ * cannot be read imports as not known. A file without the last five
+ * columns, or without the PI too, still reads.
  *
  * A name holding a comma or a quote is wrapped in quotes, and a quote inside
  * one is doubled, which is what a spreadsheet writes and reads.
@@ -32,13 +38,16 @@
 #include <stdint.h>
 
 #include "memory.h"
+#include "rds_country.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* The longest line this writes, with its newline and terminator. */
-#define MEMORY_CSV_LINE_MAX 64
+/* The longest line this writes, with its newline and terminator: a 16
+ * character name of nothing but doubled quotes, the longest programme type
+ * name, "Soft Rhythm and Blues", and a time come to 110. */
+#define MEMORY_CSV_LINE_MAX 128
 
 const char *memoryCsvHeader(void);
 
@@ -48,7 +57,8 @@ const char *memoryCsvHeader(void);
  * A line at a time, so a handler sending a full list never holds four
  * kilobytes of it at once.
  */
-size_t memoryCsvLine(const MemoryStore *m, int slot, char *out, size_t cap);
+size_t memoryCsvLine(const MemoryStore *m, int slot, RdsRegion region,
+                     char *out, size_t cap);
 
 /* What an import does with what is already stored. */
 typedef enum {

@@ -72,12 +72,15 @@ export async function getLines(path) {
   return (await getText(path)).split('\n').filter(Boolean).map((l) => JSON.parse(l));
 }
 
-// The presets, from the CSV the radio also offers as a download.
+// The presets, from the CSV the radio also offers as a download: with the
+// programme type's name, the country's two letters and when it was saved,
+// "2026-10-12 15:40" in UTC, as seconds; each empty or 0 for none.
 export async function getPresets() {
   const [, ...rows] = (await getText('/api/presets.csv')).split(/\r?\n/).filter(Boolean);
   return rows.map((row) => {
-    const [slot, band, khz, bw, name, pi] = csvFields(row);
-    return { slot: +slot, band, khz: +khz, bw: +bw, name, pi };
+    const [slot, band, khz, bw, name, pi, , ptn, , cty, saved] = csvFields(row);
+    const at = saved ? Date.parse(saved.replace(' ', 'T') + 'Z') / 1000 : 0;
+    return { slot: +slot, band, khz: +khz, bw: +bw, name, pi, ptn: ptn || '', cty: cty || '', saved: at || 0 };
   });
 }
 

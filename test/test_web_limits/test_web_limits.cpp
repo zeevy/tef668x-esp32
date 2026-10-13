@@ -33,9 +33,9 @@ static void a_negative_header_fails_closed(void) {
 }
 
 static void the_default_cap_matches_what_a_full_channel_list_needs(void) {
-  /* 99 lines of 58 bytes plus the 38 byte header, with headroom over it. */
-  TEST_ASSERT_FALSE(webPostBodyTooLarge(5780, WEB_MAX_POST_BODY_BYTES));
-  TEST_ASSERT_EQUAL_UINT32(8192u, WEB_MAX_POST_BODY_BYTES);
+  /* 99 lines of 106 bytes plus the 64 byte header, with headroom over it. */
+  TEST_ASSERT_FALSE(webPostBodyTooLarge(10558, WEB_MAX_POST_BODY_BYTES));
+  TEST_ASSERT_EQUAL_UINT32(16384u, WEB_MAX_POST_BODY_BYTES);
 }
 
 int main(int, char **) {

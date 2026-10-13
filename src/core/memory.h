@@ -1,8 +1,9 @@
 /*
  * The 99 stored channels, and stepping through them.
  *
- * A channel is a band, a frequency, a filter width, a name and the station's
- * PI once one is learnt. The first four are what the web editor lets a
+ * A channel is a band, a frequency, a filter width, a name, the station's
+ * PI, programme type and ECC once they are learnt, and when it was saved.
+ * The first four are what the web editor lets a
  * person change, and what the radio needs to put itself back on a station.
  *
  * Nothing in here touches hardware or NVS, so it builds and is tested on a PC.
@@ -53,6 +54,15 @@ typedef struct {
    * channel, or 0 for none known. 0000 never names a station, so 0 cannot
    * be a real one. Version 2. */
   uint16_t pi;
+  /* The programme type the station sends, 1 to 31, and its extended
+   * country code, which with the PI names the country; 0 for none known,
+   * which type 0 and an unused code both mean. Taken at the save, or learnt
+   * once the station's PI is confirmed here. Version 3. */
+  uint8_t pty;
+  uint8_t ecc;
+  /* When it was saved, UTC seconds since 1970, or 0 when the radio's clock
+   * was not set. Version 3. */
+  uint32_t savedUtc;
 } MemoryChannel;
 
 /* Every slot. Zero it before first use, or call memoryInit. */
@@ -76,9 +86,10 @@ void memoryInit(MemoryStore *m);
  * Changing MemoryChannel or MEMORY_SLOT_COUNT changes the stored form. Bump
  * MEMORY_BLOB_VERSION and teach memoryFromBlob to read the version before;
  * a unit test on the stored size fails until that is done. Version 2 added
- * `pi`; version 1 and the bare list are read with every PI 0.
+ * `pi`, version 3 `pty`, `ecc` and `savedUtc`; an older list is read with
+ * each of those 0.
  */
-#define MEMORY_BLOB_VERSION 2
+#define MEMORY_BLOB_VERSION 3
 #define MEMORY_BLOB_HEADER_BYTES 8
 
 /* Bytes memoryToBlob writes, header included. */

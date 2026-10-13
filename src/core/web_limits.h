@@ -26,13 +26,16 @@ extern "C" {
  * (core/memory.h) lines of at most a two digit slot, the longest band
  * name, "OIRT", with its top frequency, 74000, a three digit bandwidth in
  * kHz, a name of MEMORY_NAME_LEN - 1 characters, all of them quotes, so
- * each is doubled inside the two quotes that wrap the field, and a four
- * digit PI. That line is 58 bytes with its newline, the header line
- * (memoryCsvHeader) 38, and 99 lines and the header come to 5780 bytes.
- * This limit is about 40% above that, not a round number picked without
- * working it out.
+ * each is doubled inside the two quotes that wrap the field, a four digit
+ * PI, a two digit programme type, its longest name, "Soft Rhythm and
+ * Blues", a two digit ECC, a two letter country and the 16 characters of
+ * the time it was saved. That line is 106 bytes with its newline, the
+ * header line (memoryCsvHeader) 64, and 99 lines and the header come to
+ * 10558 bytes. This limit is about 55% above that, so the radio always
+ * takes back a file it gave, not a round number picked without working it
+ * out. The body is held on the heap only while the request is read.
  */
-#define WEB_MAX_POST_BODY_BYTES 8192u
+#define WEB_MAX_POST_BODY_BYTES 16384u
 
 /*
  * WebServer hands the header value over as a signed long, parsed by

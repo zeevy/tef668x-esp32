@@ -7,6 +7,7 @@
 #include "web_internal.h"
 
 #include "memory_store.h"
+#include "ntp.h"
 #include "radio_task.h"
 
 /* The server, the settings and the counts, handed over as the routes are
@@ -30,7 +31,8 @@ static void handleApiMemoryCsv(void) {
   sWeb->server.sendContent(memoryCsvHeader());
   char line[MEMORY_CSV_LINE_MAX];
   for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
-    size_t need = memoryStoreLine(i, line, sizeof(line));
+    size_t need = memoryStoreLine(i, (RdsRegion)sWeb->settings->rdsRegion, line,
+                                  sizeof(line));
     if (need == 0 || need >= sizeof(line)) {
       continue;
     }
@@ -105,7 +107,11 @@ static void handleAdd(void) {
       apiFail(409, "Every preset slot is taken.");
       return;
     case MEMORY_SAVE_INVALID:
-      apiFail(400, kPresetInvalid);
+      /* An add also refuses a frequency the band plan puts on another band,
+       * FM at 70 MHz in the full FM region, which is OIRT's. */
+      apiFail(400, String(kPresetInvalid) +
+                       " The frequency has to be one the band plan puts on "
+                       "this band.");
       return;
     default:
       apiFail(503, "The preset list could not be reached.");
@@ -223,9 +229,14 @@ static void handleApiMemoryPost(void) {
     c.bandwidthKHz = 0;
   }
   if (!had || c.band != (uint8_t)band || c.freqKHz != (uint32_t)khz) {
-    /* Another frequency is another station: the stored PI goes, and the
-     * slot learns the new one when it is confirmed there. */
+    /* Another frequency is another station: the stored PI, type and country
+     * go, and the slot learns the new ones when they are confirmed there;
+     * its time is now. */
     c.pi = 0;
+    c.pty = 0;
+    c.ecc = 0;
+    uint32_t now = 0;
+    c.savedUtc = ntpEpochUtc(&now) ? now : 0;
   }
   c.band = (uint8_t)band;
   c.freqKHz = (uint32_t)khz;

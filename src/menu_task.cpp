@@ -157,6 +157,7 @@ typedef enum {
   ROW_GOTO_DX,
   ROW_GOTO_SCOPE,
   ROW_GOTO_LOG,
+  ROW_GOTO_SAVE,
   ROW_GOTO_SLEEP,
   ROW_PRESET_ENTRY,
   ROW_AUTO_OFF,
@@ -309,8 +310,9 @@ static const uint8_t kAgcTargets[] = {0,  30, 32, 34, 36, 38, 40, 42, 44,
 
 /*
  * The screens and actions the panel keys reach, so the knob alone reaches
- * them too. Each closes the menu and calls what its key calls: BAND, BW held,
- * BAND held, the DX key and ENTER held. Sleep has no key.
+ * them too. Each calls what its key calls, BAND, BW held, BAND held, the DX
+ * key and ENTER held, and closes the menu; one that cannot act leaves it
+ * open with a note. Save Current Station and Sleep have no key.
  */
 static const MenuRow kGotoRows[] = {
     ACTION(STR_MENU_GO_TO_BAND, ROW_GOTO_BAND),
@@ -319,6 +321,7 @@ static const MenuRow kGotoRows[] = {
     ACTION(STR_MENU_GO_TO_DX, ROW_GOTO_DX),
     ACTION(STR_MENU_GO_TO_SCOPE, ROW_GOTO_SCOPE),
     ACTION(STR_MENU_GO_TO_LOG, ROW_GOTO_LOG),
+    ACTION(STR_MENU_GO_TO_SAVE, ROW_GOTO_SAVE),
     ACTION(STR_MENU_GO_TO_SLEEP, ROW_GOTO_SLEEP),
 };
 
@@ -2477,6 +2480,8 @@ static void drawCard(void) {
                          &page);
   } else {
     (void)stationPagePreset(&sCard.channel, (uint8_t)(sCard.presetSlot + 1),
+                            nowKnown, now, ntpOffsetMinutes(),
+                            (RdsRegion)(sLive != NULL ? sLive->rdsRegion : 0),
                             &page);
   }
   ScreenMenuStation card;
@@ -2751,6 +2756,49 @@ static bool dxCanOpenOrNote(void) {
   }
 }
 
+/* The station on the dial into the lowest empty preset slot, through the
+ * call the web page's Save goes through, with what it saves: the band, the
+ * width the radio is set to and the station's name, when RDS has sent one.
+ * Saved, the menu closes and the radio screen says which slot; a station
+ * already a preset, or no slot free, leaves the menu open with a note. */
+static void saveStation(void) {
+  static char note[24];
+  RadioSnapshot snap;
+  if (!radioGetSnapshot(&snap)) {
+    sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+    return;
+  }
+  /* The name as RDS sent it, its padding taken off. The decoder keeps only
+   * characters a preset can hold. */
+  char name[MEMORY_NAME_LEN] = "";
+  if (snap.rds.hasPs) {
+    (void)rdsNameTrim(snap.rds.ps, RDS_PS_LEN, name, sizeof(name));
+  }
+  int slot = MEMORY_NO_SLOT;
+  switch (memoryStoreAdd(snap.settings.band, snap.settings.freqKHz,
+                         snap.settings.bandwidthKHz, name, &slot)) {
+    case MEMORY_SAVE_OK:
+      DebugLog.printf("[menu] saved as preset %d\n", slot + 1);
+      snprintf(note, sizeof(note), txt(STR_MENU_FMT_SAVED_AS), slot + 1);
+      menuTaskClose();
+      screenTaskLogConfirm(note);
+      return;
+    case MEMORY_SAVE_TAKEN:
+      snprintf(note, sizeof(note), txt(STR_MENU_FMT_ALREADY_PRESET), slot + 1);
+      sNote = note;
+      return;
+    case MEMORY_SAVE_FULL:
+      sNote = txt(STR_MENU_NOTE_PRESETS_FULL);
+      return;
+    case MEMORY_SAVE_INVALID:
+      sNote = txt(STR_MENU_NOTE_OFF_PLAN);
+      return;
+    default:
+      sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
+      return;
+  }
+}
+
 static void fire(const MenuRow *row) {
   if (row == NULL) {
     return;
@@ -2893,6 +2941,9 @@ static void fire(const MenuRow *row) {
       /* On the radio screen, which shows the Logged mark. */
       menuTaskClose();
       inputWriteLogEntry();
+      return;
+    case ROW_GOTO_SAVE:
+      saveStation();
       return;
     case ROW_GOTO_SLEEP:
       /* The same reason Restart gives: the wake is a restart, and a restart

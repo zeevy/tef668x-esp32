@@ -544,18 +544,58 @@ static void only_a_confirmed_other_pi_is_another_station(void) {
 static void a_preset_learns_only_when_it_has_none(void) {
   RdsInfo info = withPi();
   SeekReading r = atOffset(0);
-  uint16_t pi = 0;
-  TEST_ASSERT_TRUE(dxPresetLearn(&info, &r, 0, &pi));
-  TEST_ASSERT_EQUAL_HEX16(0x0935, pi);
-  pi = 0;
-  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, 0x26FF, &pi));
-  TEST_ASSERT_EQUAL_HEX16(0, pi);
+  MemoryChannel c = {};
+  TEST_ASSERT_TRUE(dxPresetLearn(&info, &r, &c));
+  TEST_ASSERT_EQUAL_HEX16(0x0935, c.pi);
+  c.pi = 0x26FF;
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &c));
+  TEST_ASSERT_EQUAL_HEX16(0x26FF, c.pi);
+  c.pi = 0;
   r = atOffset(SEEK_OFFSET_FM_TENTHS);
-  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, 0, &pi));
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &c));
   info.hasPi = false;
   r = atOffset(0);
-  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, 0, &pi));
-  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, 0, NULL));
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &c));
+  TEST_ASSERT_EQUAL_HEX16(0, c.pi);
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, NULL));
+}
+
+/* The programme type and the ECC, learnt with the PI or after it, only
+ * from the preset's own station, and never replaced. */
+static void a_preset_learns_its_type_and_country_from_its_own_station(void) {
+  RdsInfo info = withPi();
+  info.hasPty = true;
+  info.pty = 10;
+  info.hasEcc = true;
+  info.ecc = 0xF2;
+  SeekReading r = atOffset(0);
+  MemoryChannel c = {};
+  TEST_ASSERT_TRUE(dxPresetLearn(&info, &r, &c));
+  TEST_ASSERT_EQUAL_HEX16(0x0935, c.pi);
+  TEST_ASSERT_EQUAL_UINT8(10, c.pty);
+  TEST_ASSERT_EQUAL_HEX8(0xF2, c.ecc);
+  // Nothing new: nothing learnt, and nothing replaced by another type.
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &c));
+  info.pty = 5;
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &c));
+  TEST_ASSERT_EQUAL_UINT8(10, c.pty);
+  // A preset that knows its PI learns the rest later, from that PI only.
+  MemoryChannel known = {};
+  known.pi = 0x0935;
+  info.pty = 10;
+  TEST_ASSERT_TRUE(dxPresetLearn(&info, &r, &known));
+  TEST_ASSERT_EQUAL_UINT8(10, known.pty);
+  MemoryChannel other = {};
+  other.pi = 0x26FF;
+  TEST_ASSERT_FALSE(dxPresetLearn(&info, &r, &other));
+  TEST_ASSERT_EQUAL_UINT8(0, other.pty);
+  // Type 0 and code 0 are none.
+  MemoryChannel none = {};
+  info.pty = 0;
+  info.ecc = 0;
+  TEST_ASSERT_TRUE(dxPresetLearn(&info, &r, &none));
+  TEST_ASSERT_EQUAL_UINT8(0, none.pty);
+  TEST_ASSERT_EQUAL_HEX8(0, none.ecc);
 }
 
 static void nothing_confirmed_means_no(void) {
@@ -998,6 +1038,7 @@ int main(int argc, char **argv) {
   RUN_TEST(one_matching_block_is_the_presets_station);
   RUN_TEST(only_a_confirmed_other_pi_is_another_station);
   RUN_TEST(a_preset_learns_only_when_it_has_none);
+  RUN_TEST(a_preset_learns_its_type_and_country_from_its_own_station);
   RUN_TEST(nothing_confirmed_means_no);
   RUN_TEST(the_channel_test_is_the_window_alone);
   RUN_TEST(a_pi_is_heard_now_only_on_a_clean_block_a);

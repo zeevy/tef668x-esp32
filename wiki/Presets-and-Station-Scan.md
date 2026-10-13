@@ -11,6 +11,8 @@ The radio has 99 presets. A station scan fills the empty ones with the stations 
 | Filter width | A width the band offers, or automatic |
 | Name | Up to 16 plain characters. It shows on the radio screen when the station sends no RDS name |
 | PI | The station's RDS code. The radio learns it by itself the first time it hears that station's RDS code confirmed, and uses it to check that the right station is on the frequency |
+| Programme type and country | What the station says it plays, such as `Pop Music`, and its extended country code (ECC), which with the PI names the country. Taken when you save on that station, or learnt later, once the station's PI is confirmed on the preset. A value once kept is not changed by another station |
+| Saved | When the preset was saved, by the radio's clock. Empty when the clock was not set, and for presets saved by a firmware before this one kept the time |
 
 Presets are kept in the radio's flash, over power cycles and updates.
 
@@ -27,7 +29,7 @@ A preset whose frequency is not on the band plan in use, for example after a cha
 
 ![A preset's card](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-preset.png)
 
-A press on a preset in **Stations > Presets** opens its card: the frequency and the name, the slot such as `P03`, and tiles for the band, the width (`Auto` or its own) and the PI, once the preset has learnt one.
+A press on a preset in **Stations > Presets** opens its card: the frequency and the name; under them the slot such as `P03`, then the PI, the country and the programme type, each when the preset has it; `Saved` and when; and tiles for the band and the width (`Auto` or its own).
 
 - **Tune** tunes to it and leaves the card open, so you can hear it.
 - **Delete** clears the slot. The first press turns the button red and says `Press again`; a second press within 5 seconds clears it and goes back to the list. Turning the knob off it, going back or waiting 5 seconds lets it go. The last preset cleared takes you back to **Stations**.
@@ -39,8 +41,9 @@ The keypad always types a frequency, never a preset number.
 
 ## Saving and changing presets
 
-Presets cannot be saved or renamed on the radio itself; a preset can be cleared from its card, above. They are written in four ways:
+Presets cannot be renamed on the radio itself; a preset can be cleared from its card, above. They are written in five ways:
 
+- **Menu > Go To > Save Current Station** on the radio. It saves the station on the dial in the lowest free slot, with its band, the width the radio is set to and its RDS name, and the radio screen says `Saved as P10`. A station already saved is not saved again: the menu stays open with `Already P05`. With all 99 slots used it says `Every slot is taken`
 - a station scan, which fills empty slots
 - the web page's [Presets](Web-Page.md#presets) screen: save the current station, add one by its frequency, change, rename or delete one, and drag one to another slot. A station already saved is not saved again
 - the HTTP API, one preset at a time
@@ -77,9 +80,9 @@ A CSV file can be opened in any spreadsheet, so a whole band plan can be written
 ### The format
 
 ```
-slot,band,frequency,bandwidth,name,pi
-1,FM,106400,0,MAGIC,1064
-2,MW,738,0,,
+slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved
+1,FM,106400,0,MAGIC,1064,10,Pop Music,E2,IN,2026-10-12 15:40
+2,MW,738,0,,,,,,,
 ```
 
 | Column | What goes in it |
@@ -90,8 +93,13 @@ slot,band,frequency,bandwidth,name,pi
 | bandwidth | The filter width in kHz, or `0` for automatic |
 | name | Up to 16 plain characters. Put it in double quotes if it has a comma in it |
 | pi | Four hex digits, or empty |
+| pty | The programme type, 1 to 31, or empty |
+| ptn | The programme type's name, in the RDS region the radio is set to. Only for reading: an import passes over it |
+| ecc | The extended country code, two hex digits, or empty |
+| country | The country the PI and the ECC name, as two letters. Only for reading: an import passes over it |
+| saved | When it was saved, `2026-10-12 15:40` in UTC, or empty. A time that cannot be read, for example one a spreadsheet rewrote, imports as empty |
 
-Blank lines and lines starting with `#` are skipped. A file without the `pi` column is also taken.
+Blank lines and lines starting with `#` are skipped. Files from an earlier firmware, with only the first six columns or without the `pi` column too, are also taken.
 
 ### Export
 
