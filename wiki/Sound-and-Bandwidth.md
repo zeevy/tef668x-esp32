@@ -25,9 +25,9 @@ Each band keeps its own width, over a power cycle too.
 
 ![The bandwidth page on FM](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/bw-fm.png)
 
-Hold BW on the radio screen, the RDS pages or DX mode, or use **Menu > Go To > Bandwidth**. The header shows the band and the place of the cursor, such as `1/20`.
+Hold BW on the radio screen, the RDS pages or DX mode. On a radio without the BW key, use **Menu > Go To > Bandwidth**. The header shows the band and the place of the cursor, such as `1/20`.
 
-- On FM it shows 20 tiles: AUTO, the 16 widths, **Close**, **iMS** and **EQ**. On AM it shows the 4 widths, with **Close** under the first.
+- On FM it shows 20 tiles: AUTO, the 16 widths, **iMS**, **EQ** and **Close**. Close is the last tile, in the bottom right corner. On AM it shows the 4 widths, with **Close** under the first.
 - The width in use, and a switch that is on, are filled in the theme's main colour. A ring marks the cursor, which starts on the width in use.
 - While AUTO is in use, a note under the tiles says which width the tuner picked, for example `Auto: 217 kHz`.
 

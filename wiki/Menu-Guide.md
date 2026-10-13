@@ -44,12 +44,14 @@ A short note shows when something could not be done: in a list, on the row in pl
 
 Each row does one thing and closes the menu. When it cannot, for example DX Mode on AM or a station that is a preset already, the menu stays open and shows a note.
 
+A row is left out when the radio has its key: **Bandwidth** on a radio with the BW key, and **DX Mode** on a radio with the keypad, which has the DX key. On an ATS-125 with the keypad, Go To has six rows.
+
 | Row | What it does |
 |---|---|
 | Next Band | The next band, as a tap of BAND |
-| Bandwidth | Opens the bandwidth page, as a hold of BW |
+| Bandwidth | Opens the bandwidth page, as a hold of BW. Only on a radio without the BW key |
 | RDS | Opens the RDS pages, as a hold of BAND |
-| DX Mode | Opens DX mode. FM and OIRT only |
+| DX Mode | Opens DX mode. FM and OIRT only. Only on a radio without the keypad |
 | Band Scope | Opens the [band scope](Band-Scope.md) of the band you are on |
 | Log Current Station | Writes the station to the station log |
 | Save Current Station | Saves the station on the dial as a preset, in the lowest free slot, with its RDS name. The radio screen says `Saved as P10`. A station that is a preset already shows `Already P05`, a full list `Every slot is taken`, and a frequency the band plan puts on another band `Not on the band plan`. See [Presets](Presets-and-Station-Scan.md#saving-and-changing-presets) |

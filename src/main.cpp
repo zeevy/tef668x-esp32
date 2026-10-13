@@ -536,7 +536,7 @@ void setup() {
 
   /* The menu. It reads and writes the same settings struct, through the same
    * call the HTTP endpoint uses, so the panel and the browser cannot drift. */
-  menuTaskBegin(&gSettings);
+  menuTaskBegin(&gSettings, keypadOk);
 
   /*
    * Asks for the network and returns. It does not wait for the join, so the

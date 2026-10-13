@@ -2,10 +2,10 @@
  * The bandwidth page.
  *
  * Every width the band takes as a tile in a grid of four, automatic first
- * on FM, and on FM the iMS and equaliser switches in the last row. The
- * width in use, and a switch that is on, is filled in `radio`; the cursor is a
- * ring in `radio`, and in `measurement` on a filled tile. Under the grid, where
- * automatic is in use, what the tuner has chosen.
+ * on FM, on FM the iMS and equaliser switches in the last row, and Close
+ * last. The width in use, and a switch that is on, is filled in `radio`;
+ * the cursor is a ring in `radio`, and in `measurement` on a filled tile.
+ * Under the grid, where automatic is in use, what the tuner has chosen.
  *
  * It draws what it is given, like every screen here, and owns the panel on
  * its own, because the LVGL pool holds one screen at a time.
@@ -37,11 +37,11 @@
 /* The AM side's four widths sit on the second row rather than the first,
  * so they are not up against the header, and Close under the first. */
 #define AM_ROW 1
-/* On FM Close takes the cell after the last width, left of the switches. */
-#define CLOSE_COL 1
-/* The switches' row and columns. */
+/* On FM the last row holds the switches and then Close in the corner, in
+ * the same cells over DX mode, where the cell before them is empty. */
 #define SWITCH_ROW 4
-#define SWITCH_COL 2
+#define SWITCH_COL 1
+#define CLOSE_COL 3
 
 /* The page's objects, on the heap while it is up: static RAM has no room
  * left. */
@@ -85,9 +85,9 @@ bool screenBwBegin(void) {
   return true;
 }
 
-/* Where tile `i` of `s` sits: the widths four to a row, the switches on
- * the last row's right, and Close beside them on FM or under the widths on
- * AM. */
+/* Where tile `i` of `s` sits: the widths four to a row, and on FM the
+ * switches then Close on the last row's right, or on AM Close under the
+ * widths. */
 static void place(const ScreenBw *s, uint8_t i, int16_t *x, int16_t *y) {
   uint8_t row;
   uint8_t col;

@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "band_scan_task.h"
+#include "board/board.h"
 #include "build_id.h"
 #include "core/access_pin.h"
 #include "core/agc.h"
@@ -312,7 +313,9 @@ static const uint8_t kAgcTargets[] = {0,  30, 32, 34, 36, 38, 40, 42, 44,
  * The screens and actions the panel keys reach, so the knob alone reaches
  * them too. Each calls what its key calls, BAND, BW held, BAND held, the DX
  * key and ENTER held, and closes the menu; one that cannot act leaves it
- * open with a note. Save Current Station and Sleep have no key.
+ * open with a note. Save Current Station and Sleep have no key. Bandwidth
+ * and DX Mode are left out on a radio that has their key, see
+ * gotoRowsPick.
  */
 static const MenuRow kGotoRows[] = {
     ACTION(STR_MENU_GO_TO_BAND, ROW_GOTO_BAND),
@@ -736,7 +739,8 @@ static const MenuRow kAboutRows[] = {
  * own, one level deep. Rows that only show a value sit in Diagnostics and in
  * Connectivity's Network Info, apart from the ones that change something.
  */
-static const MenuGroup kGroups[] = {
+/* Not const: Go To's rows are picked at start up, by gotoRowsPick. */
+static MenuGroup sGroups[] = {
     GROUP(STR_MENU_GO_TO, kGotoRows),
     GROUP(STR_MENU_STATIONS, kStationRows),
     GROUP(STR_MENU_AUDIO, kAudioRows),
@@ -751,7 +755,29 @@ static const MenuGroup kGroups[] = {
     GROUP(STR_MENU_ABOUT, kAboutRows),
 };
 
-#define GROUP_COUNT ((uint8_t)(sizeof(kGroups) / sizeof(MenuGroup)))
+#define GROUP_COUNT ((uint8_t)(sizeof(sGroups) / sizeof(MenuGroup)))
+
+/* Go To's rows on this radio, filled by gotoRowsPick. */
+static MenuRow sGotoRows[sizeof(kGotoRows) / sizeof(MenuRow)];
+
+/*
+ * Go To without the rows whose key this radio has: Bandwidth on a board
+ * with the panel keys, whose BW held opens the page, and DX Mode when the
+ * keypad, which has the DX key, answered at start up. The key does the
+ * same in one press, so the row is only one more to turn past.
+ */
+static void gotoRowsPick(bool keypad) {
+  uint8_t n = 0;
+  for (const MenuRow &row : kGotoRows) {
+    if ((row.id == ROW_GOTO_BANDWIDTH && FEATURE_PANEL_BUTTONS) ||
+        (row.id == ROW_GOTO_DX && keypad)) {
+      continue;
+    }
+    sGotoRows[n++] = row;
+  }
+  sGroups[0].rows = sGotoRows;
+  sGroups[0].count = n;
+}
 
 /* What each RDS region is called. In the order of `RdsRegion`. */
 static const StrId kRdsRegionNames[RDS_REGION_COUNT] = {
@@ -895,7 +921,7 @@ static const char *pathOf(const char *parent, const char *name) {
 }
 
 static const MenuGroup *group(void) {
-  return &kGroups[sMenu.group < GROUP_COUNT ? sMenu.group : 0];
+  return &sGroups[sMenu.group < GROUP_COUNT ? sMenu.group : 0];
 }
 
 /* The list being looked at: the open sub-group, or else the open group. */
@@ -2237,7 +2263,7 @@ static uint8_t pickerTotal(const MenuRow *row) {
  * rather than the bar `hasRange` draws.
  *
  * Every row that reaches here is a plain range starting at 0, not one of the
- * few rows that walk a `choices` list: nothing in `kGroups` combines
+ * few rows that walk a `choices` list: nothing in `sGroups` combines
  * `bar = false` with a list, so `textOf` is called with the window index
  * itself standing in for the real value, the same thing `drawValue`'s own bar
  * path already does for `sMenu.value`. A `bar = false` listed row, should
@@ -2664,9 +2690,9 @@ static void draw(void) {
     }
     view.rows[i].selected = at == cursor;
     if (onGroups) {
-      view.rows[i].name = txt(kGroups[at].name);
+      view.rows[i].name = txt(sGroups[at].name);
       snprintf(sValueText[i], sizeof(sValueText[0]), "%u",
-               (unsigned)kGroups[at].count);
+               (unsigned)sGroups[at].count);
       view.rows[i].value = sValueText[i];
       view.rows[i].opens = true;
       continue;
@@ -3156,8 +3182,9 @@ void menuTaskPoll(void) {
   }
 }
 
-void menuTaskBegin(Settings *live) {
+void menuTaskBegin(Settings *live, bool keypad) {
   sLive = live;
+  gotoRowsPick(keypad);
   menuReset(&sMenu);
   sTopGroup = 0;
   sTopRow = 0;
@@ -3347,8 +3374,8 @@ bool menuTaskOpenSquelchMode(void) {
     return false;
   }
   for (uint8_t g = 0; g < GROUP_COUNT; g++) {
-    for (uint8_t r = 0; r < kGroups[g].count; r++) {
-      const MenuGroup *sub = kGroups[g].rows[r].opens;
+    for (uint8_t r = 0; r < sGroups[g].count; r++) {
+      const MenuGroup *sub = sGroups[g].rows[r].opens;
       for (uint8_t i = 0; sub != NULL && i < sub->count; i++) {
         if (sub->rows[i].id != ROW_SQUELCH_MODE) {
           continue;

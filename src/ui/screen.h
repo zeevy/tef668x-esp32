@@ -848,8 +848,8 @@ int32_t screenScopeChannelAt(int16_t x);
 
 /*
  * The bandwidth page: every width the band takes as a tile, automatic first
- * on FM, a Close tile, and on FM the iMS and equaliser switches after them. The width in
- * use and a switch that is on are filled; the cursor is a ring.
+ * on FM, then on FM the iMS and equaliser switches, and a Close tile last.
+ * The width in use and a switch that is on are filled; the cursor is a ring.
  */
 #define SCREEN_BW_TILES 20
 #define SCREEN_BW_WIDTH 0

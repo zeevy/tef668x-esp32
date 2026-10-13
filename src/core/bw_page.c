@@ -25,12 +25,6 @@ uint8_t bwPageTiles(BandId band, bool dxMode, BwTile *out, uint8_t cap) {
     out[n].khz = khz;
     n++;
   }
-  if (n >= cap) {
-    return 0;
-  }
-  out[n].kind = BW_TILE_CLOSE;
-  out[n].khz = 0;
-  n++;
   if (fm) {
     if (n + 2 > cap) {
       return 0;
@@ -41,6 +35,12 @@ uint8_t bwPageTiles(BandId band, bool dxMode, BwTile *out, uint8_t cap) {
     out[n + 1].khz = 0;
     n = (uint8_t)(n + 2);
   }
+  if (n >= cap) {
+    return 0;
+  }
+  out[n].kind = BW_TILE_CLOSE;
+  out[n].khz = 0;
+  n++;
   return n;
 }
 

@@ -26,8 +26,9 @@
 #include "core/settings.h"
 
 /* Give it the live settings. They are read for every row and written back
- * when an edit is accepted. */
-void menuTaskBegin(Settings *live);
+ * when an edit is accepted. `keypad` is whether the keypad answered at
+ * start up: Go To then leaves out DX Mode. */
+void menuTaskBegin(Settings *live, bool keypad);
 
 /* Whether the menu owns the panel. The input task asks before it does
  * anything with the knob, because while this is true the knob belongs to the
