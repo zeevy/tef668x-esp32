@@ -75,9 +75,11 @@ export function IconButton({ icon, label, kind = 'secondary', small, class: cls 
 }
 
 // An on and off setting in a box the size of the controls beside it: its
-// words on the left, a round switch on the right, the box tinted while on.
-// The whole box toggles.
-export function Switch({ on, onChange, label }) {
+// words on the left, on one line, a round switch on the right, the box
+// tinted while on. The whole box toggles. `text` is the words shown when
+// they are not the setting's name, such as On or Off in a row that already
+// names it; `note` is a line under them, the box growing to hold it.
+export function Switch({ on, onChange, label, text = label, note }) {
   return (
     <button
       type="button"
@@ -85,9 +87,12 @@ export function Switch({ on, onChange, label }) {
       aria-checked={on}
       aria-label={label}
       onClick={() => onChange(!on)}
-      class={`flex h-11 w-full items-center justify-between gap-2 rounded-ctl px-4 font-medium transition-colors ${on ? 'bg-accent-soft text-accent-ink' : 'bg-raised'}`}
+      class={`flex min-h-11 w-full items-center justify-between gap-2 rounded-ctl px-4 text-left font-medium transition-colors ${note ? 'py-2' : ''} ${on ? 'bg-accent-soft text-accent-ink' : 'bg-raised'}`}
     >
-      <span class="flex items-center gap-2">{label}</span>
+      <span class="grid min-w-0">
+        <span class="truncate">{text}</span>
+        {note && <span class="text-xs font-normal text-muted">{note}</span>}
+      </span>
       <Track on={on} />
     </button>
   );
@@ -213,17 +218,16 @@ export function Select({ label, value, onChange, children }) {
   );
 }
 
-// A setting as a row, as Settings, Network and System have them: its name
-// and a note on the left, its control on the right, a line under it; on a
-// narrow card the control goes under the name, except a small one, such as
-// a switch, which `inline` keeps beside it. `icon` puts its tile at the
-// row's start. `warn` colours the note.
-export function SettingRow({ title, note, warn, inline, icon, children }) {
+// A setting as a row, as Settings and Network have them: its name and a
+// note on the left, its control on the right, a line under it; on a narrow
+// card the control goes under the name. `icon` puts its tile at the row's
+// start. `warn` colours the note.
+export function SettingRow({ title, note, warn, icon, children }) {
   return (
     <div class="@container grid content-center border-b border-line py-2 last:border-b-0">
       <div class="flex items-start gap-4">
         {icon && <IconTile icon={icon} />}
-        <div class={`grid min-w-0 flex-1 gap-2 ${inline ? 'grid-cols-[1fr_auto] items-center gap-4' : '@2xl:grid-cols-[1fr_24rem] @2xl:items-center @2xl:gap-4'}`}>
+        <div class="grid min-w-0 flex-1 gap-2 @2xl:grid-cols-[1fr_24rem] @2xl:items-center @2xl:gap-4">
           <div class="grid">
             <span class="font-medium">{title}</span>
             {note && <span class={`text-xs ${warn ? 'text-warn' : 'text-muted'}`}>{note}</span>}
@@ -232,16 +236,6 @@ export function SettingRow({ title, note, warn, inline, icon, children }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// An on or off setting in a row: the round switch alone, at the row's right
-// end; the row says what it is.
-export function Toggle({ label, on, onChange }) {
-  return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} class="flex h-11 w-11 items-center justify-end justify-self-end">
-      <Track on={on} />
-    </button>
   );
 }
 
@@ -466,10 +460,13 @@ export function Modal({ title, size = 'sm', onClose, onSubmit, danger, cancel = 
         </div>
         {children}
         {actions && (
-          <div class="sticky bottom-0 -mb-4 flex flex-wrap items-center justify-end gap-2 bg-surface pb-4">
+          // With a danger button there are three or four; on a phone they
+          // wrap unevenly in a row, so there they are halves, Cancel boxed as
+          // the rest, and a last one on its own takes the whole row.
+          <div class={`sticky bottom-0 -mb-4 items-center gap-2 bg-surface pb-4 ${danger ? 'grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-end sm:[&>:first-child]:mr-auto max-sm:[&>:last-child:nth-child(odd)]:col-span-2' : 'flex flex-wrap justify-end'}`}>
             {danger}
-            <span class="flex-1" />
-            <Button kind="quiet" autofocus={!!danger} onClick={onClose}>
+            {!danger && <span class="flex-1" />}
+            <Button kind="quiet" class={danger ? 'max-sm:bg-raised max-sm:text-ink' : ''} autofocus={!!danger} onClick={onClose}>
               {cancel}
             </Button>
             {actions}

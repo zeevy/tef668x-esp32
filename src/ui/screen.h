@@ -77,9 +77,9 @@ typedef struct {
    * SCREEN_WIFI_JOINED. */
   uint8_t wifiBars;
   /*
-   * The battery: the shape filled to `batteryPercent` when `batteryText` is
-   * NULL, or `batteryText`, the voltage with no unit, and a small upright
-   * shape filled the same way. `batteryValid` false leaves both out.
+   * The battery: the shape filled to `batteryPercent`, and when
+   * `batteryText` is set, the voltage with no unit after it. `batteryValid`
+   * false leaves both out.
    */
   bool batteryValid;
   uint8_t batteryPercent;

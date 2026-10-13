@@ -196,6 +196,24 @@ test('[ and ] say DX mode must be on', async ({ page }) => {
   await expect(page.getByText('Turn DX mode on to change its width.')).toBeVisible();
 });
 
+test('with DX mode off, a width, a scan or a sweep opens DX mode first', async ({ page }) => {
+  await radio(page, { head: { on: false } });
+  const posts = [];
+  await page.route('**/api/dx', (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posts.push(route.request().postData());
+    return route.fulfill({ body: 'ok' });
+  });
+  await page.goto('/#dx');
+  await expect(top(page)).toContainText('87.70');
+  await page.getByLabel('DX width').selectOption('114');
+  await tab(page, 'Scanner').click();
+  await page.getByRole('button', { name: 'Start scan' }).click();
+  await tab(page, 'Scope').click();
+  await card(page, 'Scope').getByRole('button', { name: 'Sweep' }).click();
+  await expect.poll(() => posts).toEqual(['on=1&khz=114', 'on=1&scan=1', 'on=1', 'sweep=1']);
+});
+
 test('Back goes to where the dial last rested 3 s or more, from any source', async ({ page }) => {
   await page.clock.install();
   const live = await radio(page);
@@ -269,11 +287,18 @@ test('the scope: a tap tunes to that channel', async ({ page }) => {
   // The tuned channel, 87.70 MHz, stands out from the rest, and is named under the chart.
   // The bars are one path, a bar a move to; the tuned one is drawn on its own.
   await expect.poll(async () => (await chart.locator('[data-mark=levels]').getAttribute('d')).match(/M/g).length).toBe(8);
-  await expect(card(page, 'Scope')).toContainText('87.70 MHz · 50.0 dBµV · +20.0 dB over its baseline');
+  await expect(card(page, 'Scope')).toContainText('87.70 MHz · 50.0 dBµV · 20.0 dB over its baseline');
   const box = await chart.boundingBox();
   const sent = nextPost(page, '/api/tune');
   await page.mouse.click(box.x + (2.5 / 10) * box.width, box.y + box.height / 2);
   expect(await sent).toBe('khz=87700');
+});
+
+test('the scope: a channel below its baseline says how far under, with no minus sign', async ({ page }) => {
+  await radio(page, { sweep: { ...SWEEP, rise: [10, 10, -101, 10, null, 10, 5, 10, 5, 5] } });
+  await page.goto('/#dx');
+  await tab(page, 'Scope').click();
+  await expect(card(page, 'Scope')).toContainText('87.70 MHz · 50.0 dBµV · 10.1 dB under its baseline');
 });
 
 test('the scope: sweep, and the baseline from the median or a kept sweep', async ({ page }) => {
@@ -303,7 +328,7 @@ test('the scope shows the radio\'s cursor where its knob puts it, and names that
   await tab(page, 'Scope').click();
   const chart = page.getByRole('img', { name: 'Level of every channel' });
   await expect(chart.locator('[data-mark=cursor]')).toHaveAttribute('x1', '7.4');
-  await expect(card(page, 'Scope')).toContainText("88.20 MHz · 13.0 dBµV · +1.0 dB over its baseline · the radio's cursor");
+  await expect(card(page, 'Scope')).toContainText("88.20 MHz · 13.0 dBµV · 1.0 dB over its baseline · the radio's cursor");
   await liveRadio(page, at(null));
   await page.reload();
   await tab(page, 'Scope').click();

@@ -1,13 +1,13 @@
-// The volume controls: the slider Home and the header share, and the box
-// in the header with the mute key, the slider and the volume.
+// The volume control: the box in the header with the mute key, the slider
+// and the volume. The header is the one place it is, on every screen.
 import { volHeld } from '../data/radio.js';
 import { mute, volume } from '../data/commands.js';
 import { VOL_MAX, VOL_MIN } from '../data/limits.js';
 import { Icon, Slider, useQuiet } from './kit.jsx';
 
-// The volume as a slider, drawn on every volume control as the finger or
-// the keys move it, and sent once it is still.
-export function VolumeSlider({ tun }) {
+// The volume as a slider, drawn as the finger or the keys move it, and sent
+// once it is still.
+function VolumeSlider({ tun }) {
   const quiet = useQuiet(volume);
   return (
     <Slider

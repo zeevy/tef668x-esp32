@@ -11,7 +11,7 @@ import { withMotion } from '../data/motion.js';
 import { bandOf } from '../data/bands.js';
 import { BANDS, isFm } from '../data/format.js';
 import { PRESET_SLOTS } from '../data/limits.js';
-import { Button, Card, Chip, Icon, Loading, PinNeeded, Segmented, Select, SettingRow, StatusHead, Toggle, Unread, useQuiet } from '../ui/kit.jsx';
+import { Button, Card, Chip, Icon, Loading, PinNeeded, Segmented, Select, SettingRow, StatusHead, Switch, Unread, useQuiet } from '../ui/kit.jsx';
 import { Gears } from '../ui/backs.jsx';
 import { SCAN_RANGE } from './dx.jsx';
 
@@ -57,11 +57,11 @@ const GROUPS = [
       { label: 'De-emphasis', key: 'dem', route: 'fm', kind: 'pair', values: [0, 50, 75], say: offOr('µs') },
       { label: 'Force mono', key: 'mno', route: 'fm', kind: 'switch', fm: true },
       { label: 'Stereo blend', key: 'bld', route: 'fm', kind: 'steps', values: range(20, 60, 1, 0), say: offOr('dBµV'), fm: true, reading: true },
-      { label: 'High blend', key: 'hbl', route: 'fm', kind: 'steps', values: range(20, 60, 1, 0), say: offOr('dBµV'), fm: true, reading: true },
+      { label: 'Stereo / high blend', key: 'hbl', route: 'fm', kind: 'steps', values: range(20, 60, 1, 0), say: offOr('dBµV'), fm: true, reading: true },
       { label: 'High cut', key: 'cut', route: 'fm', kind: 'steps', values: range(20, 60, 1, 0), say: offOr('dBµV'), fm: true, reading: true },
       { label: 'Noise blanker', key: 'fnb', route: 'fm', kind: 'steps', values: range(50, 150, 5, 0), say: offOr('%') },
       { label: 'iMS', key: 'ims', route: 'fm', kind: 'switch', fm: true },
-      { label: 'Equaliser', key: 'eq', route: 'fm', kind: 'switch', fm: true },
+      { label: 'Equalizer', key: 'eq', route: 'fm', kind: 'switch', fm: true },
       { label: 'RDS decoder', key: 'rds', kind: 'switch' },
       { label: 'RDS region', key: 'rrg', kind: 'pair', values: [0, 1], say: (v) => ['Europe', 'North America'][v] },
     ],
@@ -90,8 +90,8 @@ const GROUPS = [
       { label: 'Brightness', key: 'blt', kind: 'steps', values: range(5, 100, 5), say: (v) => `${v} %` },
       { label: 'Dim level', key: 'bdm', kind: 'steps', values: range(0, 100, 5), say: (v) => `${v} %` },
       { label: 'Dim after', key: 'bds', kind: 'steps', values: range(5, 240, 5, 0), say: offOr('s', 'Never') },
-      { label: 'Rotation', key: 'rot', kind: 'pair', values: [0, 180], say: (v) => `${v}°` },
-      { label: 'Battery', key: 'bat', kind: 'pair', values: [0, 1, 2], say: (v) => ['Off', 'Per cent', 'Volts'][v] },
+      { label: 'Display rotation', key: 'rot', kind: 'pair', values: [0, 180], say: (v) => (v ? 'Upside down' : 'Normal') },
+      { label: 'Battery', key: 'bat', kind: 'pair', values: [0, 1, 2], say: (v) => ['Off', 'Percent', 'Volts'][v] },
       { label: 'Battery check', key: 'bck', kind: 'switch', note: 'Every 5 min while nobody uses the radio, Wi-Fi stops for a moment to read the battery' },
     ],
     extra: Colours,
@@ -122,7 +122,7 @@ const GROUPS = [
     name: 'DX scanner',
     icon: 'satellite-dish',
     rows: [
-      { label: 'Dwell on each channel', key: 'ddw', kind: 'steps', values: range(5, 300, 5), say: (v) => `${(v / 10).toFixed(1)} s` },
+      { label: 'Scan dwell', key: 'ddw', kind: 'steps', values: range(5, 300, 5), say: (v) => `${(v / 10).toFixed(1)} s` },
       { label: 'Stop on', key: 'dst', kind: 'list', values: [0, 1, 2], say: (v) => ['New stations only', 'Any PI', 'Never'][v] },
       { label: 'Scan range', key: 'dsc', kind: 'list', values: [0, 1, 2], say: (v) => SCAN_RANGE[v] },
       { label: 'Preset start', key: 'dmf', kind: 'steps', values: range(1, PRESET_SLOTS) },
@@ -138,7 +138,7 @@ const GROUPS = [
   {
     name: 'Auto off',
     icon: 'power',
-    rows: [{ label: 'Switch off after', key: 'slp', kind: 'steps', values: range(5, 600, 5, 0), say: offOr('min') }],
+    rows: [{ label: 'Auto off', key: 'slp', kind: 'steps', values: range(5, 600, 5, 0), say: offOr('min') }],
   },
 ];
 
@@ -234,7 +234,7 @@ function SettingLine({ row, value, change, note }) {
   let control;
   if (row.kind === 'switch') {
     const on = row.flip ? !value : !!value;
-    control = <Toggle label={row.label} on={on} onChange={(v) => change(row, row.flip ? +!v : +v)} />;
+    control = <Switch label={row.label} text={on ? 'On' : 'Off'} on={on} onChange={(v) => change(row, row.flip ? +!v : +v)} />;
   } else if (row.kind === 'pair') {
     const words = values.map(say);
     control = <Segmented label={row.label} options={words} value={say(value)} onChange={(w) => change(row, values[words.indexOf(w)])} />;
@@ -251,7 +251,7 @@ function SettingLine({ row, value, change, note }) {
     control = <Steps row={row} value={value} say={say} onChange={(v) => change(row, v)} />;
   }
   return (
-    <SettingRow title={row.label} note={note} inline={row.kind === 'switch'}>
+    <SettingRow title={row.label} note={note}>
       {control}
     </SettingRow>
   );

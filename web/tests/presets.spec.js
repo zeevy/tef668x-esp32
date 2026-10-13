@@ -1,5 +1,5 @@
 // Presets: keys, recall, save the current station, add, change, rename,
-// delete, move by dragging, download and upload.
+// delete, move by dragging, download, upload and the station scan.
 import { expect, test } from '@playwright/test';
 import { countReads, liveRadio } from './radio.js';
 
@@ -57,6 +57,13 @@ test('save current station: the radio picks the slot, and its answer is said', a
   await page.getByRole('button', { name: 'Save current station' }).click();
   expect((await sent).body).toBe('do=add&khz=101900&bnd=FM&bw=0&name=NEW+FM');
   await expect(page.getByRole('status').filter({ hasText: 'Preset 3 is FM 101.90 MHz' })).toBeVisible();
+});
+
+test('save current station: the radio\'s own words where they fit, Save current on a phone', async ({ page }, testInfo) => {
+  await radio(page);
+  await page.goto('/#presets');
+  const said = testInfo.project.name === 'phone' ? 'Save current' : 'Save current station';
+  await expect(page.getByRole('button', { name: 'Save current station' })).toHaveText(said, { useInnerText: true });
 });
 
 test('save current station: a station already stored is refused by the radio, and said', async ({ page }) => {
@@ -229,6 +236,22 @@ test('change: rename, and delete', async ({ page }) => {
   sent = nextPost(page, '/api/presets');
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
   expect((await sent).body).toBe('do=clear&slot=1');
+});
+
+test('on a phone a stored preset\'s dialog has Delete and Cancel side by side, and Save across the row under them', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone', 'a phone only');
+  const csv = 'slot,band,frequency,bandwidth,name,pi,pty,ptn,ecc,country,saved\n5,FM,98300,168,FIVE,,,,,,\n';
+  await radio(page, { csv });
+  await page.goto('/#presets');
+  await page.getByRole('button', { name: 'Change' }).click();
+  await page.getByRole('button', { name: 'Change preset 5' }).click();
+  const dialog = page.getByRole('dialog');
+  const box = (name) => dialog.getByRole('button', { name, exact: true }).boundingBox();
+  const [del, cancel, save] = [await box('Delete'), await box('Cancel'), await box('Save')];
+  expect(Math.round(del.y)).toBe(Math.round(cancel.y));
+  expect(Math.round(del.width)).toBe(Math.round(cancel.width));
+  expect(save.y).toBeGreaterThan(del.y);
+  expect(Math.round(save.width)).toBe(Math.round(cancel.x + cancel.width - del.x));
 });
 
 test('change: the dialog shows what the radio learnt about the station, and nothing for a preset with none', async ({ page }) => {
@@ -479,7 +502,7 @@ test('the top card says Not a preset, with the station name, off the presets', a
 test('the band filter: only the bands that hold presets, and it shows that band alone', async ({ page }) => {
   await radio(page, { csv: MIXED });
   await page.goto('/#presets');
-  const filter = page.getByRole('radiogroup', { name: 'Band' });
+  const filter = page.getByRole('radiogroup', { name: 'Band', exact: true });
   await expect(filter.getByRole('radio')).toHaveText(['All', 'FM', 'MW', 'SW']);
   await expect(keys(page)).toHaveCount(5);
   await filter.getByRole('radio', { name: 'MW' }).click();
@@ -495,7 +518,7 @@ test('no band filter when every preset is on one band', async ({ page }) => {
   await radio(page);
   await page.goto('/#presets');
   await expect(keys(page)).toHaveCount(3);
-  await expect(page.getByRole('radiogroup', { name: 'Band' })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Band', exact: true })).toHaveCount(0);
 });
 
 test('the top card shows the preset name when the station sends none', async ({ page }) => {
@@ -524,4 +547,63 @@ test('change: another slot moves the preset there, by keys too; onto a taken slo
   await expect(dialog).toContainText('Slot 2 holds 92.70 MHz; saving swaps the two, so that one goes to slot 1.');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect.poll(() => posts).toEqual(['do=move&slot=1&to=2', 'do=set&slot=2&khz=91100&bnd=FM&bw=0&name=ONE']);
+});
+
+const scanCard = (page) => page.locator('main section').filter({ hasText: 'Station scan' });
+
+test('station scan: Scan sends the band the radio is on, or the one picked', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#presets');
+  let sent = nextPost(page, '/api/scan');
+  await page.getByRole('button', { name: 'Scan', exact: true }).click();
+  expect((await sent).body).toBe('bnd=FM');
+  await page.getByRole('radiogroup', { name: 'Band to scan' }).getByRole('radio', { name: 'MW' }).click();
+  sent = nextPost(page, '/api/scan');
+  await page.getByRole('button', { name: 'Scan', exact: true }).click();
+  expect((await sent).body).toBe('bnd=MW');
+});
+
+test('station scan: a refusal is said in the radio\'s own words', async ({ page }) => {
+  await radio(page);
+  await page.route('**/api/scan', (route) => route.fulfill({ status: 409, body: 'The DX scanner is running. Stop it first.' }));
+  await page.goto('/#presets');
+  await page.getByRole('button', { name: 'Scan', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'The DX scanner is running. Stop it first.' })).toBeVisible();
+});
+
+test('station scan: one started on the radio shows its progress, then what it found; the card keeps its height', async ({ page }) => {
+  const live = await radio(page);
+  await page.goto('/#presets');
+  const card = scanCard(page);
+  await expect(card).toContainText('Saves new stations in empty slots only.');
+  const height = (await card.boundingBox()).height;
+  live.push((s) => Object.assign(s.tun, { scn: true, scd: 103, sct: 206 }));
+  await expect(card).toContainText('103 of 206 channels');
+  await expect(card).toContainText('Scanning');
+  await expect(card.getByRole('progressbar', { name: 'Scan progress' })).toHaveAttribute('aria-valuenow', '50');
+  expect((await card.boundingBox()).height).toBe(height);
+  live.push((s) => Object.assign(s.tun, { scn: false, scd: 0, sct: 0, scf: 23, sca: 5, scr: 2, scc: true }));
+  await expect(card).toContainText('Found 23, saved 5. Full, 2 not saved.');
+  await expect(card).toContainText('Complete');
+  await expect(card).not.toContainText('Scanning');
+  expect((await card.boundingBox()).height).toBe(height);
+  // Stopped before the end, as by a tune.
+  live.push((s) => Object.assign(s.tun, { scf: 4, sca: 1, scr: 0, scc: false }));
+  await expect(card).toContainText('Found 4, saved 1.');
+  await expect(card).toContainText('Stopped');
+});
+
+test('station scan: the presets it saves show as it saves them', async ({ page }) => {
+  let n = 3;
+  const live = await radio(page);
+  await page.route('**/api/presets.csv', (route) => route.fulfill({ body: n === 3 ? CSV : `${CSV}3,FM,94100,0,,\n` }));
+  await page.goto('/#presets');
+  await expect(keys(page)).toHaveCount(3);
+  n = 4;
+  live.push((s) => {
+    Object.assign(s.tun, { scn: true, scd: 40, sct: 206 });
+    s.pst.n = n;
+  });
+  await expect(keys(page)).toHaveCount(4);
+  await expect(page.locator('main [data-slot="3"]')).toContainText('94.10');
 });

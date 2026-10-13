@@ -1189,6 +1189,9 @@ String buildState(void) {
       out += F(",\"last\":null,\"age\":null");
     }
   }
+  /* How the panel shows the battery, the Battery setting, so the web page
+   * shows it the same way: 0 not at all, 1 in per cent, 2 in volts. */
+  jsonNum(out, "shw", sWeb->settings->batteryShow);
   /* The pauses for a reading: how many, how long the last held the loop,
    * and how long Wi-Fi took to be back after it, in ms. */
   out += F(",\"chk\":{\"n\":");

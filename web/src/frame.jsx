@@ -117,8 +117,9 @@ const LINK = {
   lost: ['bg-bad', 'No answer'],
 };
 
-// The screen's name on a phone; the radio's name from tablet width up, where
-// the menu shows which screen is open. The volume on every screen: mute and
+// The screen's name on a phone, cut short before the frequency is; the
+// radio's name from tablet width up, where the menu shows which screen is
+// open. The volume on every screen: mute and
 // the slider in the header from tablet width up; on a phone the speaker opens
 // them in a strip under the header. The battery last, at the right end.
 function Header({ title }) {
@@ -126,7 +127,10 @@ function Header({ title }) {
   const [sound, setSound] = useState(false);
   return (
     <>
-    <header class={`${PAGE} flex h-14 items-center gap-2`}>
+    {/* Below 380 px the gaps and the boxes' sides are 4 px narrower, and the
+        frequency box shows the frequency alone, so the frequency and the
+        battery fit on a 320 px phone with room to spare whatever its fonts. */}
+    <header class={`${PAGE} flex h-14 items-center gap-2 max-[379px]:gap-1`}>
       <h1 class="mr-auto min-w-0 truncate text-base font-semibold md:sr-only">{title}</h1>
       <span class="mr-auto hidden items-center gap-2 md:flex" aria-hidden="true">
         <span class="grid size-8 place-items-center rounded-ctl bg-accent text-on-accent">
@@ -136,11 +140,12 @@ function Header({ title }) {
       </span>
       {tun && <VolumeBox tun={tun} class="hidden md:flex" />}
       {tun && (
-        <a href="#radio" class="hit relative hidden h-9 items-center gap-1 rounded-ctl border border-line bg-surface px-3 min-[380px]:flex">
+        <a href="#radio" class="hit relative flex h-9 shrink-0 items-center gap-1 rounded-ctl border border-line bg-surface px-3 max-[379px]:px-2">
           <span class="num">{tun.f}</span>
           {/* The preset over the unit, one over the other, so the box keeps
-              its height. */}
-          <span class="flex flex-col items-start leading-none">
+              its height; left out below 380 px, where the frequency alone
+              fits. */}
+          <span class="flex flex-col items-start leading-none max-[379px]:hidden">
             {tun.pst > 0 && <span class="num text-xs leading-none font-semibold text-accent-ink">{presetTag(tun.pst)}</span>}
             <span class="text-xs text-muted">{tun.unt}</span>
           </span>

@@ -26,6 +26,10 @@ const POLL_MS = 5000;
 // the third page the radio turns away, twice as long each time, up to 60 s.
 const LIVE_RETRY_MS = 5000;
 const LIVE_RETRY_MAX_MS = 60000;
+// How long a page that opens, or comes back into view, leaves the state to
+// the socket before it reads it itself. The radio sends a socket its first
+// state within half a second of it opening.
+const LIVE_WAIT_MS = 1000;
 // The radio sends nothing while a level sweep reads the band, 7.5 s at most
 // on MW, so a socket quiet for longer has lost the radio: it restarted or
 // left the Wi-Fi without closing the connection.
@@ -144,7 +148,11 @@ export function upload(path, form, onProgress) {
   });
 }
 
-// Asks a route that needs the PIN, to learn whether this browser is signed in.
+// Asks a route that needs the PIN, to learn whether this browser is signed
+// in. The settings are the only read that needs it, and the session cookie
+// is out of the page's reach, so this is asked once, as the page opens, and
+// not each time its tab comes back. Any refusal for the PIN after that says
+// so, as every read and write does.
 async function checkSignIn() {
   try {
     const { res } = await call('/api/settings');
@@ -172,6 +180,7 @@ let socket = null; // the live state's socket, while one is open or opening
 let retry = null;
 let retryMs = LIVE_RETRY_MS;
 let silence = null;
+let waiting = false; // the state is left to the socket that is opening
 // The last state the radio gave, and the changes drawn over it until the
 // radio has surely taken them, so a state from before one cannot undo it on
 // the screen, and a refusal can take its change back off.
@@ -216,6 +225,7 @@ function take(s, at) {
 // Reads the state now, as after a change, rather than at the next poll. The
 // live state needs no asking: the next one comes within half a second.
 async function poll() {
+  waiting = false;
   if (live()) return;
   if (open) {
     again = true;
@@ -236,8 +246,7 @@ async function poll() {
 }
 
 // The live state: while the socket is open the radio sends its state and
-// nothing is polled. Polling goes on while it opens, and takes over when it
-// closes or goes quiet.
+// nothing is polled. Polling takes over when it closes or goes quiet.
 function openLive() {
   clearTimeout(retry);
   if (!running || socket) return;
@@ -275,11 +284,10 @@ function ended(ws, opened) {
   clearTimeout(silence);
   ws.close();
   if (!running) return;
-  if (opened) {
-    poll();
-  } else {
-    retryMs = Math.min(retryMs * 2, LIVE_RETRY_MAX_MS);
-  }
+  // Polling takes over: at once after a socket that opened, or when the page
+  // was waiting on this one for its state.
+  if (opened || waiting) poll();
+  if (!opened) retryMs = Math.min(retryMs * 2, LIVE_RETRY_MAX_MS);
   retry = setTimeout(openLive, opened ? LIVE_RETRY_MS : retryMs);
 }
 
@@ -325,21 +333,35 @@ export function change(path, fields, expect) {
   return sent;
 }
 
+// The page comes into view. Each read holds the radio, so the state is left
+// to the socket, and read only when the socket fails or has not opened
+// within LIVE_WAIT_MS. A page whose last socket was turned away, which a
+// retry wait longer than the first shows, gets its state by polling, so it
+// reads at once.
+function resume() {
+  const turnedAway = retryMs > LIVE_RETRY_MS;
+  retryMs = LIVE_RETRY_MS;
+  openLive();
+  if (turnedAway) {
+    poll();
+  } else {
+    waiting = true;
+    timer = setTimeout(poll, LIVE_WAIT_MS);
+  }
+}
+
 // The state while the page is in view; a hidden tab asks nothing of the
 // radio and holds no socket.
 export function startLive() {
   if (running) return;
   running = true;
-  poll();
-  openLive();
+  resume();
   checkSignIn();
   document.addEventListener('visibilitychange', () => {
     running = !document.hidden;
     clearTimeout(timer);
     if (running) {
-      retryMs = LIVE_RETRY_MS;
-      poll();
-      openLive();
+      resume();
     } else {
       closeLive();
     }

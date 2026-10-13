@@ -93,7 +93,7 @@ export function SweepChart({ sweep, band, dialKhz, cursorKhz, dim, marks = [], o
   const where = `${freq(khzAt(at), band)} ${unit(band)}`;
   const about = [
     sweep.level[at] != null ? level(sweep.level[at]) : 'no reading',
-    sweep.rise?.[at] != null && `${sweep.rise[at] >= 0 ? '+' : ''}${dbuv(sweep.rise[at])} dB over its baseline`,
+    sweep.rise?.[at] != null && `${dbuv(Math.abs(sweep.rise[at]))} dB ${sweep.rise[at] >= 0 ? 'over' : 'under'} its baseline`,
     ...named.map((m) => m.label),
     at === cursor && at !== dial && hover === null && "the radio's cursor",
   ]

@@ -59,9 +59,9 @@ The screen light fades up over 750 ms when the radio starts, and dims over 750 m
 |---|---|
 | Off, at the start | Nothing |
 | Percent | A battery shape, filled to the level, with no number |
-| Volts | A small battery and the voltage, such as `3.9` |
+| Volts | The same battery shape, filled to the level, and the voltage after it, such as `3.9` |
 
-The mark turns to the theme's fault colour, red in most themes, at 20 % or less. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
+The mark turns to the theme's fault colour, red in most themes, at 20 % or less. The [web page](Web-Page.md#the-frame)'s header follows this setting too: it shows the per cent or the volts, and no battery with Battery Off. The percentage is the voltage mapped from 3.0 V (empty) to 4.2 V (full), not a measure of the charge left.
 
 The battery is read once, at start up, because the ESP32's Wi-Fi uses the same part of the chip that reads it. While Wi-Fi is off it is read every second. **Menu > Diagnostics > Battery Voltage** shows the reading, with `at start` after it when it is the reading from start up.
 

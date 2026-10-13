@@ -99,21 +99,6 @@
       scale: 1;
     }
   }
-  /* The Radio picture's needle, across its scales and back. 100cqw is the
-     width of the box it moves in. */
-  --animate-needle: needle 120s ease-in-out infinite alternate;
-  @keyframes needle {
-    to {
-      transform: translateX(100cqw);
-    }
-  }
-  /* Its scales, the other way at the same pace. */
-  --animate-dial: dial 120s ease-in-out infinite alternate;
-  @keyframes dial {
-    to {
-      transform: translateX(-8%);
-    }
-  }
   /* The Network picture's columns of bytes, falling by one column's height. */
   --animate-rain: rain 90s linear infinite;
   @keyframes rain {
@@ -142,6 +127,12 @@
     height: max(100%, 44px);
     translate: -50% -50%;
   }
+}
+
+/* A card's picture fades out over the card's left part, where its main
+   text is, so its lines never cross a frequency or a name. */
+.back {
+  mask-image: linear-gradient(to right, transparent 25%, #000 65%);
 }
 
 /* A device that asks for less motion gets the pictures standing still. */
@@ -198,6 +189,7 @@
 
 /* Anything that can be clicked shows the hand, as a link does. */
 button:not(:disabled),
+select:not(:disabled),
 [role="button"],
 summary {
   cursor: pointer;

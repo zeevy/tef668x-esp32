@@ -1,6 +1,7 @@
 // Presets, the Presets tab of Presets & Log: the station on now with the
 // tools and a band filter across the top; under it keys like a radio's own
-// preset buttons. Recall, add, change, rename, delete, download and upload.
+// preset buttons, and under them the station scan, which a person uses far
+// less. Recall, add, change, rename, delete, download, upload and scan.
 import { useRef, useState } from 'preact/hooks';
 import { change, postBody, state } from '../data/radio.js';
 import { presets } from '../data/reads.js';
@@ -9,9 +10,9 @@ import { BANDS, country, freq, printable, typedKhz, unit, when } from '../data/f
 import { PRESET_NAME_MAX, PRESET_SLOTS } from '../data/limits.js';
 import { act, refused, say } from '../data/act.js';
 import { AddKey, PresetKey } from '../ui/keys.jsx';
-import { recall, storeStation } from '../data/commands.js';
+import { recall, scan, storeStation } from '../data/commands.js';
 import { withMotion } from '../data/motion.js';
-import { Banner, Button, Card, Figure, FileButton, Icon, INPUT, Loading, Modal, Segmented, Select, Unread } from '../ui/kit.jsx';
+import { Banner, Bar, Button, Card, Chip, Figure, FileButton, Icon, INPUT, Loading, Modal, Segmented, Select, Unread } from '../ui/kit.jsx';
 import { StationNow } from '../ui/station.jsx';
 import { Stars } from '../ui/backs.jsx';
 
@@ -57,11 +58,15 @@ export function Presets({ tabs }) {
       {lost > 0 && <Banner>{lost === 1 ? '1 preset' : `${lost} presets`} could not be read at start up and {lost === 1 ? 'was' : 'were'} left out.</Banner>}
       <StationNow s={s} back={<Stars />} presetName={on?.name?.trim()} sub={list && `${list.length} of ${PRESET_SLOTS} slots used`}>
         {/* On a phone the four tools are two by two, with no icons, so they
-            fit at 320 px. */}
-        <div class="grid grid-cols-2 gap-2">
+            fit at 320 px. Save current station, the radio's own words, is
+            cut to Save current where the tools have less than 448 px, as on
+            a phone, so it stays on one line. */}
+        <div class="@container grid grid-cols-2 gap-2">
           <Button aria-label="Save current station" class="px-3 text-sm sm:text-base" onClick={() => s && storeStation(s.tun)}>
             <Icon name="star" class="hidden sm:block" />
-            Save current
+            <span>
+              Save current<span class="hidden @md:inline"> station</span>
+            </span>
           </Button>
           <Button kind="secondary" class="px-3 text-sm sm:text-base" disabled={!list} onClick={() => setEditing({ slot: firstFreeSlot(list) ?? 1, isNew: true, offered: true })}>
             <Icon name="plus" class="hidden sm:block" />
@@ -101,7 +106,7 @@ export function Presets({ tabs }) {
         </Card>
       ) : list.length === 0 ? (
         <Card>
-          <p class="text-muted">No presets stored yet. Add one, or store the station you are on.</p>
+          <p class="text-muted">No presets stored yet. Add one, store the station you are on, or scan a band.</p>
         </Card>
       ) : (
         <Keys
@@ -117,9 +122,47 @@ export function Presets({ tabs }) {
           {bands.length > 2 && <Segmented label="Band" options={bands} value={showing} onChange={(b) => withMotion(() => setBand(b))} />}
         </Keys>
       )}
+      {t && <StationScan t={t} />}
       {editing && <PresetDialog preset={editing} list={list ?? []} close={() => setEditing(null)} saved={presets.again} />}
       {upload && <UploadDialog upload={upload} close={() => setUpload(null)} saved={presets.again} />}
     </div>
+  );
+}
+
+// The bands the radio's station scan walks.
+const SCAN_BANDS = ['FM', 'MW', 'SW', 'LW'];
+
+// The station scan: a band and Scan, then how far a scan has got, from the
+// page or the radio's own menu, and what the last one found. The band shown
+// is the one the radio is on until another is picked. There is no Stop: the
+// radio has no way to be told to stop one, and a tune stops it. The line
+// and the bar are always there, so nothing below moves when a scan starts;
+// the bar is full after a scan that covered the whole band, and empty when
+// none did.
+function StationScan({ t }) {
+  const [picked, setPicked] = useState(null);
+  const band = picked ?? (SCAN_BANDS.includes(t.bnd) ? t.bnd : 'FM');
+  const running = t.scn;
+  const line = running
+    ? `${t.scd} of ${t.sct || '--'} channels`
+    : t.scc == null
+      ? 'Saves new stations in empty slots only.'
+      : `Found ${t.scf}, saved ${t.sca}.${t.scr ? ` Full, ${t.scr} not saved.` : ''}`;
+  const chip = running ? <Chip tone="warn">Scanning</Chip> : t.scc === true ? <Chip tone="good">Complete</Chip> : t.scc === false && <Chip tone="off">Stopped</Chip>;
+  return (
+    <Card title="Station scan" end={chip}>
+      <div class="grid grid-cols-[1fr_auto] gap-2">
+        <Segmented label="Band to scan" options={SCAN_BANDS} value={band} onChange={setPicked} />
+        <Button onClick={() => scan(band)}>
+          <Icon name="radio" class="hidden sm:block" />
+          Scan
+        </Button>
+      </div>
+      <div class="mt-4 grid gap-1">
+        <p class={`truncate text-sm leading-5 text-muted ${running || t.scc != null ? 'num' : ''}`}>{line}</p>
+        <Bar pct={running ? (t.sct ? (t.scd / t.sct) * 100 : 0) : t.scc === true ? 100 : 0} label="Scan progress" />
+      </div>
+    </Card>
   );
 }
 

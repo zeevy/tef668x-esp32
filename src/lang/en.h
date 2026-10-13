@@ -392,7 +392,7 @@
   X(RECOVERY_ASK_ERASE, "Press again to erase every setting, Wi-Fi too", "Recovery screen foot line while Erase Settings waits for its second press") \
   X(BOOT_NEW, "New", "Boot screen value on the Settings step when defaults are in use") \
   X(COMMON_FMT_VOLTS, "%u.%02uV", "Boot screen value on the Battery step, volts") \
-  X(COMMON_FMT_VOLTS_TENTHS, "%u.%u", "Battery volts in the header when Battery is set to volts, one decimal, with a small upright battery just before it") \
+  X(COMMON_FMT_VOLTS_TENTHS, "%u.%u", "Battery volts in the header when Battery is set to volts, one decimal, just after the battery") \
   X(MENU_FMT_TUNER_PATCH, "%s patch %u", "Menu, value of the Tuner row, Diagnostics group: part name and patch version") \
   X(BOOT_FMT_TUNER_VERSION, "%s v%s", "Boot screen tuner line, part name and the firmware's version") \
   X(BOOT_SELF_TEST, "Self Test", "Left hint on the boot screen") \

@@ -364,9 +364,9 @@ const DIAL_TO = 96;
 
 // Radio: an old radio's glass dial, a scale for each of FM, AM and SW
 // from the radio's own band edges, with the shortwave broadcast bands
-// marked, and the tuning needle moving slowly along them while the scales
-// move a little the other way.
-export function Dial() {
+// marked, and the needle standing at the frequency tuned, on its band's
+// scale. LW has no scale, so no needle.
+export function Dial({ t }) {
   // Each scale: its name, its height on the card in per cent, its edges in
   // kHz until the radio has said, the kHz a long tick and a number, the
   // kHz a short tick, and how a number is written.
@@ -375,12 +375,18 @@ export function Dial() {
     ['AM', 48, bandOf('MW') ?? { low: 522, high: 1791 }, 200, 50, (k) => k],
     ['SW', 70, bandOf('SW') ?? { low: 1700, high: 27000 }, 2000, 1000, (k) => k / 1000],
   ];
+  const at = (k, { low, high }) => DIAL_FROM + ((k - low) / (high - low)) * (DIAL_TO - DIAL_FROM);
+  // OIRT shares the FM scale, which may not reach down to it: off its scale
+  // the needle is left out rather than put at an end it does not mean.
+  const tuned = scales.find(([name]) => name === { FM: 'FM', OIRT: 'FM', MW: 'AM', SW: 'SW' }[t?.bnd]);
+  const onScale = tuned && t.khz >= tuned[2].low && t.khz <= tuned[2].high;
   return (
     <>
-      <svg class="absolute inset-0 size-full animate-dial">
+      <svg class="absolute inset-0 size-full">
         <g fill="currentColor" stroke="currentColor" stroke-width="1" opacity="0.22" font-family="ui-monospace, monospace" font-size="11" text-anchor="middle">
-          {scales.map(([name, y, { low, high }, every, tick, words]) => {
-            const at = (k) => `${DIAL_FROM + ((k - low) / (high - low)) * (DIAL_TO - DIAL_FROM)}%`;
+          {scales.map(([name, y, edges, every, tick, words]) => {
+            const { low, high } = edges;
+            const x = (k) => `${at(k, edges)}%`;
             const from = Math.ceil(low / tick) * tick;
             const ticks = [];
             for (let k = from; k <= high; k += tick) ticks.push(k);
@@ -391,21 +397,21 @@ export function Dial() {
                 </text>
                 <line x1={`${DIAL_FROM}%`} x2={`${DIAL_TO}%`} />
                 {ticks.map((k) => (
-                  <line x1={at(k)} x2={at(k)} y1="0" y2={k % every ? -5 : -10} />
+                  <line x1={x(k)} x2={x(k)} y1="0" y2={k % every ? -5 : -10} />
                 ))}
                 {ticks
                   .filter((k) => k % every === 0)
                   .map((k) => (
-                    <text x={at(k)} y="-14" stroke="none">
+                    <text x={x(k)} y="-14" stroke="none">
                       {words(k)}
                     </text>
                   ))}
                 {name === 'SW' &&
                   METER_BANDS.map(([m, a, b]) => (
                     <>
-                      <line x1={at(a)} x2={at(b)} y1="6" y2="6" stroke-width="3" />
+                      <line x1={x(a)} x2={x(b)} y1="6" y2="6" stroke-width="3" />
                       {m <= 49 && (
-                        <text x={at((a + b) / 2)} y="20" stroke="none" font-size="9">
+                        <text x={x((a + b) / 2)} y="20" stroke="none" font-size="9">
                           {m}
                         </text>
                       )}
@@ -416,9 +422,7 @@ export function Dial() {
           })}
         </g>
       </svg>
-      <div class="absolute inset-y-[12%] @container" style={{ left: `${DIAL_FROM}%`, right: `${100 - DIAL_TO}%` }}>
-        <div class="absolute inset-y-0 left-0 -ml-px w-0.5 animate-needle rounded-full bg-current opacity-45 shadow-[0_0_8px_currentColor]" />
-      </div>
+      {onScale && <div data-mark="needle" class="absolute inset-y-[12%] -ml-px w-0.5 rounded-full bg-current opacity-45 shadow-[0_0_8px_currentColor]" style={{ left: `${at(t.khz, tuned[2])}%` }} />}
     </>
   );
 }

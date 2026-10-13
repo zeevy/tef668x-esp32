@@ -38,7 +38,7 @@ export function WiFiForm({ stored, set, done }) {
           <input aria-label="Passphrase" class={INPUT} type={show ? 'text' : 'password'} value={pwd} placeholder={stored.pss ? 'Stored. Type to change it' : ''} onInput={(e) => setPwd(e.currentTarget.value)} autocomplete="new-password" autocapitalize="none" autocorrect="off" spellcheck={false} maxLength={64} />
         </label>
         )}
-        <Switch label="This network has no passphrase" on={open} onChange={setOpen} />
+        <Switch label="This network has no passphrase" text="No passphrase" on={open} onChange={setOpen} />
         <Button type="submit" icon="wifi">
           Save and join
         </Button>

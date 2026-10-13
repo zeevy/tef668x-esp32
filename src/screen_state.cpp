@@ -173,7 +173,7 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
 
   /*
    * The battery, when there is a reading and the setting is not off: the
-   * shape alone for a per cent, or the voltage and a small upright shape.
+   * shape filled to its level, and as volts the voltage after it.
    */
   if (in->battery != NULL && in->batteryShow != BATTERY_SHOW_OFF &&
       batteryMilliVolts(in->battery) > 0) {

@@ -8,9 +8,8 @@
  * sits on baseline 21 and the rest on baseline 20, one row lower so that the
  * larger face looks centred. The run is laid out from the right edge inwards, 8
  * apart, and an item that is missing is left out so the rest close up to the
- * edge. The battery is the shape alone as a per cent, filled to it, and as
- * volts a small upright battery, filled the same way, just before the number in
- * the clock's face.
+ * edge. The battery is the shape filled to its level, and as volts the number
+ * in the clock's face just after it.
  */
 #include "../draw.h"
 #include "../panel.h"
@@ -35,16 +34,9 @@ static_assert(MENU_ZONE_W - BAND_AFTER_MENU_X <= 2,
 #define BATT_NUB_W 2
 #define BATT_NUB_H 6
 #define BATT_FILL_MAX (BATT_W - 4)
-/* Beside the volts, the battery stands up: a 7 by 11 outline and a 3 by 2
- * nub on top, filled from the bottom. */
-#define VBATT_W 7
-#define VBATT_H 11
-#define VBATT_NUB_W 3
-#define VBATT_NUB_H 2
-#define VBATT_FILL_MAX (VBATT_H - 4)
-/* From the symbol to the number, closer than a label to its value, so the
- * two read as one item. */
-#define VBATT_GAP 2
+/* From the battery to the volts after it, closer than the header's gap, so
+ * the two read as one item. */
+#define BATT_TEXT_GAP 3
 /* A fifth of a lithium cell is about half an hour of listening, which is
  * enough notice to find a cable. */
 #define BATT_LOW_PERCENT 20
@@ -182,12 +174,11 @@ static void show(const ScreenState *s) {
     placeIcon(sPc, &right, UI_GAP);
   }
 
-  /* The battery as a per cent is the shape alone, filled to it: the fill
-   * already says the per cent. As volts it is a small upright battery and the
-   * number after it, filled the same way. */
+  /* The battery is the shape filled to its level, which already says the
+   * per cent. As volts the number follows it, a little apart, so the two
+   * read as one item. */
   const bool haveBattery = s->batteryValid;
   const bool asVolts = haveBattery && s->batteryText != NULL;
-  const bool asShape = haveBattery && !asVolts;
   const uint8_t pct = !haveBattery              ? 0
                       : s->batteryPercent > 100 ? 100
                                                 : s->batteryPercent;
@@ -198,32 +189,12 @@ static void show(const ScreenState *s) {
   uiShowIf(sBattNub, haveBattery);
   uiShowIf(sBattText, asVolts);
   if (asVolts) {
-    /* The number first from the right, then the symbol before it. */
+    /* The number first from the right, then the battery before it. */
     uiSetText(sBattText, s->batteryText);
     uiSetColour(sBattText, edge);
-    placeWord(sBattText, &roboto_small, &right, VBATT_GAP);
-    const int16_t bodyX = (int16_t)(right - VBATT_W);
-    const int16_t bodyY = (int16_t)(sAt.y + CENTRE_Y - VBATT_H / 2);
-    lv_obj_set_size(sBattBody, VBATT_W, VBATT_H);
-    lv_obj_set_pos(sBattBody, bodyX, bodyY);
-    uiSetBorderColour(sBattBody, edge);
-    lv_obj_set_size(sBattNub, VBATT_NUB_W, VBATT_NUB_H);
-    lv_obj_set_pos(sBattNub, (int16_t)(bodyX + (VBATT_W - VBATT_NUB_W) / 2),
-                   (int16_t)(bodyY - VBATT_NUB_H));
-    uiSetBgColour(sBattNub, edge);
-    int16_t fill = (int16_t)((VBATT_FILL_MAX * pct + 50) / 100);
-    if (fill < 1) {
-      fill = 1;
-    }
-    lv_obj_set_size(sBattFill, VBATT_W - 4, fill);
-    lv_obj_set_pos(sBattFill, (int16_t)(bodyX + 2),
-                   (int16_t)(bodyY + 2 + VBATT_FILL_MAX - fill));
-    uiSetBgColour(sBattFill, low ? t->fault : t->good);
-    right = (int16_t)(bodyX - UI_GAP);
-  } else if (asShape) {
-    lv_obj_set_size(sBattBody, BATT_W, BATT_H);
-    lv_obj_set_size(sBattNub, BATT_NUB_W, BATT_NUB_H);
-    lv_obj_set_height(sBattFill, BATT_H - 4);
+    placeWord(sBattText, &roboto_small, &right, BATT_TEXT_GAP);
+  }
+  if (haveBattery) {
     const int16_t bodyX = (int16_t)(right - BATT_NUB_W - BATT_W);
     const int16_t bodyY = (int16_t)(sAt.y + CENTRE_Y - BATT_H / 2);
     lv_obj_set_pos(sBattBody, bodyX, bodyY);

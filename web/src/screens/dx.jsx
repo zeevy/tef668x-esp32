@@ -140,14 +140,15 @@ function useWatchNote(head) {
 }
 
 // DX mode on or off beside its filter width, at one size. DX mode is FM
-// only.
+// only. A width picked while DX mode is off opens it, as the width is DX
+// mode's own.
 function DxControls({ s, head, send }) {
   const t = s.tun;
   const set = head.on && t.dxw;
   return (
     <div class="grid grid-cols-1 gap-2 @sm:grid-cols-2">
       <Switch label="DX mode" on={head.on} onChange={(on) => send({ on: on ? 1 : 0 })} />
-      <Select label="DX width" value={set ? t.dxw : ''} onChange={(khz) => send({ khz })}>
+      <Select label="DX width" value={set ? t.dxw : ''} onChange={(khz) => send(head.on ? { khz } : { on: 1, khz })}>
         {!set && <option value="">Width</option>}
         {(bandOf('FM')?.widths ?? []).filter((w) => w > 0).map((w) => (
           <option value={w}>Width {w} kHz</option>
@@ -204,14 +205,17 @@ function Scope({ s, head, sweep, error, send }) {
   const t = s.tun;
   const [asked, markAsked] = useAsked(sweep?.rev);
   const sweeping = head.swp || asked;
+  // A sweep is at DX mode's width, so DX mode opens first; the radio takes
+  // the two as separate requests.
   async function sweepNow() {
+    if (!head.on && !(await send({ on: 1 }))) return;
     if (await send({ sweep: 1 }, 'Sweeping the band, about 4 s.')) markAsked();
   }
   const button = <SweepButton sweeping={sweeping} onClick={sweepNow} />;
   if (!sweep?.level) {
     return (
       <Card title="Scope" end={button}>
-        {!sweep && error ? <Unread what="sweep" /> : <p class="text-muted">No sweep yet. Open DX mode and sweep the band.</p>}
+        {!sweep && error ? <Unread what="sweep" /> : <p class="text-muted">No sweep yet. Sweep the band.</p>}
       </Card>
     );
   }
@@ -253,13 +257,14 @@ function Scanner({ head, send }) {
       <p class="num mt-1 text-sm text-muted">
         {head.scd} of {head.sct || '--'} channels
       </p>
-      <div class="mt-4 grid grid-cols-2 gap-2">
+      {/* One above the other on a phone, where side by side cuts the words. */}
+      <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         {running ? (
           <Button icon="x" onClick={() => send({ scan: 0 }, 'Scan stopped.')}>
             Stop
           </Button>
         ) : (
-          <Button icon="satellite-dish" onClick={() => send({ scan: 1 }, head.scn === 'stopped' ? 'Scan goes on.' : 'Scan started.')}>
+          <Button icon="satellite-dish" onClick={() => send(head.on ? { scan: 1 } : { on: 1, scan: 1 }, head.scn === 'stopped' ? 'Scan goes on.' : 'Scan started.')}>
             {head.scn === 'stopped' ? 'Go on' : 'Start scan'}
           </Button>
         )}

@@ -1,10 +1,9 @@
 // Home: what the radio is doing at a glance, the dial's buttons, the presets
 // as a strip, the last stations heard, and the radio's own state.
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { state, volHeld } from '../data/radio.js';
+import { state } from '../data/radio.js';
 import { lastHeard, logFits, presets, scopeSweep } from '../data/reads.js';
 import { duration, level, readings, when } from '../data/format.js';
-import { VolumeSlider } from '../ui/volume.jsx';
 import { logStation, mute, recall, seek, step, storeStation, tune } from '../data/commands.js';
 import { Spectrum } from '../ui/spectrum.jsx';
 import { AddKey, KeysHelp, PresetKey, useKeys } from '../ui/keys.jsx';
@@ -54,9 +53,6 @@ export function Home() {
             <div class="grid gap-4">
             <Meter {...r.level} />
             <Meter {...r.snr} label="Signal to noise" />
-            <Meter label="Volume" value={volHeld.value ?? t.vol} unit="dB">
-              <VolumeSlider tun={t} />
-            </Meter>
             </div>
             <div class="flex justify-between gap-2">
               {[r.noise, r.wam, r.width, r.offset].filter(Boolean).map((f) => (
@@ -99,7 +95,7 @@ function PresetStrip({ presets, error, current, store }) {
   useEffect(() => {
     const keys = [...(strip.current?.children ?? [])];
     const at = keys.findIndex((k) => k.getAttribute('aria-pressed') === 'true');
-    if (at >= 0) strip.current.scrollTo({ left: at > 0 ? keys[at - 1].offsetLeft : 0, behavior: opened.current ? 'smooth' : 'instant' });
+    if (at >= 0) strip.current.scrollTo({ left: at > 0 ? keys[at - 1].offsetLeft - keys[0].offsetLeft : 0, behavior: opened.current ? 'smooth' : 'instant' });
     if (keys.length) opened.current = true;
     look();
   }, [presets, current]);
@@ -111,9 +107,9 @@ function PresetStrip({ presets, error, current, store }) {
 
   // A strip's width at a time; the snap lands a key's edge at the start.
   const page = (d) => strip.current.scrollBy({ left: d * strip.current.clientWidth, behavior: 'smooth' });
-  // Over the strip's ends, not beside them, so the keys have the card's
-  // whole width; the card's colour fades into the keys under the arrow so it
-  // reads over any key. Hidden at an end.
+  // Over the strip's ends, where the strip is padded by the arrow's width,
+  // so a key never sits under one; the card's colour fades in under it.
+  // Hidden at an end.
   const arrow = (d, on, icon, name) => (
     <button
       type="button"
@@ -121,9 +117,9 @@ function PresetStrip({ presets, error, current, store }) {
       aria-hidden={!on}
       tabIndex={on ? 0 : -1}
       onClick={() => page(d)}
-      class={`hit absolute inset-y-0 z-10 grid w-8 place-items-center text-ink ${d < 0 ? 'left-0 bg-linear-to-r' : 'right-0 bg-linear-to-l'} from-surface to-transparent ${on ? '' : 'invisible'}`}
+      class={`hit absolute inset-y-0 z-10 grid w-4 place-items-center text-ink ${d < 0 ? 'left-0 bg-linear-to-r' : 'right-0 bg-linear-to-l'} from-surface to-transparent ${on ? '' : 'invisible'}`}
     >
-      <Icon name={icon} />
+      <Icon name={icon} size={16} />
     </button>
   );
   return (
@@ -134,14 +130,14 @@ function PresetStrip({ presets, error, current, store }) {
         <div
           ref={strip}
           onScroll={look}
-          class="relative grid snap-x snap-mandatory auto-cols-[8rem] grid-flow-col gap-2 overflow-x-auto [scrollbar-width:none]"
+          class="relative grid snap-x snap-mandatory scroll-px-4 auto-cols-[8rem] grid-flow-col gap-2 overflow-x-auto px-4 [scrollbar-width:none]"
         >
           {presets.map((p) => (
             <PresetKey p={p} on={p.slot === current} onClick={() => recall(p)} class="snap-start" />
           ))}
           {/* The station on the dial into the next free slot. */}
-          <AddKey aria-label="Save this station as a preset" onClick={store} class="snap-start">
-            Save this
+          <AddKey onClick={store} class="snap-start">
+            Save current station
           </AddKey>
         </div>
       {arrow(1, more.right, 'chevron-right', 'Later presets')}
