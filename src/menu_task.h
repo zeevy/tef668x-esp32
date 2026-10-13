@@ -97,6 +97,10 @@ uint32_t menuTaskPlace(void);
  */
 bool menuTaskOpenSquelchMode(void);
 
+/* Draw the menu, or the choice list, again as it is now, after its screen
+ * was built again in a new theme. Draws nothing while neither is open. */
+void menuTaskRedraw(void);
+
 /*
  * Close it from outside, for anything that needs the panel.
  *
