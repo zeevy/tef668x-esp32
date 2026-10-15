@@ -147,16 +147,17 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
    * squelchOpen above come from the same instant. Capitals, because a tile
    * value that is a word is written in capitals. In Manual the volume knob
    * sets the level, so the tile shows the level, rounded to a whole dB, and
-   * it moves as the knob turns. */
+   * it moves as the knob turns. Before the knob has set a level since the
+   * start, Manual shows OFF, as the menu's Squelch Level row does. */
   const SquelchMode squelchMode = snap.squelchMode;
-  if (squelchMode == SQUELCH_MANUAL) {
-    const int t = snap.squelchThresholdTenths;
+  if (squelchMode == SQUELCH_MANUAL &&
+      snap.squelchThresholdTenths != SQUELCH_THRESHOLD_NOT_SET) {
     snprintf(b->squelchText, sizeof(b->squelchText), txt(STR_RADIO_FMT_SQL_DB),
-             (t < 0 ? t - 5 : t + 5) / 10);
+             (int)signalWholeDb(snap.squelchThresholdTenths));
     state.squelchMode = b->squelchText;
   } else {
     state.squelchMode =
-        txt(squelchMode == SQUELCH_OFF ? STR_RADIO_SQL_OFF : STR_COMMON_AUTO);
+        txt(squelchMode == SQUELCH_AUTO ? STR_COMMON_AUTO : STR_RADIO_SQL_OFF);
   }
   /*
    * The filter: AUTO while the tuner chooses the width for itself, which a

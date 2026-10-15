@@ -31,7 +31,7 @@ When the tuning knob tunes, turning it fast moves it further: two, four or six s
 
 In AUTO, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
 
-After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already logged`, `Not logged` or `Still tuning - wait`.
+After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already logged`, `Not logged`, `Scan running - wait` or `Still tuning - wait`.
 
 ## Typing a frequency
 

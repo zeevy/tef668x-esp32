@@ -77,7 +77,7 @@ See [Sound and Bandwidth](Sound-and-Bandwidth.md).
 | Row | Values | New radio | What it does |
 |---|---|---|---|
 | Squelch > Squelch Mode | Off, Auto, Manual | Off | Off: sound always on. Auto: the radio judges the signal. Manual: the volume knob sets the squelch level |
-| Squelch > Squelch Level | Read only | | The Manual level the volume knob last set, in dBµV. `Off` until the knob has set one |
+| Squelch > Squelch Level | Read only | | The Manual level the volume knob last set, in whole dBµV, the same number the squelch tile shows. `Off` until the knob has set one since the radio started |
 | Squelch > Squelch Floor | Off, 1 to 40 dBµV | 15 dBµV | The level an FM signal must reach for Auto squelch to open |
 | Volume AGC | Off, 30 to 80 % in steps of 2 | Off | Brings stations to a similar loudness. A lower target is more even and quieter |
 | AGC Boost | Cut Only, 1 to 8 dB | Cut Only | The most the AGC may raise a quiet station |

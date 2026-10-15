@@ -58,7 +58,7 @@ Squelch keeps the sound off while there is no station worth hearing. Set it at *
 | Row | Values | At the start |
 |---|---|---|
 | Squelch Mode | Off, Auto, Manual | Off |
-| Squelch Level | Read only: the Manual level the volume knob set. `Off` until the knob has set one | |
+| Squelch Level | Read only: the Manual level the volume knob set, in whole dBµV, the same number the squelch tile shows. `Off` until the knob has set one since the radio started | |
 | Squelch Floor | Off, or 1 to 40 dBµV | 15 dBµV |
 
 The squelch tile, with the waves, shows `OFF`, `AUTO`, or the Manual level such as `15dB`. While the squelch holds the sound back, the volume in the volume tile turns grey.

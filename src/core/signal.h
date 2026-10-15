@@ -75,6 +75,15 @@ bool signalWantsWideBandwidth(int16_t levelTenths, int16_t snrDb);
 void signalFormatLevel(int16_t tenths, char *out, size_t outLen);
 
 /*
+ * Tenths of a dB as the nearest whole dB, a half rounded away from zero: 14.7
+ * gives 15, 14.4 gives 14, -0.5 gives -1.
+ *
+ * One place, so two screens that show the same level in whole dB cannot
+ * disagree by one.
+ */
+int16_t signalWholeDb(int16_t tenths);
+
+/*
  * A running average. Zero it before first use.
  *
  * One reading of this tuner jumps about far more than the signal does, and a

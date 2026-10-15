@@ -274,7 +274,8 @@
   X(MENU_NOTE_NOT_SAVED, "Not saved", "Menu, under the bar once a value differs from the saved one, or at the top of the value panel with Touch On, and on its row after backing out of it") \
   X(MENU_SAVE, "Save", "Value editor, with Touch On: the button between minus and plus that saves the value") \
   X(RADIO_PRESS_TO_START, "Press to start", "Scanner page, header message when a turn or a typed digit is refused there") \
-  X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or a scan walks the dial") \
+  X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or the DX scan walks the dial") \
+  X(COMMON_SCAN_RUNNING, "Scan running - wait", "Confirm text on the name line after a logbook hold while a station scan walks the dial") \
   X(RADIO_FMT_NO_BAND, "%s is in no band", "Name line, a moment after ENTER on a typed number no band holds") \
   X(COMMON_NOT_LOGGED, "Not logged", "Confirm text on the name line when the logbook hold found no snapshot; confirm text when the logbook file could not be written; confirm text after a failed catch write") \
   X(BOOT_SETTINGS, "Settings", "Boot screen step name, `kBootNames[]`") \
@@ -285,6 +286,7 @@
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
   X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the frequency panel, in place of the radio text, while the update check runs") \
+  X(RADIO_FMT_SCANNING, "Scanning %s %u/%u", "Line under the frequency panel, in place of the radio text, while a station scan runs: band, done, total") \
   X(RADIO_UPDATE_FAILED, "Update Failed", "Title of the message screen after a failed OTA") \
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \
   X(RADIO_PRESS_KNOB_TO_WAKE, "Press the knob to wake", "Detail line of that message: the only way to wake the radio") \

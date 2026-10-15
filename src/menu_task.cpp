@@ -28,6 +28,7 @@
 #include "core/radio.h"
 #include "core/rds_country.h"
 #include "core/settings_table.h"
+#include "core/signal.h"
 #include "core/squelch.h"
 #include "core/strings.h"
 #include "core/update_check.h"
@@ -1555,14 +1556,14 @@ static void infoText(RowId id, char *out, size_t len) {
     case ROW_SQUELCH_LEVEL: {
       /* The Manual threshold, which the knob sets while the squelch is in
        * Manual. Auto does not use it, so in Auto and Off this is the last
-       * level the knob set, or Off when it has set none since the start. */
-      int16_t tenths = 0;
+       * level the knob set, or Off when it has set none since the start.
+       * Rounded as the squelch tile rounds it, so the two show one number. */
+      int16_t tenths = SQUELCH_THRESHOLD_NOT_SET;
       (void)radioSquelchMode(&tenths);
-      const int dbuv = tenths / 10;
-      if (dbuv == 0) {
+      if (tenths == SQUELCH_THRESHOLD_NOT_SET) {
         putText(out, len, STR_COMMON_OFF);
       } else {
-        snprintf(out, len, txt(STR_MENU_FMT_DBUV), dbuv);
+        snprintf(out, len, txt(STR_MENU_FMT_DBUV), (int)signalWholeDb(tenths));
       }
       return;
     }

@@ -202,7 +202,8 @@ typedef struct {
   bool seekFound;
   /* A tone is sounding now. */
   bool beeping;
-  int16_t squelchThresholdTenths; /* What Manual is set to. */
+  /* What Manual is set to, or SQUELCH_THRESHOLD_NOT_SET. */
+  int16_t squelchThresholdTenths;
   /*
    * Which stored channel the radio is on, or MEMORY_NO_SLOT, counted from 0.
    *

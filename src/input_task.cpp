@@ -2,6 +2,7 @@
 #include "input_task.h"
 #include "debug_log.h"
 
+#include "band_scan_task.h"
 #include "core/dx.h"
 #include "dx_task.h"
 #include "menu_task.h"
@@ -1430,7 +1431,8 @@ static void menuTouch(TouchGestureEvent event, int zone, TouchPoint start,
  * band and the span round the dial, and MODE closes it, held the menu. By
  * touch the chart moves the cursor and a hold tunes there, the foot tile
  * tunes, the title closes it and the page position is BAND. The number keys
- * do nothing, since a typed number would not show.
+ * do nothing, since a typed number would not show. On a board with no panel
+ * keys the knob's hold closes it instead of tuning.
  */
 static void scopeTurn(int32_t clicks, uint32_t, bool) {
   screenTaskScopeTurn(clicks);
@@ -1457,6 +1459,21 @@ static void scopePress(ButtonEvent event, bool) {
     radioPost(&tune);
     note("tune to the scope cursor");
   }
+}
+
+/* The knob's own press. A board with no panel keys has no MODE to close the
+ * scope with, so there the hold closes it, as the knob's hold leaves every
+ * other screen, and the knob alone is never stuck here. ENTER and a touch
+ * hold still tune to the cursor. */
+static void scopeKnobPress(ButtonEvent event, bool dxUnder) {
+#if !FEATURE_PANEL_BUTTONS
+  if (event == BUTTON_LONG) {
+    screenTaskScopeClose();
+    note("band scope closed");
+    return;
+  }
+#endif
+  scopePress(event, dxUnder);
 }
 
 static void scopeBand(ButtonEvent event, bool) {
@@ -1602,7 +1619,7 @@ static const ScreenInput kScreenInput[TOP_COUNT] = {
 #endif
     },
     /* TOP_SCOPE */
-    {scopeTurn, scopePress, scopeBand, NULL, scopeMode, scopeEnter, scopeKey
+    {scopeTurn, scopeKnobPress, scopeBand, NULL, scopeMode, scopeEnter, scopeKey
 #if FEATURE_TOUCH
      ,
      scopeTouch, screenScopeZones, screenDxZoneName, DX_ZONE_CHART
@@ -1850,7 +1867,10 @@ static InputLogResult writeLogEntry(uint32_t nowMs) {
   /* An entry would record a station nobody was listening to. */
   if (dxTaskDialWalking(&now)) {
     note("log: still tuning, not written");
-    screenTaskLogConfirm(txt(STR_COMMON_STILL_TUNING));
+    /* A station scan runs for up to about four minutes, so it is named: a
+     * person then knows the wait is the scan's. */
+    screenTaskLogConfirm(txt(bandScanActive() ? STR_COMMON_SCAN_RUNNING
+                                              : STR_COMMON_STILL_TUNING));
     return INPUT_LOG_WALKING;
   }
 

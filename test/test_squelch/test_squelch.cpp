@@ -217,6 +217,15 @@ static void manual_at_the_bottom_of_the_travel_is_always_open(void) {
                           squelchThresholdFromPot(0, 0, 0), 1000));
 }
 
+static void manual_before_the_knob_has_set_a_level_is_always_open(void) {
+  SquelchReading r = bad();
+  r.levelTenths = -1000;
+  TEST_ASSERT_TRUE(
+      update(SQUELCH_MANUAL, BAND_FM, r, SQUELCH_THRESHOLD_NOT_SET, 1000));
+  TEST_ASSERT_TRUE(squelchWouldOpen(&cfg, SQUELCH_MANUAL, BAND_FM, &r,
+                                    SQUELCH_THRESHOLD_NOT_SET));
+}
+
 static void a_calibrated_knob_uses_its_own_ends(void) {
   /* A pot that only reaches 200 to 3800 would otherwise sit at "always open"
    * for the first stretch of its travel and hit the ceiling before the end,
@@ -1048,6 +1057,7 @@ int main(int, char **) {
   RUN_TEST(manual_opens_when_the_signal_beats_the_threshold);
   RUN_TEST(manual_shuts_when_it_does_not);
   RUN_TEST(manual_at_the_bottom_of_the_travel_is_always_open);
+  RUN_TEST(manual_before_the_knob_has_set_a_level_is_always_open);
   RUN_TEST(the_pot_covers_the_whole_useful_range);
   RUN_TEST(a_calibrated_knob_uses_its_own_ends);
 

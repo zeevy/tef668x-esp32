@@ -2334,9 +2334,24 @@ void screenTaskPoll(void) {
   in.fault =
       snap.lastError != TEF668X_OK ? tef668xErrorText(snap.lastError) : NULL;
   in.logConfirm = screenTaskLogConfirmText();
-  in.notice = updateCheckState() == UPDATE_STATE_CHECKING
-                  ? txt(STR_RADIO_CHECKING_UPDATES)
-                  : NULL;
+  /* A station scan walks the dial for up to about four minutes, so the line
+   * says why the dial jumps. The update check does not start while a scan
+   * runs, and a scan does not start while the check runs, so only one of
+   * the two is ever here. */
+  char scanText[32] = "";
+  BandScanFrom scanning;
+  if (bandScanFrom(&scanning)) {
+    uint16_t done = 0;
+    uint16_t total = 0;
+    bandScanProgress(&done, &total);
+    snprintf(scanText, sizeof(scanText), txt(STR_RADIO_FMT_SCANNING),
+             bandName(scanning.scanned), (unsigned)done, (unsigned)total);
+    in.notice = scanText;
+  } else {
+    in.notice = updateCheckState() == UPDATE_STATE_CHECKING
+                    ? txt(STR_RADIO_CHECKING_UPDATES)
+                    : NULL;
+  }
   in.nowMs = millis();
 
   ScreenState state;

@@ -53,21 +53,21 @@ int8_t signalSnrDb(int16_t levelTenths, uint16_t noiseTenths, bool fm) {
   return (int8_t)snr;
 }
 
-static int16_t wholeDb(int16_t tenths) {
+int16_t signalWholeDb(int16_t tenths) {
   return (int16_t)(tenths >= 0 ? (tenths + 5) / 10 : (tenths - 5) / 10);
 }
 
 int16_t signalDisplayLevel(SignalDisplay *d, int16_t smoothedTenths,
                            bool fresh) {
   if (d == NULL) {
-    return wholeDb(smoothedTenths);
+    return signalWholeDb(smoothedTenths);
   }
   if (d->waitingForStation) {
     if (!fresh) {
       /* Hold what is on the screen. The wait is about a tenth of a second,
        * and blanking or jumping for that long on every turn of the knob
        * would be worse than one stale number. */
-      return d->started ? d->shownDb : wholeDb(smoothedTenths);
+      return d->started ? d->shownDb : signalWholeDb(smoothedTenths);
     }
     /* The reading is from where the dial is now, so take it as it stands
      * instead of making it climb out of the old station's band. */
@@ -76,7 +76,7 @@ int16_t signalDisplayLevel(SignalDisplay *d, int16_t smoothedTenths,
   }
   if (!d->started) {
     d->started = true;
-    d->shownDb = wholeDb(smoothedTenths);
+    d->shownDb = signalWholeDb(smoothedTenths);
     return d->shownDb;
   }
   int32_t away = (int32_t)smoothedTenths - (int32_t)d->shownDb * 10;
@@ -86,7 +86,7 @@ int16_t signalDisplayLevel(SignalDisplay *d, int16_t smoothedTenths,
   /* Half a dB of rounding plus the hysteresis, so the level has to move a
    * whole dB from what is shown before the digit follows it. */
   if (away >= 5 + SIGNAL_DISPLAY_HYSTERESIS_TENTHS) {
-    d->shownDb = wholeDb(smoothedTenths);
+    d->shownDb = signalWholeDb(smoothedTenths);
   }
   return d->shownDb;
 }

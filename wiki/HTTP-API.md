@@ -179,7 +179,7 @@ The `tun` object:
 | `snr` | Signal to noise in dB, worked out by the firmware |
 | `st`, `plt` | Stereo heard, and the stereo pilot |
 | `qst` | The quality status word as the chip sent it. It carries the time stamp that says whether the readings have settled |
-| `sql`, `sqo`, `sqa` | The squelch mode (`Off`, `Auto` or `Manual`), whether the squelch is open, and the Manual threshold in tenths of a dBµV. `sqa` is there only in Manual |
+| `sql`, `sqo`, `sqa` | The squelch mode (`Off`, `Auto` or `Manual`), whether the squelch is open, and the Manual threshold in tenths of a dBµV. `sqa` is there only in Manual, once the volume knob has set it since the radio started |
 | `hmu` | The mute the tuner was told. `mut` is the mute that was asked for |
 | `per` | What the tuner last refused, in words. There only when it refused something |
 | `skg`, `skf` | A seek is running, and the last seek found a station |
