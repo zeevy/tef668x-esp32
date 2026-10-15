@@ -488,6 +488,13 @@ static void sceneSwBottom(ScreenState *s) {
   tuneSw(s, 1700);
 }
 
+/* A station scan walking SW: the line under the panel says so in place of
+ * the radio text. */
+static void sceneSwStationScan(ScreenState *s) {
+  sceneSw(s);
+  s->notice = fmt(STR_RADIO_FMT_SCANNING, txt(STR_BAND_SW), 45u, 1000u);
+}
+
 /* Medium wave, muted, on a nearly flat battery, trying to join a network:
  * the design's third state. */
 static void sceneMw(ScreenState *s) {
@@ -1465,6 +1472,7 @@ int main(int argc, char **argv) {
       {"sw", sceneSw},
       {"sw-top", sceneSwTop},
       {"sw-bottom", sceneSwBottom},
+      {"sw-station-scan", sceneSwStationScan},
       {"mw", sceneMw},
       {"mw-10k", sceneMw10k},
       {"oirt", sceneOirt},

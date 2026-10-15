@@ -517,6 +517,10 @@ static void the_squelch_number_is_where_it_opens_in_dbf(void) {
   TEST_ASSERT_EQUAL_INT32(41, xdrSquelchValue(SQUELCH_MANUAL, false, 300, 15));
   TEST_ASSERT_EQUAL_INT32(41, xdrSquelchValue(SQUELCH_MANUAL, true, 300, 0));
   TEST_ASSERT_EQUAL_INT32(1, xdrSquelchValue(SQUELCH_MANUAL, false, -200, 15));
+  /* Before the knob has set a level the squelch is always open, the same as
+   * the bottom of the knob's travel. */
+  TEST_ASSERT_EQUAL_INT32(
+      1, xdrSquelchValue(SQUELCH_MANUAL, false, SQUELCH_THRESHOLD_NOT_SET, 15));
   TEST_ASSERT_EQUAL_INT32(100,
                           xdrSquelchValue(SQUELCH_MANUAL, false, 1200, 15));
 }

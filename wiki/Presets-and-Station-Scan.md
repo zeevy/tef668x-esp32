@@ -67,7 +67,7 @@ OIRT is not scanned.
 - A found station gets the lowest free slot, with automatic width and no name. A used slot is never overwritten.
 - The sound is muted while it scans. A scan of another band switches to that band first and comes back at the end.
 - A scan takes from about 10 seconds to 4 minutes. FM takes about a minute.
-- While it runs, the row shows its progress, for example `Scan 12/206`, and the menu does not time out. Auto Off waits for it.
+- While it runs, the row shows its progress, for example `Scan 12/206`, and the menu does not time out. Auto Off waits for it. With the menu closed, the line under the frequency says `Scanning FM 12/206`.
 
 To stop a scan, press the same row again: the radio goes back to where it was. Tuning, seeking or changing the band also stops it, and the radio stays where you put it. The presets found up to then are kept either way.
 

@@ -506,12 +506,20 @@ static void the_tiles_read_the_settings(void) {
   snap.squelchThresholdTenths = 345;
   buildNow();
   TEST_ASSERT_EQUAL_STRING("35dB", state.squelchMode);
+  snap.squelchThresholdTenths = 147;
+  buildNow();
+  TEST_ASSERT_EQUAL_STRING("15dB", state.squelchMode);
   snap.squelchThresholdTenths = -100;
   buildNow();
   TEST_ASSERT_EQUAL_STRING("-10dB", state.squelchMode);
+  /* A level a little below zero is a level, not Off. */
   snap.squelchThresholdTenths = -4;
   buildNow();
   TEST_ASSERT_EQUAL_STRING("0dB", state.squelchMode);
+  /* Before the knob has set a level, Manual shows OFF. */
+  snap.squelchThresholdTenths = SQUELCH_THRESHOLD_NOT_SET;
+  buildNow();
+  TEST_ASSERT_EQUAL_STRING("OFF", state.squelchMode);
   snap.squelchThresholdTenths = 920;
   buildNow();
   TEST_ASSERT_EQUAL_STRING("92dB", state.squelchMode);

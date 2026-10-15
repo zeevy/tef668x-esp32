@@ -290,6 +290,16 @@ static void formatting_never_writes_past_the_buffer(void) {
   signalFormatLevel(0, out, 0);
 }
 
+/* Whole dB, a half rounded away from zero, on both sides of zero. */
+static void a_level_rounds_to_the_nearest_whole_db(void) {
+  TEST_ASSERT_EQUAL_INT16(15, signalWholeDb(147));
+  TEST_ASSERT_EQUAL_INT16(14, signalWholeDb(144));
+  TEST_ASSERT_EQUAL_INT16(1, signalWholeDb(5));
+  TEST_ASSERT_EQUAL_INT16(-1, signalWholeDb(-5));
+  TEST_ASSERT_EQUAL_INT16(0, signalWholeDb(-4));
+  TEST_ASSERT_EQUAL_INT16(-10, signalWholeDb(-100));
+}
+
 /* The held readings beside the bars. */
 
 static void the_first_reading_is_taken_as_it_stands(void) {
@@ -570,6 +580,7 @@ int main(int, char **) {
   RUN_TEST(a_level_just_below_zero_keeps_its_sign);
   RUN_TEST(an_ordinary_level_reads_as_it_should);
   RUN_TEST(formatting_never_writes_past_the_buffer);
+  RUN_TEST(a_level_rounds_to_the_nearest_whole_db);
 
   RUN_TEST(the_first_reading_is_taken_as_it_stands);
   RUN_TEST(a_move_under_the_band_does_not_change_what_is_shown);

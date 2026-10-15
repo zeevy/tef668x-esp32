@@ -2073,7 +2073,7 @@ bool radioTaskStart(const Settings *settings, const BandPlanConfig *plan,
   if (settings != NULL && settings->squelchMode < SQUELCH_MODE_COUNT) {
     sLive.squelchMode = (SquelchMode)settings->squelchMode;
   }
-  sLive.squelchThresholdTenths = 0;
+  sLive.squelchThresholdTenths = SQUELCH_THRESHOLD_NOT_SET;
   sLastPushedMute = false;
   memset(&sSeek, 0, sizeof(sSeek));
   sBeeping = false;

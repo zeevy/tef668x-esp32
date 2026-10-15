@@ -69,6 +69,15 @@ const char *squelchModeName(SquelchMode mode);
 #define SQUELCH_LEVEL_FLOOR_OFF INT16_MIN
 
 /*
+ * The Manual threshold before the knob has set one since the radio started.
+ *
+ * The threshold is not saved, so until the knob is read in Manual there is no
+ * level to show, and the screens say Off. It is below the bottom of the
+ * knob's travel, -10.0 dBuV, so the squelch takes it as always open.
+ */
+#define SQUELCH_THRESHOLD_NOT_SET INT16_MIN
+
+/*
  * How many readings the level average needs before the floor is applied.
  *
  * The average takes its first reading as the answer outright, so until a few

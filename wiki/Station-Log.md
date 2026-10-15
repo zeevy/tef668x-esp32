@@ -10,7 +10,8 @@ On the radio screen, hold the tuning knob down. After 600 ms the radio writes th
 |---|---|
 | `Logged 106.40` | The station was written, with its frequency |
 | `Already logged` | The log already has this station: the same band and frequency, and the same PI when both have one |
-| `Still tuning - wait` | A seek, a station scan or a DX scan is running. Try again when it stops |
+| `Scan running - wait` | A station scan is running. Try again when it ends |
+| `Still tuning - wait` | A seek or a DX scan is running. Try again when it stops |
 | `Not logged` | The radio could not read the station, or could not write the log file |
 
 Other ways to log:

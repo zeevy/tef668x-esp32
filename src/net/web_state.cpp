@@ -414,7 +414,8 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
  *   `sqo`  The squelch is letting sound through.
  *   `hmu`  The mute the tuner was told, against `mut`, which is what was
  *          asked.
- *   `sqa`  The manual squelch threshold, tenths of a dBuV. Manual only.
+ *   `sqa`  The manual squelch threshold, tenths of a dBuV. Manual only, and
+ *          only once the knob has set it since the start.
  *   `per`  What the tuner last refused, in words. Only when it did.
  *   `sig`  Signal level as it came off the chip, tenths of a dBuV.
  *   `sav`  The same level smoothed, tenths of a dBuV.
@@ -542,7 +543,8 @@ static void appendRadioState(String &out) {
       out += F("\",\"sqo\":");
       out += snap.squelchOpen ? F("true") : F("false");
       jsonBool(out, "hmu", snap.tunerMuted);
-      if (snap.squelchMode == SQUELCH_MANUAL) {
+      if (snap.squelchMode == SQUELCH_MANUAL &&
+          snap.squelchThresholdTenths != SQUELCH_THRESHOLD_NOT_SET) {
         jsonNum(out, "sqa", snap.squelchThresholdTenths);
       }
 
