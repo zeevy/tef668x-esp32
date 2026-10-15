@@ -11,7 +11,7 @@ The filter width sets how much of the band around the frequency the tuner lets t
 | FM, OIRT | Automatic, then 56, 64, 72, 84, 97, 114, 133, 151, 168, 184, 200, 217, 236, 254, 287, 311 kHz | Automatic |
 | LW, MW, SW | 3, 4, 6, 8 kHz | 4 kHz |
 
-**Automatic** is on FM and OIRT only: the tuner narrows the filter by itself when a strong station is next to it. The filter width tile, with the up and down arrow, shows `DYN` while it is automatic, and the width, such as `84k`, when it is fixed.
+**Automatic** is on FM and OIRT only: the tuner narrows the filter by itself when a strong station is next to it. The filter width tile, with the up and down arrow, shows `AUTO` while it is automatic, and the width, such as `84k`, when it is fixed.
 
 Each band keeps its own width, over a power cycle too.
 
@@ -53,13 +53,13 @@ Squelch keeps the sound off while there is no station worth hearing. Set it at *
 |---|---|
 | Off, at the start | The sound is always on |
 | Auto | The radio judges the signal itself. On FM it opens when the noise is under 12.0 %, multipath under 23.0 %, the offset under 10.0 kHz and the level at or above the Squelch Floor. On AM it opens when the noise is under 12.0 % and the offset under 2.0 kHz. It closes after 1 second of bad readings |
-| Manual | The volume knob sets the squelch level instead of the volume, from -10 to 92 dBuV. The sound opens when the signal is above that level. The bottom of the knob's travel means always open |
+| Manual | The volume knob sets the squelch level instead of the volume, from -10 to 92 dBµV. The sound opens when the signal is above that level. The bottom of the knob's travel means always open |
 
 | Row | Values | At the start |
 |---|---|---|
 | Squelch Mode | Off, Auto, Manual | Off |
 | Squelch Level | Read only: the Manual level the volume knob set. `Off` until the knob has set one | |
-| Squelch Floor | Off, or 1 to 40 dBuV | 15 dBuV |
+| Squelch Floor | Off, or 1 to 40 dBµV | 15 dBµV |
 
 The squelch tile, with the waves, shows `OFF`, `AUTO`, or the Manual level such as `15dB`. While the squelch holds the sound back, the volume in the volume tile turns grey.
 
@@ -84,9 +84,9 @@ In the menu's **FM Reception** group. These work on FM and OIRT. Set them while 
 |---|---|---|---|
 | De-emphasis | Off, 50 us, 75 us | 50 us | The treble cut that matches the broadcast. 75 us in the Americas and South Korea, 50 us elsewhere |
 | Stereo > Force Mono | Off, On | Off | Plays every station in mono |
-| Stereo > Stereo Blend | Off, or 20 to 60 dBuV | Off | Below this signal level, the sound blends towards mono, which is less noisy |
-| Stereo > Stereo / High Blend | Off, or 20 to 60 dBuV | Off | Below this level, blends to mono and cuts the treble together |
-| High Cut | Off, or 20 to 60 dBuV | Off | Below this level, cuts the treble, where the noise of a weak signal is |
+| Stereo > Stereo Blend | Off, or 20 to 60 dBµV | Off | Below this signal level, the sound blends towards mono, which is less noisy |
+| Stereo > Stereo / High Blend | Off, or 20 to 60 dBµV | Off | Below this level, blends to mono and cuts the treble together |
+| High Cut | Off, or 20 to 60 dBµV | Off | Below this level, cuts the treble, where the noise of a weak signal is |
 | Noise Blanker | Off, or 50 to 150 % in steps of 5 | Off | Blanks short bursts of noise, such as from a car engine |
 | iMS | Off, On | Off | Multipath suppression: less distortion from signals reflected off hills and buildings |
 | Equalizer | Off, On | Off | The channel equaliser, another help against multipath |
@@ -101,10 +101,10 @@ In the menu's **AM Reception** group. Each row can be set from any band.
 |---|---|---|---|
 | Filter Bandwidth > LW, MW, SW | 3, 4, 6, 8 kHz | 4 kHz | The filter width of each band |
 | Noise Blanker | Off, or 50 to 150 % in steps of 5 | 100 % | Blanks short bursts of noise |
-| High Cut > MW / SW | Off, or 20 to 60 dBuV | 47 dBuV | Below this level, cuts the treble |
-| High Cut > LW | Off, or 20 to 60 dBuV | 52 dBuV | The same, for long wave |
-| Soft Mute > MW / SW | 0 to 50 dBuV | 28 dBuV | Below this level, turns the sound down, so the noise between stations is quieter |
-| Soft Mute > LW | 0 to 50 dBuV | 34 dBuV | The same, for long wave |
+| High Cut > MW / SW | Off, or 20 to 60 dBµV | 47 dBµV | Below this level, cuts the treble |
+| High Cut > LW | Off, or 20 to 60 dBµV | 52 dBµV | The same, for long wave |
+| Soft Mute > MW / SW | 0 to 50 dBµV | 28 dBµV | Below this level, turns the sound down, so the noise between stations is quieter |
+| Soft Mute > LW | 0 to 50 dBµV | 34 dBµV | The same, for long wave |
 
 ## From the web page and the API
 

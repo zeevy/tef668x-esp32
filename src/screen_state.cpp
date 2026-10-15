@@ -159,12 +159,12 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
         txt(squelchMode == SQUELCH_OFF ? STR_RADIO_SQL_OFF : STR_COMMON_AUTO);
   }
   /*
-   * The filter: DYN while the tuner chooses the width for itself, which a
+   * The filter: AUTO while the tuner chooses the width for itself, which a
    * setting of 0 hands over on every band, and the width a person set
    * otherwise. The width is a number with its unit, so it keeps its case.
    */
   if (snap.settings.bandwidthKHz == 0) {
-    state.filter = txt(STR_RADIO_BW_DYN);
+    state.filter = txt(STR_COMMON_AUTO);
   } else {
     snprintf(b->filterText, sizeof(b->filterText), txt(STR_RADIO_FMT_BW_K),
              (unsigned)snap.settings.bandwidthKHz);

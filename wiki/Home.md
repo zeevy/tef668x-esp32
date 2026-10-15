@@ -6,7 +6,7 @@ Open source firmware for radio receivers built around the NXP TEF668x tuner and 
 
 It works as a full radio today: FM and AM, seek, squelch, RDS, 99 presets, station scans, a station log, DX mode, a network clock, a menu on the radio, a browser page, an HTTP control API and updates over Wi-Fi with rollback. Touch input, other screen layouts, live telemetry and a spectrum view are still to come.
 
-This is a ground up rewrite, not a fork. It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32) and shares no code with it, apart from the tuner's patch data. It is GPLv3.
+It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32) and shares no code with it, apart from the tuner's patch data. It is GPLv3.
 
 ## Where to start
 

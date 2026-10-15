@@ -145,7 +145,7 @@ typedef struct {
   /* ---- the tiles ---- */
   const char *tuneMode;    /* "MAN", "AUTO", "MEM" or "MTR". */
   const char *squelchMode; /* "OFF", "AUTO", or the Manual level "35dB". */
-  const char *filter;      /* "DYN" while the tuner chooses, else "84k". */
+  const char *filter;      /* "AUTO" while the tuner chooses, else "84k". */
   const char *volume;      /* "-6dB". */
 
   bool tunerReady;
@@ -815,7 +815,7 @@ typedef struct {
   const char *mid;
   const char *to;
   const char *baseText;    /* "MEDIAN OF 5", "VS 17:08", "FIXED", or NULL. */
-  const char *floorText;   /* "FLOOR 0.8", or NULL. */
+  const char *floorText;   /* "FLOOR 0.8" and the unit, or NULL. */
   const char *empty;       /* In the chart when there is no sweep, or NULL. */
   const char *cursorFreq;  /* "98.30", or NULL with no sweep. */
   const char *cursorLevel; /* "51.4", or NULL for no reading. */

@@ -144,12 +144,12 @@ FONTS = (
     ("freq", 52, 600, NUMERIC, "roboto", "the frequency, and a full screen setting value"),
     ("name", 26, 600, ASCII, "roboto", "the station name on the RDS station page, and a setting value that is a word"),
     ("value", 24, 500, ASCII, "roboto", "a panel value, such as the signal level or the PI"),
-    ("menu", 21, 500, ASCII + "," + ELLIPSIS, "roboto", "the station name on the radio screen, and other short panel text"),
+    ("menu", 21, 500, ASCII + "," + MICRO + "," + ELLIPSIS, "roboto", "the station name on the radio screen, and other short panel text"),
     ("title", 20, 600, ASCII, "roboto", "a screen title, and the boot screen"),
     # Medium, for the same reason as the label face below.
     ("text", 17, 500, ASCII + "," + ELLIPSIS, "roboto",
      "radio text, the unit, and a menu row"),
-    ("small", 15, 500, ASCII + "," + ELLIPSIS, "roboto",
+    ("small", 15, 500, ASCII + "," + MICRO + "," + ELLIPSIS, "roboto",
      "the clock, the date, tile and menu values"),
     # Medium, like every other face on the panel. Measured on the real font
     # file, Regular at 13px puts a 1.17px stem on the screen, and a stem near

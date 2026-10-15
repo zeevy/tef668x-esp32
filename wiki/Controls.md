@@ -31,7 +31,7 @@ When the tuning knob tunes, turning it fast moves it further: two, four or six s
 
 In AUTO, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
 
-After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already Logged`, `Not logged` or `Still tuning - wait`.
+After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already logged`, `Not logged` or `Still tuning - wait`.
 
 ## Typing a frequency
 
@@ -55,7 +55,7 @@ The menu has three levels: the groups, the rows of a group, and some rows that o
 | BAND, BW | Nothing | Nothing |
 | Keypad | Nothing, except the digits of the Web PIN | |
 
-Most values change as you turn, so you hear or see the result at once. A few act only when you press to save them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without saving a value, the old value comes back, and a bar row whose value you moved shows `Not Saved`. With no input for one minute, the menu closes and the radio screen comes back.
+Most values change as you turn, so you hear or see the result at once. A few act only when you press to save them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without saving a value, the old value comes back, and a bar row whose value you moved shows `Not saved`. With no input for one minute, the menu closes and the radio screen comes back.
 
 The menu opens again on the row you left, until the radio restarts.
 

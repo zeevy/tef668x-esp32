@@ -31,7 +31,7 @@ Turn the knob to tune by the step size. Press it for the RDS pages. Hold it to l
 | Part | What it shows |
 |---|---|
 | Header | `DX`, a stereo mark when there is a pilot, `1/4` and the clock |
-| Station panel | The station name, filled in a character at a time as it arrives, the programme type and the frequency |
+| Station panel | The station name, filled in a character at a time as it arrives, the programme type when the station names one, and the frequency |
 | PI | Filled, with a tick: confirmed. A clock mark: heard, but not confirmed as this channel's own. A `?` digit: some digits not yet sure. `0000` with `NO ID`: the station sends zero. A plain tile: nothing heard |
 | Country | Two letters, worked out from the ECC and the PI, once the PI is confirmed. `?` with no ECC. In North America mode, the call letters |
 | Preset line | `P05` when this is the station stored in that preset. `not P05` in the theme's fault colour when another station is confirmed there |
@@ -61,7 +61,7 @@ Turn the knob to move the cursor one channel. Hold it to tune to the cursor. A t
 | Strip below | How far each channel is above its baseline (bright) or below it (dim) |
 | `MEDIAN OF n` | The baseline is the middle value of the last n sweeps, not counting this one. The last 8 sweeps are kept over a power cycle |
 | `VS 17:08` | The baseline is one sweep, named by when it was taken, in local time: `VS 17:08` today, `VS YDAY 21:10` yesterday, `VS 9 OCT 21:10` before that. `FIXED` when the radio does not know when it was taken, or what time it is now |
-| `FLOOR` | The level that a quarter of the channels are below |
+| `FLOOR` | The level that a quarter of the channels are below, in dBµV |
 | Foot | The cursor's frequency and level, and `RISE`: how far it is above its baseline, in dB |
 
 A rise over the baseline on a channel is the sign of a station coming in that is not usually there.
@@ -80,7 +80,7 @@ Press the knob to start the scan, or to go on after it stopped. While it is stop
 - On each channel it waits up to **Scan Dwell**, 2.5 seconds at the start, for a PI. It moves on as soon as a PI is confirmed and the stop condition does not stop on it.
 - With **Stop Condition** at **New Stations Only**, it stops on a PI it has never caught before. It keeps a list of 512 caught PIs over power cycles.
 - At the end of the range the dial goes back to where it started and the page shows `Ready` again. With **Loop Band** On, it goes round again.
-- Channels that belong to another band on your band plan are skipped. A scan needs RDS on, and says `RDS is Off` otherwise.
+- Channels that belong to another band on your band plan are skipped. A scan needs RDS on, and says `RDS is off` otherwise.
 
 The header shows how many stations were found on this round. The page shows the range being scanned (such as `BAND + PRESETS` or `WHOLE BAND`), the stop rule (`STOP ON NEW`, `STOP ON PI` or `NO STOP`), the dwell and the seconds left, a bar of how far it has got, and the station on the channel now. When it stops on a new station it shows its name and a `NEW` mark.
 

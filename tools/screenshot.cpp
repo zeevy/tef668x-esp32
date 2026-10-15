@@ -321,7 +321,7 @@ static void sceneFm(ScreenState *s) {
   s->batteryText = NULL;
   s->tuneMode = tuneModeShort(TUNE_MODE_MANUAL);
   s->squelchMode = txt(STR_COMMON_AUTO);
-  s->filter = txt(STR_RADIO_BW_DYN);
+  s->filter = txt(STR_COMMON_AUTO);
   s->volume = fmt(STR_RADIO_FMT_VOL_DB, -6);
   s->clock = "05:09";
   s->date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
@@ -569,7 +569,7 @@ static void sceneNothing(ScreenState *s) {
   s->signalValid = false;
   s->tuneMode = tuneModeShort(TUNE_MODE_MANUAL);
   s->squelchMode = txt(STR_RADIO_SQL_OFF);
-  s->filter = txt(STR_RADIO_BW_DYN);
+  s->filter = txt(STR_COMMON_AUTO);
   s->volume = fmt(STR_RADIO_FMT_VOL_DB, -6);
   s->tunerReady = true;
 }

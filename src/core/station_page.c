@@ -177,7 +177,7 @@ bool stationPagePreset(const MemoryChannel *c, uint8_t slot, bool nowKnown,
     snprintf(out->value[n], sizeof(out->value[n]), txt(STR_MENU_FMT_KHZ),
              (int)c->bandwidthKHz);
   } else {
-    snprintf(out->value[n], sizeof(out->value[n]), "%s", txt(STR_MENU_AUTO));
+    snprintf(out->value[n], sizeof(out->value[n]), "%s", txt(STR_COMMON_AUTO));
   }
   tile(out, &n, STR_PAGE_WIDTH);
   return true;

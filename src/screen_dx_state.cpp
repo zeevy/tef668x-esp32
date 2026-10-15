@@ -84,7 +84,10 @@ static void buildRds(const RdsInfo *rds, const SeekReading *reading,
   if (whole) {
     rdsNameTrim(out->ps, SCREEN_DX_PS_LEN, out->psWhole, sizeof(out->psWhole));
   }
-  out->pty = rds->hasPty ? rdsPtyNameIn(rds->pty, region) : NULL;
+  /* Type 0 is a station that names no type, so nothing is shown rather than
+   * a name that reads as the type's own. */
+  out->pty =
+      rds->hasPty && rds->pty != 0 ? rdsPtyNameIn(rds->pty, region) : NULL;
 
   const DxPiTile tile = dxPiTile(rds, reading);
   out->pi = tileOf(tile);

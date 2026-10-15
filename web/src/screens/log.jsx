@@ -21,7 +21,7 @@ function entryReadings(e) {
 // What RDS said of the station besides its name and PI, for the dialog: each
 // only when the radio kept it with the entry.
 function entryRds(e) {
-  return [e.ptn && { label: 'Programme type', value: e.ptn }, e.cty && { label: 'Country', value: country(e.cty) }].filter(Boolean);
+  return [e.pty > 0 && e.ptn && { label: 'Programme type', value: e.ptn }, e.cty && { label: 'Country', value: country(e.cty) }].filter(Boolean);
 }
 
 // When an entry was logged: the date and time, or the time alone under its

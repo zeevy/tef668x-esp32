@@ -488,7 +488,7 @@ static void the_tiles_read_the_settings(void) {
   TEST_ASSERT_EQUAL_STRING("-6dB", state.volume);
   TEST_ASSERT_EQUAL_STRING("AUTO", state.tuneMode);
   TEST_ASSERT_EQUAL_STRING("OFF", state.squelchMode);
-  TEST_ASSERT_EQUAL_STRING("DYN", state.filter);
+  TEST_ASSERT_EQUAL_STRING("AUTO", state.filter);
   TEST_ASSERT_TRUE(state.tunerReady);
 
   snap.settings.tuneMode = TUNE_MODE_METER_BAND;

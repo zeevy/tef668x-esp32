@@ -22,7 +22,7 @@ The group list shows how many rows each group has. A row that opens a sub-group 
 Press a row to change it. Depending on the row you get a bar with its two ends, a list with a tick on the saved choice, the Web PIN's digit editor, or a question with No and Yes.
 
 - Most rows act at once as you turn, so you hear or see the result. Some act only when you press to save the value: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server, PC Link and Web PIN.
-- Press to save the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not Saved`.
+- Press to save the value. Hold, or tap MODE, to put the old value back. A bar row whose value you moved then shows `Not saved`.
 - Rows marked **after restart** below show `Applies after restart`, and take effect the next time the radio starts.
 
 ### Notes
@@ -77,8 +77,8 @@ See [Sound and Bandwidth](Sound-and-Bandwidth.md).
 | Row | Values | New radio | What it does |
 |---|---|---|---|
 | Squelch > Squelch Mode | Off, Auto, Manual | Off | Off: sound always on. Auto: the radio judges the signal. Manual: the volume knob sets the squelch level |
-| Squelch > Squelch Level | Read only | | The Manual level the volume knob last set, in dBuV. `Off` until the knob has set one |
-| Squelch > Squelch Floor | Off, 1 to 40 dBuV | 15 dBuV | The level an FM signal must reach for Auto squelch to open |
+| Squelch > Squelch Level | Read only | | The Manual level the volume knob last set, in dBµV. `Off` until the knob has set one |
+| Squelch > Squelch Floor | Off, 1 to 40 dBµV | 15 dBµV | The level an FM signal must reach for Auto squelch to open |
 | Volume AGC | Off, 30 to 80 % in steps of 2 | Off | Brings stations to a similar loudness. A lower target is more even and quieter |
 | AGC Boost | Cut Only, 1 to 8 dB | Cut Only | The most the AGC may raise a quiet station |
 | Mute Ramp | 0 to 500 ms in steps of 10 | 120 ms | How long the sound fades before a mute, a squelch close or a width change. 0 cuts at once |
@@ -92,9 +92,9 @@ See [Sound and Bandwidth](Sound-and-Bandwidth.md).
 | Seek Sensitivity | 1 to 6 | 4 | How weak a station seek and the station scan stop on. Higher stops on weaker stations |
 | De-emphasis | Off, 50 us, 75 us | 50 us | 75 us in the Americas and South Korea, 50 us elsewhere |
 | Stereo > Force Mono | Off, On | Off | Every station in mono |
-| Stereo > Stereo Blend | Off, 20 to 60 dBuV | Off | Below this level, blends towards mono |
-| Stereo > Stereo / High Blend | Off, 20 to 60 dBuV | Off | Below this level, blends to mono and cuts the treble |
-| High Cut | Off, 20 to 60 dBuV | Off | Below this level, cuts the treble |
+| Stereo > Stereo Blend | Off, 20 to 60 dBµV | Off | Below this level, blends towards mono |
+| Stereo > Stereo / High Blend | Off, 20 to 60 dBµV | Off | Below this level, blends to mono and cuts the treble |
+| High Cut | Off, 20 to 60 dBµV | Off | Below this level, cuts the treble |
 | Noise Blanker | Off, 50 to 150 % in steps of 5 | Off | Blanks short bursts of noise |
 | iMS | Off, On | Off | Multipath suppression |
 | Equalizer | Off, On | Off | The channel equaliser |
@@ -116,10 +116,10 @@ Every row here can be set from any band.
 | Seek Sensitivity | 1 to 6 | 4 | As on FM, for the AM bands |
 | Filter Bandwidth > LW, MW, SW | 3, 4, 6, 8 kHz | 4 kHz | The filter width of each band |
 | Noise Blanker | Off, 50 to 150 % in steps of 5 | 100 % | Blanks short bursts of noise |
-| High Cut > MW / SW | Off, 20 to 60 dBuV | 47 dBuV | Below this level, cuts the treble |
-| High Cut > LW | Off, 20 to 60 dBuV | 52 dBuV | The same, for long wave |
-| Soft Mute > MW / SW | 0 to 50 dBuV | 28 dBuV | Below this level, turns the sound down |
-| Soft Mute > LW | 0 to 50 dBuV | 34 dBuV | The same, for long wave |
+| High Cut > MW / SW | Off, 20 to 60 dBµV | 47 dBµV | Below this level, cuts the treble |
+| High Cut > LW | Off, 20 to 60 dBµV | 52 dBµV | The same, for long wave |
+| Soft Mute > MW / SW | 0 to 50 dBµV | 28 dBµV | Below this level, turns the sound down |
+| Soft Mute > LW | 0 to 50 dBµV | 34 dBµV | The same, for long wave |
 
 ## DX Scanner
 
@@ -169,7 +169,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | PC Link | Off, On | Off | XDR-GTK and FM-DX Webserver on port 7373, with the Web PIN as the password. See [PC Tools](PC-Tools.md) |
 | Web PIN | Six digits | 000000 | The access PIN. The row shows the six digits. Turn to set a digit, press for the next one, or type the digits on the keypad or on the screen's keys while Touch is On, where a backspace key goes back a digit. Saved on the sixth digit |
 | Network Time | Off, -12:00 to +14:00 in steps of 15 minutes | +00:00 | Sets the clock from the network, at this offset from UTC |
-| Network Info | Read only | | Connection Status, Web Address, PC Link (Off, the address to type in XDR-GTK, or how many PCs are connected), IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address |
+| Network Info | Read only | | Connection Status, Web Address, PC Link (Off, the address to type in XDR-GTK, or how many PCs are connected), IP Address, Wi-Fi Network (Hotspot Name on the hotspot), Wi-Fi Signal, MAC Address. With their switches on and no address yet, Web Address, IP Address and PC Link (when no PC is connected) show `-` |
 
 ## Controls
 

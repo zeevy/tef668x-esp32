@@ -409,6 +409,17 @@ static void the_name_shows_each_character_as_it_arrives(void) {
   na.region = RDS_REGION_NORTH_AMERICA;
   buildDx(&na);
   TEST_ASSERT_EQUAL_STRING(rdsPtyNameIn(5, RDS_REGION_NORTH_AMERICA), dx.pty);
+
+  /* Type 0 names no type, so nothing is shown, in either region. */
+  snap.rds.pty = 0;
+  buildDx(&in);
+  TEST_ASSERT_NULL(dx.pty);
+  buildDx(&na);
+  TEST_ASSERT_NULL(dx.pty);
+  /* Type 1, one above, is named again. */
+  snap.rds.pty = 1;
+  buildDx(&in);
+  TEST_ASSERT_EQUAL_STRING(rdsPtyNameIn(1, RDS_REGION_EUROPE), dx.pty);
 }
 
 static void rds_switched_off_leaves_the_rds_fields_empty(void) {
@@ -1258,7 +1269,7 @@ static void a_real_sweep_shows_bars_baseline_peak_and_floor(void) {
   TEST_ASSERT_EQUAL_PTR(peak.level, pv.peak);
   TEST_ASSERT_EQUAL_STRING("MEDIAN OF 1", pv.baseText);
   TEST_ASSERT_EQUAL_INT16(CAPTURE_FLOOR1, pv.floor);
-  TEST_ASSERT_EQUAL_STRING("FLOOR -2.1", pv.floorText);
+  TEST_ASSERT_EQUAL_STRING("FLOOR -2.1 dB\xC2\xB5V", pv.floorText);
   TEST_ASSERT_EQUAL_UINT16(194, pv.dial);
   TEST_ASSERT_EQUAL_UINT16(113, pv.cursor);
   TEST_ASSERT_EQUAL_STRING("87.0", pv.from);
@@ -1321,7 +1332,7 @@ static void a_gap_in_the_sweep_shows_no_level_and_no_rise(void) {
 
   /* The floor is taken over the channels that had a reading. */
   TEST_ASSERT_EQUAL_INT16(50, pv.floor);
-  TEST_ASSERT_EQUAL_STRING("FLOOR 5.0", pv.floorText);
+  TEST_ASSERT_EQUAL_STRING("FLOOR 5.0 dB\xC2\xB5V", pv.floorText);
   TEST_ASSERT_EQUAL_STRING("87.5", pv.from);
   TEST_ASSERT_EQUAL_STRING("87.7", pv.mid);
   TEST_ASSERT_EQUAL_STRING("87.9", pv.to);
