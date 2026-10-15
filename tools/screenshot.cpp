@@ -473,11 +473,19 @@ static void sceneSw(ScreenState *s) {
 }
 
 /* Shortwave at the very top of the band, where the scale's two ends meet. Both
- * 27000 and 1700 are long marks, so this is the case the dummy gap is for. */
+ * 27000 and 1700 are long marks, too close for both numbers, so only 27000,
+ * the one at the middle, has its number. */
 static void sceneSwTop(ScreenState *s) {
   sceneSw(s);
   /* Above 11 m, the last metre band, so the header shows none. */
   tuneSw(s, 27000);
+}
+
+/* Shortwave at the very bottom of the band, the other side of the same seam:
+ * 1700 at the middle has its number and 27000 has none. */
+static void sceneSwBottom(ScreenState *s) {
+  sceneSw(s);
+  tuneSw(s, 1700);
 }
 
 /* Medium wave, muted, on a nearly flat battery, trying to join a network:
@@ -1456,6 +1464,7 @@ int main(int argc, char **argv) {
       {"fm-touch-off", sceneFmTouchOff},
       {"sw", sceneSw},
       {"sw-top", sceneSwTop},
+      {"sw-bottom", sceneSwBottom},
       {"mw", sceneMw},
       {"mw-10k", sceneMw10k},
       {"oirt", sceneOirt},
@@ -1758,6 +1767,12 @@ int main(int argc, char **argv) {
     screenMenuShow(&menu);
     saveShot("%s/menu-network-info.bmp", dir);
 
+    /* The same with a network name of 32 characters, the most Wi-Fi allows:
+     * the network name is cut, and Wi-Fi Network beside it stays whole. */
+    menu.rows[3].value = "Second Floor Office Network 5GHz";
+    screenMenuShow(&menu);
+    saveShot("%s/menu-network-long-name.bmp", dir);
+
     /* The choice of bands for 123 typed on FM, which FM does not hold:
      * medium wave and shortwave, the cursor on the first. */
     {
@@ -1863,6 +1878,19 @@ int main(int argc, char **argv) {
       card.button[1] = txt(STR_RECOVERY_PRESS_AGAIN);
       screenMenuStationShow(&card);
       saveShot("%s/menu-station-delete.bmp", dir);
+
+      /* A radio text of all 64 characters and no note: it runs on to the
+       * second line. */
+      card.cursor = 0;
+      card.asking = false;
+      card.button[1] = txt(STR_PAGE_DELETE);
+      strcpy(
+          e.rt,
+          "YOU ARE LISTENING TO MAGIC FM - THE BEST MUSIC FROM THE EIGHTIES");
+      e.note[0] = '\0';
+      stationPageLog(&e, true, 1791619436, 330, RDS_REGION_EUROPE, &page);
+      screenMenuStationShow(&card);
+      saveShot("%s/menu-station-long-text.bmp", dir);
 
       memset(&e, 0, sizeof(e));
       e.timeKnown = true;

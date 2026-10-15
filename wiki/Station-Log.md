@@ -51,7 +51,7 @@ The card shows everything the log kept for the station:
 - The frequency and the name as its title.
 - Under it, when it was logged (such as `Today 17:08`, or the day and time while the radio's clock is not set, or `Time not known` for a station logged before the clock was ever set), the PI, the country and the programme type, each when the log has it.
 - The readings as tiles: Level, SNR, Noise, Multipath, Stereo and Width on FM; Level, SNR, Co-channel and Width on AM.
-- The radio text, and your note.
+- The radio text, and your note. With no note, a long radio text runs on to the second line.
 
 ![An entry on shortwave](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-am.png)
 

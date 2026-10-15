@@ -15,7 +15,7 @@ Open the menu with a press of the tuning knob on the radio screen, or hold MODE 
 | Hold the knob, hold ENTER, or tap MODE | Goes back one level |
 | Hold MODE | Closes the menu |
 
-The group list shows how many rows each group has. A row that opens a sub-group shows its row count and an arrow. Inside a sub-group, the title shows the path, for example `Audio > Squelch`. The menu opens again where you left it, until the radio restarts. With no input for one minute it closes, except while a station scan runs.
+The group list shows how many rows each group has. A row that opens a sub-group shows its row count and an arrow. A value too long for its row, such as a long Wi-Fi name, is cut short with `…`, so the row's name stays readable. Inside a sub-group, the title shows the path, for example `Audio > Squelch`. The menu opens again where you left it, until the radio restarts. With no input for one minute it closes, except while a station scan runs.
 
 ### Changing a value
 

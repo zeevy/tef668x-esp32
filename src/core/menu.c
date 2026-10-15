@@ -284,6 +284,13 @@ int32_t menuBarClicks(int32_t now, int32_t want, int32_t step, int32_t low,
   return (off + (off < 0 ? -round : round)) / step;
 }
 
+int32_t menuValueRoom(int32_t room, int32_t nameWidth, int32_t keep,
+                      int32_t gap) {
+  const int32_t kept = nameWidth < keep ? nameWidth : keep;
+  const int32_t most = room - kept - gap;
+  return most > 0 ? most : 0;
+}
+
 bool menuIsOpen(const Menu *m) {
   return m != NULL && m->level != MENU_CLOSED;
 }

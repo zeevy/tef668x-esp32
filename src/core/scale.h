@@ -13,8 +13,9 @@
  * the band's top channel lands on its bottom one, `bandStepUp`, and a step down
  * from the bottom on the top. So right of 108.0 MHz come 87.5, 87.6 and on.
  * Between the two ends sit SCALE_SEAM_TICKS dummy marks, short and with no
- * number, so the numbers at the two ends never run into each other, and the
- * seam, where the ends meet, is the middle of them.
+ * number, and the seam, where the ends meet, is the middle of them. Where
+ * both ends carry a number, only the one nearer the middle is shown, so the
+ * two never run into each other.
  *
  * Pure arithmetic on frequencies and pixels, so it is tested on a PC. The
  * panel only draws what it is given.
@@ -63,9 +64,10 @@ typedef enum {
 
 /*
  * How many dummy marks sit between the band's last tick and its first. Four
- * puts the two ends 40 pixels apart, room for two five digit numbers, 27000
- * and 1700 at the ends of SW, with a gap between. An even count keeps the
- * seam between two dummies rather than on one.
+ * puts the two ends 40 pixels apart. That is not room for two numbers:
+ * 27000 and 1700 at the ends of SW are 35 and 28 pixels wide, so scaleTicks
+ * keeps only one of them. An even count keeps the seam between two dummies
+ * rather than on one.
  */
 #define SCALE_SEAM_TICKS 4
 
@@ -78,8 +80,9 @@ typedef enum {
 typedef struct {
   int16_t x;       /* Pixels from the left end of the row. */
   uint16_t number; /* What a long mark says: MHz on FM, kHz on AM, which
-                    * tops out at 27000 on SW. 0 for a dummy, which says
-                    * nothing. */
+                    * tops out at 27000 on SW. 0 says nothing: a dummy, and
+                    * the long mark across the seam from a nearer one, whose
+                    * number would run into it. */
   uint8_t mark;    /* How tall it is drawn, a ScaleMark. */
   bool inBand;     /* A real tick of the band. False for a dummy at the seam,
                     * which is always short. */

@@ -2,6 +2,7 @@
 #include "scale.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 
 static int64_t tickKHz(bool fm) {
   return fm ? SCALE_FM_TICK_KHZ : SCALE_AM_TICK_KHZ;
@@ -120,6 +121,28 @@ int scaleTicks(uint32_t lowKHz, uint32_t highKHz, uint32_t tunedKHz, bool fm,
       out[n].number = 0;
     }
     n++;
+  }
+  /* Two numbered marks closer than the band's own long marks, ten ticks
+   * apart, meet only across the seam, and there their numbers run together:
+   * on SW, 27000 and 1700 are 35 and 28 px wide with their marks 40 px
+   * apart. The one farther from the middle loses its number, or the one
+   * after the seam when both are as far. The nearer one is kept because the
+   * panel leaves out a number that would cross the edge of the row, and the
+   * farther one is the one that can. */
+  int kept = -1;
+  for (int i = 0; i < n; i++) {
+    if (out[i].mark != SCALE_LONG || out[i].number == 0) {
+      continue;
+    }
+    if (kept >= 0 && out[i].x - out[kept].x < 10 * SCALE_TICK_PX) {
+      if (abs(out[kept].x - centre) > abs(out[i].x - centre)) {
+        out[kept].number = 0;
+      } else {
+        out[i].number = 0;
+        continue;
+      }
+    }
+    kept = i;
   }
   return n;
 }
