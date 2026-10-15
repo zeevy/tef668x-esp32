@@ -29,7 +29,7 @@ A preset whose frequency is not on the band plan in use, for example after a cha
 
 ![A preset's card](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/menu-station-preset.png)
 
-A press on a preset in **Stations > Presets** opens its card: the frequency and the name; under them the slot such as `P03`, then the PI, the country and the programme type, each when the preset has it; `Saved` and when; and tiles for the band and the width (`Auto` or its own).
+A press on a preset in **Stations > Presets** opens its card: the frequency and the name; under them the slot such as `P03`, then the PI, the country and the programme type, each when the preset has it; `Saved` and when; and tiles for the band and the width (`AUTO` or its own).
 
 - **Tune** tunes to it and leaves the card open, so you can hear it.
 - **Delete** clears the slot. The first press turns the button red and says `Press again`; a second press within 5 seconds clears it and goes back to the list. Turning the knob off it, going back or waiting 5 seconds lets it go. The last preset cleared takes you back to **Stations**.

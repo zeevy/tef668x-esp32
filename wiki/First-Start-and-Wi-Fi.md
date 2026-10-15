@@ -56,8 +56,8 @@ Some phones and networks do not find names that end in `.local`. Use the radio's
 | Row | What it shows |
 |---|---|
 | Connection Status | `Connected`, `Connecting`, `Hotspot` or `Off` |
-| Web Address | The name and port to type in a browser, `tef668x.local:8080` |
-| IP Address | The address your router gave the radio, for example `192.168.1.40`. Open `http://192.168.1.40:8080` |
+| Web Address | The name and port to type in a browser, `tef668x.local:8080`. `-` while the radio has no address yet, as when it is still joining |
+| IP Address | The address your router gave the radio, for example `192.168.1.40`. Open `http://192.168.1.40:8080`. `-` while there is no address yet |
 | Wi-Fi Network | The network it is on. On the hotspot this row is **Hotspot Name** |
 | Wi-Fi Signal | How strong your Wi-Fi is at the radio |
 | MAC Address | The radio's Wi-Fi address, which some routers ask for |

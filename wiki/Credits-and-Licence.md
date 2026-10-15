@@ -6,7 +6,7 @@ This firmware is free software under the GNU General Public License, version 3 (
 
 ## Where it comes from
 
-This is a ground up rewrite, not a fork. It takes its knowledge of the hardware, and many ideas, from the [PE5PVB TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32) firmware by Sjef Verhoeven, PE5PVB, which runs on the same radios. That firmware showed how this hardware works: the pins, the tuner's start up and its patch. It is GPLv3, so this project is GPLv3 too. Apart from the tuner's patch data, the two share no code.
+It takes its knowledge of the hardware, and many ideas, from the [PE5PVB TEF6686_ESP32](https://github.com/PE5PVB/TEF6686_ESP32) firmware by Sjef Verhoeven, PE5PVB, which runs on the same radios. That firmware showed how this hardware works: the pins, the tuner's start up and its patch. It is GPLv3, so this project is GPLv3 too. Apart from the tuner's patch data, the two share no code.
 
 The country tables of the RDS decoder were checked against Oona Räisänen's [redsea](https://github.com/windytan/redsea) RDS decoder (MIT).
 

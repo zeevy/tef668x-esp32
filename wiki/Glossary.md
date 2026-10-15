@@ -6,7 +6,7 @@ The words and short forms the radio, its menu and this wiki use.
 
 | Term | What it means |
 |---|---|
-| dBµV | Decibels above one microvolt: the strength of the signal at the aerial input. The radio screen shows it as `dBµV` and the menu as `dBuV`. Higher is stronger |
+| dBµV | Decibels above one microvolt: the strength of the signal at the aerial input. The radio's screens and the web page write it as `dBµV`. Higher is stronger |
 | Level | The signal strength, in dBµV |
 | USN | Ultrasonic noise: the noise the tuner hears above the audio band, in per cent. A clean station reads low. Seek and squelch use it to tell a station from noise |
 | WAM | Wideband AM: on FM, how much the signal is spoiled by reflections from hills and buildings (multipath), in per cent. Lower is better |

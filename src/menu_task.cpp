@@ -1480,6 +1480,12 @@ static void putText(char *out, size_t len, StrId id) {
   snprintf(out, len, "%s", txt(id));
 }
 
+/* The Wi-Fi manager holds 0.0.0.0 until a network gives it an address, while
+ * it joins and while it waits to try again. Shown, it reads as an address. */
+static bool noAddress(void) {
+  return strcmp(wifiAddress(), "0.0.0.0") == 0;
+}
+
 /* `zero` for 0, which on these rows is off rather than a value, otherwise
  * the number through `format`. */
 static void zeroWord(char *out, size_t len, int32_t v, StrId zero,
@@ -1573,13 +1579,13 @@ static void infoText(RowId id, char *out, size_t len) {
       /* With the web server's port, since it is not 80 and a browser given
        * the address alone does not find the page. The radio's name where it
        * is announced, since the network can move the address and the name
-       * stays; the address otherwise. No address, no port: there is no page
-       * to reach. Off when either switch is off, since there is then no page
-       * at any address. */
+       * stays; the address otherwise. No address, a dash: there is no page
+       * to reach yet. Off when either switch is off, since there is then no
+       * page at any address. */
       if (sLive != NULL && (!sLive->webEnabled || !sLive->wifiEnabled)) {
         putText(out, len, STR_COMMON_OFF);
-      } else if (strcmp(wifiAddress(), "0.0.0.0") == 0) {
-        snprintf(out, len, "%s", wifiAddress());
+      } else if (noAddress()) {
+        putText(out, len, STR_COMMON_DASH);
       } else if (wifiAnnouncedName() != NULL) {
         snprintf(out, len, txt(STR_MENU_FMT_NAME_ADDRESS), wifiAnnouncedName(),
                  (unsigned)WEB_PORT);
@@ -1592,6 +1598,8 @@ static void infoText(RowId id, char *out, size_t len) {
        * .local name up. */
       if (sLive != NULL && !sLive->wifiEnabled) {
         putText(out, len, STR_COMMON_OFF);
+      } else if (noAddress()) {
+        putText(out, len, STR_COMMON_DASH);
       } else {
         snprintf(out, len, "%s", wifiAddress());
       }
@@ -1605,9 +1613,9 @@ static void infoText(RowId id, char *out, size_t len) {
                  (unsigned)xdrServerClients());
       } else if (!xdrServerListening()) {
         putText(out, len, STR_COMMON_OFF);
-      } else if (strcmp(wifiAddress(), "0.0.0.0") == 0) {
-        /* No network yet: no port, as the web address shows none. */
-        snprintf(out, len, "%s", wifiAddress());
+      } else if (noAddress()) {
+        /* No network yet: a dash, as the web address shows. */
+        putText(out, len, STR_COMMON_DASH);
       } else if (wifiAnnouncedName() != NULL) {
         snprintf(out, len, txt(STR_MENU_FMT_NAME_ADDRESS), wifiAnnouncedName(),
                  (unsigned)XDR_PORT);
@@ -2113,7 +2121,7 @@ static const char *unitOf(const MenuRow *row) {
     case ROW_LW_SOFT_MUTE:
     case ROW_STEREO_BLEND:
     case ROW_STHI_BLEND:
-      return txt(STR_MENU_UNIT_DBUV);
+      return txt(STR_COMMON_UNIT_DBUV);
     case ROW_LW_WIDTH:
     case ROW_MW_WIDTH:
     case ROW_SW_WIDTH:

@@ -69,7 +69,7 @@ On a value with a bar, such as Brightness or Squelch Floor:
 | Save, between minus and plus | Tap | Saves the value, as a press of the tuning knob |
 | The top line, with the title | Tap | Back: the old value comes back |
 
-Minus, Save and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not Saved` shows at the top of the value panel instead.
+Minus, Save and plus show only while **Controls > Touch** is On. They take the screen's bottom line, so a note such as `Not saved` shows at the top of the value panel instead.
 
 ![The value screen with minus, Save and plus, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-value.png)
 

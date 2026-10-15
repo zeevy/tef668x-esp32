@@ -53,8 +53,8 @@ static void the_log_entry_page_has_the_station_its_readings_and_texts(void) {
   TEST_ASSERT_EQUAL_STRING(sub, p.sub);
   const char *labels[] = {"Level",     "SNR",    "Noise",
                           "Multipath", "Stereo", "Width"};
-  const char *values[] = {"45.2 dBuV", "28 dB", "12 %",
-                          "3 %",       "Yes",   "236 kHz"};
+  const char *values[] = {"45.2 dB\xC2\xB5V", "28 dB", "12 %", "3 %", "Yes",
+                          "236 kHz"};
   for (int i = 0; i < STATION_PAGE_TILES; i++) {
     TEST_ASSERT_EQUAL_STRING(labels[i], p.label[i]);
     TEST_ASSERT_EQUAL_STRING(values[i], p.value[i]);
@@ -99,7 +99,7 @@ static void an_am_entry_has_the_co_channel_reading(void) {
   TEST_ASSERT_TRUE(stationPageLog(&e, true, kNow, 330, RDS_REGION_EUROPE, &p));
   TEST_ASSERT_EQUAL_STRING("13845 kHz  MAGIC", p.title);
   const char *labels[] = {"Level", "SNR", "Co-channel", "Width"};
-  const char *values[] = {"-0.5 dBuV", "28 dB", "7 %", "4 kHz"};
+  const char *values[] = {"-0.5 dB\xC2\xB5V", "28 dB", "7 %", "4 kHz"};
   for (int i = 0; i < 4; i++) {
     TEST_ASSERT_EQUAL_STRING(labels[i], p.label[i]);
     TEST_ASSERT_EQUAL_STRING(values[i], p.value[i]);
@@ -140,7 +140,7 @@ static void a_preset_page_has_its_slot_band_width_and_pi(void) {
   TEST_ASSERT_EQUAL_STRING("Band", p.label[0]);
   TEST_ASSERT_EQUAL_STRING("FM", p.value[0]);
   TEST_ASSERT_EQUAL_STRING("Width", p.label[1]);
-  TEST_ASSERT_EQUAL_STRING("Auto", p.value[1]);
+  TEST_ASSERT_EQUAL_STRING("AUTO", p.value[1]);
   TEST_ASSERT_NULL(p.label[2]);
   // No time kept: no line for it.
   TEST_ASSERT_EQUAL_STRING("", p.text);

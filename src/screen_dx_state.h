@@ -157,7 +157,7 @@ typedef struct {
   char mid[8];
   char to[8];
   char baseText[16];
-  char floorText[16];
+  char floorText[24];
   char freq[12];
   char level[12];
   char rise[12];

@@ -109,6 +109,16 @@ test('an entry: its programme type and country when the radio kept them, else ne
   for (const text of ['Programme type', 'Pop Music', 'Country', 'Germany']) await expect(dialog).toContainText(text);
 });
 
+test('an entry with programme type 0, none set, shows no programme type', async ({ page }) => {
+  await radio(page, entries.map((e) => ({ ...e, pty: 0, ptn: 'None', cty: null })));
+  await page.goto('/#log');
+  await rows(page).nth(0).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('106.40');
+  await expect(dialog).not.toContainText('Programme type');
+  await expect(dialog).not.toContainText('None');
+});
+
 test('on AM the co-channel reading, no noise', async ({ page }) => {
   await radio(page);
   await page.goto('/#log');

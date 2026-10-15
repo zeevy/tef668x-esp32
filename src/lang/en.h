@@ -226,7 +226,7 @@
   X(MENU_FMT_KHZ, "%d kHz", "Menu, value of the MW spacing row, 9 or 10; value of the Filter width and Tuning step rows") \
   X(COMMON_ROTATION_NORMAL, "Normal", "Value of the Rotation row and of its picker, and of recovery's Rotate Display row: the display the right way up") \
   X(COMMON_ROTATION_UPSIDE_DOWN, "Upside Down", "Value of the Rotation row and of its picker, and of recovery's Rotate Display row: the display turned half way round") \
-  X(MENU_FMT_DBUV, "%d dBuV", "Menu, value of the Soft mute rows; value of those level rows above zero") \
+  X(MENU_FMT_DBUV, "%d dB\xC2\xB5V", "Menu, value of the Soft mute rows; value of those level rows above zero") \
   X(MENU_FMT_MS, "%d ms", "Menu, value of the Mute ramp row") \
   X(MENU_FMT_PERCENT, "%d %%", "Menu, value of the Volume AGC row, per cent; value of the Brightness and Dim level rows; value of the Noise blanker rows; value of the CPU Core rows") \
   X(MENU_CUT_ONLY, "Cut Only", "Menu, value of the AGC boost row at zero") \
@@ -259,7 +259,6 @@
   X(COMMON_UNIT_MIN, "min", "Unit for Auto Off") \
   X(MENU_UNIT_MS, "ms", "Menu, unit for Mute ramp") \
   X(COMMON_UNIT_DB, "dB", "Unit for AGC boost; unit after the rise over base") \
-  X(MENU_UNIT_DBUV, "dBuV", "Menu, unit for the level rows") \
   X(COMMON_UNIT_KHZ, "kHz", "Unit for Filter width, Tuning step, DX width; reading unit, twice; frequency unit for AM bands") \
   X(MENU_FMT_NUMBER_UNIT, "%d %s", "Menu, limit text under each bar end, number and unit (concatenation of value and `unitOf()`)") \
   X(MENU_HINT_RESTART, "Applies after restart", "Menu, note for a row with needsRestart: on the picker's cursor row, under the bar otherwise, or at the top of the value panel with Touch On") \
@@ -272,7 +271,7 @@
   X(MENU_NOTE_UPDATE_ON_TRIAL, "Update on trial - wait", "Menu, note after Restart Radio or Sleep while an OTA image is on trial") \
   X(MENU_NOTE_NOT_STORED, "Not saved - restored", "Menu, note when the settings store refused the value") \
   X(MENU_NOTE_NOT_PUT_BACK, "Radio busy - not restored", "Menu, note when the undo could not reach the tuner") \
-  X(MENU_NOTE_NOT_SAVED, "Not Saved", "Menu, under the bar once a value differs from the saved one, or at the top of the value panel with Touch On, and on its row after backing out of it") \
+  X(MENU_NOTE_NOT_SAVED, "Not saved", "Menu, under the bar once a value differs from the saved one, or at the top of the value panel with Touch On, and on its row after backing out of it") \
   X(MENU_SAVE, "Save", "Value editor, with Touch On: the button between minus and plus that saves the value") \
   X(RADIO_PRESS_TO_START, "Press to start", "Scanner page, header message when a turn or a typed digit is refused there") \
   X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or a scan walks the dial") \
@@ -298,24 +297,23 @@
   X(RDS_MUSIC, "Music", "RDS page 1, music or speech tile") \
   X(RDS_FMT_BAD_BLOCKS, "%u/%u", "RDS page 4, LOST tile, blocks lost of all blocks in the last minute") \
   X(RDS_FMT_BLER, "%.1f %%", "RDS page 4, BLER tile, over the last minute") \
-  X(COMMON_ALREADY_LOGGED, "Already Logged", "Confirm text on the name line after a logbook hold, and in the header of a DX page after a catch hold, when the log holds that station already or nothing new was heard") \
-  X(DX_RDS_IS_OFF, "RDS is Off", "Confirm text when a scan stops because the decoder went off; Scanner press result") \
+  X(COMMON_ALREADY_LOGGED, "Already logged", "Confirm text on the name line after a logbook hold, and in the header of a DX page after a catch hold, when the log holds that station already or nothing new was heard") \
+  X(DX_RDS_IS_OFF, "RDS is off", "Confirm text when a scan stops because the decoder went off; Scanner press result") \
   X(DX_SCANNING, "Scanning", "Result of a Scanner press, `dxTaskPressText()`, shown as confirm text") \
-  X(DX_SCAN_FINISHED, "Scan Complete", "Scanner press result") \
-  X(DX_NOTHING_TO_SCAN, "Nothing to Scan", "Scanner press result") \
-  X(DX_CHECKING_FOR_UPDATES, "Checking For Updates", "Scanner press result while the update check is out on the network") \
-  X(DX_A_SCAN_IS_RUNNING, "Scan Already Running", "Scanner press result; Scope press result") \
-  X(DX_CAUGHT_LIST_UNREAD, "Catch List Unavailable", "Scanner press result") \
-  X(DX_NO_MEMORY, "No Presets", "Scanner press result; Scope press result") \
-  X(DX_NOT_STARTED, "Not Started", "Scanner press result; Scope press result") \
+  X(DX_SCAN_FINISHED, "Scan complete", "Scanner press result") \
+  X(DX_NOTHING_TO_SCAN, "Nothing to scan", "Scanner press result") \
+  X(DX_CHECKING_FOR_UPDATES, "Checking for updates", "Scanner press result while the update check is out on the network") \
+  X(DX_A_SCAN_IS_RUNNING, "Scan already running", "Scanner press result; Scope press result") \
+  X(DX_CAUGHT_LIST_UNREAD, "Catch list unavailable", "Scanner press result") \
+  X(DX_NO_MEMORY, "No presets", "Scanner press result; Scope press result") \
+  X(DX_NOT_STARTED, "Not started", "Scanner press result; Scope press result") \
   X(DX_SWEEPING, "Sweeping", "Result of a Scope press, `dxTaskSweepText()`; middle text on the Scope page during a sweep") \
   X(RADIO_FMT_TYPED, "%s-", "Typed digits on the radio screen with a hyphen cursor while more can follow") \
   X(COMMON_FMT_TUNE_TYPED, "Tune %s", "Header of the RDS screen and the DX pages while digits are typed: what ENTER will tune to") \
   X(RADIO_FMT_VOL_DB, "%ddB", "Volume tile value") \
   X(RADIO_SQL_OFF, "OFF", "Squelch tile value") \
-  X(COMMON_AUTO, "AUTO", "Squelch tile value; tile text for the automatic width") \
+  X(COMMON_AUTO, "AUTO", "Squelch tile value; filter width tile value while the tuner picks the width, on the radio screen, the bandwidth page and a preset card") \
   X(RADIO_FMT_SQL_DB, "%ddB", "Squelch tile value in Manual squelch, the level the volume knob sets, in whole dB") \
-  X(RADIO_BW_DYN, "DYN", "Filter width tile value while the tuner picks the width") \
   X(RADIO_TUNE_MANUAL, "MAN", "Tuning mode tile on the radio screen; the tile is 68 px wide and no mode is longer than AUTO") \
   X(RADIO_TUNE_AUTO, "AUTO", "Tuning mode cell on the radio screen, seek on a knob turn") \
   X(RADIO_TUNE_MEMORY, "MEM", "Tuning mode cell on the radio screen, the knob walks the presets") \
@@ -353,7 +351,7 @@
   X(DX_FIXED, "FIXED", "Base line label on the Scope page, a fixed sweep whose time is not known") \
   X(DX_FMT_VS, "VS %s", "Base line label on the Scope page: the kept sweep compared with, as 17:08, YDAY 21:10 or 9 OCT 21:10") \
   X(DX_FMT_MEDIAN_OF, "MEDIAN OF %u", "Base line label on the Scope page, sweep count") \
-  X(DX_FMT_FLOOR, "FLOOR %s", "Floor label on the Scope page, %s is the level in tenths") \
+  X(DX_FMT_FLOOR, "FLOOR %s dB\xC2\xB5V", "Floor label on the Scope page, %s is the level with one decimal") \
   X(BW_FMT_CONTEXT, "%s \xC2\xB7 kHz", "Header context on the Bandwidth page, band name and unit") \
   X(BW_EQ, "EQ", "Bandwidth page, switch tile name") \
   X(BW_CLOSE, "Close", "Bandwidth page, the tile that closes the page") \
@@ -379,7 +377,7 @@
   X(PAGE_BAND, "Band", "Station page, tile label on a preset: its band") \
   X(PAGE_FMT_DB, "%d dB", "Station page, value of the SNR tile") \
   X(PAGE_FMT_PERCENT, "%u %%", "Station page, value of the Noise, Multipath and Co-channel tiles") \
-  X(PAGE_FMT_DBUV, "%s dBuV", "Station page, value of the Level tile, such as 45.2 dBuV") \
+  X(PAGE_FMT_DBUV, "%s dB\xC2\xB5V", "Station page, value of the Level tile, such as 45.2 dB\xC2\xB5V") \
   X(PAGE_NOTE_CHANGED, "Changed since this opened", "Station page, note in place of the line under the title when the preset or log entry shown was moved or deleted elsewhere since the page opened") \
   X(PAGE_NOTE_NOT_DELETED, "Not deleted", "Station page, note in place of the line under the title when the delete could not be written") \
   X(PAGE_FMT_SAVED, "Saved %s", "Station page of a preset, the line under the tiles: when it was saved, such as Saved Today 21:10") \
@@ -410,7 +408,7 @@
   X(DX_READY, "Ready", "DX mode, shown in place of the frequency before a scan starts") \
   X(DX_DWELL, "DWELL", "DX mode, label over the dwell value") \
   X(COMMON_PI, "PI", "Label on the station tile; label on the PI tile; label on the PI tile of RDS page 1") \
-  X(COMMON_UNIT_DBUV, "dB\xC2\xB5V", "Unit after the level; unit after the cursor level; reading unit, `kReadUnits[]`; unit after the signal level on the radio screen") \
+  X(COMMON_UNIT_DBUV, "dB\xC2\xB5V", "Unit after the level; unit after the cursor level; reading unit, `kReadUnits[]`; unit after the signal level on the radio screen; unit of the level rows in the menu") \
   X(DX_STOPPED, "STOPPED", "DX mode, mode text while the scan is stopped") \
   X(DX_TITLE_SCANNER, "Scanner", "Title of the Scanner page") \
   X(DX_TITLE_SCOPE, "Scope", "Title of the Scope page") \
