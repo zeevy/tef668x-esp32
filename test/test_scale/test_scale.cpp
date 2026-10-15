@@ -115,14 +115,52 @@ static void the_two_ends_of_mw_meet(void) {
   TEST_ASSERT_EQUAL(SCALE_LONG, at(t, n, CENTRE - 16)->mark); /* 1600 */
 }
 
-/* On SW both ends are long marks, 27000 and 1700. The dummies keep them 40
- * pixels apart, so their numbers have room. */
+/* On SW both ends are long marks, 27000 and 1700, 40 pixels apart: too
+ * close for both numbers. Tuned to the top, 27000 at the middle keeps its
+ * number and 1700 loses it. */
 static void the_two_ends_of_sw_are_40_pixels_apart(void) {
   ScaleTick t[SCALE_MAX_TICKS];
   const int n = scaleTicks(1700, 27000, 27000, false, ROW, t, SCALE_MAX_TICKS);
   TEST_ASSERT_EQUAL_UINT32(27000, at(t, n, CENTRE)->number);
   TEST_ASSERT_EQUAL(SCALE_LONG, at(t, n, CENTRE + 40)->mark);
-  TEST_ASSERT_EQUAL_UINT32(1700, at(t, n, CENTRE + 40)->number);
+  TEST_ASSERT_EQUAL_UINT32(0, at(t, n, CENTRE + 40)->number);
+  TEST_ASSERT_EQUAL_UINT32(1800, at(t, n, CENTRE + 120)->number);
+}
+
+/* Tuned to the bottom of SW it is the other way round: 1700 at the middle
+ * keeps its number and 27000, 40 pixels left, loses it. */
+static void at_the_bottom_of_sw_the_top_loses_its_number(void) {
+  ScaleTick t[SCALE_MAX_TICKS];
+  const int n = scaleTicks(1700, 27000, 1700, false, ROW, t, SCALE_MAX_TICKS);
+  TEST_ASSERT_EQUAL_UINT32(1700, at(t, n, CENTRE)->number);
+  TEST_ASSERT_EQUAL(SCALE_LONG, at(t, n, CENTRE - 40)->mark);
+  TEST_ASSERT_EQUAL_UINT32(0, at(t, n, CENTRE - 40)->number);
+  TEST_ASSERT_EQUAL_UINT32(26900, at(t, n, CENTRE - 120)->number);
+}
+
+/* With the middle half way across the seam, 27000 and 1700 are 20 pixels
+ * either side of it, and the one after the seam, 1700, loses its number. */
+static void the_same_distance_drops_the_number_after_the_seam(void) {
+  ScaleTick t[SCALE_MAX_TICKS];
+  const int n = scaleTicks(1700, 27000, 27025, false, ROW, t, SCALE_MAX_TICKS);
+  TEST_ASSERT_EQUAL_UINT32(27000, at(t, n, CENTRE - 20)->number);
+  TEST_ASSERT_EQUAL(SCALE_LONG, at(t, n, CENTRE + 20)->mark);
+  TEST_ASSERT_EQUAL_UINT32(0, at(t, n, CENTRE + 20)->number);
+}
+
+/* Ten ticks apart, as the long marks inside a band are, both numbers stay:
+ * 108 and 88 across the seam of FM. Nine apart, on a band from 1660 kHz,
+ * 1700 loses its number. */
+static void marks_ten_ticks_apart_keep_both_numbers(void) {
+  ScaleTick t[SCALE_MAX_TICKS];
+  int n = scaleTicks(FM_LOW, FM_HIGH, 108000, true, ROW, t, SCALE_MAX_TICKS);
+  TEST_ASSERT_EQUAL_UINT32(108, at(t, n, CENTRE)->number);
+  TEST_ASSERT_EQUAL_UINT32(88, at(t, n, CENTRE + 80)->number);
+
+  n = scaleTicks(1660, 27000, 27000, false, ROW, t, SCALE_MAX_TICKS);
+  TEST_ASSERT_EQUAL_UINT32(27000, at(t, n, CENTRE)->number);
+  TEST_ASSERT_EQUAL(SCALE_LONG, at(t, n, CENTRE + 72)->mark);
+  TEST_ASSERT_EQUAL_UINT32(0, at(t, n, CENTRE + 72)->number);
 }
 
 /* The marks never reach further than SCALE_EDGE_PX past the row, and the
@@ -389,6 +427,9 @@ int main(int, char **) {
   RUN_TEST(the_two_ends_of_fm_meet);
   RUN_TEST(the_two_ends_of_mw_meet);
   RUN_TEST(the_two_ends_of_sw_are_40_pixels_apart);
+  RUN_TEST(at_the_bottom_of_sw_the_top_loses_its_number);
+  RUN_TEST(the_same_distance_drops_the_number_after_the_seam);
+  RUN_TEST(marks_ten_ticks_apart_keep_both_numbers);
   RUN_TEST(every_mark_fits_on_the_row);
   RUN_TEST(the_seam_is_in_the_middle_of_the_dummies);
   RUN_TEST(a_band_shorter_than_the_row_shows_its_seam_twice);

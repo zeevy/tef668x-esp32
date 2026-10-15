@@ -45,7 +45,7 @@ On FM, the station's radio text, in blue, scrolling round. With no radio text, a
 
 ## 4. Tuning scale
 
-The tuned frequency stays in the middle, under the pointer, and the scale moves past it. There is a mark every 100 kHz on FM and every 10 kHz on AM. Every tenth mark is long and has a number. The four marks on each side of the pointer rise with the signal: full height is 60 dBµV on FM and 45 dBµV on AM. Where the two ends of the band meet, the scale shows a dotted join.
+The tuned frequency stays in the middle, under the pointer, and the scale moves past it. There is a mark every 100 kHz on FM and every 10 kHz on AM. Every tenth mark is long and has a number. The four marks on each side of the pointer rise with the signal: full height is 60 dBµV on FM and 45 dBµV on AM. Where the two ends of the band meet, the scale shows a dotted join, and only the end number nearer the middle, so the two numbers do not run together.
 
 With Touch On, a tap on the scale opens the [band scope](Band-Scope.md), and a drag tunes.
 

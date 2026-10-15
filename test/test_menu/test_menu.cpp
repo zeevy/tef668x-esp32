@@ -538,6 +538,20 @@ static void the_bar_turns_in_whole_steps_and_reaches_both_ends(void) {
   TEST_ASSERT_EQUAL_INT32(3, menuBarClicks(1, 4, 0, 0, 9));
 }
 
+/* A row 272 pixels wide with an 8 pixel gap and 100 kept for the name. A
+ * name narrower than 100 keeps all of itself and a wider one keeps 100. The
+ * answer is the widest value drawn whole: one pixel wider is cut. */
+static void a_long_value_leaves_the_name_its_first_100_pixels(void) {
+  TEST_ASSERT_EQUAL_INT32(204, menuValueRoom(272, 60, 100, 8));
+  TEST_ASSERT_EQUAL_INT32(165, menuValueRoom(272, 99, 100, 8));
+  TEST_ASSERT_EQUAL_INT32(164, menuValueRoom(272, 100, 100, 8));
+  TEST_ASSERT_EQUAL_INT32(164, menuValueRoom(272, 181, 100, 8));
+  /* No name, all of the row but the gap. */
+  TEST_ASSERT_EQUAL_INT32(264, menuValueRoom(272, 0, 100, 8));
+  /* A row too narrow for the name leaves nothing, never a negative room. */
+  TEST_ASSERT_EQUAL_INT32(0, menuValueRoom(90, 181, 100, 8));
+}
+
 static void the_window_moves_only_when_the_cursor_would_leave_it(void) {
   /* Nine rows, five visible. Walking down from the top: the window holds
    * still for the first five and then follows one row at a time. */
@@ -674,6 +688,7 @@ int main(int argc, char **argv) {
   RUN_TEST(a_page_moves_a_whole_window_and_stops_at_the_ends);
   RUN_TEST(a_finger_on_the_bar_reads_the_value_drawn_there);
   RUN_TEST(the_bar_turns_in_whole_steps_and_reaches_both_ends);
+  RUN_TEST(a_long_value_leaves_the_name_its_first_100_pixels);
   RUN_TEST(the_window_moves_only_when_the_cursor_would_leave_it);
   RUN_TEST(the_last_screen_of_a_list_is_full);
   RUN_TEST(a_window_of_nothing_asks_for_nothing);

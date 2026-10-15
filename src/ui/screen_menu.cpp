@@ -966,12 +966,33 @@ void screenMenuStationShow(const ScreenMenuStation *s) {
     uiBaseline(sStationValue[i], &roboto_small, x, (int16_t)(y + 33));
   }
   /* The radio text on the first line, the note under it; a note alone
-   * takes the first line. */
+   * takes the first line. With no note the radio text runs on to the second
+   * line, in its own colour: 64 characters are about 420 px, and a line
+   * holds CARD_ROOM, 280. */
   const bool text = p->text[0] != '\0';
-  stationLine(sStationText, &roboto_label, text ? p->text : p->note, CARD_IN,
-              CARD_TEXT_BASE, CARD_ROOM);
-  stationLine(sStationNote, &roboto_label, text ? p->note : NULL, CARD_IN,
-              CARD_NOTE_BASE, CARD_ROOM);
+  const bool runOn = text && p->note[0] == '\0';
+  char wrapped[sizeof(p->text) + 1];
+  const char *first = text ? p->text : p->note;
+  const char *second = text ? p->note : NULL;
+  if (runOn) {
+    first = uiWrapAtSpaces(p->text, &roboto_label, CARD_ROOM, wrapped,
+                           sizeof(wrapped));
+    char *rest = strchr(wrapped, '\n');
+    if (rest != NULL) {
+      *rest++ = '\0';
+      for (char *c = rest; *c != '\0'; c++) {
+        if (*c == '\n') {
+          *c = ' ';
+        }
+      }
+      second = rest;
+    }
+  }
+  uiSetColour(sStationNote, runOn ? t->measurement : t->dead);
+  stationLine(sStationText, &roboto_label, first, CARD_IN, CARD_TEXT_BASE,
+              CARD_ROOM);
+  stationLine(sStationNote, &roboto_label, second, CARD_IN, CARD_NOTE_BASE,
+              CARD_ROOM);
   for (uint8_t i = 0; i < 2; i++) {
     const bool on = i == s->cursor;
     /* Delete waiting for its second press is in the fault colour, so the

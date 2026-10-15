@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "../core/menu.h"
+
 lv_color_t uiColour(ThemeColour c) {
   /* The theme keeps colours the way the panel wants them. LVGL wants the three
    * parts, so this takes them back apart. Doing it here rather than holding
@@ -430,6 +432,10 @@ const char *uiFitHeaderText(const char *text, int16_t w, int16_t left,
 #define SWATCH_RUN (SWATCHES * SWATCH + (SWATCHES - 1) * SWATCH_GAP)
 /* A swatch's outline is `dead` at nine tenths over what it frames. */
 #define SWATCH_EDGE_OPA 230
+/* The part of a row's name a long value leaves it. The widest names that sit
+ * beside a long value, Wi-Fi Network at 94 px and Hotspot Name at 98 px in
+ * the row's face, stay whole beside a 32 character network name. */
+#define ROW_NAME_KEEP 100
 
 static void onSwatchDraw(lv_event_t *e) {
   lv_obj_t *obj = (lv_obj_t *)lv_event_get_current_target(e);
@@ -533,7 +539,15 @@ void uiRowShow(UiRow *r, const Theme *t, const UiRowView *v) {
     lv_obj_set_pos(r->tick, (int16_t)(right - UI_ICON_SIZE), iconTop);
     right = (int16_t)(right - UI_ICON_SIZE - UI_GAP);
   }
+  const char *shown = name != NULL ? name : "";
   const bool hasValue = value != NULL && value[0] != '\0';
+  if (hasValue) {
+    /* A value too long for the row is cut before the name is. The label
+     * keeps its own copy of the text, so `fit` is free for the name after. */
+    const int16_t most = (int16_t)menuValueRoom(
+        right - left, textWidth(shown, &roboto_text), ROW_NAME_KEEP, UI_GAP);
+    value = uiFitText(value, &roboto_small, most, r->fit, sizeof(r->fit));
+  }
   uiSetOrHide(r->value, hasValue ? value : NULL);
   if (hasValue) {
     uiSetColour(r->value, cursor ? t->ground : dimValue ? t->dead : t->radio);
@@ -543,9 +557,8 @@ void uiRowShow(UiRow *r, const Theme *t, const UiRowView *v) {
   }
 
   uiShowIf(r->name, true);
-  uiSetText(r->name,
-            uiFitText(name != NULL ? name : "", &roboto_text,
-                      (int16_t)(right - left), r->fit, sizeof(r->fit)));
+  uiSetText(r->name, uiFitText(shown, &roboto_text, (int16_t)(right - left),
+                               r->fit, sizeof(r->fit)));
   uiSetColour(r->name, cursor ? t->ground : t->measurement);
   uiBaseline(r->name, &roboto_text, left, base);
 }

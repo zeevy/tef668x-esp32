@@ -237,6 +237,15 @@ int32_t menuBarValue(int32_t at, int32_t width, int32_t stub, int32_t low,
 int32_t menuBarClicks(int32_t now, int32_t want, int32_t step, int32_t low,
                       int32_t high);
 
+/*
+ * The most pixels a row's value may take, on a row with `room` pixels for
+ * its name, a `gap` and the value. The name keeps its first `keep` pixels,
+ * or all of itself when it is narrower than that, and the value gets the
+ * rest. A wider value is cut to fit. 0 when nothing is left.
+ */
+int32_t menuValueRoom(int32_t room, int32_t nameWidth, int32_t keep,
+                      int32_t gap);
+
 /* Whether the menu owns the panel. */
 bool menuIsOpen(const Menu *m);
 
