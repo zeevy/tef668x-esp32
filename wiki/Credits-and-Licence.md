@@ -18,6 +18,7 @@ The firmware carries some parts made by others, each under its own licence. [THI
 |---|---|---|
 | [LVGL](https://lvgl.io) 9.5.0 | The graphics library that draws the screens. Downloaded at build time | MIT |
 | [Roboto Condensed](https://fonts.google.com/specimen/Roboto+Condensed) | The font on the screen, stored as bitmaps | SIL Open Font License 1.1 |
+| [Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC) | The Chinese letters on the screen, stored as bitmaps | SIL Open Font License 1.1 |
 | [Material Symbols](https://fonts.google.com/icons) | The icons on the screen, stored as bitmaps | Apache 2.0 |
 | [Preact](https://preactjs.com) 11.0.1 | The library the web page is built with. Built into the page | MIT |
 | [Preact Signals](https://github.com/preactjs/signals) 2.11.3 | Holds the data the web page shows, and redraws a part when its data changes. Built into the page | MIT |

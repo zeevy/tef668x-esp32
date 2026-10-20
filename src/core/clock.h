@@ -36,9 +36,10 @@ extern "C" {
 /* Longest string clockFormat writes, including the terminator: "23:59". */
 #define CLOCK_TEXT_LEN 6
 
-/* Longest string clockFormatDate writes, with room to spare:
- * "WEDNESDAY, 30th September 2026" is 30 characters. */
-#define CLOCK_DATE_LEN 32
+/* Longest string clockFormatDate writes in any language, with room to spare:
+ * "WEDNESDAY, 30th September 2026" is 30 bytes, and the same line in
+ * Russian or Irish about 48, since a Cyrillic letter takes two. */
+#define CLOCK_DATE_LEN 64
 
 /* A time of day, already in local time. */
 typedef struct {
@@ -108,8 +109,9 @@ typedef enum {
   CLOCK_WHEN_ROW, /* "Today 17:08", "Yesterday 21:10", "9 Oct 21:10": a list. */
 } ClockWhenStyle;
 
-/* Room for any of them: "Yesterday 23:59" is 15 characters. */
-#define CLOCK_WHEN_LEN 20
+/* Room for any of them in any language: "Yesterday 23:59" is 15 bytes, and
+ * a Cyrillic word takes two bytes a letter. */
+#define CLOCK_WHEN_LEN 32
 
 /*
  * Write when `epochUtc` was, seen from `nowUtc`, in local time: the time on

@@ -101,8 +101,13 @@ void screenTaskBootAbsent(BootStep step);
  *
  * Nothing else takes the boot screen down, so a caller that never calls this
  * leaves the radio behind it for ever.
+ *
+ * `language` is the panel's language, a TxtLanguage, put in force as the boot
+ * screen goes, so the boot screen itself is always English. With no boot
+ * screen, which only a failed build of it gives, the radio screen was built
+ * at start in English and stays so until the next start.
  */
-void screenTaskBootEnd(void);
+void screenTaskBootEnd(uint8_t language);
 
 /*
  * How long the last screen change took, in milliseconds.

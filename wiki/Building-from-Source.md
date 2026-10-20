@@ -69,7 +69,8 @@ tools/check.sh format     # one gate by name
 | `coverage` | The tests cover at least 95 % of the lines in the native build |
 | `analysis` | Static analysis with cppcheck, through `pio check` |
 | `format` | The code matches `.clang-format`, with clang-format 23.1.1 |
-| `fonts` | No font is stored compressed, since this build cannot draw a compressed one |
+| `fonts` | The fonts hold every letter the language files use, and only the faces of letters past ASCII and of Chinese are stored packed, which LVGL then unpacks |
+| `english` | Nothing under `src/net/` asks for a text in the screen's language: the web page, the API and the files are English |
 | `web` | The web page builds, its browser tests pass, and `src/net/web_page.h` is what the page builds to now. Needs Node 24.21.0 |
 | `size` | Prints the size of the firmware image |
 
@@ -94,6 +95,28 @@ tools/screenshot.sh && python3 tools/make_assets.py
 
 `tools/screenshot.sh` draws every screen into `.pio/shots/`. It exits with 1, and names the picture and the character, when a text holds a character its font does not have, since that draws as nothing and is easy to miss by eye. `tools/make_assets.py` turns the drawings into the PNG files in `assets/`.
 
+To draw every screen in another language, give its code. The boot and recovery screens stay English, as on the radio:
+
+```bash
+SHOT_LANGUAGE=de tools/screenshot.sh /tmp/de
+tools/screenshot.sh /tmp/en
+python3 tools/text_fit.py /tmp/de --base /tmp/en
+```
+
+In any language the screenshot tool also fails on a letter drawn from a font of another size, and on a text cut short by the buffer it was written into, naming the file and line. Beside each picture it writes what the screen shows, as `GET /api/screen` gives it on the radio. `tools/text_fit.py` reads those, or answers saved from the radio, and lists every text that runs past its box, off the screen or into another text, or that the screen had to cut short with `…`, leaving out what English does too.
+
+The pictures in `assets/` and on this wiki are English only.
+
+## The fonts
+
+The screen's fonts are generated C files in `src/ui/fonts/`, made by `tools/make_lvgl_font.py` from Roboto Condensed, Noto Sans SC (for Chinese) and Material Symbols. The tool's own help names the exact files and where to get them; it stops when the Roboto Condensed or Noto Sans SC file is not the one the fonts were made from. Each text face falls back to a face of the extra letters at its own size, and that one to a Chinese face, so a letter English does not use comes from a font of the same size, except that 15 px text takes its Chinese at 13 px. The tool reads every language file and puts every letter they use into the faces. Run it after changing a language file, then `clang-format` over the fonts:
+
+```bash
+python3 tools/make_lvgl_font.py --font "RobotoCondensed[wght].ttf" \
+    --icons "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf" --cjk "NotoSansSC[wght].ttf"
+clang-format -i src/ui/fonts/*.c
+```
+
 ## Making a release
 
 Releases are made by the release workflow when the owner pushes a version tag. Only the owner can push a tag.
@@ -117,6 +140,7 @@ A tag with a suffix, such as `v0.2.0-rc.1`, makes a prerelease instead: public a
 | `src/net/` | Wi-Fi, the web server and API, updates and rollback, network time |
 | `web/` | The web page: its screens, its browser tests in `web/tests/`, and the radio's answers it is tested against in `web/mock/` |
 | `src/lang/en.h` | Every text the screen shows, one line each |
+| `src/lang/<code>.h` | The same texts in another language |
 | `test/` | The unit tests, one folder per part |
 | `tools/` | `check.sh`, the screenshot tool, `web_page.py` and the build scripts |
 

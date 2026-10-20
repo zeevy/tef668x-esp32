@@ -264,10 +264,25 @@ static void north_america_names_a_programme_type_its_own_way(void) {
   }
 }
 
+/* The web page and the files name a programme type in English whatever the
+ * panel shows, and the panel in its own language. */
+static void the_english_pty_name_is_english_whatever_the_panel_shows(void) {
+  txtSetLanguage(TXT_GERMAN);
+  TEST_ASSERT_EQUAL_STRING("Education",
+                           rdsPtyNameEnglish(5, RDS_REGION_EUROPE));
+  TEST_ASSERT_EQUAL_STRING("Rock",
+                           rdsPtyNameEnglish(5, RDS_REGION_NORTH_AMERICA));
+  TEST_ASSERT_EQUAL_STRING("None",
+                           rdsPtyNameEnglish(40, RDS_REGION_NORTH_AMERICA));
+  TEST_ASSERT_EQUAL_STRING("Bildung", rdsPtyNameIn(5, RDS_REGION_EUROPE));
+  txtSetLanguage(TXT_ENGLISH);
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
   UNITY_BEGIN();
+  RUN_TEST(the_english_pty_name_is_english_whatever_the_panel_shows);
   RUN_TEST(india_is_five_with_f2);
   RUN_TEST(the_same_digit_is_a_different_country_under_each_ecc);
   RUN_TEST(germany_has_two_digits);

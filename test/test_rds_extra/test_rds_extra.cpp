@@ -807,10 +807,19 @@ static void the_stats_of_an_empty_or_short_minute(void) {
   TEST_ASSERT_EQUAL_UINT8(100, s.groupPercent[0]);
 }
 
+/* The web page shows the RT+ label in English whatever the panel shows. */
+static void the_english_label_is_english_whatever_the_panel_shows(void) {
+  txtSetLanguage(TXT_GERMAN);
+  TEST_ASSERT_EQUAL_STRING("TITLE", rdsRtPlusLabelEnglish(1));
+  TEST_ASSERT_EQUAL_STRING("TITEL", rdsRtPlusLabel(1));
+  txtSetLanguage(TXT_ENGLISH);
+}
+
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
   UNITY_BEGIN();
+  RUN_TEST(the_english_label_is_english_whatever_the_panel_shows);
   RUN_TEST(the_minute_counts_the_weak_capture);
   RUN_TEST(old_groups_leave_the_minute);
   RUN_TEST(a_minute_with_no_reads_empties_it);

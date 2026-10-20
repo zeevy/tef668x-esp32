@@ -4,6 +4,8 @@
 #
 #   tools/screenshot.sh          into .pio/shots/
 #   tools/screenshot.sh <dir>    somewhere else
+#   SHOT_LANGUAGE=de tools/screenshot.sh <dir>   in German; any code the
+#                                language list in core/strings.c has
 #
 # What this is for is in the comment at the top of tools/screenshot.cpp. In
 # short: `ui/` knows about LVGL and nothing else, so the same screen.cpp that
@@ -95,18 +97,25 @@ n=0
 # state builder, which uses most of the rest. A panel may use core, so this is
 # the renderer needing the same files the firmware links, not a layer being
 # crossed.
-for f in src/ui/theme.c src/core/*.c src/ui/fonts/*.c; do
+# Every snprintf of our own code goes through tools/text_cut.h, which finds a
+# text cut short by its buffer. LVGL and the fonts are left as they are.
+CUT="-include tools/text_cut.h"
+for f in src/ui/theme.c src/core/*.c; do
+  cc -O1 -w -c $CONF $INC $CUT "$f" -o "$UI/$(printf '%03d' $n).o"
+  n=$((n + 1))
+done
+for f in src/ui/fonts/*.c; do
   cc -O1 -w -c $CONF $INC "$f" -o "$UI/$(printf '%03d' $n).o"
   n=$((n + 1))
 done
 
-c++ -O1 -w -std=c++17 $CONF $INC \
+c++ -O1 -w -std=c++17 $CONF $INC $CUT \
   -o "$BIN" \
   tools/screenshot.cpp src/screen_*state.cpp src/ui/*.cpp src/ui/panels/*.cpp \
   "$UI"/*.o "$LIB" -lm
 
 # Only this run's screens are left for make_assets.py to convert, so a
 # screen the tool no longer draws cannot come back as a stale picture.
-rm -f "$OUT"/*.bmp
+rm -f "$OUT"/*.bmp "$OUT"/*.jsonl
 echo "drawing into $OUT"
 "$BIN" "$OUT"

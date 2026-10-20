@@ -42,8 +42,8 @@ void screenTaskRdsDraw(uint8_t page) {
   if (!radioGetSnapshot(&snap)) {
     return;
   }
-  static char frequency[24];
-  static char sync[16];
+  static char frequency[48];
+  static char sync[32];
 
   ScreenRdsInputs in;
   memset(&in, 0, sizeof(in));

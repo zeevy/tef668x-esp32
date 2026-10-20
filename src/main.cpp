@@ -563,7 +563,7 @@ void setup() {
 
   /* The radio takes the panel from here. Last, so the boot screen is up for
    * everything above it, including the network being asked for. */
-  screenTaskBootEnd();
+  screenTaskBootEnd(gSettings.language);
 
   /* Setup got to the end, so the loop can take over from here. The framework
    * feeds the task watchdog once per pass of the loop from now on. */

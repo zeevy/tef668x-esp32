@@ -46,7 +46,7 @@ size_t memoryCsvLine(const MemoryStore *m, int slot, RdsRegion region,
   const char *ptn = "";
   if (c->pty != 0) {
     snprintf(pty, sizeof(pty), "%u", (unsigned)c->pty);
-    ptn = rdsPtyNameIn(c->pty, region);
+    ptn = rdsPtyNameEnglish(c->pty, region);
   }
   char ecc[3] = "";
   const char *country = NULL;

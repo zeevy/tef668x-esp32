@@ -8,7 +8,7 @@ The recovery screen is a way back when the normal screen cannot be used: a theme
 
 Hold the tuning knob down while you switch the radio on, and keep holding it until the **Recovery** screen shows. Then let go.
 
-The recovery screen does not use your display settings. It always draws with a safe theme, at full brightness, so it can be read whatever was set before. It does not time out: it waits until you choose a row.
+The recovery screen does not use your display settings. It always draws with a safe theme, at full brightness and in English, so it can be read whatever was set before. It does not time out: it waits until you choose a row.
 
 Only the tuning knob works here. The touch screen is read only by the **Calibrate Touch** row, for its rings and dot. Turn it to move between rows, and press it to choose. Five rows fit on the screen; the list moves up to show the others when you reach them.
 

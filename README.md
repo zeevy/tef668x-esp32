@@ -48,6 +48,7 @@ It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https
 - Every text colour meets a 4.5:1 contrast against its background, checked by a test.
 - A boot screen that shows each start up check as it passes.
 - A recovery screen: hold the knob down at power on.
+- The screen's texts in English, Chinese (simplified), German or Russian, picked in the menu at Display > Language. The web page and the API stay English.
 
 **Network**
 - Joins your Wi-Fi, or starts its own hotspot when it cannot.
@@ -253,18 +254,18 @@ flowchart TD
     J -- no --> RB([Restart, the bootloader<br/>puts the old image back])
 ```
 
-Every text the screen shows is one line in `src/lang/en.h`. Another language is another file with the same names.
+Every text the screen shows is one line in `src/lang/en.h`. Each other language is a file `src/lang/<code>.h` with the same names, leaving out what reads the same as English.
 
 ## Development
 
 One command runs every check:
 
 ```bash
-tools/check.sh                    # all eight gates
-tools/check.sh test               # just one: build, test, coverage, analysis, format, fonts, web, size
+tools/check.sh                    # all nine gates
+tools/check.sh test               # just one: build, test, coverage, analysis, format, fonts, english, web, size
 ```
 
-It builds the firmware, runs the unit tests, checks that line coverage is at least 95 %, runs static analysis, checks the formatting with clang-format 23.1.1, checks the fonts are not compressed, builds the web page and runs its browser tests, and prints the image size. CI runs the same script on every push and pull request to `master`.
+It builds the firmware, runs the unit tests, checks that line coverage is at least 95 %, runs static analysis, checks the formatting with clang-format 23.1.1, checks the fonts hold every letter the languages use and that only the extra letter faces are packed, checks nothing the web sends asks for a text in the screen's language, builds the web page and runs its browser tests, and prints the image size. CI runs the same script on every push and pull request to `master`.
 
 The web page is built from `web/` with Preact and Tailwind CSS, into one file that the firmware carries gzipped in `src/net/web_page.h`. It needs Node 24.21.0. After a change in `web/`:
 

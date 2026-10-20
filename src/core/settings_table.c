@@ -13,6 +13,7 @@
 #include "rds_country.h"
 #include "seek.h"
 #include "squelch.h"
+#include "strings.h"
 #include "wifi_join.h"
 
 /* The width and place of a field come from the struct itself, so a field
@@ -77,6 +78,10 @@ static const SettingRow kRows[] = {
         SETTINGS_KEYPAD_TIMEOUT_MAX_S, NOW),
     ROW("pcl", pcLink, 0, 1, NOW),
     ROW("bck", batteryCheck, 0, 1, NOW),
+    /* Put in force as the boot screen hands over, so a change waits for a
+     * restart. Not "lng", which /api/state uses for the RDS programme
+     * language. */
+    ROW("plg", language, 0, TXT_LANGUAGE_COUNT - 1, AT_START),
 };
 
 size_t settingsTableCount(void) {

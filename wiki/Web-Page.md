@@ -362,6 +362,6 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md).
 
 ## What the web page does not do
 
-These are on the radio only: the station scans (FM, AM, SW and LW Station Scan), and the touch calibration.
+These are on the radio only: the station scans (FM, AM, SW and LW Station Scan), the touch calibration, and the language of the screen, **Display > Language**. The web page is in English whatever language the screen shows.
 
 The radio answers nothing while a level sweep reads the band, about 4 seconds on FM and up to 7.5 seconds on MW. The page waits, and the chart stays dim until the new sweep comes.

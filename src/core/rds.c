@@ -76,11 +76,12 @@ static const StrId kPtyNames[RDS_PTY_COUNT] = {STR_PTY_NONE,
                                                STR_PTY_ALARM_TEST,
                                                STR_PTY_ALARM};
 
+StrId rdsPtyNameId(uint8_t pty) {
+  return pty < RDS_PTY_COUNT ? kPtyNames[pty] : STR_PTY_NONE;
+}
+
 const char *rdsPtyName(uint8_t pty) {
-  if (pty >= RDS_PTY_COUNT) {
-    return txt(STR_PTY_NONE);
-  }
-  return txt(kPtyNames[pty]);
+  return txt(rdsPtyNameId(pty));
 }
 
 /*

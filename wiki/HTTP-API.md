@@ -67,6 +67,8 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 502 | `Not done: the tuner did not take it, and the radio is trying again.` |
 | 503 | `The radio is busy. Try again in a moment.` Nothing was taken |
 
+Every answer and every field is in English, whatever language the radio's screen shows, and so are the CSV files of the presets and the station log. Only [`GET /api/screen`](#get-apiscreen) gives the screen's own texts, in the screen's language, since it is a picture of the screen.
+
 Fields are sent as form fields (`curl -d name=value`) or in the query string. A seek, a scan, a sweep and a Learn Local Stations pass answer at once and run on their own: read `/api/state` or `/api/dx` to follow them.
 
 While a DX level sweep runs, about 4 seconds, the radio answers nothing. A request sent then is answered when the sweep ends.
@@ -534,6 +536,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `rot` | 0, 180 | Screen rotation |
 | `bat` | 0 to 2 | Battery mark: off, per cent, volts |
 | `bck` | 0 or 1 | Battery Check: 1 reads the battery every 5 minutes with Wi-Fi stopped for a moment, while nobody uses the radio |
+| `plg` | 0 to 3 | The language of the screen: 0 English, 1 Chinese (simplified), 2 German, 3 Russian. After a restart. See [Display and Themes](Display-and-Themes.md#language) |
 | `rds`, `rrg` | 0, 1 | RDS decoder; RDS region Europe or North America |
 | `hsp` | 0 to 2 | Hotspot: Auto, On, Off |
 | `web`, `wif` | 0, 1 | Web server and Wi-Fi. 0 can only be undone from the radio's menu, or by Erase Settings on the recovery screen |

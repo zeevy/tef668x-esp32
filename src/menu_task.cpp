@@ -102,6 +102,7 @@ typedef enum {
   ROW_DIM_AFTER,
   ROW_BATTERY,
   ROW_BATTERY_CHECK,
+  ROW_LANGUAGE,
   ROW_THEME,
   ROW_NIGHT_THEME,
   ROW_DISPLAY_ROTATION,
@@ -610,6 +611,12 @@ static const MenuRow kDisplayRows[] = {
      * radio, with Wi-Fi stopped for the moment the reading takes. */
     {STR_MENU_BATTERY_CHECK, ROW_BATTERY_CHECK, SRC_STORED, TABLE_RANGE, 1,
      NOLIST, false, false, false, NULL, "bck"},
+    /* Put in force as the boot screen hands over, so a change waits for a
+     * restart. Each value is the language's own name in its own script, the
+     * same in every language, so a person who reads only one of them finds
+     * it. */
+    {STR_MENU_LANGUAGE, ROW_LANGUAGE, SRC_STORED, TABLE_RANGE, 1, NOLIST, false,
+     true, false, NULL, "plg"},
 };
 
 /* Network Time's step below -12:00, which reads Off: the two settings,
@@ -886,7 +893,7 @@ static bool settingsNow(RadioSettings *out) {
 
 /* Where the strings live while LVGL holds pointers to them. 32 fits the
  * longest value, the 30 character GitHub address in About. */
-static char sValueText[SCREEN_MENU_ROWS][32];
+static char sValueText[SCREEN_MENU_ROWS][64];
 
 /* A preset row's name, "P03 " and up to 16 characters of its own name. */
 static char sPresetName[SCREEN_MENU_ROWS][24];
@@ -911,7 +918,7 @@ static void presetRowText(uint8_t n, char *name, size_t nameLen, char *value,
 }
 /* A title with its way back in it, for pathOf. 48 fits the longest,
  * "FM Reception > Seek Sensitivity", with room to spare. */
-static char sPathText[48];
+static char sPathText[96];
 
 /* "Audio > Squelch": the list a screen sits in, then its own name, as the
  * title, so a person can see where back goes. One at a time: a draw shows
@@ -1919,6 +1926,9 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
     return;
   }
   switch (row->id) {
+    case ROW_LANGUAGE:
+      putText(out, len, txtLanguageName((TxtLanguage)v));
+      return;
     case ROW_FM_REGION:
       putText(out, len,
               v >= 0 && v < FM_REGION_COUNT ? kRegionNames[v]
@@ -2280,7 +2290,7 @@ static uint8_t pickerTotal(const MenuRow *row) {
  */
 static void drawPicker(const MenuRow *row, ScreenMenuValue *view) {
   /* As long as the row's own copy of each name, so no name is cut here. */
-  static char text[SCREEN_MENU_PICKER_ROWS][32];
+  static char text[SCREEN_MENU_PICKER_ROWS][64];
   const uint8_t total = pickerTotal(row);
   sTopPicker = menuWindowTop((uint8_t)sMenu.value, total,
                              SCREEN_MENU_PICKER_ROWS, sTopPicker);
@@ -2350,7 +2360,7 @@ static bool pinEditing(void) {
  * value and the bar. */
 static void drawPinValue(ScreenMenuValue *view) {
   static char digits[ACCESS_PIN_DIGITS + 1];
-  static char place[24];
+  static char place[48];
   accessPinFormat(accessPinEditValue(&sPin), digits);
   snprintf(place, sizeof(place), txt(STR_MENU_FMT_DIGIT_OF),
            (unsigned)(sPin.at + 1), (unsigned)ACCESS_PIN_DIGITS);
@@ -2375,7 +2385,7 @@ static bool barValueChanged(const MenuRow *row) {
  * the one the save before the restart writes, a scan's starting channel
  * while a scan runs rather than the channel it is on. Empty when it could
  * not be read. */
-static char sConfirmStation[24];
+static char sConfirmStation[48];
 
 static void confirmStationRead(void) {
   sConfirmStation[0] = '\0';
@@ -2393,7 +2403,7 @@ static void confirmStationRead(void) {
 /* A row that asks first, Restart Radio: a question box, as the update offer
  * is drawn, with No first and where the knob starts. */
 static void drawConfirm(const MenuRow *row) {
-  static char title[32];
+  static char title[96];
   snprintf(title, sizeof(title), txt(STR_MENU_FMT_QUESTION), txt(row->name));
   ScreenMenuDialog dialog;
   memset(&dialog, 0, sizeof(dialog));
@@ -2421,7 +2431,7 @@ static void drawValue(void) {
     drawConfirm(row);
     return;
   }
-  static char bare[20];
+  static char bare[48];
   static char lowText[12];
   static char highText[12];
   ScreenMenuValue view;
@@ -2458,7 +2468,7 @@ static void drawValue(void) {
                                      : NULL;
   /* The AGC's two rows say what it does as the knob turns, the gain taking
    * a few seconds to follow. */
-  static char gainNote[24];
+  static char gainNote[48];
   int8_t gain = 0;
   if (view.note == NULL &&
       (row->id == ROW_AGC_TARGET || row->id == ROW_AGC_BOOST) &&
@@ -2741,7 +2751,7 @@ static void draw(void) {
                 ? STR_MENU_HOTSPOT_NAME
                 : row->name);
     if (row->id == ROW_UPDATE_INSTALL && updateCheckVersion() != NULL) {
-      static char sUpdateName[32];
+      static char sUpdateName[64];
       snprintf(sUpdateName, sizeof(sUpdateName), txt(STR_MENU_FMT_UPDATE_TO),
                updateCheckVersion());
       view.rows[i].name = sUpdateName;
@@ -2797,7 +2807,7 @@ static bool dxCanOpenOrNote(void) {
  * Saved, the menu closes and the radio screen says which slot; a station
  * already a preset, or no slot free, leaves the menu open with a note. */
 static void saveStation(void) {
-  static char note[24];
+  static char note[64];
   RadioSnapshot snap;
   if (!radioGetSnapshot(&snap)) {
     sNote = txt(STR_MENU_NOTE_RADIO_BUSY);
@@ -3222,7 +3232,7 @@ static struct {
 } sChoice;
 
 static void drawChoice(void) {
-  static char title[32];
+  static char title[96];
   ScreenMenu view;
   memset(&view, 0, sizeof(view));
   if (sChoice.update) {

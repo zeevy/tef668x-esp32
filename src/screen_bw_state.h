@@ -19,7 +19,7 @@ typedef struct {
   char context[16];
   char position[8];
   char note[32];
-  char text[BW_PAGE_MAX][12];
+  char text[BW_PAGE_MAX][24];
 } ScreenBwKeep;
 
 typedef struct {

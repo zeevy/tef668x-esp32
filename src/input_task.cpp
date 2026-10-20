@@ -1809,9 +1809,12 @@ static void enterTyped(void) {
   BandId band = BAND_COUNT;
   if (!radioTaskPlan(&plan) ||
       !bandFromTypedNumber(&plan, typed, prefer, &khz, &band)) {
-    snprintf(text, sizeof(text), txt(STR_RADIO_FMT_NO_BAND), sTyped);
+    /* In English for the API's last input, and said on the panel too, in
+     * its language, or the digits would just vanish. */
+    snprintf(text, sizeof(text), txtIn(TXT_ENGLISH, STR_RADIO_FMT_NO_BAND),
+             sTyped);
     note(text);
-    /* Said on the panel too, or the digits would just vanish. */
+    snprintf(text, sizeof(text), txt(STR_RADIO_FMT_NO_BAND), sTyped);
     screenTaskLogConfirm(text);
     clearTyped();
     return;

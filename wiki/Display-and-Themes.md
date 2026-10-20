@@ -1,6 +1,6 @@
 # Display and Themes
 
-The colours, the brightness and dimming, the screen rotation and the battery mark. All of these are in the menu's **Display** group.
+The colours, the brightness and dimming, the screen rotation, the battery mark and the language of the screen. All of these are in the menu's **Display** group.
 
 ## Themes
 
@@ -68,3 +68,31 @@ The battery is read once, at start up, because the ESP32's Wi-Fi uses the same p
 ## Battery Check
 
 **Battery Check**, Off or On, Off at first, reads the battery again while Wi-Fi is on. Every 5 minutes, when nobody is using the radio, it stops Wi-Fi for a moment, reads the battery, and starts Wi-Fi again. Nobody is using it when no key, knob or touch came in the last 5 minutes, or the screen is dimmed to nothing; and no web page is open, no web request came in the last minute, no PC is on the PC Link and no phone is on the radio's hotspot. It waits while a seek, a station scan, a DX scan, a sweep or an update runs, and while a new firmware is on trial. The radio is off the network for the few seconds it takes to join again, or to start its hotspot when that is how it runs. The reading shows in the header at once, and **Battery Voltage** shows it with its age, such as `3.85 V, 4 min ago`.
+
+## Language
+
+The screen can show its texts in these languages:
+
+| Language | As the list shows it |
+|---|---|
+| English | English |
+| Chinese, simplified | 简体中文 |
+| German | Deutsch |
+| Russian | Русский |
+
+Pick one at **Display > Language**. Each language is listed by its own name, in its own script, the same in every language. The picker says **Applies after restart** on its cursor row: the screen changes the next time the radio starts. Restart it with **System > Restart Radio**, or turn it off and on.
+
+In every language the row's own name ends with the English word, such as `Sprache · Language` or `语言 · Language`, so you can find it on a screen you cannot read. It is the last row of the **Display** group.
+
+These stay English in every language:
+
+- The boot screen and the [recovery screen](Recovery-Screen.md). They are drawn before the radio puts its language in force.
+- The [web page](Web-Page.md), the [HTTP API](HTTP-API.md), the PC Link and the CSV files of the presets and the station log. The web page and the CSV import read some of these words back as values.
+- The theme names, the RDS programme language on RDS page 1 (`LANG`), the band names (FM, MW, SW, LW, OIRT), the units (MHz, kHz, dBµV, dB, %, s, min) and the clock (`17:08`).
+
+Numbers keep the point in every language, as in `98.30 MHz` and `3.95 V`.
+
+To get back to English, pick **English** in the same row and restart. From a computer, send `plg=0` to [`POST /api/settings`](HTTP-API.md#settings) and restart. **Erase Settings** on the recovery screen also brings English back, with every other setting at its first value.
+
+The translations were made for this firmware, using the words radios in each country use. To correct a word, open an issue on GitHub with the language, the screen, the text you see and the text it should be.
+

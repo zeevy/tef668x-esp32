@@ -16,6 +16,7 @@
  */
 #include <ctype.h>
 #include <lvgl.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "../core/menu.h"
@@ -129,7 +130,7 @@ static int32_t sEditLow;
 static int32_t sEditHigh;
 static UiRow sRows[SCREEN_MENU_ROWS];
 /* A picker label with its first letter a capital. */
-static char sRowWord[SCREEN_MENU_ROWS][32];
+static char sRowWord[SCREEN_MENU_ROWS][64];
 
 /* The value editor. */
 static lv_obj_t *sPanel;
@@ -607,8 +608,7 @@ static void showPicker(const ScreenMenuValue *v) {
     if (row->isCursor) {
       sListCursor = (int8_t)i;
     }
-    strncpy(sRowWord[i], row->name, sizeof(sRowWord[i]) - 1);
-    sRowWord[i][sizeof(sRowWord[i]) - 1] = '\0';
+    snprintf(sRowWord[i], sizeof(sRowWord[i]), "%s", row->name);
     sRowWord[i][0] = (char)toupper((unsigned char)sRowWord[i][0]);
     UiRowView view;
     memset(&view, 0, sizeof(view));

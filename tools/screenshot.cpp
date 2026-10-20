@@ -31,6 +31,7 @@
 /* For the draw unit and the text decoder that the glyph check below uses. */
 #include "src/lvgl_private.h"
 #include "ui/draw.h"
+#include "ui/fonts.h"
 #include "ui/screen.h"
 #include "ui/theme.h"
 
@@ -92,6 +93,51 @@ static uint32_t sMissing[8];
 static int sMissingCount = 0;
 static int sMissingCaptures = 0;
 
+/*
+ * The language the captures are drawn in, SHOT_LANGUAGE=de for German. The
+ * boot and recovery screens are drawn before the radio sets its language, so
+ * they are English here too.
+ */
+static TxtLanguage sLanguage = TXT_ENGLISH;
+
+/*
+ * Each text face, and the faces its letters past ASCII come from: its own
+ * extra letters, then its Chinese. A letter drawn from any other face is
+ * drawn at another size, which reads as a mistake beside its neighbours, so
+ * it fails like a letter with no glyph at all.
+ */
+static const struct {
+  const lv_font_t *face;
+  const lv_font_t *ext;
+  const lv_font_t *zh;
+} kFallbacks[] = {
+    {&roboto_label, &ext_label, &zh_13}, {&roboto_small, &ext_small, &zh_13},
+    {&roboto_text, &ext_text, &zh_17},   {&roboto_title, &ext_title, &zh_20},
+    {&roboto_value, &ext_value, &zh_24},
+};
+
+/* Where Chinese starts, the CJK radicals, and the private use area, where
+ * the symbols are. */
+#define CJK_FROM 0x2E80u
+#define PRIVATE_USE_FROM 0xE000u
+#define PRIVATE_USE_TO 0xF8FFu
+
+static bool ownSize(const lv_font_t *face, uint32_t letter,
+                    const lv_font_t *resolved) {
+  if (letter <= 0x7E ||
+      (letter >= PRIVATE_USE_FROM && letter <= PRIVATE_USE_TO)) {
+    return true;
+  }
+  for (size_t i = 0; i < sizeof(kFallbacks) / sizeof(kFallbacks[0]); i++) {
+    if (kFallbacks[i].face == face) {
+      return letter >= CJK_FROM ? resolved == kFallbacks[i].zh
+                                : resolved == face ||
+                                      resolved == kFallbacks[i].ext;
+    }
+  }
+  return true; /* The digits and the symbols, which have no fallback. */
+}
+
 static void noteMissing(uint32_t letter) {
   for (int i = 0; i < sMissingCount; i++) {
     if (sMissing[i] == letter) {
@@ -118,8 +164,11 @@ static int32_t checkGlyphs(lv_draw_unit_t *unit, lv_draw_task_t *task) {
   while (i < d->text_length && d->text[i] != '\0') {
     const uint32_t letter = lv_text_encoded_next(d->text, &i);
     lv_font_glyph_dsc_t g;
-    if (!lv_text_is_marker(letter) &&
-        !lv_font_get_glyph_dsc(d->font, &g, letter, 0)) {
+    if (lv_text_is_marker(letter)) {
+      continue;
+    }
+    if (!lv_font_get_glyph_dsc(d->font, &g, letter, 0) ||
+        !ownSize(d->font, letter, g.resolved_font)) {
       noteMissing(letter);
     }
   }
@@ -139,7 +188,7 @@ static void reportMissing(const char *where) {
   }
   /* So the report does not land in the middle of a path still buffered. */
   fflush(stdout);
-  fprintf(stderr, "  %s: no glyph for", where);
+  fprintf(stderr, "  %s: no glyph of its own size for", where);
   for (int i = 0; i < sMissingCount; i++) {
     fprintf(stderr, " U+%04X", (unsigned)sMissing[i]);
   }
@@ -152,7 +201,8 @@ static void reportMissing(const char *where) {
 #define H 240
 
 static uint16_t sFrame[W * H];
-static uint16_t sDrawBuf[W * LVGL_DRAW_LINES];
+/* Aligned as LV_DRAW_BUF_ALIGN asks, as the radio's own buffer is. */
+static uint16_t sDrawBuf[W * LVGL_DRAW_LINES] __attribute__((aligned(4)));
 
 /*
  * Take the piece LVGL has finished and put it in the frame.
@@ -194,12 +244,104 @@ static void countPinTexts(void *ctx, const UiText *t) {
 }
 
 /*
+ * What each picture shows, as GET /api/screen says it on the radio: one JSON
+ * object a line, each text with where it sits and its face, each box with
+ * where it is. tools/text_fit.py reads these and the radio's own answers
+ * alike, for a text that runs past its box or into another text.
+ */
+static void writeJsonText(FILE *f, const char *text) {
+  fputc('"', f);
+  for (const unsigned char *c = (const unsigned char *)text; *c != '\0'; c++) {
+    if (*c == '"' || *c == '\\') {
+      fprintf(f, "\\%c", *c);
+    } else if (*c < 0x20) {
+      fprintf(f, "\\u%04x", *c);
+    } else {
+      fputc(*c, f);
+    }
+  }
+  fputc('"', f);
+}
+
+static void layoutText(void *ctx, const UiText *t) {
+  FILE *f = (FILE *)ctx;
+  fprintf(f, "{\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"font\":\"%s\",\"text\":",
+          (int)t->x, (int)t->y, (int)t->w, (int)t->h, t->font);
+  writeJsonText(f, t->text);
+  fputs("}\n", f);
+}
+
+static void layoutBox(void *ctx, const UiBox *b) {
+  fprintf((FILE *)ctx,
+          "{\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d,\"fill\":%s,\"border\":%u}\n",
+          (int)b->x, (int)b->y, (int)b->w, (int)b->h,
+          b->filled ? "true" : "false", (unsigned)b->border);
+}
+
+static void writeLayout(const char *bmpPath) {
+  char path[520];
+  snprintf(path, sizeof(path), "%s", bmpPath);
+  char *dot = strrchr(path, '.');
+  if (dot == NULL) {
+    return;
+  }
+  snprintf(dot, sizeof(path) - (size_t)(dot - path), ".jsonl");
+  FILE *f = fopen(path, "w");
+  if (f == NULL) {
+    fprintf(stderr, "could not write %s\n", path);
+    exit(1);
+  }
+  const char *name = strrchr(bmpPath, '/');
+  fprintf(f, "{\"screen\":");
+  writeJsonText(f, name != NULL ? name + 1 : bmpPath);
+  fputs("}\n", f);
+  uiReadPanel(layoutText, layoutBox, f);
+  fclose(f);
+}
+
+/*
+ * A text cut short by the buffer it was written into, which is what a
+ * longer language does to a buffer sized for English. Every snprintf of the
+ * screens, the state builders and core goes through here in this tool,
+ * through tools/text_cut.h, and a cut is kept with where it happened and
+ * what was kept, and fails the run.
+ */
+static char sCuts[32][160];
+static int sCutCount = 0;
+
+static void noteCut(const char *file, int line, const char *kept) {
+  char cut[160];
+  snprintf(cut, sizeof(cut), "%s:%d kept \"%s\"", file, line, kept);
+  for (int i = 0; i < sCutCount; i++) {
+    if (strcmp(sCuts[i], cut) == 0) {
+      return;
+    }
+  }
+  if (sCutCount < (int)(sizeof(sCuts) / sizeof(sCuts[0]))) {
+    memcpy(sCuts[sCutCount++], cut, sizeof(cut));
+  }
+}
+
+extern "C" int textCutSnprintf(const char *file, int line, char *out,
+                               size_t cap, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  const int n = vsnprintf(out, cap, format, args);
+  va_end(args);
+  if (n >= 0 && cap > 0 && (size_t)n >= cap) {
+    noteCut(file, line, out);
+  }
+  return n;
+}
+
+/*
  * A bottom up 24 bit BMP, because it is the one image format that is a header
  * and then the pixels. Writing a PNG would mean a compressor, and nothing
  * here is worth a dependency.
  */
 static int writeBmp(const char *path) {
   reportMissing(path);
+  writeLayout(path);
   FILE *f = fopen(path, "wb");
   if (f == NULL) {
     return 0;
@@ -268,13 +410,27 @@ static void saveShot(const char *format, ...) {
  * so the buffers rotate rather than being one.
  */
 static const char *fmt(StrId id, ...) {
-  static char ring[32][40];
+  static char ring[32][128];
   static unsigned next;
   char *out = ring[next++ % 32];
   va_list args;
   va_start(args, id);
-  vsnprintf(out, sizeof(ring[0]), txt(id), args);
+  const int n = vsnprintf(out, sizeof(ring[0]), txt(id), args);
   va_end(args);
+  if (n >= (int)sizeof(ring[0])) {
+    noteCut(__FILE__, __LINE__, out);
+  }
+  return out;
+}
+
+/* The date line as the radio writes it, by clockFormatDate into a buffer of
+ * the radio's own size, so a language that runs past it is caught: 05:09 UTC
+ * on Wednesday 30 September 2026. */
+static const char *dateLine(void) {
+  static char lines[4][CLOCK_DATE_LEN];
+  static unsigned next;
+  char *out = lines[next++ % 4];
+  clockFormatDate(1790744940u, 0, out, CLOCK_DATE_LEN);
   return out;
 }
 
@@ -324,8 +480,7 @@ static void sceneFm(ScreenState *s) {
   s->filter = txt(STR_COMMON_AUTO);
   s->volume = fmt(STR_RADIO_FMT_VOL_DB, -6);
   s->clock = "05:09";
-  s->date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
-                txt(STR_DATE_SUFFIX_TH), txt(STR_MONTH_SEPTEMBER), 2026);
+  s->date = dateLine();
   s->tunerReady = true;
 }
 
@@ -467,8 +622,7 @@ static void sceneSw(ScreenState *s) {
   s->memory = fmt(STR_RADIO_FMT_MEMORY_SLOT, 7);
   s->memoryName = "RADIO ROMANIA";
   s->clock = "05:09";
-  s->date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
-                txt(STR_DATE_SUFFIX_TH), txt(STR_MONTH_SEPTEMBER), 2026);
+  s->date = dateLine();
   s->tunerReady = true;
 }
 
@@ -521,8 +675,7 @@ static void sceneMw(ScreenState *s) {
   s->filter = fmt(STR_RADIO_FMT_BW_K, 6u);
   s->volume = fmt(STR_RADIO_FMT_VOL_DB, -6);
   s->clock = "05:09";
-  s->date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
-                txt(STR_DATE_SUFFIX_TH), txt(STR_MONTH_SEPTEMBER), 2026);
+  s->date = dateLine();
   s->tunerReady = true;
 }
 
@@ -1166,7 +1319,7 @@ static void renderBandScopes(const char *dir) {
   in.nowKnown = true;
   in.nowUtc = now;
   in.clock = "17:43";
-  char title[16];
+  char title[48];
   snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE), "FM");
   in.title = title;
   in.position = txt(STR_SCOPE_FULL);
@@ -1401,8 +1554,7 @@ static bool renderCapture(const char *path, uint32_t khz, bool withRds) {
   in.batteryShow = BATTERY_SHOW_PERCENT;
   in.clock = "05:09";
   in.touchOn = true;
-  in.date = fmt(STR_DATE_FMT_LINE, txt(STR_DAY_WEDNESDAY), 30,
-                txt(STR_DATE_SUFFIX_TH), txt(STR_MONTH_SEPTEMBER), 2026);
+  in.date = dateLine();
   in.nowMs = 0;
 
   static ScreenBuild build;
@@ -1416,6 +1568,21 @@ static bool renderCapture(const char *path, uint32_t khz, bool withRds) {
 
 int main(int argc, char **argv) {
   const char *dir = argc > 1 ? argv[1] : ".";
+  {
+    const char *code = getenv("SHOT_LANGUAGE");
+    int found = code == NULL ? TXT_ENGLISH : -1;
+    for (int l = 0; found < 0 && l < TXT_LANGUAGE_COUNT; l++) {
+      if (strcmp(code, txtLanguageCode((TxtLanguage)l)) == 0) {
+        found = l;
+      }
+    }
+    if (found < 0) {
+      fprintf(stderr, "SHOT_LANGUAGE %s is no language the panel has\n", code);
+      return 2;
+    }
+    sLanguage = (TxtLanguage)found;
+    txtSetLanguage(sLanguage);
+  }
 
   lv_init();
   lv_draw_unit_t *glyphs =
@@ -1570,6 +1737,7 @@ int main(int argc, char **argv) {
    * and a bar that is not full. A capture of the finished screen would be six
    * ticks and say nothing about what the screen is for.
    */
+  txtSetLanguage(TXT_ENGLISH);
   ScreenBoot boot;
   memset(&boot, 0, sizeof(boot));
   boot.product = txt(STR_RADIO_PRODUCT_NAME);
@@ -1604,6 +1772,7 @@ int main(int argc, char **argv) {
     saveShot("%s/boot.bmp", dir);
     screenBootEnd();
   }
+  txtSetLanguage(sLanguage);
   /* The menu, both levels. The group list says which groups have anything in
    * them, and the group screen is caught with an edit running, because the
    * one thing a person has to know before turning the knob is whether it
@@ -1655,6 +1824,28 @@ int main(int argc, char **argv) {
     menu.total = 6; /* Display's rows, all shown. */
     screenMenuShow(&menu);
     saveShot("%s/menu-screen.bmp", dir);
+    /* The end of the same list, down to the Language row. */
+    {
+      ScreenMenu end = menu;
+      static const StrId kEndRows[] = {
+          STR_MENU_DIM_AFTER,  STR_MENU_ROTATION,      STR_COMMON_BATTERY,
+          STR_MENU_BATTERY_CHECK, STR_MENU_LANGUAGE};
+      const char *const kEndValues[] = {
+          txt(STR_MENU_NEVER), txt(STR_COMMON_ROTATION_NORMAL),
+          txt(STR_MENU_BATTERY_PER_CENT), txt(STR_COMMON_OFF),
+          txt(txtLanguageName(sLanguage))};
+      for (int i = 0; i < SCREEN_MENU_ROWS; i++) {
+        const bool shown = i < 5;
+        end.rows[i].name = shown ? txt(kEndRows[i]) : NULL;
+        end.rows[i].value = shown ? kEndValues[i] : NULL;
+        end.rows[i].selected = i == 4;
+        end.rows[i].opens = false;
+      }
+      end.total = 8;
+      end.top = 3;
+      screenMenuShow(&end);
+      saveShot("%s/menu-screen-end.bmp", dir);
+    }
     /* With Touch Off: no back mark, the title at the margin. */
     uiSetTouchMarks(false);
     screenMenuShow(&menu);
@@ -2244,6 +2435,25 @@ int main(int argc, char **argv) {
     screenMenuValueShow(&beep);
     saveShot("%s/menu-enum.bmp", dir);
 
+    /* The Language row's picker: every language by its own name, the one
+     * in use kept and the cursor on the next, with the note that a change
+     * waits for a restart. */
+    ScreenMenuValue language;
+    memset(&language, 0, sizeof(language));
+    language.name =
+        fmt(STR_MENU_FMT_PATH, txt(STR_MENU_DISPLAY), txt(STR_MENU_LANGUAGE));
+    language.isPicker = true;
+    language.pickerTotal = TXT_LANGUAGE_COUNT;
+    for (int i = 0; i < SCREEN_MENU_PICKER_ROWS && i < TXT_LANGUAGE_COUNT;
+         i++) {
+      language.picker[i].name = txt(txtLanguageName((TxtLanguage)i));
+      language.picker[i].isCursor = i == (sLanguage + 1) % TXT_LANGUAGE_COUNT;
+      language.picker[i].isSaved = i == sLanguage;
+    }
+    language.note = txt(STR_MENU_HINT_RESTART);
+    screenMenuValueShow(&language);
+    saveShot("%s/menu-language.bmp", dir);
+
     /* The Scope Baseline picker: Median, then the kept sweeps but the newest,
      * named by the same code the radio uses, at +05:30. The cursor on the
      * second, the median kept. */
@@ -2581,6 +2791,7 @@ int main(int argc, char **argv) {
 
   /* Recovery: no theme, fault red, the cursor on the first row, the saved
    * rotation and the Touch switch shown as values. */
+  txtSetLanguage(TXT_ENGLISH);
   if (screenRecoveryBegin()) {
     ScreenRecovery recovery;
     memset(&recovery, 0, sizeof(recovery));
@@ -2630,6 +2841,7 @@ int main(int argc, char **argv) {
     saveShot("%s/recovery-exit.bmp", dir);
     screenRecoveryEnd();
   }
+  txtSetLanguage(sLanguage);
 
   /* The touch calibration screen: the second mark part filled, the middle
    * mark, the check, and the three results. */
@@ -2671,10 +2883,12 @@ int main(int argc, char **argv) {
 
   /* A text drawn after the last capture was written still counts. */
   reportMissing("after the last capture");
+  for (int i = 0; i < sCutCount; i++) {
+    fprintf(stderr, "  a text cut by its buffer: %s\n", sCuts[i]);
+  }
   if (sMissingCaptures > 0) {
     fprintf(stderr, "%d captures draw a character their face does not carry\n",
             sMissingCaptures);
-    return 1;
   }
-  return 0;
+  return sMissingCaptures > 0 || sCutCount > 0 ? 1 : 0;
 }
