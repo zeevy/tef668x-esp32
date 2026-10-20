@@ -4,18 +4,23 @@
 #include <stdint.h>
 
 #include "lang/cs.h"
+#include "lang/da.h"
 #include "lang/de.h"
 #include "lang/es.h"
+#include "lang/fi.h"
 #include "lang/fr.h"
+#include "lang/ga.h"
 #include "lang/hr.h"
 #include "lang/hu.h"
 #include "lang/it.h"
+#include "lang/nb.h"
 #include "lang/nl.h"
 #include "lang/pl.h"
 #include "lang/pt.h"
 #include "lang/ro.h"
 #include "lang/ru.h"
 #include "lang/sr.h"
+#include "lang/sv.h"
 #include "lang/zh.h"
 
 /* The table is the same list as the enum, so an id and its text cannot get
@@ -151,6 +156,44 @@ _Static_assert(sizeof(kHu) < UINT16_MAX,
                "Hungarian is past what an offset holds");
 #undef LANGUAGE
 
+#define LANGUAGE struct TextsDa
+LANGUAGE{STRINGS_DA(TEXT_FIELD)};
+static const LANGUAGE kDa = {STRINGS_DA(TEXT_VALUE)};
+static const uint16_t kDaAt[STR_COUNT] = {STRINGS_DA(TEXT_AT)};
+_Static_assert(sizeof(kDa) < UINT16_MAX, "Danish is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsNb
+LANGUAGE{STRINGS_NB(TEXT_FIELD)};
+static const LANGUAGE kNb = {STRINGS_NB(TEXT_VALUE)};
+static const uint16_t kNbAt[STR_COUNT] = {STRINGS_NB(TEXT_AT)};
+_Static_assert(sizeof(kNb) < UINT16_MAX,
+               "Norwegian Bokmal is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsSv
+LANGUAGE{STRINGS_SV(TEXT_FIELD)};
+static const LANGUAGE kSv = {STRINGS_SV(TEXT_VALUE)};
+static const uint16_t kSvAt[STR_COUNT] = {STRINGS_SV(TEXT_AT)};
+_Static_assert(sizeof(kSv) < UINT16_MAX,
+               "Swedish is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsFi
+LANGUAGE{STRINGS_FI(TEXT_FIELD)};
+static const LANGUAGE kFi = {STRINGS_FI(TEXT_VALUE)};
+static const uint16_t kFiAt[STR_COUNT] = {STRINGS_FI(TEXT_AT)};
+_Static_assert(sizeof(kFi) < UINT16_MAX,
+               "Finnish is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsGa
+LANGUAGE{STRINGS_GA(TEXT_FIELD)};
+static const LANGUAGE kGa = {STRINGS_GA(TEXT_VALUE)};
+static const uint16_t kGaAt[STR_COUNT] = {STRINGS_GA(TEXT_AT)};
+_Static_assert(sizeof(kGa) < UINT16_MAX, "Irish is past what an offset holds");
+#undef LANGUAGE
+
 typedef struct {
   const char *code;
   StrId name;
@@ -174,6 +217,11 @@ static const Language kLanguages[TXT_LANGUAGE_COUNT] = {
     [TXT_SERBIAN] = {"sr", STR_LANGUAGE_SR, (const char *)&kSr, kSrAt},
     [TXT_ROMANIAN] = {"ro", STR_LANGUAGE_RO, (const char *)&kRo, kRoAt},
     [TXT_HUNGARIAN] = {"hu", STR_LANGUAGE_HU, (const char *)&kHu, kHuAt},
+    [TXT_DANISH] = {"da", STR_LANGUAGE_DA, (const char *)&kDa, kDaAt},
+    [TXT_NORWEGIAN] = {"nb", STR_LANGUAGE_NB, (const char *)&kNb, kNbAt},
+    [TXT_SWEDISH] = {"sv", STR_LANGUAGE_SV, (const char *)&kSv, kSvAt},
+    [TXT_FINNISH] = {"fi", STR_LANGUAGE_FI, (const char *)&kFi, kFiAt},
+    [TXT_IRISH] = {"ga", STR_LANGUAGE_GA, (const char *)&kGa, kGaAt},
 };
 
 static TxtLanguage sLanguage = TXT_ENGLISH;
