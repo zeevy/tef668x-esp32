@@ -962,14 +962,14 @@ void screenTouchCalEnd(void);
 /* How many rows the recovery list holds on screen at once, and how many it
  * actually has. */
 #define SCREEN_RECOVERY_VISIBLE 5
-#define SCREEN_RECOVERY_ROWS 7
+#define SCREEN_RECOVERY_ROWS 8
 
 /*
  * One row of the recovery list.
  *
  * `value` is shown for the rows that carry one, the display's own current
- * rotation and the Touch switch; every other row leaves it NULL and draws its
- * name alone.
+ * rotation, the Touch switch and the panel's language; every other row
+ * leaves it NULL and draws its name alone.
  * `inert` marks a row that is drawn and can be reached with the knob but does
  * nothing when pressed, Restore Previous Firmware after a USB flash, when
  * there is nothing to go back to; it reads no different from a live row,
@@ -984,7 +984,7 @@ typedef struct {
 } ScreenRecoveryRow;
 
 /*
- * Everything the recovery screen shows: the seven rows, and which of them
+ * Everything the recovery screen shows: the eight rows, and which of them
  * the cursor is on.
  *
  * Always the first palette, never the saved theme. The setting that put the

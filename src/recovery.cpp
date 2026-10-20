@@ -20,7 +20,7 @@
 #include <string.h>
 #include <algorithm>
 
-/* The seven rows. The last, "Exit and start radio", is the way out every other
+/* The eight rows. The last, "Exit and start radio", is the way out every other
  * list in this UI ends with. */
 typedef enum {
   RECOVERY_ROW_ROTATE = 0,
@@ -31,6 +31,7 @@ typedef enum {
   RECOVERY_ROW_HOTSPOT,
   RECOVERY_ROW_ROLLBACK,
   RECOVERY_ROW_ERASE,
+  RECOVERY_ROW_LANGUAGE,
   RECOVERY_ROW_EXIT,
 } RecoveryRowId;
 
@@ -42,17 +43,24 @@ static bool sRollbackFailed = false;
 static bool sSaveFailed[SCREEN_RECOVERY_ROWS];
 
 static const StrId kRecoveryNames[SCREEN_RECOVERY_ROWS] = {
-    STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_TOUCH,
-    STR_RECOVERY_CALIBRATE_TOUCH,      STR_RECOVERY_START_HOTSPOT,
-    STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
+    STR_RECOVERY_ROTATE_DISPLAY,
+    STR_RECOVERY_TOUCH,
+    STR_RECOVERY_CALIBRATE_TOUCH,
+    STR_RECOVERY_START_HOTSPOT,
+    STR_RECOVERY_ROLL_BACK_FIRMWARE,
+    STR_RECOVERY_ERASE_SETTINGS,
+    /* The menu's own word: this screen is drawn before the radio sets its
+     * language, so it reads English here too. */
+    STR_MENU_LANGUAGE,
     STR_RECOVERY_EXIT_AND_START_RADIO,
 };
 
 /*
  * What the foot line says while a row waits for its second press. Every row
- * that changes something asks first, since each restarts the radio and
- * Erase Settings loses the Wi-Fi details with the rest; Calibrate Touch and
- * Exit change nothing at once, so they act on the first press.
+ * that restarts the radio asks first, and Erase Settings loses the Wi-Fi
+ * details with the rest; Calibrate Touch changes nothing until it passes,
+ * Language only moves to the next language, which a later press can change,
+ * and Exit changes nothing, so they act on the first press.
  */
 static const StrId kRecoveryAsk[SCREEN_RECOVERY_ROWS] = {
     STR_RECOVERY_ASK_ROTATE,
@@ -63,6 +71,7 @@ static const StrId kRecoveryAsk[SCREEN_RECOVERY_ROWS] = {
     STR_RECOVERY_ASK_HOTSPOT,
     STR_RECOVERY_ASK_ROLLBACK,
     STR_RECOVERY_ASK_ERASE,
+    STR_COUNT,
     STR_COUNT,
 };
 
@@ -205,12 +214,12 @@ static void saveAndRestart(RecoveryRowId row, const Settings *settings) {
 /*
  * What pressing the row under the cursor does.
  *
- * Every row ends in a restart, or stays on this screen when its change could
- * not be made. Rotate, Touch and Hotspot only matter to the next start,
- * since this screen never draws by the value it just changed. Rollback and
- * Erase Settings are a restart by their own nature, and Exit is a plain
- * restart.
- * Every row but Exit asks for a second press first, `kRecoveryAsk`.
+ * Every row but Calibrate Touch and Language ends in a restart, or stays on
+ * this screen when its change could not be made. Rotate, Touch, Hotspot and
+ * Language only matter to the next start, since this screen never draws by
+ * the value it just changed. Rollback and Erase Settings are a restart by
+ * their own nature, and Exit is a plain restart.
+ * The rows that restart ask for a second press first, `kRecoveryAsk`.
  */
 static void act(RecoveryRowId row, Settings *settings) {
   switch (row) {
@@ -264,6 +273,18 @@ static void act(RecoveryRowId row, Settings *settings) {
       saveAndRestart(row, &fresh);
       return;
     }
+    case RECOVERY_ROW_LANGUAGE: {
+      /* The way back from a panel language nobody here can read, without
+       * erasing the rest. Saved at once and no restart, so a person can
+       * press on to the one they want; after the last comes English. */
+      const uint8_t was = settings->language;
+      settings->language = (uint8_t)((was + 1) % TXT_LANGUAGE_COUNT);
+      sSaveFailed[row] = !settingsNvsSave(settings);
+      if (sSaveFailed[row]) {
+        settings->language = was;
+      }
+      return;
+    }
     case RECOVERY_ROW_CALIBRATE:
       calibrate();
       return;
@@ -284,7 +305,7 @@ void recoveryCheckAndRun(Settings *settings) {
    * `bootWatchdogArm` is the first thing `setup` does, forty five seconds
    * to reach the disarm near its own end or the radio restarts on the
    * assumption it hung. Recovery is a closed loop inside `setup` that can
-   * legitimately sit here for as long as a person is reading seven rows and
+   * legitimately sit here for as long as a person is reading eight rows and
    * deciding, and a panel responding to the knob is already the proof
    * this radio has not hung, the exact thing the watchdog exists to
    * catch. Disarmed here rather than left to fire mid-read.
@@ -339,6 +360,8 @@ void recoveryCheckAndRun(Settings *settings) {
                                              : STR_COMMON_ROTATION_NORMAL);
     const char *touch =
         txt(settings->touchOff != 0 ? STR_COMMON_OFF : STR_COMMON_ON);
+    const char *language =
+        txt(txtLanguageName((TxtLanguage)settings->language));
 
     ScreenRecovery view;
     memset(&view, 0, sizeof(view));
@@ -346,9 +369,10 @@ void recoveryCheckAndRun(Settings *settings) {
     for (uint8_t i = 0; i < SCREEN_RECOVERY_ROWS; i++) {
       view.rows[i].name = txt(kRecoveryNames[i]);
       view.rows[i].value = sSaveFailed[i] ? txt(STR_RECOVERY_FAILED)
-                           : (i == RECOVERY_ROW_ROTATE) ? rotation
-                           : (i == RECOVERY_ROW_TOUCH)  ? touch
-                                                        : NULL;
+                           : (i == RECOVERY_ROW_ROTATE)   ? rotation
+                           : (i == RECOVERY_ROW_TOUCH)    ? touch
+                           : (i == RECOVERY_ROW_LANGUAGE) ? language
+                                                          : NULL;
     }
     /* Only an image that came over the air has an older one to go back to.
      * After a USB flash there is none, and the row says so rather than

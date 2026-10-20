@@ -147,4 +147,4 @@ Only a press of the tuning knob wakes the radio from sleep. The radio then start
 
 ## On the recovery screen
 
-Only the tuning knob works: turn it to move between rows, and press it to choose. Every row but Exit & Start Radio asks for a second press.
+Only the tuning knob works: turn it to move between rows, and press it to choose. Every row but Calibrate Touch, Language and Exit & Start Radio asks for a second press.

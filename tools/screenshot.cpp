@@ -2790,7 +2790,7 @@ int main(int argc, char **argv) {
   }
 
   /* Recovery: no theme, fault red, the cursor on the first row, the saved
-   * rotation and the Touch switch shown as values. */
+   * rotation, the Touch switch and the language shown as values. */
   txtSetLanguage(TXT_ENGLISH);
   if (screenRecoveryBegin()) {
     ScreenRecovery recovery;
@@ -2800,13 +2800,14 @@ int main(int argc, char **argv) {
         STR_RECOVERY_ROTATE_DISPLAY,       STR_RECOVERY_TOUCH,
         STR_RECOVERY_CALIBRATE_TOUCH,      STR_RECOVERY_START_HOTSPOT,
         STR_RECOVERY_ROLL_BACK_FIRMWARE,   STR_RECOVERY_ERASE_SETTINGS,
-        STR_RECOVERY_EXIT_AND_START_RADIO,
+        STR_MENU_LANGUAGE,                 STR_RECOVERY_EXIT_AND_START_RADIO,
     };
     for (int i = 0; i < SCREEN_RECOVERY_ROWS; i++) {
       recovery.rows[i].name = txt(kRecoveryNames[i]);
     }
     recovery.rows[0].value = txt(STR_COMMON_ROTATION_NORMAL);
     recovery.rows[1].value = txt(STR_COMMON_ON);
+    recovery.rows[6].value = txt(txtLanguageName(TXT_ENGLISH));
     screenRecoveryShow(&recovery);
     saveShot("%s/recovery.bmp", dir);
 
@@ -2833,12 +2834,19 @@ int main(int argc, char **argv) {
     screenRecoveryShow(&recovery);
     saveShot("%s/recovery-touch-ask.bmp", dir);
 
-    /* The cursor on the last row, which scrolls the list by one. */
+    /* The cursor on the last row, which scrolls the list down to it. */
     recovery.rows[1].value = txt(STR_COMMON_ON);
     recovery.hint = NULL;
     recovery.cursor = SCREEN_RECOVERY_ROWS - 1;
     screenRecoveryShow(&recovery);
     saveShot("%s/recovery-exit.bmp", dir);
+
+    /* Language on a radio set to Chinese: the name in its own script, the
+     * row's name and the rest still English. */
+    recovery.cursor = 6;
+    recovery.rows[6].value = txt(txtLanguageName(TXT_CHINESE));
+    screenRecoveryShow(&recovery);
+    saveShot("%s/recovery-language.bmp", dir);
     screenRecoveryEnd();
   }
   txtSetLanguage(sLanguage);

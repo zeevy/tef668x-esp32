@@ -85,7 +85,7 @@
   X(MENU_ROTATION, "Display Rotation", "Menu row name, Display group") \
   X(COMMON_BATTERY, "Battery", "Menu row name, Display group; boot screen step name") \
   X(MENU_BATTERY_CHECK, "Battery Check", "Menu row name, Display group: On to read the battery every 5 min with Wi-Fi paused while nobody uses the radio") \
-  X(MENU_LANGUAGE, "Language", "Menu row name, Display group: the language of the panel. In every other language: the word in that language, a middle dot, then the English word, so a person who cannot read the panel finds the way back") \
+  X(MENU_LANGUAGE, "Language", "Menu row name, Display group: the language of the panel; also the recovery screen's row name, always in English there. In every other language: the word in that language, a middle dot, then the English word, so a person who cannot read the panel finds the way back") \
   X(LANGUAGE_EN, "English", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_ZH, "简体中文", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_DE, "Deutsch", "Value of the Language row: the language by its own name, in its own script, never translated") \
