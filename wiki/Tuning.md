@@ -44,13 +44,13 @@ MODE steps through the tuning modes. The mode is shown in the first tile on the 
 | `MAN`, manual | Steps by the step size. A fast turn moves 2, 4 or 6 steps for each click. At a band edge it goes round to the other edge |
 | `AUTO`, seek | Seeks the next station in that direction. A turn the same way stops the seek. A turn the other way seeks the other way |
 | `MEM`, presets | Goes to the next stored preset, one per click, across all bands, and round again. See [Presets and Station Scan](Presets-and-Station-Scan.md) |
-| `MTR`, metre bands | Shortwave only. Steps only inside the broadcast bands from 160 m to 11 m, and jumps over the gaps between them |
+| `MTR`, metre bands | Shortwave only. Seeks the next station as AUTO does, but only inside the broadcast bands from 160 m to 11 m, and jumps over the gaps between them |
 
 If you leave shortwave while in MTR, the mode goes back to MAN. In DX mode the knob always steps like MAN.
 
 ## Seek
 
-A seek starts with a turn of the tuning knob in AUTO mode, or from the HTTP API. It moves one step at a time, and stops on a station, not on noise.
+A seek starts with a turn of the tuning knob in AUTO or MTR mode, or from the HTTP API. It moves one step at a time, and stops on a station, not on noise.
 
 A channel counts as a station when all of these hold:
 
@@ -61,9 +61,9 @@ A channel counts as a station when all of these hold:
 
 **Seek Sensitivity** is a row in FM Reception and another in AM Reception, from 1 to 6, with 4 at the start. A higher number stops on weaker stations. At 4 on FM, a station must have a noise reading (USN) under 12.0 %, multipath under 32.0 % and a level of at least 10.0 dBµV.
 
-A seek goes round at the band edge and keeps going. If it goes round the whole band and finds nothing, it stops where it is. A tune, a step, a band change, the volume knob, or any other command to the radio also stops it. Opening the menu or the RDS pages does not.
+A seek goes round at the band edge and keeps going. If it goes round the whole band and finds nothing, it stops where it is. In MTR mode the whole band is the metre bands only, and it goes round from 11 m to 160 m and back. A tune, a step, a band change, the volume knob, or any other command to the radio also stops it. Opening the menu or the RDS pages does not.
 
-**Controls > Band Edge Beep** beeps when a step goes round a band edge: in MAN or MTR mode, on the DX page, or from the API. It is off at the start. A seek does not beep.
+**Controls > Band Edge Beep** beeps when a step goes round a band edge: in MAN mode, on the DX page, or from the API. It is off at the start. A seek does not beep.
 
 ## Typing a frequency
 

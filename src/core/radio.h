@@ -52,7 +52,7 @@ typedef enum {
   TUNE_MODE_MANUAL = 0, /* Steps by the step size. */
   TUNE_MODE_AUTO,       /* Seeks to the next station. */
   TUNE_MODE_MEMORY,     /* Steps through stored channels. */
-  TUNE_MODE_METER_BAND, /* Steps inside the meter bands. Shortwave only. */
+  TUNE_MODE_METER_BAND, /* Seeks inside the meter bands. Shortwave only. */
   TUNE_MODE_COUNT       /* How many there are. Not a mode. */
 } TuneMode;
 
@@ -546,8 +546,9 @@ bool radioDxWidthInForce(const RadioSettings *s);
  * The tuning mode a knob step acts in: the radio's own, except while DX mode
  * is open, where every step is a manual one, a step of the dial whatever the
  * mode is set to, since DX mode is listening a channel at a time. The mode
- * itself is not changed, so it acts again once DX mode closes. MANUAL for a
- * NULL `s`.
+ * itself is not changed, so it acts again once DX mode closes. AUTO for the
+ * Meter band mode, since its knob seeks as Auto does, inside the metre bands.
+ * MANUAL for a NULL `s`.
  */
 TuneMode radioKnobMode(const RadioSettings *s);
 

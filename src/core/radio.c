@@ -944,7 +944,9 @@ TuneMode radioKnobMode(const RadioSettings *s) {
   if (s == NULL || radioDxWidthInForce(s)) {
     return TUNE_MODE_MANUAL;
   }
-  return s->tuneMode;
+  /* The knob seeks in Meter band mode too. The seek keeps to the metre bands
+   * because the walk asks radioChannelNext, which reads the mode itself. */
+  return s->tuneMode == TUNE_MODE_METER_BAND ? TUNE_MODE_AUTO : s->tuneMode;
 }
 
 uint16_t radioTunerBandwidth(const RadioSettings *s) {
