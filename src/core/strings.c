@@ -3,9 +3,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lang/bg.h"
 #include "lang/cs.h"
 #include "lang/da.h"
 #include "lang/de.h"
+#include "lang/el.h"
 #include "lang/es.h"
 #include "lang/fi.h"
 #include "lang/fr.h"
@@ -21,6 +23,7 @@
 #include "lang/ru.h"
 #include "lang/sr.h"
 #include "lang/sv.h"
+#include "lang/uk.h"
 #include "lang/zh.h"
 
 /* The table is the same list as the enum, so an id and its text cannot get
@@ -194,6 +197,29 @@ static const uint16_t kGaAt[STR_COUNT] = {STRINGS_GA(TEXT_AT)};
 _Static_assert(sizeof(kGa) < UINT16_MAX, "Irish is past what an offset holds");
 #undef LANGUAGE
 
+#define LANGUAGE struct TextsEl
+LANGUAGE{STRINGS_EL(TEXT_FIELD)};
+static const LANGUAGE kEl = {STRINGS_EL(TEXT_VALUE)};
+static const uint16_t kElAt[STR_COUNT] = {STRINGS_EL(TEXT_AT)};
+_Static_assert(sizeof(kEl) < UINT16_MAX, "Greek is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsBg
+LANGUAGE{STRINGS_BG(TEXT_FIELD)};
+static const LANGUAGE kBg = {STRINGS_BG(TEXT_VALUE)};
+static const uint16_t kBgAt[STR_COUNT] = {STRINGS_BG(TEXT_AT)};
+_Static_assert(sizeof(kBg) < UINT16_MAX,
+               "Bulgarian is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsUk
+LANGUAGE{STRINGS_UK(TEXT_FIELD)};
+static const LANGUAGE kUk = {STRINGS_UK(TEXT_VALUE)};
+static const uint16_t kUkAt[STR_COUNT] = {STRINGS_UK(TEXT_AT)};
+_Static_assert(sizeof(kUk) < UINT16_MAX,
+               "Ukrainian is past what an offset holds");
+#undef LANGUAGE
+
 typedef struct {
   const char *code;
   StrId name;
@@ -222,6 +248,9 @@ static const Language kLanguages[TXT_LANGUAGE_COUNT] = {
     [TXT_SWEDISH] = {"sv", STR_LANGUAGE_SV, (const char *)&kSv, kSvAt},
     [TXT_FINNISH] = {"fi", STR_LANGUAGE_FI, (const char *)&kFi, kFiAt},
     [TXT_IRISH] = {"ga", STR_LANGUAGE_GA, (const char *)&kGa, kGaAt},
+    [TXT_GREEK] = {"el", STR_LANGUAGE_EL, (const char *)&kEl, kElAt},
+    [TXT_BULGARIAN] = {"bg", STR_LANGUAGE_BG, (const char *)&kBg, kBgAt},
+    [TXT_UKRAINIAN] = {"uk", STR_LANGUAGE_UK, (const char *)&kUk, kUkAt},
 };
 
 static TxtLanguage sLanguage = TXT_ENGLISH;
