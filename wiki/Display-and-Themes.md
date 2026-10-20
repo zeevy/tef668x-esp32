@@ -95,6 +95,9 @@ The screen can show its texts in these languages:
 | Swedish | Svenska |
 | Finnish | Suomi |
 | Irish | Gaeilge |
+| Greek | Ελληνικά |
+| Bulgarian | Български |
+| Ukrainian | Українська |
 
 Pick one at **Display > Language**. Each language is listed by its own name, in its own script, the same in every language. The picker says **Applies after restart** on its cursor row: the screen changes the next time the radio starts. Restart it with **System > Restart Radio**, or turn it off and on.
 

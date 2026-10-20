@@ -537,7 +537,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `rot` | 0, 180 | Screen rotation |
 | `bat` | 0 to 2 | Battery mark: off, per cent, volts |
 | `bck` | 0 or 1 | Battery Check: 1 reads the battery every 5 minutes with Wi-Fi stopped for a moment, while nobody uses the radio |
-| `plg` | 0 to 19 | The language of the screen: 0 English, 1 Chinese (simplified), 2 German, 3 Russian, 4 Dutch, 5 French, 6 Spanish, 7 Italian, 8 Portuguese, 9 Polish, 10 Czech, 11 Croatian, 12 Serbian (Latin letters), 13 Romanian, 14 Hungarian, 15 Danish, 16 Norwegian, 17 Swedish, 18 Finnish, 19 Irish. After a restart. See [Display and Themes](Display-and-Themes.md#language) |
+| `plg` | 0 to 22 | The language of the screen: 0 English, 1 Chinese (simplified), 2 German, 3 Russian, 4 Dutch, 5 French, 6 Spanish, 7 Italian, 8 Portuguese, 9 Polish, 10 Czech, 11 Croatian, 12 Serbian (Latin letters), 13 Romanian, 14 Hungarian, 15 Danish, 16 Norwegian, 17 Swedish, 18 Finnish, 19 Irish, 20 Greek, 21 Bulgarian, 22 Ukrainian. After a restart. See [Display and Themes](Display-and-Themes.md#language) |
 | `rds`, `rrg` | 0, 1 | RDS decoder; RDS region Europe or North America |
 | `hsp` | 0 to 2 | Hotspot: Auto, On, Off |
 | `web`, `wif` | 0, 1 | Web server and Wi-Fi. 0 can only be undone from the radio's menu, or by Erase Settings on the recovery screen |
