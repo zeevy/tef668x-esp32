@@ -101,7 +101,7 @@ The screen can show its texts in these languages:
 
 Pick one at **Display > Language**. Each language is listed by its own name, in its own script, the same in every language. The picker says **Applies after restart** on its cursor row: the screen changes the next time the radio starts. Restart it with **System > Restart Radio**, or turn it off and on.
 
-In every language the row's own name ends with the English word, such as `Sprache · Language` or `语言 · Language`, so you can find it on a screen you cannot read. It is the last row of the **Display** group.
+In every language the row's own name ends with the English word, such as `Sprache · Language` or `语言 · Language`, so you can find it on a screen you cannot read. It is the last row of the **Display** group. The [recovery screen](Recovery-Screen.md), always in English, has a **Language** row too.
 
 These stay English in every language:
 

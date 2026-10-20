@@ -1,6 +1,6 @@
 # Recovery Screen
 
-The recovery screen is a way back when the normal screen cannot be used: a theme you cannot read, a screen turned the wrong way, a brightness of nothing, a touch screen that touches itself, Wi-Fi details that no longer work, or a new firmware you want to undo.
+The recovery screen is a way back when the normal screen cannot be used: a theme you cannot read, a screen turned the wrong way, a brightness of nothing, a touch screen that touches itself, a panel language you cannot read, Wi-Fi details that no longer work, or a new firmware you want to undo.
 
 ![The recovery screen with its first five rows](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/recovery.png)
 
@@ -12,7 +12,7 @@ The recovery screen does not use your display settings. It always draws with a s
 
 Only the tuning knob works here. The touch screen is read only by the **Calibrate Touch** row, for its rings and dot. Turn it to move between rows, and press it to choose. Five rows fit on the screen; the list moves up to show the others when you reach them.
 
-## The seven rows
+## The eight rows
 
 | Row | What it does |
 |---|---|
@@ -22,9 +22,10 @@ Only the tuning knob works here. The touch screen is read only by the **Calibrat
 | **Start Hotspot** | Sets Connectivity > Hotspot to On, then restarts. The radio then serves its own hotspot at every start, until you change that setting. Wi-Fi must be on for this |
 | **Restore Previous Firmware** | Goes back to the firmware that ran before the last update over Wi-Fi, then restarts. It shows `None` when there is no older firmware, as after an install over USB |
 | **Erase Settings** | Puts every setting back to its default, Wi-Fi details and the access PIN too, and removes the touch calibration, then restarts. The presets and the station log are kept |
+| **Language** | Changes the language of the panel. Each press moves to the next language and saves it; after the last one comes English again. The row shows the language stored now, in its own name, such as `Deutsch` or `简体中文`. The new language shows from the next start, for example after **Exit & Start Radio**; this screen stays in English. It is the same setting as Display > Language in the menu |
 | **Exit & Start Radio** | Restarts into the normal radio, changing nothing |
 
-Every row but **Calibrate Touch** and **Exit & Start Radio** asks first. The first press shows `Press again` on the row and says what will happen on the line at the bottom. Press again to do it. Turn the knob to another row to cancel.
+Every row but **Calibrate Touch**, **Language** and **Exit & Start Radio** asks first. The first press shows `Press again` on the row and says what will happen on the line at the bottom. Press again to do it. Turn the knob to another row to cancel.
 
 If a row could not save its change, it shows `Failed` and the radio stays on the recovery screen.
 

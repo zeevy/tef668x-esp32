@@ -58,7 +58,7 @@ It is off on a new radio. Turn it on at **Display > Battery**. While Wi-Fi is on
 
 ### The screen is in a language I cannot read. How do I get English back?
 
-Open the menu, go to the **Display** group, and pick **English** in the row whose name ends in `Language`, its last row. Then restart the radio. From a computer, send `plg=0` to `POST /api/settings` and restart. See [Display and Themes](Display-and-Themes.md#language).
+Open the menu, go to the **Display** group, and pick **English** in the row whose name ends in `Language`, its last row. Then restart the radio. Or hold the tuning knob down while you switch the radio on: the [recovery screen](Recovery-Screen.md) is always in English, and its **Language** row moves to the next language on each press, English after the last. From a computer, send `plg=0` to `POST /api/settings` and restart. See [Display and Themes](Display-and-Themes.md#language).
 
 ### I forgot the access PIN. What now?
 
