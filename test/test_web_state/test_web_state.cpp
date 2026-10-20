@@ -307,6 +307,9 @@ const char *restartReasonText(void) {
 bool restartReasonLastHeap(uint32_t *) {
   return false;
 }
+size_t restartReasonLastPanic(char *out, size_t cap) {
+  return (size_t)snprintf(out, cap, "null");
+}
 bool webPinIsDefault(void) {
   return false;
 }

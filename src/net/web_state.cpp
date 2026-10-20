@@ -983,7 +983,15 @@ String buildState(void) {
    * to the chip.
    */
   out += restartReasonText();
-  out += F("\",\"ip\":\"");
+  /* Where the last crash happened, kept until the next one, so a panic in
+   * the field names its line: addr2line with the ELF of the build `bld`. */
+  {
+    char panic[PANIC_RECORD_JSON_LEN];
+    restartReasonLastPanic(panic, sizeof(panic));
+    out += F("\",\"pnc\":");
+    out += panic;
+  }
+  out += F(",\"ip\":\"");
   out += wifiAddress();
   /* Closing the address string, then the separator. Kept here rather than
    * fused onto the front of the next field, so that moving that field into
