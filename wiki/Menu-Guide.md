@@ -156,7 +156,7 @@ See [Display and Themes](Display-and-Themes.md).
 | Display Rotation | Normal, Upside Down | Normal | Turns the screen over. Acts when saved, no restart |
 | Battery | Off, Percent, Volts | Off | How the battery shows in the header |
 | Battery Check | Off, On | Off | On reads the battery every 5 minutes with Wi-Fi stopped for a moment, while nobody uses the radio. See [Display and Themes](Display-and-Themes.md#battery-check) |
-| Language | English, 简体中文, Deutsch, Русский | English | The language of the screen's texts, after a restart. In every language the row's name ends with `Language`. See [Display and Themes](Display-and-Themes.md#language) |
+| Language | English, 简体中文, Deutsch, Русский, Nederlands, Français, Español, Italiano, Português | English | The language of the screen's texts, after a restart. In every language the row's name ends with `Language`. See [Display and Themes](Display-and-Themes.md#language) |
 
 ## Connectivity
 
