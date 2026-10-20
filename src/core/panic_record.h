@@ -24,14 +24,16 @@ extern "C" {
 #endif
 
 /* The backtrace kept: the place that faulted, then its return addresses. */
-#define PANIC_RECORD_FRAMES 8
+#define PANIC_RECORD_FRAMES 16
 /* The panic's own words, such as "LoadProhibited", or an assert's with its
  * file and line. */
 #define PANIC_RECORD_WHY_LEN 96
+/* The task that crashed, as FreeRTOS names it, 16 with its end. */
+#define PANIC_RECORD_TASK_LEN 16
 /* The build it happened on, FIRMWARE_BUILD, a short hash and maybe a +. */
 #define PANIC_RECORD_BUILD_LEN 16
 /* Room for panicRecordJson with every field full. */
-#define PANIC_RECORD_JSON_LEN 512
+#define PANIC_RECORD_JSON_LEN 768
 
 typedef struct {
   uint32_t marker; /* Set by panicRecordSeal, with `check`. */
@@ -41,6 +43,7 @@ typedef struct {
   uint8_t frameCount;
   uint8_t core;
   char why[PANIC_RECORD_WHY_LEN];
+  char task[PANIC_RECORD_TASK_LEN];
   char build[PANIC_RECORD_BUILD_LEN];
   uint32_t check; /* A sum of everything before it. */
 } PanicRecord;
@@ -59,7 +62,7 @@ void panicRecordClear(PanicRecord *r);
 /*
  * The record as a JSON object for GET /api/state:
  * {"why":"LoadProhibited","pc":"0x400d1234","bt":["0x400d1234",...],
- *  "core":1,"up":3600,"bld":"0586e2f"}.
+ *  "core":1,"task":"loopTask","up":3600,"bld":"0586e2f"}.
  * Writes "null" for a record that is not valid. Returns the length written,
  * 0 when `out` is too small, which then holds an empty string.
  */

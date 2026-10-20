@@ -29,6 +29,19 @@
  */
 #define NTP_PLAUSIBLE_AFTER 1577836800L
 
+/*
+ * Arduino's hostByName clears lwIP's DNS cache the first time it runs after
+ * the radio gets or loses an address, from the caller's task and without
+ * lwIP's lock. The clear fails every lookup still waiting, and this client
+ * answers a failed lookup by starting one for its next server at once,
+ * inside that call: lwIP finds its lock not held and stops the chip. With
+ * the lock taken, the new lookup would be wiped with the cache instead, and
+ * the clock would never be set. So the clear does nothing, linked in place
+ * of lwIP's by --wrap: a cached address then lasts as long as its DNS answer
+ * said, as it does in lwIP without Arduino.
+ */
+extern "C" void __wrap_dns_clear_cache(void) {}
+
 static bool sEnabled = false;
 static bool sStarted = false;
 static int16_t sOffsetMinutes = 0;

@@ -20,6 +20,7 @@ void panicRecordSeal(PanicRecord *r) {
     return;
   }
   r->why[PANIC_RECORD_WHY_LEN - 1] = '\0';
+  r->task[PANIC_RECORD_TASK_LEN - 1] = '\0';
   r->build[PANIC_RECORD_BUILD_LEN - 1] = '\0';
   if (r->frameCount > PANIC_RECORD_FRAMES) {
     r->frameCount = PANIC_RECORD_FRAMES;
@@ -32,6 +33,7 @@ bool panicRecordValid(const PanicRecord *r) {
   return r != NULL && r->marker == PANIC_RECORD_MARKER && r->check == sum(r) &&
          r->frameCount <= PANIC_RECORD_FRAMES &&
          memchr(r->why, '\0', sizeof(r->why)) != NULL &&
+         memchr(r->task, '\0', sizeof(r->task)) != NULL &&
          memchr(r->build, '\0', sizeof(r->build)) != NULL;
 }
 
@@ -83,9 +85,11 @@ size_t panicRecordJson(const PanicRecord *r, char *out, size_t cap) {
     at += (size_t)snprintf(out + at, cap - at, "%s\"0x%08lx\"", i ? "," : "",
                            (unsigned long)r->frames[i]);
   }
-  at += (size_t)snprintf(out + at, cap - at,
-                         "],\"core\":%u,\"up\":%lu,\"bld\":\"",
-                         (unsigned)r->core, (unsigned long)r->uptimeS);
+  at += (size_t)snprintf(out + at, cap - at, "],\"core\":%u,\"task\":\"",
+                         (unsigned)r->core);
+  at = putText(out, cap, at, r->task);
+  at += (size_t)snprintf(out + at, cap - at, "\",\"up\":%lu,\"bld\":\"",
+                         (unsigned long)r->uptimeS);
   at = putText(out, cap, at, r->build);
   at += (size_t)snprintf(out + at, cap - at, "\"}");
   return at;
