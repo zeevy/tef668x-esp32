@@ -48,7 +48,7 @@ It takes its hardware knowledge and many ideas from [PE5PVB/TEF6686_ESP32](https
 - Every text colour meets a 4.5:1 contrast against its background, checked by a test.
 - A boot screen that shows each start up check as it passes.
 - A recovery screen: hold the knob down at power on.
-- The screen's texts in English, Chinese (simplified), German, Russian, Dutch, French, Spanish, Italian, Portuguese, Polish, Czech, Croatian, Serbian in Latin letters, Romanian, Hungarian, Danish, Norwegian, Swedish, Finnish or Irish, picked in the menu at Display > Language. The web page and the API stay English.
+- The screen's texts in English, Chinese (simplified), German, Russian, Dutch, French, Spanish, Italian, Portuguese, Polish, Czech, Croatian, Serbian in Latin letters, Romanian, Hungarian, Danish, Norwegian, Swedish, Finnish, Irish, Greek, Bulgarian or Ukrainian, picked in the menu at Display > Language. The web page and the API stay English.
 
 **Network**
 - Joins your Wi-Fi, or starts its own hotspot when it cannot.

@@ -54,6 +54,9 @@ typedef enum {
   TXT_SWEDISH,
   TXT_FINNISH,
   TXT_IRISH,
+  TXT_GREEK,
+  TXT_BULGARIAN,
+  TXT_UKRAINIAN,
   TXT_LANGUAGE_COUNT
 } TxtLanguage;
 
