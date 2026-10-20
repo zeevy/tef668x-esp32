@@ -599,8 +599,7 @@ static const char *fontName(const lv_font_t *f) {
   static const struct {
     const lv_font_t *font;
     const char *name;
-  } kFonts[] = {{&roboto_freq, "freq"},   {&roboto_name, "name"},
-                {&roboto_value, "value"}, {&roboto_menu, "menu"},
+  } kFonts[] = {{&roboto_freq, "freq"},   {&roboto_value, "value"},
                 {&roboto_title, "title"}, {&roboto_text, "text"},
                 {&roboto_small, "small"}, {&roboto_label, "label"},
                 {&roboto_icons, "icons"}};

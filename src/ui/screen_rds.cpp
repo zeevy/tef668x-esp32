@@ -112,7 +112,7 @@ static lv_obj_t *sDiIcon, *sDiWord;
 static void buildStation(const Theme *t) {
   uiRound(sBody, t->radio, UI_MARGIN, PANEL_Y, STATION_PANEL_W, P1_PANEL_H,
           UI_RADIUS);
-  sPs = uiLabel(sBody, &roboto_name, t->ground);
+  sPs = uiLabel(sBody, &roboto_value, t->ground);
   sPtyNum = uiLabel(sBody, &roboto_label, t->ground);
   sPtyName = uiLabel(sBody, &roboto_text, t->ground);
   uiRound(sBody, t->rule, TILE_X, PANEL_Y, TILE_W, P1_PANEL_H, UI_TILE_R);
@@ -162,8 +162,8 @@ static void showStation(const ScreenRds *r, const Theme *t) {
   char fit[48];
   const int16_t panelRoom = (int16_t)(STATION_PANEL_W - 2 * UI_PAD);
   uiSetText(sPs, uiFitText(r->ps != NULL ? r->ps : txt(STR_COMMON_DASH),
-                           &roboto_name, panelRoom, fit, sizeof(fit)));
-  uiBaseline(sPs, &roboto_name, UI_MARGIN + UI_PAD, P1_PS_BASE);
+                           &roboto_value, panelRoom, fit, sizeof(fit)));
+  uiBaseline(sPs, &roboto_value, UI_MARGIN + UI_PAD, P1_PS_BASE);
   /* The programme type's number at the right of its name's line. */
   uiSetOrHide(sPtyNum, r->ptyNumber);
   uiBaselineRight(sPtyNum, &roboto_label, UI_MARGIN + STATION_PANEL_W - UI_PAD,
@@ -277,7 +277,7 @@ typedef struct {
   int16_t base; /* The first line's baseline. */
   int16_t pitch;
 } TextFace;
-static const TextFace kTextFace[2] = {{&roboto_menu, 60, 26},
+static const TextFace kTextFace[2] = {{&roboto_title, 60, 26},
                                       {&roboto_text, 56, 22}};
 
 static lv_obj_t *sTextPanel, *sText;
@@ -725,7 +725,7 @@ static void buildDecoder(const Theme *t) {
 static void showDecoder(const ScreenRds *r, const Theme *t) {
   /* A number is never cut short: one too wide for its tile in a face drops
    * to the next smaller one, down to the label face. */
-  static const lv_font_t *const kValueFaces[4] = {&roboto_menu, &roboto_text,
+  static const lv_font_t *const kValueFaces[4] = {&roboto_title, &roboto_text,
                                                   &roboto_small, &roboto_label};
   const char *const values[4] = {r->sync, r->rate, r->bler, r->lost};
   for (uint8_t i = 0; i < 4; i++) {

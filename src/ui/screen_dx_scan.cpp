@@ -115,9 +115,9 @@ bool screenScanBegin(void) {
   sFreq = uiLabel(sRoot, &roboto_freq, t->ground);
   sUnit = uiLabel(sRoot, &roboto_text, t->ground);
   uiSetTextStatic(sUnit, txt(STR_COMMON_UNIT_MHZ));
-  sReady = uiLabel(sRoot, &roboto_menu, t->ground);
+  sReady = uiLabel(sRoot, &roboto_title, t->ground);
   uiSetTextStatic(sReady, txt(STR_DX_READY));
-  uiBaseline(sReady, &roboto_menu, PANEL_IN, FREQ_BASE);
+  uiBaseline(sReady, &roboto_title, PANEL_IN, FREQ_BASE);
   sDwellLabel = uiLabel(sRoot, &roboto_label, t->ground);
   uiSetTextStatic(sDwellLabel, txt(STR_DX_DWELL));
   sDwell = uiLabel(sRoot, &roboto_small, t->ground);

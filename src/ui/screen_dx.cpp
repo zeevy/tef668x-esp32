@@ -236,7 +236,7 @@ bool screenDxBegin(void) {
   const lv_color_t miss =
       lv_color_mix(uiColour(t->ground), uiColour(t->radio), PS_MISS_MIX);
   for (uint8_t i = 0; i < SCREEN_DX_PS_LEN; i++) {
-    sPsChar[i] = uiLabel(sDx, &roboto_menu, t->ground);
+    sPsChar[i] = uiLabel(sDx, &roboto_title, t->ground);
     sPsMiss[i] =
         uiBlock(sDx, t->ground,
                 (int16_t)(PANEL_IN + i * PS_CELL + (PS_CELL - PS_MISS_W) / 2),
@@ -354,8 +354,8 @@ static void showName(const ScreenDx *dx) {
     uiShowIf(sPsMiss[i], missing);
     if (whole && i == 0) {
       uiSetOrHide(sPsChar[0], dx->psWhole);
-      uiBaseline(sPsChar[0], &roboto_menu, PANEL_IN, PS_BASE);
-      nameW = uiTextWidth(sPsChar[0], &roboto_menu);
+      uiBaseline(sPsChar[0], &roboto_title, PANEL_IN, PS_BASE);
+      nameW = uiTextWidth(sPsChar[0], &roboto_title);
       continue;
     }
     char one[2] = {have ? dx->ps[i] : ' ', '\0'};
@@ -364,8 +364,8 @@ static void showName(const ScreenDx *dx) {
       continue;
     }
     uiSetOrHide(sPsChar[i], one);
-    const int16_t w = uiTextWidth(sPsChar[i], &roboto_menu);
-    uiBaseline(sPsChar[i], &roboto_menu,
+    const int16_t w = uiTextWidth(sPsChar[i], &roboto_title);
+    uiBaseline(sPsChar[i], &roboto_title,
                (int16_t)(PANEL_IN + i * PS_CELL + (PS_CELL - w) / 2), PS_BASE);
   }
   /* The programme type takes what the name leaves, at the right. */

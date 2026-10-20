@@ -120,7 +120,7 @@ static void buildLayout(const Layout *layout) {
   const int16_t h = (int16_t)lv_obj_get_height(sRoot);
   sVeil = uiBlock(sPage, t->ground, 0, 0, w, h);
   lv_obj_add_flag(sVeil, LV_OBJ_FLAG_HIDDEN);
-  sMessage = uiLabel(sPage, &roboto_menu, t->measurement);
+  sMessage = uiLabel(sPage, &roboto_title, t->measurement);
   lv_obj_add_flag(sMessage, LV_OBJ_FLAG_HIDDEN);
   sDetail = uiLabel(sPage, &roboto_text, t->dead);
   lv_obj_add_flag(sDetail, LV_OBJ_FLAG_HIDDEN);
@@ -133,7 +133,7 @@ static void buildLayout(const Layout *layout) {
   lv_obj_add_flag(sVeilCaption, LV_OBJ_FLAG_HIDDEN);
   sVeilPercent = uiLabel(sPage, &roboto_freq, t->ground);
   lv_obj_add_flag(sVeilPercent, LV_OBJ_FLAG_HIDDEN);
-  sVeilPercentSign = uiLabel(sPage, &roboto_menu, t->ground);
+  sVeilPercentSign = uiLabel(sPage, &roboto_title, t->ground);
   uiSetTextStatic(sVeilPercentSign, txt(STR_COMMON_UNIT_PERCENT));
   lv_obj_add_flag(sVeilPercentSign, LV_OBJ_FLAG_HIDDEN);
   sVeilBar = lv_obj_create(sPage);
@@ -252,10 +252,10 @@ void screenMessage(const char *line1, const char *line2) {
   if (!sReady) {
     return;
   }
-  /* The title in 21 pixels and the detail under it in 17, both centred,
+  /* The title in 20 pixels and the detail under it in 17, both centred,
    * and the detail starting with a capital however it was written. */
   uiSetText(sMessage, line1 != NULL ? line1 : "");
-  centre(sMessage, &roboto_menu, MESSAGE_TITLE_BASE);
+  centre(sMessage, &roboto_title, MESSAGE_TITLE_BASE);
   const bool hasDetail = line2 != NULL && line2[0] != '\0';
   if (hasDetail) {
     snprintf(sDetailText, sizeof(sDetailText), "%s", line2);
@@ -298,10 +298,10 @@ void screenUpdateVeilShow(int percent) {
   snprintf(digits, sizeof(digits), "%d", percent);
   uiSetText(sVeilPercent, digits);
   const int16_t digitsW = uiTextWidth(sVeilPercent, &roboto_freq);
-  const int16_t signW = uiTextWidth(sVeilPercentSign, &roboto_menu);
+  const int16_t signW = uiTextWidth(sVeilPercentSign, &roboto_title);
   const int16_t left = (int16_t)((w - digitsW - UI_UNIT_GAP - signW) / 2);
   uiBaseline(sVeilPercent, &roboto_freq, left, VEIL_PERCENT_BASE);
-  uiBaseline(sVeilPercentSign, &roboto_menu,
+  uiBaseline(sVeilPercentSign, &roboto_title,
              (int16_t)(left + digitsW + UI_UNIT_GAP), VEIL_PERCENT_BASE);
   centre(sVeilCaption, &roboto_small, VEIL_CAPTION_BASE);
   centre(sVeilFoot, &roboto_small, VEIL_FOOT_BASE);

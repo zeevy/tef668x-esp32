@@ -101,7 +101,7 @@ bool screenBootBegin(void) {
 
   uiRound(sBoot, t->radio, UI_MARGIN, PANEL_Y, BOOT_W - 2 * UI_MARGIN, PANEL_H,
           UI_RADIUS);
-  sTuner = uiLabel(sBoot, &roboto_menu, t->ground);
+  sTuner = uiLabel(sBoot, &roboto_title, t->ground);
 
   for (uint8_t i = 0; i < SCREEN_BOOT_STEPS; i++) {
     sTile[i] = uiRound(sBoot, t->rule, tileX(i), tileY(i), tileWidth(i), TEST_H,
@@ -138,8 +138,8 @@ void screenBootShow(const ScreenBoot *boot) {
   uiSetText(sTuner,
             boot->tuner != NULL ? boot->tuner : txt(STR_COMMON_NO_VALUE));
   /* Centred on the panel, which spans the screen between the margins. */
-  const int16_t tw = uiTextWidth(sTuner, &roboto_menu);
-  uiBaseline(sTuner, &roboto_menu, (int16_t)((sFrame.w - tw) / 2), PANEL_BASE);
+  const int16_t tw = uiTextWidth(sTuner, &roboto_title);
+  uiBaseline(sTuner, &roboto_title, (int16_t)((sFrame.w - tw) / 2), PANEL_BASE);
 
   for (uint8_t i = 0; i < SCREEN_BOOT_STEPS; i++) {
     const ScreenBootStep *step = &boot->steps[i];
