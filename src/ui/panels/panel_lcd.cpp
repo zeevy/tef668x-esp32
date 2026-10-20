@@ -74,7 +74,7 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
   const Theme *t = themeCurrent();
   uiRound(parent, t->radio, (int16_t)(at->x + UI_MARGIN), at->y,
           (int16_t)(at->w - 2 * UI_MARGIN), at->h, UI_RADIUS);
-  sName = uiLabel(parent, &roboto_menu, t->ground);
+  sName = uiLabel(parent, &roboto_title, t->ground);
   sSlot = uiLabel(parent, &roboto_small, t->ground);
   sFrequency = uiLabel(parent, &roboto_freq, t->ground);
   sUnit = uiLabel(parent, &roboto_text, t->ground);
@@ -118,10 +118,10 @@ static void show(const ScreenState *s) {
     name = txt(STR_COMMON_NO_VALUE);
   }
   uiSetText(sName,
-            uiFitText(name, &roboto_menu,
+            uiFitText(name, &roboto_title,
                       (int16_t)(right - LCD_METER_W - LCD_NAME_TO_METER - left),
                       sNameFit, sizeof(sNameFit)));
-  uiBaseline(sName, &roboto_menu, left, (int16_t)(sAt.y + NAME_BASE));
+  uiBaseline(sName, &roboto_title, left, (int16_t)(sAt.y + NAME_BASE));
 
   /*
    * The frequency, or the digits being typed in its place. While typing

@@ -12,7 +12,7 @@
  * happens to be available rather than out of the panels in `panels/`.
  *
  * The built in fonts are off as well. The type scale is Roboto Condensed at
- * eight sizes, subset to the glyphs each one needs, and a Montserrat left
+ * six sizes, subset to the glyphs each one needs, and a Montserrat left
  * switched on would be 20 KB of flash for a face this radio never shows.
  *
  * Regenerating: this is a hand maintained file. When LVGL is updated, diff it

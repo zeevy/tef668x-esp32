@@ -536,8 +536,8 @@ bool screenMenuBegin(void) {
                    (int16_t)(MENU_W - 2 * UI_MARGIN), EDIT_PANEL_H, UI_RADIUS);
   sLabel = uiLabel(sMenu, &roboto_small, t->ground);
   sValueBig = uiLabel(sMenu, &roboto_freq, t->ground);
-  sValueWord = uiLabel(sMenu, &roboto_name, t->ground);
-  sValueUnit = uiLabel(sMenu, &roboto_menu, t->ground);
+  sValueWord = uiLabel(sMenu, &roboto_value, t->ground);
+  sValueUnit = uiLabel(sMenu, &roboto_title, t->ground);
   sBar = lv_obj_create(sMenu);
   lv_obj_remove_style_all(sBar);
   lv_obj_set_pos(sBar, UI_MARGIN, BAR_ZERO_Y);
@@ -761,7 +761,7 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   const char *text = v->value != NULL ? v->value : "";
   const bool numeric = numericFace(text);
   lv_obj_t *big = numeric ? sValueBig : sValueWord;
-  const lv_font_t *face = numeric ? &roboto_freq : &roboto_name;
+  const lv_font_t *face = numeric ? &roboto_freq : &roboto_value;
   uiShowIf(sValueBig, numeric);
   uiShowIf(sValueWord, !numeric);
   uiSetText(big, text);
@@ -770,13 +770,13 @@ void screenMenuValueShow(const ScreenMenuValue *v) {
   int16_t unitWidth = 0;
   uiSetOrHide(sValueUnit, hasUnit ? v->unit : NULL);
   if (hasUnit) {
-    unitWidth = (int16_t)(UI_UNIT_GAP + uiTextWidth(sValueUnit, &roboto_menu));
+    unitWidth = (int16_t)(UI_UNIT_GAP + uiTextWidth(sValueUnit, &roboto_title));
   }
   const int16_t left = (int16_t)((MENU_W - width - unitWidth) / 2);
   const int16_t base = numeric ? EDIT_NUMBER_BASE : EDIT_WORD_BASE;
   uiBaseline(big, face, left, base);
   if (hasUnit) {
-    uiBaseline(sValueUnit, &roboto_menu, (int16_t)(left + width + UI_UNIT_GAP),
+    uiBaseline(sValueUnit, &roboto_title, (int16_t)(left + width + UI_UNIT_GAP),
                base);
   }
 

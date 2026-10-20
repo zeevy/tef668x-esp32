@@ -1,7 +1,7 @@
 """Turn Roboto Condensed into the LVGL fonts the screens use.
 
-The type scale has eight sizes, each subset to the glyphs that size actually
-shows. Subsetting is not a nicety. The 52px frequency face needs eleven glyphs,
+The type scale has six sizes of Roboto Condensed and one of symbols, each
+subset to the glyphs that size actually shows. Subsetting is not a nicety. The 52px frequency face needs eleven glyphs,
 ten digits and a point, and the whole face at that size is about 180 KB against
 under 20 KB subset.
 
@@ -142,10 +142,8 @@ NOTICES = {
 # The sizes and weights are the screens' type scale.
 FONTS = (
     ("freq", 52, 600, NUMERIC, "roboto", "the frequency, and a full screen setting value"),
-    ("name", 26, 600, ASCII, "roboto", "the station name on the RDS station page, and a setting value that is a word"),
-    ("value", 24, 500, ASCII, "roboto", "a panel value, such as the signal level or the PI"),
-    ("menu", 21, 500, ASCII + "," + MICRO + "," + ELLIPSIS, "roboto", "the station name on the radio screen, and other short panel text"),
-    ("title", 20, 600, ASCII, "roboto", "a screen title, and the boot screen"),
+    ("value", 24, 600, ASCII, "roboto", "a panel value, such as the signal level or the PI, the station name on the RDS station page, and a setting value that is a word"),
+    ("title", 20, 600, ASCII + "," + MICRO + "," + ELLIPSIS, "roboto", "a screen title, the station name on the radio screen, the boot screen and other short panel text"),
     # Medium, for the same reason as the label face below.
     ("text", 17, 500, ASCII + "," + ELLIPSIS, "roboto",
      "radio text, the unit, and a menu row"),

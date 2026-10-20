@@ -102,7 +102,7 @@ int16_t uiTextWidth(lv_obj_t *label, const lv_font_t *font);
 /*
  * `text` as it fits in `room` pixels: unchanged when it fits, otherwise the
  * longest start of it that fits with an ellipsis after it, written into
- * `out`. Only the 13, 15, 17 and 21 pixel faces carry the ellipsis glyph.
+ * `out`. Only the 13, 15, 17 and 20 pixel faces carry the ellipsis glyph.
  *
  * Done here rather than with LVGL's own dot mode, which writes the dots into
  * the label's text. The label's text then never matches the string it was
