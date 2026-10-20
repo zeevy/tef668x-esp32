@@ -1873,6 +1873,16 @@ static void dx_mode_makes_every_knob_step_a_manual_one(void) {
   TEST_ASSERT_EQUAL_INT(TUNE_MODE_MANUAL, radioKnobMode(NULL));
 }
 
+/* In Meter band mode the knob seeks, and the mode stays Meter band, which is
+ * what keeps the seek inside the metre bands. */
+static void meter_band_mode_turns_the_knob_as_auto(void) {
+  RadioSettings s = r;
+  s.band = BAND_SW;
+  s.tuneMode = TUNE_MODE_METER_BAND;
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_AUTO, radioKnobMode(&s));
+  TEST_ASSERT_EQUAL_INT(TUNE_MODE_METER_BAND, s.tuneMode);
+}
+
 static void meter_band_mode_does_not_come_back_with_shortwave(void) {
   /* The cost of one mode for the whole radio. Meter band stepping is the only
    * mode a band can refuse, so it is the only one that can be lost, and it is
@@ -2312,6 +2322,7 @@ int main(int, char **) {
   RUN_TEST(a_band_never_tuned_shows_the_width_it_comes_up_with);
   RUN_TEST(a_band_shows_the_step_it_was_left_on_or_its_own);
   RUN_TEST(dx_mode_makes_every_knob_step_a_manual_one);
+  RUN_TEST(meter_band_mode_turns_the_knob_as_auto);
   RUN_TEST(meter_band_mode_does_not_come_back_with_shortwave);
   RUN_TEST(a_band_never_set_takes_its_own_default);
   RUN_TEST(each_band_keeps_its_own_width_separately);

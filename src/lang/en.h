@@ -285,7 +285,7 @@
   X(BOOT_TOUCH, "Touch", "Boot screen step name: the touch chip answered") \
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
-  X(RADIO_CHECKING_UPDATES, "Checking for updates\xE2\x80\xA6", "Line under the frequency panel, in place of the radio text, while the update check runs") \
+  X(RADIO_CHECKING_UPDATES, "CHECKING FOR UPDATES\xE2\x80\xA6", "Line under the frequency panel, in place of the radio text, while the update check runs") \
   X(RADIO_FMT_SCANNING, "Scanning %s %u/%u", "Line under the frequency panel, in place of the radio text, while a station scan runs: band, done, total") \
   X(RADIO_UPDATE_FAILED, "Update Failed", "Title of the message screen after a failed OTA") \
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \
@@ -319,7 +319,7 @@
   X(RADIO_TUNE_MANUAL, "MAN", "Tuning mode tile on the radio screen; the tile is 68 px wide and no mode is longer than AUTO") \
   X(RADIO_TUNE_AUTO, "AUTO", "Tuning mode cell on the radio screen, seek on a knob turn") \
   X(RADIO_TUNE_MEMORY, "MEM", "Tuning mode cell on the radio screen, the knob walks the presets") \
-  X(RADIO_TUNE_METER, "MTR", "Tuning mode cell on the radio screen, the knob walks the SW metre bands") \
+  X(RADIO_TUNE_METER, "MTR", "Tuning mode cell on the radio screen, the knob seeks inside the SW metre bands") \
   X(RADIO_FMT_BW_K, "%uk", "Filter width tile value, width in kHz") \
   X(COMMON_FMT_PERCENT, "%u%%", "Battery per cent on the web page") \
   X(RADIO_FMT_MEMORY_SLOT, "P%02d", "Preset slot mark on the radio screen") \

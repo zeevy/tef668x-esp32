@@ -308,7 +308,7 @@ curl -s -b jar -d bnd=FM $R/api/band
 curl -s -b jar -d dir=up $R/api/seek
 ```
 
-In tuning mode Auto, `/api/step` seeks, as the knob does. Set `mod=Manual` first to step.
+In tuning modes Auto and Meter band, `/api/step` seeks, as the knob does. Set `mod=Manual` first to step.
 
 Refusals, as the radio sent them:
 

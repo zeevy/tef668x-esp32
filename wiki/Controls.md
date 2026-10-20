@@ -19,7 +19,7 @@ When the tuning knob tunes, turning it fast moves it further: two, four or six s
 
 | Control | Tap or turn | Hold |
 |---|---|---|
-| Tuning knob, turn | Tunes, by the tuning mode: **MAN** steps by the step size, **AUTO** seeks the next station, **MEM** goes to the next preset, **MTR** (shortwave only) steps inside the broadcast metre bands | |
+| Tuning knob, turn | Tunes, by the tuning mode: **MAN** steps by the step size, **AUTO** seeks the next station, **MEM** goes to the next preset, **MTR** (shortwave only) seeks the next station inside the broadcast metre bands | |
 | Tuning knob, press | Opens the menu | Writes the station to the [station log](Station-Log.md) |
 | BAND | The next band: LW, MW, SW, OIRT, FM, then LW again | The RDS pages, on FM and OIRT. On AM it shows `Switch to FM first` |
 | BW | The next filter width. On FM the list includes automatic | The bandwidth page |
@@ -29,7 +29,7 @@ When the tuning knob tunes, turning it fast moves it further: two, four or six s
 | DX | Opens DX mode, on FM and OIRT. On LW, MW and SW it opens the band scope | |
 | Volume knob | The volume. In Manual squelch, the squelch level | |
 
-In AUTO, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
+In AUTO and MTR, a turn starts a seek. Turning the same way again stops it, and turning the other way seeks the other way.
 
 After a station log hold, the name line above the frequency says what happened for 1.5 seconds: `Logged` and the frequency, `Already logged`, `Not logged`, `Scan running - wait` or `Still tuning - wait`.
 

@@ -133,7 +133,7 @@ The radio saves its state, shows the progress on the screen and restarts. If the
 | Tuning knob | Turn: tune, by the tuning mode. Press: open the menu | Write the station to the logbook |
 | BAND | Next band | The RDS pages |
 | BW | Next filter width | The bandwidth page |
-| MODE | Next tuning mode: manual, auto seek or presets | The menu |
+| MODE | Next tuning mode: manual, auto seek, presets, and meter band seek on shortwave | The menu |
 | Keypad | Type a frequency, then ENTER | |
 | DX | DX mode, on FM | |
 | Volume knob | Volume. In Manual squelch, the squelch level | |
