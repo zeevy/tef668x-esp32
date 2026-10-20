@@ -95,6 +95,12 @@
   X(LANGUAGE_ES, "Español", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_IT, "Italiano", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_PT, "Português", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_PL, "Polski", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_CS, "Čeština", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_HR, "Hrvatski", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_SR, "Srpski", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_RO, "Română", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_HU, "Magyar", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(MENU_ENCODER, "Encoder Type", "Menu row name, Controls > Encoder") \
   X(MENU_DIRECTION, "Encoder Direction", "Menu row name, Controls > Encoder") \
   X(MENU_ENCODER_GROUP, "Encoder", "Sub-group name, Controls > Encoder") \
