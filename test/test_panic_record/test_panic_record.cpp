@@ -23,6 +23,7 @@ static PanicRecord filled(void) {
   r.core = 1;
   r.uptimeS = 3600;
   strcpy(r.why, "LoadProhibited");
+  strcpy(r.task, "tiT");
   strcpy(r.build, "0586e2f");
   return r;
 }
@@ -74,7 +75,7 @@ static void the_json_names_what_it_holds(void) {
   TEST_ASSERT_EQUAL_STRING(
       "{\"why\":\"LoadProhibited\",\"pc\":\"0x400d1234\","
       "\"bt\":[\"0x400d1234\",\"0x400d5678\"],"
-      "\"core\":1,\"up\":3600,\"bld\":\"0586e2f\"}",
+      "\"core\":1,\"task\":\"tiT\",\"up\":3600,\"bld\":\"0586e2f\"}",
       out);
   TEST_ASSERT_EQUAL_size_t(strlen(out), n);
 }
@@ -100,6 +101,8 @@ static void the_longest_record_fits(void) {
   r.why[sizeof(r.why) - 1] = '\0';
   memset(r.build, 'f', sizeof(r.build) - 1);
   r.build[sizeof(r.build) - 1] = '\0';
+  memset(r.task, '\\', sizeof(r.task) - 1);
+  r.task[sizeof(r.task) - 1] = '\0';
   r.frameCount = PANIC_RECORD_FRAMES;
   r.uptimeS = 0xFFFFFFFFu;
   panicRecordSeal(&r);

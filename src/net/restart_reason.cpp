@@ -65,6 +65,9 @@ static void onPanic(arduino_panic_info_t *info, void *arg) {
     }
     r->frameCount = (uint8_t)n;
   }
+  /* The task it happened in, so a crash in the network's own task can be
+   * told from one in the radio's or the loop's. */
+  strncpy(r->task, pcTaskGetName(NULL), sizeof(r->task) - 1);
   strncpy(r->build, FIRMWARE_BUILD, sizeof(r->build) - 1);
   r->uptimeS = (uint32_t)(esp_timer_get_time() / 1000000);
   panicRecordSeal(r);
