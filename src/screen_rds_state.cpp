@@ -179,7 +179,7 @@ static void fillNetworks(const RdsInfo *r, ScreenRds *view) {
     }
     if ((e->afCount > freqShown || e->afMore) && at < sizeof(eonFreqs[k])) {
       /* A count only when it is the whole of the rest. */
-      char more[8];
+      char more[32];
       if (e->afMore) {
         snprintf(more, sizeof(more), "%s", txt(STR_RDS_MORE));
       } else {

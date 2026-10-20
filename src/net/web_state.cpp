@@ -187,8 +187,8 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
     snprintf(small, sizeof(small), ",\"pty\":%u", (unsigned)r->pty);
     out += small;
     out += F(",\"ptn\":\"");
-    out +=
-        jsonEscape(rdsPtyNameIn(r->pty, (RdsRegion)sWeb->settings->rdsRegion));
+    out += jsonEscape(
+        rdsPtyNameEnglish(r->pty, (RdsRegion)sWeb->settings->rdsRegion));
     out += F("\"");
   }
   if (r->hasFlags) {
@@ -275,9 +275,10 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
     for (uint8_t i = 0; i < r->rtPlusCount; i++) {
       char words[RDS_RT_LEN + 1];
       const bool have = rdsRtPlusText(r, i, words, sizeof(words));
-      snprintf(
-          small, sizeof(small), "%s{\"t\":%u,\"l\":\"%s\",\"s\":", i ? "," : "",
-          (unsigned)r->rtPlusTag[i].type, rdsRtPlusLabel(r->rtPlusTag[i].type));
+      snprintf(small, sizeof(small),
+               "%s{\"t\":%u,\"l\":\"%s\",\"s\":", i ? "," : "",
+               (unsigned)r->rtPlusTag[i].type,
+               rdsRtPlusLabelEnglish(r->rtPlusTag[i].type));
       out += small;
       if (have) {
         out += F("\"");
@@ -552,7 +553,7 @@ static void appendRadioState(String &out) {
        * the radio is not actually on, with nothing to say so. */
       if (snap.lastError != TEF668X_OK) {
         out += F(",\"per\":\"");
-        out += tef668xErrorText(snap.lastError);
+        out += tef668xErrorTextEnglish(snap.lastError);
         out += F("\"");
       }
     }
@@ -637,7 +638,7 @@ static void appendRadioState(String &out) {
     /* Say why, not just that it failed. Without this the only way to find out
      * is the serial cable. */
     out += F("{\"err\":\"");
-    out += tef668xErrorText(tunerStartError());
+    out += tef668xErrorTextEnglish(tunerStartError());
     out += F("\"");
     uint16_t dev = 0;
     uint16_t hw = 0;

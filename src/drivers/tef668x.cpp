@@ -162,29 +162,37 @@ static uint16_t sDeviceWord = 0;
 static uint16_t sHardwareWord = 0;
 static uint16_t sSoftwareWord = 0;
 
-const char *tef668xErrorText(Tef668xError error) {
+static StrId errorId(Tef668xError error) {
   switch (error) {
     case TEF668X_OK:
-      return txt(STR_TUNER_OK);
+      return STR_TUNER_OK;
     case TEF668X_ERR_NO_DEVICE:
-      return txt(STR_TUNER_NO_TUNER_ON_THE_I2C_BUS);
+      return STR_TUNER_NO_TUNER_ON_THE_I2C_BUS;
     case TEF668X_ERR_NOT_READY:
-      return txt(STR_TUNER_THE_TUNER_NEVER_BECAME_READY);
+      return STR_TUNER_THE_TUNER_NEVER_BECAME_READY;
     case TEF668X_ERR_IDENTIFY:
-      return txt(STR_TUNER_THE_TUNER_WOULD_NOT_IDENTIFY_ITSELF);
+      return STR_TUNER_THE_TUNER_WOULD_NOT_IDENTIFY_ITSELF;
     case TEF668X_ERR_NO_PATCH:
-      return txt(STR_TUNER_THIS_BUILD_HAS_NO_PATCH_FOR_THAT_TUNER);
+      return STR_TUNER_THIS_BUILD_HAS_NO_PATCH_FOR_THAT_TUNER;
     case TEF668X_ERR_UNKNOWN_PART:
-      return txt(STR_TUNER_UNKNOWN_TUNER_PART);
+      return STR_TUNER_UNKNOWN_TUNER_PART;
     case TEF668X_ERR_WRITE:
-      return txt(STR_TUNER_THE_TUNER_DID_NOT_ACCEPT_A_WRITE);
+      return STR_TUNER_THE_TUNER_DID_NOT_ACCEPT_A_WRITE;
     case TEF668X_ERR_READ:
-      return txt(STR_TUNER_THE_TUNER_DID_NOT_ANSWER_A_READ);
+      return STR_TUNER_THE_TUNER_DID_NOT_ANSWER_A_READ;
     case TEF668X_ERR_RANGE:
-      return txt(STR_TUNER_OUT_OF_RANGE);
+      return STR_TUNER_OUT_OF_RANGE;
     default:
-      return txt(STR_TUNER_UNKNOWN);
+      return STR_TUNER_UNKNOWN;
   }
+}
+
+const char *tef668xErrorText(Tef668xError error) {
+  return txt(errorId(error));
+}
+
+const char *tef668xErrorTextEnglish(Tef668xError error) {
+  return txtIn(TXT_ENGLISH, errorId(error));
 }
 
 /* ------------------------------------------------------------- transport -- */
@@ -777,7 +785,7 @@ Tef668xError tef668xBegin(void) {
   Tef668xError quality = applyReceptionDefaults();
   if (quality != TEF668X_OK) {
     DebugLog.printf("[tuner] reception defaults failed: %s\n",
-                    tef668xErrorText(quality));
+                    tef668xErrorTextEnglish(quality));
   }
 
   /* Quiet until somebody tunes it.
@@ -790,7 +798,7 @@ Tef668xError tef668xBegin(void) {
   Tef668xError quiet = tef668xSetMute(true);
   if (quiet != TEF668X_OK) {
     DebugLog.printf("[tuner] could not mute at start up: %s\n",
-                    tef668xErrorText(quiet));
+                    tef668xErrorTextEnglish(quiet));
   }
 
   uint16_t device = 0;

@@ -31,10 +31,22 @@ Open a [feature request](https://github.com/zeevy/tef668x-esp32/issues/new/choos
 How the code is kept:
 
 - Logic goes in `src/core/`, in plain C, with unit tests.
-- Every text the screen shows is one line in `src/lang/en.h`.
+- Every text the screen shows is one line in `src/lang/en.h`. A new text is also a line in each other language's file, `src/lang/<code>.h`, unless it reads the same as the English one. See [Correct a translation or add a language](#correct-a-translation-or-add-a-language).
 - A new setting is a new field in the settings struct.
 - Signal, noise and timing limits come from readings measured on a radio, never from a guess. Say where the number came from.
 - Every library and tool is pinned to an exact version.
+
+## Correct a translation or add a language
+
+The screen's texts in other languages are in `src/lang/<code>.h`, one line per text: the id from `src/lang/en.h` and the text. A text the file leaves out shows in English. To correct a word, change its line there, or open an issue with the language, the screen, what it says and what it should say.
+
+To add a language:
+
+1. Write `src/lang/<code>.h` with the ids of `en.h`, in its order, leaving out the texts that read the same as English. Keep each text about as wide as the English one: the screen has no room to spare. A `printf` format keeps the same conversions as the English one; to put them in another order, number every one, as in `%2$s %1$d`.
+2. Leave out the texts that stay English in every language: the boot and recovery screens' (`BOOT_`, and `RECOVERY_` but for `RECOVERY_PRESS_AGAIN`), the RDS programme languages (`LANG_`), the theme and language names (`THEME_`, `LANGUAGE_`), the units (`COMMON_UNIT_`), the band codes, the clock and the metre band. A unit test fails if a language holds one.
+3. Add the language at the end of `TxtLanguage` in `src/core/strings.h`. In `src/core/strings.c`, include its file, add its block of texts like the others, and add it at the end of the language list. Add its own name as a `LANGUAGE_` line in `en.h`. The number is stored in every radio's settings, so a language never moves.
+4. Cut the fonts again with `tools/make_lvgl_font.py`, so the letters the language uses are in them. The `fonts` gate fails until they are.
+5. Draw every screen in the language and check it. See [Building from Source](Building-from-Source.md#draw-the-screen-pictures).
 
 ## Change the wiki
 

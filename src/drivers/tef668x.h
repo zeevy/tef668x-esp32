@@ -40,7 +40,10 @@ typedef enum {
   TEF668X_ERR_RANGE         /* A caller asked for something out of range. */
 } Tef668xError;
 
+/* What went wrong, in the panel's language, and in English for the web page,
+ * the API and the log. */
 const char *tef668xErrorText(Tef668xError error);
+const char *tef668xErrorTextEnglish(Tef668xError error);
 
 /* Which part is fitted, and therefore what the radio can do. */
 typedef struct {

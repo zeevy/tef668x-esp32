@@ -175,10 +175,10 @@ static void sendJsonLine(uint16_t id, const LogbookEntry *e, void *ctx) {
   String ptnField = "null";
   if (e->hasPty) {
     snprintf(ptyField, sizeof(ptyField), "%u", (unsigned)e->pty);
-    ptnField =
-        "\"" +
-        jsonEscape(rdsPtyNameIn(e->pty, (RdsRegion)sWeb->settings->rdsRegion)) +
-        "\"";
+    ptnField = "\"" +
+               jsonEscape(rdsPtyNameEnglish(
+                   e->pty, (RdsRegion)sWeb->settings->rdsRegion)) +
+               "\"";
   }
   const char *country = logbookEntryCountry(e);
   char ctyField[8] = "null";

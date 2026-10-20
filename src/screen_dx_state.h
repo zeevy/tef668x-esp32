@@ -104,9 +104,9 @@ void screenCatchesStateBuild(const ScreenCatchesInputs *in,
 
 /* What the Scanner page's text points at. */
 typedef struct {
-  char found[16];
+  char found[32];
   char position[8];
-  char mode[20];
+  char mode[40];
   char frequency[16];
   char dwell[16];
   char left[16];
@@ -151,13 +151,13 @@ void screenScanStateBuild(const ScreenScanInputs *in, ScreenScanKeep *keep,
 
 /* What the Scope page's text points at. */
 typedef struct {
-  char context[16];
+  char context[32];
   char position[8];
   char from[8];
   char mid[8];
   char to[8];
-  char baseText[16];
-  char floorText[24];
+  char baseText[32];
+  char floorText[40];
   char freq[12];
   char level[12];
   char rise[12];

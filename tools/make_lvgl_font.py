@@ -1,39 +1,75 @@
-"""Turn Roboto Condensed into the LVGL fonts the screens use.
+"""Turn Roboto Condensed, Noto Sans SC and Material Symbols into the LVGL
+fonts the screens use.
 
 The type scale has six sizes of Roboto Condensed and one of symbols, each
-subset to the glyphs that size actually shows. Subsetting is not a nicety. The 52px frequency face needs eleven glyphs,
-ten digits and a point, and the whole face at that size is about 180 KB against
-under 20 KB subset.
+subset to the glyphs that size actually shows. Subsetting is not a nicety.
+The 52px frequency face needs eleven glyphs, ten digits and a point, and the
+whole face at that size is about 180 KB against under 20 KB subset.
 
-Roboto Condensed is under the SIL Open Font License 1.1 and Material Symbols
-under the Apache License 2.0, which lets the converted bitmaps ship in this
-GPLv3 repository. The font files themselves are not kept here, because they
-are large, nobody edits them and they are one download away.
+Every language's letters past ASCII come from two more faces per text size,
+which the Roboto face names as its fallback. LVGL takes a character a face
+does not carry from its fallback, and lays the line out by the first face
+alone, so English draws the same with or without them. Merging them into the
+Roboto face would not be: the converter takes the line height from every
+glyph, and Chinese makes a 21px face 23 high where Roboto alone is 22.
+
+- `ext_<face>`: Roboto Condensed at the same size and weight, holding every
+  accented Latin, Cyrillic and Greek letter and every sign any language
+  file uses, so an accent matches the letter it sits on.
+- `zh_<size>`: Noto Sans SC, holding every Chinese character the Chinese
+  texts use, at 13, 17, 20 and 24px. The 15px face takes its Chinese at
+  13px. The 13px face is Bold, because at Medium small Chinese comes out thin
+  and grey beside the Latin.
+
+They are complete by construction: this reads src/lang/en.h and every other
+language file there and puts every character of a script into every face of
+that script. Each file records a checksum of its character set, and
+`--check` works the sets out again from the language files and fails on any
+difference. A character no face can hold stops the tool, naming the text.
+
+The two kinds of extra face are stored packed, LVGL's own run length coding,
+which saves about a quarter of their size. The Roboto faces are drawn all the
+time and stay unpacked.
+
+Roboto Condensed and Noto Sans SC are under the SIL Open Font License 1.1 and
+Material Symbols under the Apache License 2.0, which lets the converted
+bitmaps ship in this GPLv3 repository. The font files themselves are not kept
+here, because they are large, nobody edits them and they are one download
+away.
 
     python3 tools/make_lvgl_font.py --font "RobotoCondensed[wght].ttf" \
-        --icons "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf"
+        --icons "MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf" \
+        --cjk "NotoSansSC[wght].ttf"
 
-Get the two faces from Google:
+Get them from Google. Roboto Condensed and Noto Sans SC are pinned to a
+commit, and the tool stops when a file is not the one it was made from:
 
-    https://github.com/google/fonts/raw/main/ofl/robotocondensed/RobotoCondensed%5Bwght%5D.ttf
+    https://github.com/google/fonts/raw/ae50998cbcab558ae1f047ad5c724ec7261980ca/ofl/robotocondensed/RobotoCondensed%5Bwght%5D.ttf
+    https://github.com/google/fonts/raw/2894aab31764f10f29c421bdfd2340d3b382d384/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf
     https://github.com/google/material-design-icons/raw/master/variablefont/MaterialSymbolsOutlined%5BFILL,GRAD,opsz,wght%5D.ttf
 
-It is a variable font, so this instantiates a static instance at each weight
-first with fontTools and then runs `lv_font_conv` over that. Handing the
-variable font straight to the converter gives whatever the default instance
-is, which is Regular, and every weight in the scale would come out the same.
+They are variable fonts, so this instantiates a static instance at each
+weight first with fontTools and then runs `lv_font_conv` over that. Handing
+the variable font straight to the converter gives whatever the default
+instance is, which is Regular for Roboto and Thin for Noto, and every weight
+in the scale would come out the same. Noto Sans SC is cut down to the
+characters first: instancing all 17 MB of it takes minutes.
 
 Needs `fonttools` and Node:
 
     python3 -m pip install --break-system-packages fonttools==4.65.0
     npx lv_font_conv@1.5.3 --version
 
-Rerun it when the scale changes, run clang-format over the result, and commit
-the headers. The format gate covers generated files like any other.
+Rerun it when the scale or a language file changes, run clang-format over
+the result, and commit the headers. The format gate covers generated files
+like any other, and the fonts gate runs `--check`.
 """
 import argparse
 import functools
+import glob
+import hashlib
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -136,7 +172,45 @@ NOTICES = {
                         "Authors, SIL Open Font License 1.1.",
     "Material Symbols Outlined": "Material Symbols: Copyright Google LLC, "
                                  "Apache License 2.0.",
+    "Noto Sans SC": "Noto Sans SC: Copyright 2014-2021 Adobe "
+                    "(http://www.adobe.com/), with Reserved Font Name "
+                    "'Source', SIL Open Font License 1.1.",
 }
+
+# The font files these faces are made from, by sha256, so a file that moved
+# on upstream cannot change the faces without anyone seeing it.
+SHA256 = {
+    "roboto": "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+    "cjk": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+}
+
+# The extra letters' faces, one per text face, at its size and weight, and
+# the Chinese face each one falls back to in turn.
+EXT_FACES = (
+    ("label", 13, 500, "zh_13"),
+    ("small", 15, 500, "zh_13"),
+    ("text", 17, 500, "zh_17"),
+    ("title", 20, 600, "zh_20"),
+    ("value", 24, 600, "zh_24"),
+)
+
+# The Chinese faces: size and weight. Bold at 13px, where Medium Chinese
+# looks thin and grey beside the Latin; the others at their text face's
+# weight. 15px text takes its Chinese at 13px, which saves a whole face.
+ZH_FACES = (
+    ("13", 13, 700),
+    ("17", 17, 500),
+    ("20", 20, 600),
+    ("24", 24, 600),
+)
+
+LANG_DIR = os.path.join("src", "lang")
+
+# Where Chinese starts, U+2E80, the CJK radicals, which takes in the full
+# width punctuation too. The private use area is where the icon symbols are,
+# and a text that holds one draws it in the icon face.
+CJK_FROM = 0x2E80
+PRIVATE_USE = range(0xE000, 0xF900)
 
 # name, pixels, weight, glyphs, source, and what it is for.
 # The sizes and weights are the screens' type scale.
@@ -196,7 +270,113 @@ def instantiate(source, weight, into, filled=False):
     return into
 
 
-def tidy(path, weight, glyphs, faces, purpose):
+def instantiate_subset(source, weight, letters, into):
+    """A static instance of Noto Sans SC at one weight holding only
+    `letters`. Cut down first, since instancing the whole 17 MB file takes
+    minutes."""
+    from fontTools import subset, ttLib
+    from fontTools.varLib import instancer
+
+    font = ttLib.TTFont(source)
+    if "fvar" not in font:
+        raise SystemExit("%s is not a variable font. Get the one named "
+                         "NotoSansSC[wght].ttf." % source)
+    cutter = subset.Subsetter(subset.Options())
+    cutter.populate(unicodes=sorted(letters))
+    cutter.subset(font)
+    instancer.instantiateVariableFont(font, {"wght": weight}, inplace=True)
+    font.save(into)
+    return into
+
+
+def check_sha(path, which):
+    digest = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    if digest != SHA256[which]:
+        raise SystemExit("%s is not the file these fonts are made from: sha256 "
+                         "%s, wanted %s. Get it from the URL above." %
+                         (path, digest, SHA256[which]))
+
+
+def ranges(letters):
+    """The converter's --range for a set of code points, runs joined."""
+    out = []
+    for code in sorted(letters):
+        if out and code == out[-1][1] + 1:
+            out[-1][1] = code
+        else:
+            out.append([code, code])
+    return ",".join("0x%04X" % a if a == b else "0x%04X-0x%04X" % (a, b)
+                    for a, b in out)
+
+
+LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+
+def decode(literals):
+    """The text C makes of string literals, escapes read. A \\x escape takes
+    every hex digit after it, as in C."""
+    data = bytearray()
+    for lit in literals:
+        raw = lit.encode("utf-8")
+        k = 0
+        while k < len(raw):
+            if raw[k:k + 2] == b"\\x":
+                m = re.match(rb"\\x([0-9A-Fa-f]+)", raw[k:])
+                data.append(int(m.group(1), 16) & 0xFF)
+                k += len(m.group(0))
+            elif raw[k:k + 1] == b"\\":
+                data += {b"n": b"\n", b"\\": b"\\", b'"': b'"'}[raw[k + 1:k + 2]]
+                k += 2
+            else:
+                data.append(raw[k])
+                k += 1
+    return bytes(data).decode("utf-8")
+
+
+def texts(path):
+    """(id, text) for every line of a language file. A text is the first run
+    of literals on its line; en.h has a second, the note on where it is
+    used, after a comma."""
+    out = []
+    for line in open(path, encoding="utf-8"):
+        m = re.match(r"\s*X\((\w+),", line)
+        if not m:
+            continue
+        run = []
+        last = m.end()
+        for lit in LITERAL.finditer(line, m.end()):
+            if run and "," in line[last:lit.start()]:
+                break
+            run.append(lit.group(1))
+            last = lit.end()
+        out.append((m.group(1), decode(run)))
+    return out
+
+
+def letters():
+    """Every character past ASCII the language files hold, split into the
+    extra letters and the Chinese, and where each was first seen."""
+    ext, zh, where = set(), set(), {}
+    for path in sorted(glob.glob(os.path.join(LANG_DIR, "*.h"))):
+        for ident, text in texts(path):
+            for ch in text:
+                code = ord(ch)
+                if code <= 0x7E or code in PRIVATE_USE:
+                    continue
+                (zh if code >= CJK_FROM else ext).add(code)
+                where.setdefault(code, "%s %s" % (os.path.basename(path), ident))
+    return ext, zh, where
+
+
+def letters_line(codes):
+    """The checksum a face records of its character set, so the fonts gate
+    can tell a face cut before a language file changed."""
+    digest = hashlib.sha256(",".join("%04X" % c for c in sorted(codes))
+                            .encode()).hexdigest()[:16]
+    return "%d characters, sha256 %s" % (len(codes), digest)
+
+
+def tidy(path, weight, glyphs, faces, purpose, letters=None):
     """Make the generated file say something true and the same every time.
 
     The converter writes its own command line into the header, temporary
@@ -213,6 +393,8 @@ def tidy(path, weight, glyphs, faces, purpose):
         if line.startswith(" * Bpp:"):
             head.append(" * Weight: %d\n" % weight)
             head.append(" * Glyphs: %s\n" % glyphs)
+            if letters:
+                head.append(" * Letters: %s\n" % letters)
             head.append(" *\n")
             head.append(" * %s, for %s.\n" % (" and ".join(faces), purpose))
             head.append(" * Generated by tools/make_lvgl_font.py. Do not edit.\n")
@@ -222,48 +404,104 @@ def tidy(path, weight, glyphs, faces, purpose):
     open(path, "w").write("".join(head))
 
 
-def convert(source, name, pixels, glyphs, extra=None):
-    """One LVGL font. `extra` is a second (source, glyphs) cut into the same
-    face at the same size, which is how the hint symbols ride in the label
-    font: the converter takes any number of --font/--range pairs."""
+def convert(source, name, pixels, glyphs, extra=None, fallback=None,
+            packed=False):
+    """One LVGL font, `name` in font_<name>.c, or roboto_<name> for a face of
+    the scale. `extra` is a second (source, glyphs) cut into the same face at
+    the same size, which is how the filled symbol rides in the icon font: the
+    converter takes any number of --font/--range pairs. `fallback` is the
+    font LVGL takes a character from when this one does not carry it."""
+    font_name = name if name.startswith(("ext_", "zh_")) else "roboto_" + name
     out = os.path.join(OUT_DIR, "font_%s.c" % name)
     fonts = ["--font", source, "--range", glyphs]
     if extra:
         fonts += ["--font", extra[0], "--range", extra[1]]
+    if fallback:
+        fonts += ["--lv-fallback", fallback]
+    # Unpacked unless asked. lv_font_conv packs 4 bpp glyphs by default, and
+    # each packed glyph is unpacked on every draw, which the Roboto faces,
+    # drawn all the time, are spared. LVGL only draws a packed face when
+    # LV_USE_FONT_COMPRESSED is on, and the fonts gate checks the two agree.
     subprocess.run(
         ["npx", "--yes", LV_FONT_CONV] + fonts + [
          "--size", str(pixels),
          "--bpp", str(BPP),
          "--format", "lvgl",
          "--lv-include", "lvgl.h",
-         "--force-fast-kern-format",
-         # Uncompressed. lv_font_conv compresses 4 bpp glyphs by default, and
-         # LVGL only decodes that when LV_USE_FONT_COMPRESSED is on, which
-         # costs code and a decode of every glyph on every redraw. Without it
-         # nothing at all is drawn: the rectangles appear and the text does
-         # not, with no error anywhere. Compression would save about a third
-         # of the glyph data, which is not worth a decode on every redraw.
-         "--no-compress",
-         "--lv-font-name", "roboto_%s" % name,
+         "--force-fast-kern-format"] +
+        ([] if packed else ["--no-compress"]) + [
+         "--lv-font-name", font_name,
          "-o", out],
         check=True)
     return out
 
 
+def check():
+    """Fail when a face's characters are not what the language files need
+    now, or a face does not name the fallback it should."""
+    ext, zh, _ = letters()
+    bad = []
+    faces = [("ext_" + n, ext, fb) for n, _, _, fb in EXT_FACES]
+    faces += [("zh_" + n, zh, None) for n, _, _ in ZH_FACES]
+    for name, codes, fallback in faces:
+        path = os.path.join(OUT_DIR, "font_%s.c" % name)
+        if not os.path.exists(path):
+            bad.append("%s is missing" % path)
+            continue
+        text = open(path).read()
+        if " * Letters: %s\n" % letters_line(codes) not in text:
+            bad.append("%s holds other characters than the language files "
+                       "use" % path)
+        if fallback and ".fallback = &%s," % fallback not in text:
+            bad.append("%s does not fall back to %s" % (path, fallback))
+    for name, _, _, _ in EXT_FACES:
+        path = os.path.join(OUT_DIR, "font_%s.c" % name)
+        if ".fallback = &ext_%s," % name not in open(path).read():
+            bad.append("%s does not fall back to ext_%s" % (path, name))
+    for line in bad:
+        print("   " + line)
+    if bad:
+        print("   run tools/make_lvgl_font.py, then clang-format over "
+              "src/ui/fonts/")
+    return 1 if bad else 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--font", required=True,
-                    help="RobotoCondensed[wght].ttf")
-    ap.add_argument("--icons", required=True,
+    ap.add_argument("--font", help="RobotoCondensed[wght].ttf")
+    ap.add_argument("--icons",
                     help="MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf")
-    ap.add_argument("--only", help="one font name, for a quick rebuild")
+    ap.add_argument("--cjk", help="NotoSansSC[wght].ttf")
+    ap.add_argument("--only", help="font names, such as title,ext_title,zh_20, "
+                                   "for a quick rebuild")
+    ap.add_argument("--check", action="store_true",
+                    help="check the faces against the language files, and "
+                         "make nothing")
     args = ap.parse_args()
+    if args.check:
+        return check()
+
+    ext, zh, where = letters()
+    only = set(args.only.split(",")) if args.only else None
+    wanted = lambda name: only is None or name in only  # noqa: E731
+    need = {
+        "roboto": any(wanted(r[0]) for r in FONTS if r[4] == "roboto") or
+        any(wanted("ext_" + f[0]) for f in EXT_FACES),
+        "icons": any(wanted(r[0]) for r in FONTS if r[4] == "icons"),
+        "cjk": any(wanted("zh_" + f[0]) for f in ZH_FACES),
+    }
+    sources = {"roboto": args.font, "icons": args.icons,
+               "icons-filled": args.icons, "cjk": args.cjk}
+    for which, needed in need.items():
+        if needed and not sources[which]:
+            raise SystemExit("needs --%s" % {"roboto": "font", "icons": "icons",
+                                             "cjk": "cjk"}[which])
+        if needed and which in SHA256:
+            check_sha(sources[which], which)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     made = []
     with tempfile.TemporaryDirectory() as tmp:
-        sources = {"roboto": args.font, "icons": args.icons,
-                   "icons-filled": args.icons}
         faces = {"roboto": "Roboto Condensed",
                  "icons": "Material Symbols Outlined",
                  "icons-filled": "Material Symbols Outlined"}
@@ -274,24 +512,65 @@ def main():
                 os.path.join(tmp, "%s-%d.ttf" % (source, weight)),
                 filled=source == "icons-filled")
 
+        @functools.cache
+        def cut_cjk(weight):
+            return instantiate_subset(sources["cjk"], weight, zh,
+                                      os.path.join(tmp, "cjk-%d.ttf" % weight))
+
+        for which, codes, family in (("roboto", ext, "Roboto Condensed"),
+                                     ("cjk", zh, "Noto Sans SC")):
+            if not need[which]:
+                continue
+            from fontTools import ttLib
+            carried = set(ttLib.TTFont(sources[which]).getBestCmap())
+            for code in sorted(codes - carried):
+                raise SystemExit("U+%04X, in %s, is in no face: %s does not "
+                                 "carry it" % (code, where[code], family))
+
+        fallbacks = {n: "ext_" + n for n, _, _, _ in EXT_FACES}
         for row in FONTS:
             name, pixels, weight, glyphs, source, purpose = row[:6]
             extra = row[6] if len(row) > 6 else None
-            if args.only and name != args.only:
+            if not wanted(name):
                 continue
             if extra:
                 extra = (cut_font(extra[0], weight), extra[1])
                 glyphs = glyphs + "," + extra[1]
-            out = convert(cut_font(source, weight), name, pixels, row[3], extra)
+            out = convert(cut_font(source, weight), name, pixels, row[3], extra,
+                          fallback=fallbacks.get(name))
             used = [faces[source]]
             if row[6:] and faces[row[6][0]] not in used:
                 used.append(faces[row[6][0]])
             tidy(out, weight, glyphs, used, purpose)
             made.append((out, os.path.getsize(out)))
-            print("%-6s %3dpx w%d -> %s" % (name, pixels, weight, out))
+            print("%-8s %3dpx w%d -> %s" % (name, pixels, weight, out))
+
+        for name, pixels, weight, fallback in EXT_FACES:
+            if not wanted("ext_" + name):
+                continue
+            out = convert(cut_font("roboto", weight), "ext_" + name, pixels,
+                          ranges(ext), fallback=fallback, packed=True)
+            tidy(out, weight, "every letter past ASCII the language files use",
+                 ["Roboto Condensed"],
+                 "the letters the %s face does not carry" % name,
+                 letters_line(ext))
+            made.append((out, os.path.getsize(out)))
+            print("%-8s %3dpx w%d -> %s" % ("ext_" + name, pixels, weight, out))
+
+        for name, pixels, weight in ZH_FACES:
+            if not wanted("zh_" + name):
+                continue
+            out = convert(cut_cjk(weight), "zh_" + name, pixels, ranges(zh),
+                          packed=True)
+            tidy(out, weight, "every Chinese character the language files use",
+                 ["Noto Sans SC"],
+                 "Chinese at %dpx" % pixels, letters_line(zh))
+            made.append((out, os.path.getsize(out)))
+            print("%-8s %3dpx w%d -> %s" % ("zh_" + name, pixels, weight, out))
 
     total = sum(size for _, size in made)
     print("%d fonts, %.1f KB of C source" % (len(made), total / 1024.0))
+    return 0
 
 
 if __name__ == "__main__":

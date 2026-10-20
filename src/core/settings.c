@@ -25,6 +25,7 @@
 #include "settings_table.h"
 #include "signal.h"
 #include "squelch.h"
+#include "strings.h"
 #include "wifi_join.h"
 
 /*
@@ -290,6 +291,7 @@ void settingsDefaults(Settings *s) {
   /* Off: nothing listens for a PC until its owner asks. */
   s->pcLink = 0;
   s->batteryCheck = 0;
+  s->language = TXT_ENGLISH;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a
@@ -529,6 +531,9 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
     if (out->batteryCheck > 1) {
       out->batteryCheck = 0;
     }
+    if (out->language >= TXT_LANGUAGE_COUNT) {
+      out->language = TXT_ENGLISH;
+    }
     keepUnused(out);
     if (!settingsValid(out)) {
       settingsDefaults(out);
@@ -606,13 +611,16 @@ bool settingsFromBlob(const void *blob, size_t len, Settings *out) {
   if (out->touchOff > 1) {
     out->touchOff = 0;
   }
-  /* The PC Link and the battery check live in version 32's padding, the
-   * same way. */
+  /* The PC Link, the battery check and the language live in version 32's
+   * padding, the same way. */
   if (out->pcLink > 1) {
     out->pcLink = 0;
   }
   if (out->batteryCheck > 1) {
     out->batteryCheck = 0;
+  }
+  if (out->language >= TXT_LANGUAGE_COUNT) {
+    out->language = TXT_ENGLISH;
   }
   keepUnused(out);
 

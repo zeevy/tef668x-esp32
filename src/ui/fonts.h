@@ -56,6 +56,26 @@ LV_FONT_DECLARE(roboto_small)
 LV_FONT_DECLARE(roboto_label)
 
 /*
+ * The letters other languages need, as fallbacks: each text face above names
+ * its own `ext_` face, at its size and weight, holding every accented Latin,
+ * Cyrillic and Greek letter the language files use, and each of those names a
+ * `zh_` face holding their Chinese characters. LVGL takes a character a face
+ * does not carry from its fallback and lays the line out by the first face,
+ * so an English screen draws the same as without them. Screens never name
+ * them; the screenshot tool does, to check every letter comes from its own
+ * size.
+ */
+LV_FONT_DECLARE(ext_label)
+LV_FONT_DECLARE(ext_small)
+LV_FONT_DECLARE(ext_text)
+LV_FONT_DECLARE(ext_title)
+LV_FONT_DECLARE(ext_value)
+LV_FONT_DECLARE(zh_13)
+LV_FONT_DECLARE(zh_17)
+LV_FONT_DECLARE(zh_20)
+LV_FONT_DECLARE(zh_24)
+
+/*
  * The status symbols, out of Material Symbols Outlined rather than Roboto.
  *
  * Thirty three glyphs: the network symbol's six, which are joined with its

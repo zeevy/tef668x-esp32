@@ -95,9 +95,11 @@ bool rdsPiHasArea(uint16_t pi, RdsRegion region);
 /*
  * The programme type's name: RBDS's own on North America, NRSC-4-B table
  * F.2, such as Rock for 5, and IEC 62106's everywhere else, Education for
- * the same 5. Never NULL.
+ * the same 5, in the panel's language, and in English for the web page and
+ * the files. Never NULL.
  */
 const char *rdsPtyNameIn(uint8_t pty, RdsRegion region);
+const char *rdsPtyNameEnglish(uint8_t pty, RdsRegion region);
 
 #ifdef __cplusplus
 }

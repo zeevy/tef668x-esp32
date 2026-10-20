@@ -25,6 +25,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "strings.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -648,12 +650,14 @@ void rdsFeed(Rds *rds, const RdsRead *read);
 bool rdsFormatPiHeard(const RdsInfo *info, char *out);
 
 /*
- * The name of a programme type, in English. Never NULL.
+ * The name of a programme type, in the panel's language. Never NULL.
  *
  * The European table. North America uses a different set of names for the
  * same 32 numbers, and `rdsPtyNameIn` in rds_country.h reads either.
+ * `rdsPtyNameId` is the text's id, STR_PTY_NONE for a number past the table.
  */
 const char *rdsPtyName(uint8_t pty);
+StrId rdsPtyNameId(uint8_t pty);
 
 /*
  * What a PI's own second nibble says about how far its programme reaches,
@@ -683,9 +687,11 @@ const char *rdsLanguageName(uint8_t code);
 
 /*
  * A short name for an RT+ content type, in capitals, such as TITLE or
- * ARTIST. Never NULL: a type the standard keeps for later is OTHER.
+ * ARTIST, in the panel's language, and in English for the web page. Never
+ * NULL: a type the standard keeps for later is OTHER.
  */
 const char *rdsRtPlusLabel(uint8_t type);
+const char *rdsRtPlusLabelEnglish(uint8_t type);
 
 /*
  * The words of tag `index` of the radio text, spaces taken off both ends,

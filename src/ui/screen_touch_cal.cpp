@@ -164,7 +164,7 @@ void screenTouchCalShow(const ScreenTouchCal *s) {
   }
   const Theme *t = theme();
   showMarks(s);
-  char line[48];
+  char line[96];
   switch (s->step) {
     case SCREEN_TOUCH_CAL_MARK: {
       const int16_t base =

@@ -204,17 +204,22 @@ gate_format() {
   return $bad
 }
 
-# The fonts and lv_conf.h have to agree about compression.
+# The fonts and lv_conf.h have to agree about packing, and the faces of
+# letters past ASCII have to hold every character the language files use.
 #
-# lv_font_conv compresses 4 bpp glyphs unless it is told not to, and LVGL only
-# decodes that when LV_USE_FONT_COMPRESSED is on. When the two disagree,
+# lv_font_conv packs 4 bpp glyphs unless it is told not to, and LVGL only
+# unpacks them when LV_USE_FONT_COMPRESSED is on. When the two disagree,
 # lv_font_get_bitmap_fmt_txt returns NULL for every glyph and the panel draws
 # its rectangles with no text in them. Nothing fails: the build is clean, the
 # objects are created, the LVGL heap looks normal, and /api/state reports a
 # healthy panel. LVGL does log a warning, which LV_USE_LOG 0 throws away.
 #
-# Only a person looking at the radio would see it. It is a gate rather than a
-# runtime check because it can be decided from the source.
+# A character a face does not hold draws as nothing just as quietly, so the
+# font tool works out each face's characters again from the language files
+# and fails on any difference.
+#
+# Only a person looking at the radio would see either. It is a gate rather
+# than a runtime check because it can be decided from the source.
 gate_fonts() {
   local conf=src/ui/lv_conf.h
   local want bad=0
@@ -230,13 +235,36 @@ gate_fonts() {
       echo "   no bitmap_format in $f"
       bad=1
     elif [ "$fmt" != "0" ] && [ "$want" = "0" ]; then
-      echo "   $f is compressed and LV_USE_FONT_COMPRESSED is 0, so it draws nothing"
+      echo "   $f is packed and LV_USE_FONT_COMPRESSED is 0, so it draws nothing"
+      bad=1
+    elif [ "$fmt" != "0" ] && ! basename "$f" | grep -Eq '^font_(ext|zh)_'; then
+      echo "   $f is packed, and a face drawn all the time is unpacked on every draw"
       bad=1
     fi
   done < <(find src/ui/fonts -name '*.c')
   [ "$bad" -eq 0 ] ||
-    echo "   regenerate with tools/make_lvgl_font.py, which passes --no-compress"
+    echo "   regenerate with tools/make_lvgl_font.py"
+  python3 tools/make_lvgl_font.py --check || bad=1
   return $bad
+}
+
+# Whatever leaves the radio as data is English, whatever language the panel
+# shows: the web page's script and the CSV import read some of those words
+# back as values. txt() and the panel forms of the text helpers answer in the
+# panel's language, so src/net/ calls none of them. It uses
+# txtIn(TXT_ENGLISH, ...) and the helpers' English forms instead. A line just
+# under a comment that says "A panel text" builds one on purpose, such as the
+# date line under the frequency panel.
+gate_english() {
+  local hits
+  hits=$(grep -nE -B1 '(^|[^A-Za-z0-9_])(txt|rdsPtyName|rdsPtyNameIn|rdsRtPlusLabel|tef668xErrorText|clockFormatDate)\(' src/net/*.cpp src/net/*.h |
+    awk '/A panel text/ { skip = 1; next } /^--$/ { skip = 0; next } { if ($0 ~ /^[^ ]*:[0-9]+:/ && !skip) print; skip = 0 }')
+  if [ -n "$hits" ]; then
+    echo "$hits" | sed 's/^/   /'
+    echo "   src/net/ sends English: use txtIn(TXT_ENGLISH, ...) or the helper's English form"
+    return 1
+  fi
+  return 0
 }
 
 # The web page: built from web/ with Node, its browser tests run, and
@@ -292,6 +320,7 @@ case "${1:-all}" in
   analysis) run "static analysis"      gate_analysis ;;
   format)   run "format"               gate_format ;;
   fonts)    run "fonts"                gate_fonts ;;
+  english)  run "English for the web"  gate_english ;;
   web)      run "web page"             gate_web ;;
   size)     run "size"                 gate_size ;;
   all)
@@ -301,12 +330,13 @@ case "${1:-all}" in
     run "static analysis"    gate_analysis
     run "format"             gate_format
     run "fonts"              gate_fonts
+    run "English for the web" gate_english
     run "web page"           gate_web
     run "size"               gate_size
     ;;
   *)
     echo "unknown gate: $1"
-    echo "one of: build test coverage analysis format fonts web size all"
+    echo "one of: build test coverage analysis format fonts english web size all"
     exit 2
     ;;
 esac

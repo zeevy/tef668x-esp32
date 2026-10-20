@@ -239,10 +239,12 @@ static bool sDxWidthDirty = false;
 /* When the boot screen is due to go, once start up has said it may. */
 static uint32_t sBootHoldUntilMs = 0;
 static bool sBootHolding = false;
+/* The panel's language, put in force as the boot screen goes. */
+static TxtLanguage sBootLanguage = TXT_ENGLISH;
 
 /* The logbook write confirmation. Empty text means nothing to show, which a
  * fresh boot already is without needing an extra flag. */
-static char sLogConfirmText[32];
+static char sLogConfirmText[64];
 static uint32_t sLogConfirmStartMs = 0;
 
 /*
@@ -441,7 +443,7 @@ void screenTaskLogConfirm(const char *text) {
 void screenTaskLogConfirmAt(uint8_t band, uint32_t khz) {
   char freq[16] = "";
   bandFormatFrequency((BandId)band, khz, freq, sizeof(freq));
-  char text[32];
+  char text[64];
   snprintf(text, sizeof(text), txt(STR_RADIO_FMT_LOGGED), freq);
   screenTaskLogConfirm(text);
 }
@@ -456,7 +458,7 @@ static const char *screenTaskLogConfirmText(void) {
 }
 
 const char *screenTaskHeaderMessage(void) {
-  static char text[24];
+  static char text[48];
   InputStatus input;
   inputStatusGet(&input);
   if (input.typed[0] != '\0') {
@@ -696,10 +698,11 @@ bool screenTaskBootShowing(void) {
   return sBootUp || sSwap != BOOT_SWAP_NONE;
 }
 
-void screenTaskBootEnd(void) {
+void screenTaskBootEnd(uint8_t language) {
   if (!sBootUp || sBootHolding) {
     return;
   }
+  sBootLanguage = (TxtLanguage)language;
   /* Start the hold rather than tearing the screen down. `setup` has finished
    * and the loop is about to run, so from here the radio works and the panel
    * is the only thing still showing start up. */
@@ -717,6 +720,7 @@ static void bootHandOver(void) {
   sBootUp = false;
   sBootHolding = false;
   screenBootEnd();
+  txtSetLanguage(sBootLanguage);
   sReady = screenBegin();
   if (!sReady) {
     DebugLog.println(F("[screen] the screens could not be built"));
@@ -1152,7 +1156,7 @@ static void keypadDraw(void) {
   inputStatusGet(&input);
   /* Kept from the last read, so a lock the radio task holds a moment longer
    * does not blank the band for a frame. */
-  static char context[24];
+  static char context[48];
   RadioSettings now;
   if (radioGetSettings(&now)) {
     snprintf(context, sizeof(context), txt(STR_KEYPAD_FMT_CONTEXT),
@@ -1703,7 +1707,7 @@ static void scopeDraw(void) {
              (unsigned long)(spanKHz / 1000),
              (unsigned long)(spanKHz % 1000 / 100));
   }
-  char title[16];
+  char title[48];
   snprintf(title, sizeof(title), txt(STR_SCOPE_FMT_TITLE),
            bandName(sScopeBand));
   ScreenScopeInputs in;
@@ -2338,7 +2342,7 @@ void screenTaskPoll(void) {
    * says why the dial jumps. The update check does not start while a scan
    * runs, and a scan does not start while the check runs, so only one of
    * the two is ever here. */
-  char scanText[32] = "";
+  char scanText[64] = "";
   BandScanFrom scanning;
   if (bandScanFrom(&scanning)) {
     uint16_t done = 0;

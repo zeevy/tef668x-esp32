@@ -4,13 +4,20 @@
  *
  * The code never quotes a text; it says txt(STR_ID). core/strings.h builds the
  * StrId enum from this list and core/strings.c builds the table, so the two can
- * never drift. A new text is a new line here. Another language is another file
- * with the same ids and its own texts.
+ * never drift. A new text is a new line here, and a line in every other
+ * language's file, lang/<code>.h, which holds the same ids in this order and
+ * leaves out a text that is the same as the English one.
+ *
+ * Some texts stay English in every language, so other files leave them out:
+ * the boot and recovery screens' (BOOT, and RECOVERY but for
+ * RECOVERY_PRESS_AGAIN), which are drawn before the language is set; the RDS
+ * programme languages (LANG); the theme names (THEME); and the language names
+ * (LANGUAGE), each written in its own script so anyone can find their own.
  *
  * Ids are named by area: MENU, RDS, RTP, DX, BW, BOOT, RADIO, RECOVERY, RESET,
- * TUNER, PTY, COVERAGE, LANG, DAY, MONTH, DATE, THEME, BAND, ABOUT, LOG, and
- * COMMON for a text shown in more than one area. FMT marks a printf format;
- * its arguments are in the note.
+ * TUNER, PTY, COVERAGE, LANG, LANGUAGE, DAY, MONTH, DATE, THEME, BAND, ABOUT,
+ * LOG, and COMMON for a text shown in more than one area. FMT marks a printf
+ * format; its arguments are in the note.
  *
  * \xC2\xB7 is the middle dot.
  */
@@ -78,6 +85,11 @@
   X(MENU_ROTATION, "Display Rotation", "Menu row name, Display group") \
   X(COMMON_BATTERY, "Battery", "Menu row name, Display group; boot screen step name") \
   X(MENU_BATTERY_CHECK, "Battery Check", "Menu row name, Display group: On to read the battery every 5 min with Wi-Fi paused while nobody uses the radio") \
+  X(MENU_LANGUAGE, "Language", "Menu row name, Display group: the language of the panel. In every other language: the word in that language, a middle dot, then the English word, so a person who cannot read the panel finds the way back") \
+  X(LANGUAGE_EN, "English", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_ZH, "简体中文", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_DE, "Deutsch", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_RU, "Русский", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(MENU_ENCODER, "Encoder Type", "Menu row name, Controls > Encoder") \
   X(MENU_DIRECTION, "Encoder Direction", "Menu row name, Controls > Encoder") \
   X(MENU_ENCODER_GROUP, "Encoder", "Sub-group name, Controls > Encoder") \
@@ -771,18 +783,30 @@
   X(DATE_YDAY, "YDAY", "A kept sweep taken yesterday, on the Scope page's label, in capitals") \
   X(DATE_FMT_WHEN_DAY, "%s %s", "A kept sweep: Today, Yesterday or YDAY, then the time") \
   X(DATE_FMT_WHEN_DATE, "%d %s %s", "A kept sweep from before yesterday: the day, the short month, the time") \
-  X(MONTH_SHORT_JAN, "Jan", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_FEB, "Feb", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_MAR, "Mar", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_APR, "Apr", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_MAY, "May", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_JUN, "Jun", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_JUL, "Jul", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_AUG, "Aug", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_SEP, "Sep", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_OCT, "Oct", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_NOV, "Nov", "Short month name in a kept sweep's date, in capitals on the Scope page") \
-  X(MONTH_SHORT_DEC, "Dec", "Short month name in a kept sweep's date, in capitals on the Scope page") \
+  X(MONTH_SHORT_JAN, "Jan", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_FEB, "Feb", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_MAR, "Mar", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_APR, "Apr", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_MAY, "May", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_JUN, "Jun", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_JUL, "Jul", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_AUG, "Aug", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_SEP, "Sep", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_OCT, "Oct", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_NOV, "Nov", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_SHORT_DEC, "Dec", "Short month name in a kept sweep's date, in the Scope Baseline list") \
+  X(MONTH_TAG_JAN, "JAN", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_FEB, "FEB", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_MAR, "MAR", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_APR, "APR", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_MAY, "MAY", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_JUN, "JUN", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_JUL, "JUL", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_AUG, "AUG", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_SEP, "SEP", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_OCT, "OCT", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_NOV, "NOV", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
+  X(MONTH_TAG_DEC, "DEC", "Short month name in capitals, in a kept sweep's date on the Scope page's label, as in 30 DEC") \
   X(DX_NOW, "now", "Scope page header context, age of the sweep shown") \
   X(DX_FMT_MIN_AGO, "%u min ago", "Scope page header context") \
   X(DX_FMT_H_AGO, "%u h ago", "Scope page header context") \

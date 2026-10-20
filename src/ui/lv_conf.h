@@ -763,8 +763,11 @@ extern const struct _lv_font_t roboto_text;
  *  A compiler error will be triggered if a font needs it. */
 #define LV_FONT_FMT_TXT_LARGE 0
 
-/** Enables/disables support for compressed fonts. */
-#define LV_USE_FONT_COMPRESSED 0
+/** Enables/disables support for compressed fonts.
+ *  On for the faces of letters past ASCII and of Chinese, which are stored
+ *  packed to save about a quarter of their flash. The Roboto faces stay
+ *  unpacked, since they are drawn all the time. */
+#define LV_USE_FONT_COMPRESSED 1
 
 /** Enable drawing placeholders when glyph dsc is not found. */
 #define LV_USE_FONT_PLACEHOLDER 1

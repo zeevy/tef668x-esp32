@@ -142,6 +142,7 @@ bool ntpLocalDate(char *out, size_t outLen) {
     }
     return false;
   }
+  /* A panel text: the date line under the frequency panel. */
   return clockFormatDate(now, sOffsetMinutes, out, outLen);
 }
 

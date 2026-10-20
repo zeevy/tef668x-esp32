@@ -56,6 +56,10 @@ The screen had dimmed, and the first key press or knob turn only wakes it. See [
 
 It is off on a new radio. Turn it on at **Display > Battery**. While Wi-Fi is on, the battery is read only once, at start up, because Wi-Fi uses the part of the chip that reads it.
 
+### The screen is in a language I cannot read. How do I get English back?
+
+Open the menu, go to the **Display** group, and pick **English** in the row whose name ends in `Language`, its last row. Then restart the radio. From a computer, send `plg=0` to `POST /api/settings` and restart. See [Display and Themes](Display-and-Themes.md#language).
+
 ### I forgot the access PIN. What now?
 
 Set a new one in the menu at **Connectivity > Web PIN**. No old PIN is needed there. See [Troubleshooting](Troubleshooting.md#a-forgotten-access-pin).

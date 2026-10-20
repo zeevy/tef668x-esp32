@@ -454,6 +454,10 @@ const char *rdsRtPlusLabel(uint8_t type) {
   return txt(kRtPlusLabels[type & 0x3Fu]);
 }
 
+const char *rdsRtPlusLabelEnglish(uint8_t type) {
+  return txtIn(TXT_ENGLISH, kRtPlusLabels[type & 0x3Fu]);
+}
+
 bool rdsRtPlusText(const RdsInfo *info, uint8_t index, char *out, size_t cap) {
   if (out == NULL || cap == 0) {
     return false;

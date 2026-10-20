@@ -1,7 +1,6 @@
 /* What time it is. No hardware, no network. */
 #include "clock.h"
 
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -105,6 +104,11 @@ bool clockFormatWhen(uint32_t epochUtc, uint32_t nowUtc, int16_t offsetMinutes,
       STR_MONTH_SHORT_APR, STR_MONTH_SHORT_MAY, STR_MONTH_SHORT_JUN,
       STR_MONTH_SHORT_JUL, STR_MONTH_SHORT_AUG, STR_MONTH_SHORT_SEP,
       STR_MONTH_SHORT_OCT, STR_MONTH_SHORT_NOV, STR_MONTH_SHORT_DEC};
+  static const StrId kTagMonths[12] = {
+      STR_MONTH_TAG_JAN, STR_MONTH_TAG_FEB, STR_MONTH_TAG_MAR,
+      STR_MONTH_TAG_APR, STR_MONTH_TAG_MAY, STR_MONTH_TAG_JUN,
+      STR_MONTH_TAG_JUL, STR_MONTH_TAG_AUG, STR_MONTH_TAG_SEP,
+      STR_MONTH_TAG_OCT, STR_MONTH_TAG_NOV, STR_MONTH_TAG_DEC};
   if (out == NULL) {
     return false;
   }
@@ -136,12 +140,11 @@ bool clockFormatWhen(uint32_t epochUtc, uint32_t nowUtc, int16_t offsetMinutes,
                                     : STR_DATE_YESTERDAY;
     snprintf(out, outLen, txt(STR_DATE_FMT_WHEN_DAY), txt(word), time);
   } else {
-    char month[8];
-    snprintf(month, sizeof(month), "%s", txt(kMonths[tm.tm_mon]));
-    for (char *c = month; tag && *c != '\0'; c++) {
-      *c = (char)toupper((unsigned char)*c);
-    }
-    snprintf(out, outLen, txt(STR_DATE_FMT_WHEN_DATE), tm.tm_mday, month, time);
+    /* The label's month is its own text, written in capitals, since a
+     * change of case is only simple for the letters of English. */
+    const StrId month = tag ? kTagMonths[tm.tm_mon] : kMonths[tm.tm_mon];
+    snprintf(out, outLen, txt(STR_DATE_FMT_WHEN_DATE), tm.tm_mday, txt(month),
+             time);
   }
   return true;
 }

@@ -251,9 +251,17 @@ static const StrId kRbdsPtyNames[RDS_PTY_COUNT] = {
     STR_PTY_NA_EMERGENCY_TEST,
     STR_PTY_NA_EMERGENCY};
 
-const char *rdsPtyNameIn(uint8_t pty, RdsRegion region) {
-  if (region != RDS_REGION_NORTH_AMERICA) {
-    return rdsPtyName(pty);
+static StrId ptyNameId(uint8_t pty, RdsRegion region) {
+  if (region != RDS_REGION_NORTH_AMERICA || pty >= RDS_PTY_COUNT) {
+    return rdsPtyNameId(pty);
   }
-  return pty < RDS_PTY_COUNT ? txt(kRbdsPtyNames[pty]) : txt(STR_PTY_NONE);
+  return kRbdsPtyNames[pty];
+}
+
+const char *rdsPtyNameIn(uint8_t pty, RdsRegion region) {
+  return txt(ptyNameId(pty, region));
+}
+
+const char *rdsPtyNameEnglish(uint8_t pty, RdsRegion region) {
+  return txtIn(TXT_ENGLISH, ptyNameId(pty, region));
 }

@@ -146,7 +146,7 @@ const Tef668xDiagnostics *tef668xDiagnostics(void) {
   diag.xtal = "9.216 MHz";
   return &diag;
 }
-const char *tef668xErrorText(Tef668xError) {
+const char *tef668xErrorTextEnglish(Tef668xError) {
   return "no device";
 }
 bool tef668xLastIdentification(uint16_t *device, uint16_t *hardware,

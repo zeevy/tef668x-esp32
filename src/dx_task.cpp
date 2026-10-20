@@ -319,7 +319,7 @@ static void watchFlag(uint32_t khz, int16_t rise) {
   sWatchUpMs = millis();
   char freq[16];
   bandFormatFrequency(BAND_FM, khz, freq, sizeof(freq));
-  char text[32];
+  char text[64];
   snprintf(text, sizeof(text), txt(STR_DX_FMT_WATCH_UP), freq,
            (int)((rise + 5) / 10));
   say(text);
