@@ -101,6 +101,11 @@
   X(LANGUAGE_SR, "Srpski", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_RO, "Română", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(LANGUAGE_HU, "Magyar", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_DA, "Dansk", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_NB, "Norsk", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_SV, "Svenska", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_FI, "Suomi", "Value of the Language row: the language by its own name, in its own script, never translated") \
+  X(LANGUAGE_GA, "Gaeilge", "Value of the Language row: the language by its own name, in its own script, never translated") \
   X(MENU_ENCODER, "Encoder Type", "Menu row name, Controls > Encoder") \
   X(MENU_DIRECTION, "Encoder Direction", "Menu row name, Controls > Encoder") \
   X(MENU_ENCODER_GROUP, "Encoder", "Sub-group name, Controls > Encoder") \
