@@ -239,8 +239,10 @@ extern "C" bool verifyRollbackLater(void) {
 #define TASK_WATCHDOG_MS 30000
 
 void setup() {
-  /* First of all, so an image that hangs anywhere below still restarts and
-   * gets rolled back instead of needing the cable. */
+  /* First of all, so a crash anywhere below still says where it happened. */
+  restartReasonWatchCrashes();
+  /* Next, so an image that hangs anywhere below still restarts and gets
+   * rolled back instead of needing the cable. */
   bootWatchdogArm();
   /* Before the radio task starts, so its first round is already under the
    * longer limit. Core 0's idle task stays watched, as the framework set it. */

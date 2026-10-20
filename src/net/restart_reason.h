@@ -13,6 +13,7 @@
 
 #include <esp_system.h>
 
+#include "core/panic_record.h"
 #include "core/restart_why.h"
 
 /*
@@ -49,5 +50,20 @@ void restartReasonParts(esp_reset_reason_t *chip, RestartWhy *why);
  * restart this firmware did not note, since only a noted one left it.
  */
 bool restartReasonLastHeap(uint32_t *lowestBytes);
+
+/*
+ * From here on a crash leaves its place behind for the next start to read.
+ * First thing in setup, since it needs nothing else; until restartReasonBegin
+ * has read the place a crash before left, a new crash replaces it.
+ */
+void restartReasonWatchCrashes(void);
+
+/*
+ * The last crash as a JSON object, or null when none was recorded, into
+ * `out`, which holds PANIC_RECORD_JSON_LEN: its words, where it faulted, the
+ * backtrace from that place, the core, the seconds it had run and the build. It is
+ * kept in flash until the next crash. Returns the length written.
+ */
+size_t restartReasonLastPanic(char *out, size_t cap);
 
 #endif /* NET_RESTART_REASON_H */
