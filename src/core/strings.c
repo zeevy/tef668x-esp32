@@ -3,13 +3,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "lang/cs.h"
 #include "lang/de.h"
 #include "lang/es.h"
 #include "lang/fr.h"
+#include "lang/hr.h"
+#include "lang/hu.h"
 #include "lang/it.h"
 #include "lang/nl.h"
+#include "lang/pl.h"
 #include "lang/pt.h"
+#include "lang/ro.h"
 #include "lang/ru.h"
+#include "lang/sr.h"
 #include "lang/zh.h"
 
 /* The table is the same list as the enum, so an id and its text cannot get
@@ -99,6 +105,52 @@ _Static_assert(sizeof(kPt) < UINT16_MAX,
                "Portuguese is past what an offset holds");
 #undef LANGUAGE
 
+#define LANGUAGE struct TextsPl
+LANGUAGE{STRINGS_PL(TEXT_FIELD)};
+static const LANGUAGE kPl = {STRINGS_PL(TEXT_VALUE)};
+static const uint16_t kPlAt[STR_COUNT] = {STRINGS_PL(TEXT_AT)};
+_Static_assert(sizeof(kPl) < UINT16_MAX, "Polish is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsCs
+LANGUAGE{STRINGS_CS(TEXT_FIELD)};
+static const LANGUAGE kCs = {STRINGS_CS(TEXT_VALUE)};
+static const uint16_t kCsAt[STR_COUNT] = {STRINGS_CS(TEXT_AT)};
+_Static_assert(sizeof(kCs) < UINT16_MAX, "Czech is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsHr
+LANGUAGE{STRINGS_HR(TEXT_FIELD)};
+static const LANGUAGE kHr = {STRINGS_HR(TEXT_VALUE)};
+static const uint16_t kHrAt[STR_COUNT] = {STRINGS_HR(TEXT_AT)};
+_Static_assert(sizeof(kHr) < UINT16_MAX,
+               "Croatian is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsSr
+LANGUAGE{STRINGS_SR(TEXT_FIELD)};
+static const LANGUAGE kSr = {STRINGS_SR(TEXT_VALUE)};
+static const uint16_t kSrAt[STR_COUNT] = {STRINGS_SR(TEXT_AT)};
+_Static_assert(sizeof(kSr) < UINT16_MAX,
+               "Serbian (Latin script) is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsRo
+LANGUAGE{STRINGS_RO(TEXT_FIELD)};
+static const LANGUAGE kRo = {STRINGS_RO(TEXT_VALUE)};
+static const uint16_t kRoAt[STR_COUNT] = {STRINGS_RO(TEXT_AT)};
+_Static_assert(sizeof(kRo) < UINT16_MAX,
+               "Romanian is past what an offset holds");
+#undef LANGUAGE
+
+#define LANGUAGE struct TextsHu
+LANGUAGE{STRINGS_HU(TEXT_FIELD)};
+static const LANGUAGE kHu = {STRINGS_HU(TEXT_VALUE)};
+static const uint16_t kHuAt[STR_COUNT] = {STRINGS_HU(TEXT_AT)};
+_Static_assert(sizeof(kHu) < UINT16_MAX,
+               "Hungarian is past what an offset holds");
+#undef LANGUAGE
+
 typedef struct {
   const char *code;
   StrId name;
@@ -116,6 +168,12 @@ static const Language kLanguages[TXT_LANGUAGE_COUNT] = {
     [TXT_SPANISH] = {"es", STR_LANGUAGE_ES, (const char *)&kEs, kEsAt},
     [TXT_ITALIAN] = {"it", STR_LANGUAGE_IT, (const char *)&kIt, kItAt},
     [TXT_PORTUGUESE] = {"pt", STR_LANGUAGE_PT, (const char *)&kPt, kPtAt},
+    [TXT_POLISH] = {"pl", STR_LANGUAGE_PL, (const char *)&kPl, kPlAt},
+    [TXT_CZECH] = {"cs", STR_LANGUAGE_CS, (const char *)&kCs, kCsAt},
+    [TXT_CROATIAN] = {"hr", STR_LANGUAGE_HR, (const char *)&kHr, kHrAt},
+    [TXT_SERBIAN] = {"sr", STR_LANGUAGE_SR, (const char *)&kSr, kSrAt},
+    [TXT_ROMANIAN] = {"ro", STR_LANGUAGE_RO, (const char *)&kRo, kRoAt},
+    [TXT_HUNGARIAN] = {"hu", STR_LANGUAGE_HU, (const char *)&kHu, kHuAt},
 };
 
 static TxtLanguage sLanguage = TXT_ENGLISH;
