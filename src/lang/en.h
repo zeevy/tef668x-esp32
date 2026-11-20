@@ -308,6 +308,7 @@
   X(COMMON_STILL_TUNING, "Still tuning - wait", "Confirm text on the name line after a logbook hold while a seek or the DX scan walks the dial") \
   X(COMMON_SCAN_RUNNING, "Scan running - wait", "Confirm text on the name line after a logbook hold while a station scan walks the dial") \
   X(RADIO_FMT_NO_BAND, "%s is in no band", "Name line, a moment after ENTER on a typed number no band holds") \
+  X(RADIO_FMT_NOT_SAVED, "%s not saved", "Name line, a moment after the menu shut on a value that was changed and not kept: the row's name") \
   X(COMMON_NOT_LOGGED, "Not logged", "Confirm text on the name line when the logbook hold found no snapshot; confirm text when the logbook file could not be written; confirm text after a failed catch write") \
   X(BOOT_SETTINGS, "Settings", "Boot screen step name, `kBootNames[]`") \
   X(BOOT_RADIO, "Radio", "Boot screen step name") \
@@ -466,6 +467,9 @@
   X(DX_BLOCK_B, "B", "DX mode, RDS block letter") \
   X(DX_BLOCK_C, "C", "DX mode, RDS block letter") \
   X(DX_BLOCK_D, "D", "DX mode, RDS block letter") \
+  X(DX_MARK_CONFIRMED, "PI confirmed", "DX page, on the signal graph while its left is empty, beside the tick mark: what the mark by the PI means") \
+  X(DX_MARK_SEEN, "Heard once, not confirmed", "DX page, on the signal graph while its left is empty, beside the clock mark") \
+  X(DX_MARK_PARTIAL, "A digit in doubt", "DX page, on the signal graph while its left is empty, beside the question mark") \
   X(DX_NO_ID, "NO ID", "DX mode, country line when the PI is zero") \
   X(RDS_TITLE_IDENTITY, "RDS", "Title of RDS page 1, the station, `kTitle[]` picked by page index") \
   X(RDS_TITLE_TEXT, "Radio Text", "Title of RDS page 2") \

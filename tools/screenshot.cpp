@@ -701,6 +701,12 @@ static void sceneFmNoBand(ScreenState *s) {
   s->logConfirm = fmt(STR_RADIO_FMT_NO_BAND, "123");
 }
 
+/* The menu shut by itself on a value that was changed and not kept. */
+static void sceneFmNotSaved(ScreenState *s) {
+  sceneFm(s);
+  s->logConfirm = fmt(STR_RADIO_FMT_NOT_SAVED, txt(STR_MENU_BRIGHTNESS));
+}
+
 /* Medium wave on 10 kHz spacing, where the band ends at 1710. */
 static void sceneMw10k(ScreenState *s) {
   sceneMw(s);
@@ -1636,6 +1642,7 @@ int main(int argc, char **argv) {
       {"fm-checking-updates", sceneFmCheckingUpdates},
       {"fm-setup", sceneFmSetup},
       {"fm-no-band", sceneFmNoBand},
+      {"fm-not-saved", sceneFmNotSaved},
       {"mw-fm-first", sceneMwFmFirst},
       {"fm-longname", sceneFmLongName},
       {"fm-bare", sceneFmBare},

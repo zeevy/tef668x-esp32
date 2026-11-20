@@ -3443,11 +3443,23 @@ void menuTaskClose(void) {
     keepWhereLeft();
   }
   sOneEdit = false;
+  /* Read before the close, which makes the two the same. A question left
+   * at No changed nothing. */
+  const bool changed = sMenu.level == MENU_EDIT && sMenu.value != sMenu.was &&
+                       row != NULL && !row->confirm;
   if (menuClose(&sMenu) == MENU_EDIT_UNDONE) {
     /* The value was never accepted, so the radio goes back to what it was. */
     undoEdit(row);
   }
   screenTaskMenuEnd();
+  if (changed) {
+    /* Said on the radio screen for a moment, or a value that was turned and
+     * left, and put back when the menu shut by itself, is lost with no
+     * word. */
+    char text[64];
+    snprintf(text, sizeof(text), txt(STR_RADIO_FMT_NOT_SAVED), txt(row->name));
+    screenTaskLogConfirm(text);
+  }
 }
 
 void menuTaskTurn(int32_t clicks) {
@@ -3588,6 +3600,23 @@ uint32_t menuTaskPlace(void) {
          (uint32_t)sMenu.inSub << 6 | (uint32_t)(sMenu.sub & 0x1F) << 7;
 }
 
+/* Put the cursor on the Restart row, wherever the tables hold it. False when
+ * no group has it as a row of its own. */
+static bool goToRestartRow(void) {
+  for (uint8_t g = 0; g < GROUP_COUNT; g++) {
+    for (uint8_t r = 0; r < sGroups[g].count; r++) {
+      if (sGroups[g].rows[r].id == ROW_RESTART) {
+        sMenu.level = MENU_ROWS;
+        sMenu.group = g;
+        sMenu.inSub = false;
+        sMenu.row = r;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void menuTaskPress(void) {
   gestureBegins();
   if (sChoice.active && sChoice.update) {
@@ -3631,6 +3660,9 @@ void menuTaskPress(void) {
   }
   const MenuShape shape = shapeNow();
   const MenuRow *row = rowAt(sMenu.row);
+  /* Read before the press, which makes the two the same. */
+  const bool newLanguage = row != NULL && row->id == ROW_LANGUAGE &&
+                           sMenu.level == MENU_EDIT && sMenu.value != sMenu.was;
   const MenuResult what = menuPress(&sMenu, &shape);
   switch (what) {
     case MENU_EDIT_STARTED: {
@@ -3688,6 +3720,14 @@ void menuTaskPress(void) {
   }
   if (sOneEdit && what == MENU_EDIT_KEPT) {
     closeOneEdit();
+    return;
+  }
+  /* A new language shows only after a restart, so the radio offers one,
+   * with the question the Restart row asks. Not when the language was not
+   * stored, and not when a restart would be refused. */
+  if (newLanguage && what == MENU_EDIT_KEPT && sNote == NULL &&
+      !rollbackPending() && goToRestartRow()) {
+    menuTaskPress();
     return;
   }
   /* An action can leave the menu, Learn locals for DX mode, and then there
