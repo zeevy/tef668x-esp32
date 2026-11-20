@@ -639,6 +639,26 @@ static void typing_a_number_in_no_band_is_refused(void) {
   TEST_ASSERT_EQUAL_INT(BAND_FM, band);
 }
 
+static void a_typed_fm_number_the_tuner_has_no_place_for_is_refused(void) {
+  uint32_t khz = 12345;
+  BandId band = BAND_MW;
+  /* 98.255 MHz is inside FM, between two of the tuner's 10 kHz places. */
+  TEST_ASSERT_FALSE(bandFromTypedNumber(&cfg, 98255, BAND_FM, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(12345, khz);
+  TEST_ASSERT_EQUAL_INT(BAND_MW, band);
+  BandTypedReading r[BAND_TYPED_READINGS_MAX];
+  TEST_ASSERT_EQUAL_UINT8(
+      0, bandTypedReadings(&cfg, 98255, r, BAND_TYPED_READINGS_MAX));
+  /* A place it has is still read, and AM takes every whole kilohertz. */
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 98250, BAND_FM, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(98250, khz);
+  TEST_ASSERT_TRUE(bandFromTypedNumber(&cfg, 737, BAND_MW, &khz, &band));
+  TEST_ASSERT_EQUAL_UINT32(737, khz);
+  TEST_ASSERT_TRUE(bandTunerReaches(BAND_FM, 98250));
+  TEST_ASSERT_FALSE(bandTunerReaches(BAND_OIRT, 70005));
+  TEST_ASSERT_TRUE(bandTunerReaches(BAND_SW, 9421));
+}
+
 static void almost_any_small_number_lands_somewhere(void) {
   /* Worth writing down because it is surprising. Shortwave alone runs from
    * 1700 to 27000 kHz, and no number can step over a range that wide by
@@ -870,6 +890,7 @@ int main(int, char **) {
   RUN_TEST(typing_738_means_738_kilohertz_on_medium_wave);
   RUN_TEST(a_number_that_reads_two_ways_stays_on_the_band_in_use);
   RUN_TEST(typing_a_number_in_no_band_is_refused);
+  RUN_TEST(a_typed_fm_number_the_tuner_has_no_place_for_is_refused);
   RUN_TEST(almost_any_small_number_lands_somewhere);
   RUN_TEST(a_typed_number_lists_every_band_it_lands_in);
   RUN_TEST(typing_zero_is_refused);

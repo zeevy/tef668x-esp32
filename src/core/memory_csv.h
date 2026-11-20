@@ -79,6 +79,9 @@ typedef enum {
    * `firstBadLine` saying which line to look at. Wiping a list and then
    * stopping part way through a bad file would lose channels that the person
    * had no way of getting back.
+   *
+   * A second line for a slot the file has already named cannot be read
+   * either: one of the two would be lost, and the file does not say which.
    */
   MEMORY_IMPORT_REPLACE
 } MemoryImportMode;
@@ -96,12 +99,22 @@ typedef struct {
    * name that came back shorter than it went in is worth saying.
    */
   uint16_t truncated;
+  /*
+   * Of the channels written, those the band plan given has no place for: a
+   * list from a radio set to another FM region or medium wave spacing. They
+   * are kept, since a change of region brings them back, but until then
+   * they cannot be tuned, so they are not counted as if they could.
+   */
+  uint16_t unreachable;
   /* Which line was refused first, counted from 1 over the whole file. */
   uint16_t firstBadLine;
 } MemoryImportResult;
 
-bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode, const char *text,
-                     size_t len, MemoryImportResult *out);
+/* `plan` is the band plan in use, for `unreachable`. NULL leaves that count
+ * at 0. */
+bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode,
+                     const BandPlanConfig *plan, const char *text, size_t len,
+                     MemoryImportResult *out);
 
 #ifdef __cplusplus
 }

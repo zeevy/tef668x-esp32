@@ -122,6 +122,15 @@ bool bandStepAllowed(BandId band, const BandPlanConfig *config,
 bool bandContains(BandId band, const BandPlanConfig *config, uint32_t freqKHz);
 
 /*
+ * Whether the tuner can be set to a frequency on this band at all.
+ *
+ * The chip counts FM in tens of kilohertz, so on an FM band only a multiple
+ * of 10 kHz exists for it. AM goes in single kilohertz, so every whole number
+ * does. This says nothing about the band's edges: bandContains does that.
+ */
+bool bandTunerReaches(BandId band, uint32_t freqKHz);
+
+/*
  * The channel nearest a frequency, on this band's grid.
  *
  * Being inside a band and being on one of its channels are two different
@@ -241,6 +250,9 @@ uint16_t bandBandwidthNext(BandId band, uint16_t current);
  * stays on the band the radio is already on. 1000 is both 1000 kHz on medium
  * wave and 100.0 MHz on FM, and someone on medium wave typing it means the
  * medium wave station.
+ *
+ * A reading the tuner has no place for, an FM frequency that is not a
+ * multiple of 10 kHz, is not offered.
  */
 bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
                          BandId prefer, uint32_t *freqKHz, BandId *band);

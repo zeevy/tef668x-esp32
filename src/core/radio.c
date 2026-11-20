@@ -465,6 +465,12 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
       if (!bandForFrequency(plan, command->freqKHz, &band)) {
         return RADIO_ERR_FREQUENCY;
       }
+      /* Refused here and not left to the tuner. A frequency taken into the
+       * settings that the tuner then refuses is shown on the screen while the
+       * tuner stays where it was, and the push is sent again on every round. */
+      if (!bandTunerReaches(band, command->freqKHz)) {
+        return RADIO_ERR_FREQUENCY;
+      }
       /* Tuning across a band edge changes band, and the step size has to
        * come with it or the next turn of the knob moves by something the new
        * band does not offer. */
@@ -484,7 +490,8 @@ RadioError radioApply(RadioSettings *settings, const BandPlanConfig *plan,
     }
 
     case RADIO_TUNE_IN_BAND:
-      if (!bandContains(settings->band, plan, command->freqKHz)) {
+      if (!bandContains(settings->band, plan, command->freqKHz) ||
+          !bandTunerReaches(settings->band, command->freqKHz)) {
         return RADIO_ERR_FREQUENCY;
       }
       settings->freqKHz = command->freqKHz;

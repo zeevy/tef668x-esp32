@@ -9,23 +9,28 @@
 /* The file is up to 7 KB, too big for the loop task's stack, so each read
  * and write takes its bytes from the heap and gives them back. */
 
-void dxSweepFsLoad(const char *path, DxSweepHistory *out) {
+bool dxSweepFsLoad(const char *path, DxSweepHistory *out) {
   out->count = 0;
   if (!logbookFsPresent() || !LittleFS.exists(path)) {
-    return;
+    return true;
   }
   File f = LittleFS.open(path, "r");
   if (!f) {
-    return;
+    return false;
   }
   const size_t size = f.size();
-  uint8_t *bytes =
-      size <= DX_SWEEP_FILE_MAX ? (uint8_t *)malloc(size > 0 ? size : 1) : NULL;
-  if (bytes != NULL && f.read(bytes, size) == (int)size) {
+  if (size > DX_SWEEP_FILE_MAX) {
+    f.close();
+    return true;
+  }
+  uint8_t *bytes = (uint8_t *)malloc(size > 0 ? size : 1);
+  const bool got = bytes != NULL && f.read(bytes, size) == (int)size;
+  if (got) {
     (void)dxSweepDecode(bytes, size, out);
   }
   f.close();
   free(bytes);
+  return got;
 }
 
 bool dxSweepFsSave(const char *path, const DxSweepHistory *h) {

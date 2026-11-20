@@ -201,6 +201,30 @@ static void handleApiSettingsGet(void) {
  * Changing the PIN ends the session, the same as the form does. Changing the
  * network moves the radio off whatever it is on, so the reply goes out first.
  */
+static const char *const kThemeColourNames[THEME_CUSTOM_COLOUR_COUNT] = {
+    "tc0", "tc1", "tc2", "tc3", "tc4", "tc5", "tc6", "tc7", "tc8"};
+
+/* Whether `name` is one of the names POST /api/settings reads. */
+static bool takesSetting(const char *name) {
+  static const char *const kText[] = {"sid", "pwd", "pin", "tzo"};
+  for (size_t i = 0; i < sizeof(kText) / sizeof(kText[0]); i++) {
+    if (strcmp(name, kText[i]) == 0) {
+      return true;
+    }
+  }
+  for (int i = 0; i < THEME_CUSTOM_COLOUR_COUNT; i++) {
+    if (strcmp(name, kThemeColourNames[i]) == 0) {
+      return true;
+    }
+  }
+  for (size_t i = 0; i < settingsTableCount(); i++) {
+    if (strcmp(name, settingsTableAt(i)->key) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 static void handleApiSettingsPost(void) {
   if (!requireAuth(false)) {
     return;
@@ -208,6 +232,21 @@ static void handleApiSettingsPost(void) {
 
   bool wantWifi = sWeb->server.hasArg("sid");
   bool wantPin = sWeb->server.hasArg("pin");
+
+  /* A name this route does not take is refused, not dropped. Dropped, a
+   * request with one good name and one mistyped is answered "saved", and the
+   * mistyped setting is believed changed. */
+  for (int i = 0; i < sWeb->server.args(); i++) {
+    const String name = sWeb->server.argName(i);
+    if (!takesSetting(name.c_str())) {
+      apiFail(400, name + " is not a setting this route takes.");
+      return;
+    }
+  }
+  if (sWeb->server.hasArg("pwd") && !wantWifi) {
+    apiFail(400, "pwd, the passphrase, goes with sid, the network name.");
+    return;
+  }
 
   /* Written into a copy, so a request refused part way stores nothing. */
   Settings pending = *sWeb->settings;
@@ -284,8 +323,6 @@ static void handleApiSettingsPost(void) {
    * In the order ui/theme.h's Theme struct lists its own fields, which is
    * also the order core/settings.h's customTheme array expects them in.
    */
-  static const char *const kThemeColourNames[THEME_CUSTOM_COLOUR_COUNT] = {
-      "tc0", "tc1", "tc2", "tc3", "tc4", "tc5", "tc6", "tc7", "tc8"};
   bool wantCustom = false;
   uint8_t pendingCustom[13][3];
   memcpy(pendingCustom, sWeb->settings->customTheme, sizeof(pendingCustom));

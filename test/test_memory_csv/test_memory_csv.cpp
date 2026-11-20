@@ -26,7 +26,7 @@ static MemoryChannel channel(uint8_t band, uint32_t freqKHz, const char *name) {
 }
 
 static bool import(const char *text, MemoryImportMode mode) {
-  return memoryImportCsv(&store, mode, text, strlen(text), &result);
+  return memoryImportCsv(&store, mode, NULL, text, strlen(text), &result);
 }
 
 static const char *line(int slot) {
@@ -205,7 +205,7 @@ static void a_written_list_reads_back_the_same(void) {
   MemoryStore back;
   memoryInit(&back);
   TEST_ASSERT_TRUE(
-      memoryImportCsv(&back, MEMORY_IMPORT_REPLACE, text, at, &result));
+      memoryImportCsv(&back, MEMORY_IMPORT_REPLACE, NULL, text, at, &result));
   TEST_ASSERT_EQUAL_UINT16(3, result.lines);
   TEST_ASSERT_EQUAL_UINT16(3, result.imported);
   TEST_ASSERT_EQUAL_UINT16(0, result.skipped);
@@ -251,6 +251,39 @@ static void replace_changes_nothing_when_a_line_cannot_be_read(void) {
   TEST_ASSERT_EQUAL_UINT16(0, result.skipped);
   TEST_ASSERT_EQUAL_INT(1, memoryCount(&store));
   TEST_ASSERT_EQUAL_STRING("Mine", memoryGet(&store, 0)->name);
+}
+
+static void replace_refuses_a_file_that_names_a_slot_twice(void) {
+  MemoryChannel mine = channel(BAND_FM, 100000, "Mine");
+  TEST_ASSERT_TRUE(memorySet(&store, 0, &mine));
+
+  TEST_ASSERT_FALSE(
+      import("2,MW,1071,0,First\n3,SW,9420,0,Other\n"
+             "2,FM,92700,0,Second\n",
+             MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(3, result.firstBadLine);
+  TEST_ASSERT_EQUAL_UINT16(0, result.imported);
+  TEST_ASSERT_EQUAL_INT(1, memoryCount(&store));
+  TEST_ASSERT_EQUAL_STRING("Mine", memoryGet(&store, 0)->name);
+}
+
+static void channels_the_band_plan_has_no_place_for_are_counted(void) {
+  BandPlanConfig plan;
+  bandPlanDefaults(&plan);
+  /* 76 MHz is FM only where the band starts that low. */
+  const char *text = "1,FM,98300,0,Here\n2,FM,76000,0,Japan\n3,MW,1071,0,Mw\n";
+  for (int mode = MEMORY_IMPORT_MERGE; mode <= MEMORY_IMPORT_REPLACE; mode++) {
+    memoryInit(&store);
+    TEST_ASSERT_TRUE(memoryImportCsv(&store, (MemoryImportMode)mode, &plan,
+                                     text, strlen(text), &result));
+    TEST_ASSERT_EQUAL_UINT16(3, result.imported);
+    TEST_ASSERT_EQUAL_UINT16(1, result.unreachable);
+    /* Kept all the same: a change of region brings it back. */
+    TEST_ASSERT_EQUAL_INT(3, memoryCount(&store));
+  }
+  /* With no plan given, nothing is counted. */
+  TEST_ASSERT_TRUE(import(text, MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(0, result.unreachable);
 }
 
 static void merge_keeps_going_past_a_line_it_cannot_read(void) {
@@ -451,12 +484,14 @@ static void a_width_the_band_does_not_offer_is_refused(void) {
 }
 
 static void the_arguments_are_checked(void) {
-  TEST_ASSERT_FALSE(memoryImportCsv(NULL, MEMORY_IMPORT_MERGE, "x", 1, NULL));
   TEST_ASSERT_FALSE(
-      memoryImportCsv(&store, MEMORY_IMPORT_MERGE, NULL, 1, &result));
+      memoryImportCsv(NULL, MEMORY_IMPORT_MERGE, NULL, "x", 1, NULL));
   TEST_ASSERT_FALSE(
-      memoryImportCsv(&store, (MemoryImportMode)7, "x", 1, &result));
-  TEST_ASSERT_TRUE(memoryImportCsv(&store, MEMORY_IMPORT_MERGE, "", 0, NULL));
+      memoryImportCsv(&store, MEMORY_IMPORT_MERGE, NULL, NULL, 1, &result));
+  TEST_ASSERT_FALSE(
+      memoryImportCsv(&store, (MemoryImportMode)7, NULL, "x", 1, &result));
+  TEST_ASSERT_TRUE(
+      memoryImportCsv(&store, MEMORY_IMPORT_MERGE, NULL, "", 0, NULL));
 }
 
 static void two_lines_naming_one_slot(void) {
@@ -465,10 +500,12 @@ static void two_lines_naming_one_slot(void) {
   TEST_ASSERT_EQUAL_STRING("First", memoryGet(&store, 0)->name);
   TEST_ASSERT_EQUAL_UINT16(1, result.kept);
 
+  /* A replace cannot say which of the two was meant, so it takes neither. */
   memoryInit(&store);
-  TEST_ASSERT_TRUE(import("1,FM,92700,0,First\n1,FM,92800,0,Second\n",
-                          MEMORY_IMPORT_REPLACE));
-  TEST_ASSERT_EQUAL_STRING("Second", memoryGet(&store, 0)->name);
+  TEST_ASSERT_FALSE(import("1,FM,92700,0,First\n1,FM,92800,0,Second\n",
+                           MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(2, result.firstBadLine);
+  TEST_ASSERT_EQUAL_INT(0, memoryCount(&store));
 }
 
 static void a_full_file_of_ninety_nine_channels_lands(void) {
@@ -479,7 +516,7 @@ static void a_full_file_of_ninety_nine_channels_lands(void) {
                            "%d,FM,%d,0,Station %d\n", i, 87500 + i * 100, i);
   }
   TEST_ASSERT_TRUE(
-      memoryImportCsv(&store, MEMORY_IMPORT_REPLACE, text, at, &result));
+      memoryImportCsv(&store, MEMORY_IMPORT_REPLACE, NULL, text, at, &result));
   TEST_ASSERT_EQUAL_UINT16(MEMORY_SLOT_COUNT, result.imported);
   TEST_ASSERT_EQUAL_INT(MEMORY_SLOT_COUNT, memoryCount(&store));
 }
@@ -554,6 +591,8 @@ int main(int, char **) {
   RUN_TEST(merge_fills_the_empty_slots_only);
   RUN_TEST(replace_throws_the_list_away_first);
   RUN_TEST(replace_changes_nothing_when_a_line_cannot_be_read);
+  RUN_TEST(replace_refuses_a_file_that_names_a_slot_twice);
+  RUN_TEST(channels_the_band_plan_has_no_place_for_are_counted);
   RUN_TEST(merge_keeps_going_past_a_line_it_cannot_read);
   RUN_TEST(blank_lines_and_comments_are_not_data);
   RUN_TEST(the_header_is_skipped_whatever_its_case);

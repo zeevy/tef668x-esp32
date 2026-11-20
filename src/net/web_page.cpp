@@ -42,11 +42,11 @@ static void handleWifi(void) {
   if (!requireAuth(true)) {
     return;
   }
-  if (!sWeb->server.hasArg("sid")) {
+  String ssid = sWeb->server.arg("sid");
+  if (ssid.length() == 0) {
     sendResult(400, "A network name is needed.");
     return;
   }
-  String ssid = sWeb->server.arg("sid");
   String pass =
       sWeb->server.hasArg("pwd") ? sWeb->server.arg("pwd") : String("");
   Settings pending = *sWeb->settings;

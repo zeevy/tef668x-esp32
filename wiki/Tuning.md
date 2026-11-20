@@ -78,7 +78,7 @@ So `1064` tunes:
 | SW | 10640 kHz |
 
 - When the number does not fit the band you are on but fits more than one other band, a list opens, for example `Tune 1064 to`, with `Medium Wave 1064 kHz`, `Shortwave 10640 kHz` and `FM 106.40 MHz`. Turn to pick one and press to tune.
-- When it fits no band, the name line says the number `is in no band`, and the digits are cleared.
+- When it fits no band, the name line says the number `is in no band`, and the digits are cleared. An FM number finer than 10 kHz, such as `98255`, gets the same answer: the tuner has no place for it.
 - Up to 7 digits are taken. The digits are dropped after **Controls > Keypad Timeout** with no key, 20 seconds on a new radio.
 - A turn of the knob or any other button drops the digits, but on the [frequency keypad](Touch-Screen.md#the-frequency-keypad). ENTER held drops them and writes the station to the station log.
 - A typed frequency is tuned as typed. It is not moved to the step size.

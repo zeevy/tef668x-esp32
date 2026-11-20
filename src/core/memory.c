@@ -148,6 +148,11 @@ bool memoryChannelValid(const MemoryChannel *c) {
   if (c == NULL || c->freqKHz == 0 || c->band >= BAND_COUNT || c->pty > 31) {
     return false;
   }
+  /* An FM channel between two of the tuner's 10 kHz places can be written in
+   * a list by hand and can never be tuned. */
+  if (!bandTunerReaches((BandId)c->band, c->freqKHz)) {
+    return false;
+  }
   /* 0 means let the radio choose the width, on every band. On FM that is
    * already the tuner's adaptive setting. On AM it means the width the band
    * starts on, because a hand written list has no reason to carry one and a

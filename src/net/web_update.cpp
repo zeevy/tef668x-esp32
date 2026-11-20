@@ -9,6 +9,7 @@
 
 #include "web_internal.h"
 
+#include "band_scan_task.h"
 #include "firmware_write.h"
 #include "net/restart_reason.h"
 #include "net/rollback.h"
@@ -30,6 +31,17 @@ static bool sListening = false;
 
 /* Set while an upload is running and the client was not signed in. */
 static bool sUploadRejected = false;
+
+/* Why the upload running may not write, or NULL when it may. Decided once,
+ * as the image begins. */
+static const char *sUploadBlocked = NULL;
+
+static const char kOnTrial[] =
+    "The firmware the radio is running is still proving itself, "
+    "and a restart now would put the old one back. Wait until "
+    "cnf in /api/state is true.";
+static const char kScanRunning[] =
+    "A station scan is running. Try again when it stops.";
 
 /* Set once a multipart part carrying a file has actually been seen. */
 static bool sUploadStarted = false;
@@ -70,6 +82,7 @@ static void handleUploadData(void) {
 
   if (upload.status == UPLOAD_FILE_START) {
     sUploadRejected = !signedIn();
+    sUploadBlocked = NULL;
     sUploadStarted = true;
     sUploadFailed = false;
     sUploadEnded = false;
@@ -77,6 +90,15 @@ static void handleUploadData(void) {
     if (sUploadRejected) {
       DebugLog.printf("[web] upload refused, no PIN, from %s\n",
                       sWeb->server.client().remoteIP().toString().c_str());
+      return;
+    }
+    /* The same two states the install from GitHub waits for. Checked after
+     * the PIN, so a caller with no PIN learns nothing of them. */
+    sUploadBlocked = rollbackPending()  ? kOnTrial
+                     : bandScanActive() ? kScanRunning
+                                        : NULL;
+    if (sUploadBlocked != NULL) {
+      DebugLog.println(F("[web] upload refused: on trial or scanning"));
       return;
     }
     DebugLog.printf("[web] upload started: %s\n", upload.filename.c_str());
@@ -92,7 +114,8 @@ static void handleUploadData(void) {
     return;
   }
 
-  if (sUploadRejected) {
+  if (sUploadRejected || sUploadBlocked != NULL) {
+    /* Nothing was begun, so the rest of the body is taken and dropped. */
     return;
   }
 
@@ -181,8 +204,10 @@ static void handleUploadData(void) {
 static void handleUploadDone(void) {
   bool rejected = sUploadRejected;
   bool sawImage = sUploadStarted;
+  const char *blocked = sUploadBlocked;
   sUploadRejected = false;
   sUploadStarted = false;
+  sUploadBlocked = NULL;
 
   /* The PIN was checked as the image began. A session that ran out during
    * the transfer leaves it the signed in person's, and refusing here would
@@ -197,6 +222,11 @@ static void handleUploadDone(void) {
 
   if (!sawImage) {
     sendResult(400, "No firmware file was sent.");
+    return;
+  }
+
+  if (blocked != NULL) {
+    sendResult(409, blocked);
     return;
   }
 
@@ -254,13 +284,10 @@ static void handleUpdateInstall(void) {
                  "into the new firmware when it is done.");
       return;
     case UPDATE_INSTALL_ON_TRIAL:
-      sendResult(409,
-                 "The firmware the radio is running is still proving itself, "
-                 "and a restart now would put the old one back. Wait until "
-                 "cnf in /api/state is true.");
+      sendResult(409, kOnTrial);
       return;
     case UPDATE_INSTALL_BUSY:
-      sendResult(409, "A station scan is running. Try again when it stops.");
+      sendResult(409, kScanRunning);
       return;
     case UPDATE_INSTALL_NOTHING:
     default:
@@ -366,6 +393,7 @@ void webLoop(void) {
    * which may carry no file and no PIN, must not be taken for it. */
   sUploadStarted = false;
   sUploadRejected = false;
+  sUploadBlocked = NULL;
   radioSetNetServing(true);
   sWeb->server.handleClient();
   radioSetNetServing(false);

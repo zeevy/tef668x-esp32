@@ -36,7 +36,8 @@
 typedef enum {
   BAND_SCAN_STARTED = 0,
   BAND_SCAN_BUSY,       /* One is running, the update check is out on the
-                     network, the radio could not be read, or it did not
+                     network, a level sweep or a series of AF checks has
+                     the tuner, the radio could not be read, or it did not
                      take the band change in time. */
   BAND_SCAN_NOT_WALKED, /* A band the scan does not walk: OIRT. */
 } BandScanStartResult;
@@ -45,9 +46,10 @@ typedef enum {
  * Start scanning `band`.
  *
  * Nothing starts while a scan is already running, while the update check is
- * out on the network, whose transmitting would raise the levels read, or
- * while the radio could not be read to know where to go back to once this
- * one ends. On another
+ * out on the network, whose transmitting would raise the levels read, while
+ * a level sweep or a series of AF checks has the tuner, since the radio
+ * task takes no probe until that ends, or while the radio could not be read
+ * to know where to go back to once this one ends. On another
  * band, the radio changes to `band` first, as the BAND key would, and the
  * scan starts only once it is there; the call waits up to a second for
  * that, on the caller's task.
@@ -91,8 +93,9 @@ typedef struct {
   uint16_t added;  /* Of those, how many were written into a free slot. */
   uint16_t noRoom; /* New ones with no free slot left to take them. */
   /* False when it stopped before the end of its walk, because somebody
-   * tuned or the radio would not take a probe, so a short count is not read
-   * as a quiet band. */
+   * tuned or the radio would not take a probe, and when the tuner gave no
+   * reading for a channel on the way, so a short count is not read as a
+   * quiet band. */
   bool complete;
 } BandScanResult;
 

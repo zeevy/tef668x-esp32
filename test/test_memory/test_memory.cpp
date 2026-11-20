@@ -104,9 +104,9 @@ static void add_of_a_station_already_stored_names_it_and_changes_nothing(void) {
   TEST_ASSERT_EQUAL_INT(
       MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_SW, 9800, 0, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(0, slot);
-  /* One kHz away is another station too. */
+  /* The next place the tuner has, 10 kHz away, is another station too. */
   TEST_ASSERT_EQUAL_INT(
-      MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_FM, 98301, 0, NULL, &slot));
+      MEMORY_SAVE_OK, memoryAddChannel(&store, BAND_FM, 98310, 0, NULL, &slot));
   TEST_ASSERT_EQUAL_INT(1, slot);
 }
 
@@ -251,6 +251,22 @@ static void a_band_this_radio_does_not_have_is_refused(void) {
   TEST_ASSERT_FALSE(memoryChannelValid(&c));
   c.band = 200;
   TEST_ASSERT_FALSE(memoryChannelValid(&c));
+}
+
+static void an_fm_channel_the_tuner_has_no_place_for_is_refused(void) {
+  /* FM exists for the tuner only at multiples of 10 kHz, on OIRT too. AM
+   * goes in single kilohertz. */
+  MemoryChannel c = channel(BAND_FM, 98250, "on");
+  TEST_ASSERT_TRUE(memoryChannelValid(&c));
+  c.freqKHz = 98255;
+  TEST_ASSERT_FALSE(memoryChannelValid(&c));
+  TEST_ASSERT_FALSE(memorySet(&store, 0, &c));
+  c.freqKHz = 98251;
+  TEST_ASSERT_FALSE(memoryChannelValid(&c));
+  c = channel(BAND_OIRT, 70005, "off");
+  TEST_ASSERT_FALSE(memoryChannelValid(&c));
+  c = channel(BAND_MW, 737, "am");
+  TEST_ASSERT_TRUE(memoryChannelValid(&c));
 }
 
 static void a_name_that_never_ends_is_refused(void) {
@@ -863,6 +879,7 @@ int main(int, char **) {
   RUN_TEST(the_slot_numbers_on_the_boundary_and_either_side);
   RUN_TEST(a_channel_with_no_frequency_is_an_empty_slot);
   RUN_TEST(a_band_this_radio_does_not_have_is_refused);
+  RUN_TEST(an_fm_channel_the_tuner_has_no_place_for_is_refused);
   RUN_TEST(a_name_that_never_ends_is_refused);
   RUN_TEST(a_name_carrying_a_newline_is_refused);
   RUN_TEST(a_name_may_hold_any_printable_character);

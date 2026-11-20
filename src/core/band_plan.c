@@ -208,6 +208,10 @@ bool bandContains(BandId band, const BandPlanConfig *config, uint32_t freqKHz) {
   return freqKHz >= lo && freqKHz <= hi;
 }
 
+bool bandTunerReaches(BandId band, uint32_t freqKHz) {
+  return bandModulation(band) != MODULATION_FM || freqKHz % 10 == 0;
+}
+
 uint32_t bandTopChannel(BandId band, const BandPlanConfig *config,
                         uint16_t stepKHz) {
   uint32_t lo = 0;
@@ -567,6 +571,11 @@ bool bandFromTypedNumber(const BandPlanConfig *config, uint32_t typed,
       } else if (!bandForFrequency(config, value, &found)) {
         continue;
       }
+      /* A number the tuner has no place for is not a reading of what was
+       * typed: the tune would be refused after the digits were taken. */
+      if (!bandTunerReaches(found, value)) {
+        continue;
+      }
       if (freqKHz != NULL) {
         *freqKHz = value;
       }
@@ -588,7 +597,8 @@ uint8_t bandTypedReadings(const BandPlanConfig *config, uint32_t typed,
   /* As bandFromTypedNumber: ten million kHz is past the top of every band. */
   for (uint32_t value = typed; value <= 10000000UL && n < max; value *= 10) {
     for (int b = 0; b < BAND_COUNT && n < max; b++) {
-      if (bandContains((BandId)b, config, value)) {
+      if (bandContains((BandId)b, config, value) &&
+          bandTunerReaches((BandId)b, value)) {
         out[n].band = (BandId)b;
         out[n].freqKHz = value;
         n++;

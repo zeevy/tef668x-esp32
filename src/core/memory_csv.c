@@ -377,8 +377,9 @@ static size_t lineLength(const char *text, size_t len) {
   return n;
 }
 
-bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode, const char *text,
-                     size_t len, MemoryImportResult *out) {
+bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode,
+                     const BandPlanConfig *plan, const char *text, size_t len,
+                     MemoryImportResult *out) {
   MemoryImportResult result;
   memset(&result, 0, sizeof(result));
   if (out != NULL) {
@@ -401,6 +402,9 @@ bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode, const char *text,
     }
     size_t at = 0;
     uint16_t lineNumber = 0;
+    /* One bit a slot, for the slots this pass has met in the file. */
+    uint8_t seen[(MEMORY_SLOT_COUNT + 7) / 8];
+    memset(seen, 0, sizeof(seen));
     while (at < len) {
       size_t n = lineLength(text + at, len - at);
       const char *line = text + at;
@@ -418,7 +422,20 @@ bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode, const char *text,
       int slot = 0;
       MemoryChannel channel;
       bool cut = false;
-      if (!parseLine(line, length, &slot, &channel, &cut)) {
+      bool readable = parseLine(line, length, &slot, &channel, &cut) &&
+                      memorySlotInRange(slot);
+      if (readable && mode == MEMORY_IMPORT_REPLACE) {
+        /* A second line for a slot would be written over the first, and the
+         * list would hold one channel fewer than the lines counted. Which of
+         * the two was meant is not something the file says, so it is a line
+         * that cannot be read. In a merge the second finds the slot taken. */
+        const uint8_t bit = (uint8_t)(1u << (slot % 8));
+        if ((seen[slot / 8] & bit) != 0) {
+          readable = false;
+        }
+        seen[slot / 8] |= bit;
+      }
+      if (!readable) {
         result.skipped++;
         if (result.firstBadLine == 0) {
           result.firstBadLine = lineNumber;
@@ -448,6 +465,9 @@ bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode, const char *text,
         memorySet(m, slot, &channel);
       }
       result.imported++;
+      if (plan != NULL && !memoryChannelTunable(&channel, plan)) {
+        result.unreachable++;
+      }
     }
   }
 

@@ -595,7 +595,16 @@ static void sweepPoll(void) {
     }
     return;
   }
-  dxSweepFsLoad(DX_SWEEP_PATH, h);
+  if (!dxSweepFsLoad(DX_SWEEP_PATH, h)) {
+    /* The sweeps kept so far are still in the file. Adding this one to an
+     * empty history and saving it would put one sweep in place of them. */
+    DebugLog.println(F("[dx] the kept sweeps could not be read"));
+    if (!sSweep->baseFixed) {
+      sSweep->baseN = 0;
+    }
+    free(h);
+    return;
+  }
   if (!sSweep->baseFixed) {
     sSweep->baseN = dxSweepMedian(h->item, h->count, s, &sSweep->base);
   }

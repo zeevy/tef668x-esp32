@@ -1638,8 +1638,11 @@ static void roundSeek(RadioRound *r) {
   SeekReading found;
   memset(&found, 0, sizeof(found));
   /* Not read at all when there is no rule to judge it by, so a channel is
-   * never stopped on by a decision made against nothing. */
-  found.valid = r->haveLive && tef668xReadQuality(fm, &look) == TEF668X_OK;
+   * never stopped on by a decision made against nothing. Nor when the retune
+   * did not go out: the tuner is still on the channel before, and its
+   * reading would be judged as this one's. */
+  found.valid = r->haveLive && !r->pushFailed &&
+                tef668xReadQuality(fm, &look) == TEF668X_OK;
   found.levelTenths = look.levelDbuVTenths;
   found.noiseTenths = look.usnTenths;
   found.multipathTenths = look.multipathTenths;
