@@ -158,8 +158,16 @@ test('delete', async ({ page }) => {
   await radio(page);
   await page.goto('/#log');
   await rows(page).nth(1).click();
-  const sent = nextPost(page, '/api/log');
+  // The first tap only asks: nothing is sent, and the key says what the
+  // next tap does.
+  let posts = 0;
+  page.on('request', (r) => r.method() === 'POST' && r.url().endsWith('/api/log') && posts++);
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  const sure = page.getByRole('dialog').getByRole('button', { name: 'Press again' });
+  await expect(sure).toBeVisible();
+  expect(posts).toBe(0);
+  const sent = nextPost(page, '/api/log');
+  await sure.click();
   expect(await sent).toBe(`do=delete&id=5&time=${t0 - 3600}&khz=738`);
 });
 

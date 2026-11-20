@@ -6,14 +6,16 @@ import { change } from './radio.js';
 // Short notes over the screen. Each goes after four seconds; one that must
 // be read, `kept`, stays until it is closed. A refusal is kept: it says a
 // change was not made. One already showing is not shown twice, so taps on a
-// radio that is away do not pile notes over the controls.
+// radio that is away do not pile notes over the controls. One with a way
+// back, `undo`, a function, has an Undo key and stays eight seconds, time
+// enough to read it and reach the key.
 export const notes = signal([]);
 export const unsay = (note) => (notes.value = notes.value.filter((n) => n !== note));
-export function say(text, tone = 'good', kept = tone === 'bad') {
+export function say(text, tone = 'good', kept = tone === 'bad', undo) {
   if (kept && notes.value.some((n) => n.kept && n.text === text)) return;
-  const note = { text, tone, kept };
+  const note = { text, tone, kept, undo };
   notes.value = [...notes.value, note];
-  if (!kept) setTimeout(() => unsay(note), 4000);
+  if (!kept) setTimeout(() => unsay(note), undo ? 8000 : 4000);
 }
 
 // A refusal, said in the radio's own words. One for the PIN opens the PIN

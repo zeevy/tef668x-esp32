@@ -241,6 +241,30 @@ test('change: rename, and delete', async ({ page }) => {
   sent = nextPost(page, '/api/presets');
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
   expect((await sent).body).toBe('do=clear&slot=1');
+  // The note has the way back: Undo writes the station to its slot again.
+  await page.unroute('**/api/presets.csv');
+  await page.route('**/api/presets.csv', (route) => route.fulfill({ body: CSV.replace(/^1,.*\n/m, '') }));
+  const note = page.getByRole('status').filter({ hasText: 'Preset 1 deleted.' });
+  sent = nextPost(page, '/api/presets');
+  await note.getByRole('button', { name: 'Undo' }).click();
+  expect((await sent).body).toMatch(/^do=set&slot=1&khz=\d+&bnd=\w+&bw=\d+&name=/);
+  await expect(note).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: 'Preset 1 is back.' })).toBeVisible();
+});
+
+test('Undo does not write over a preset stored in the slot since', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#presets');
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  await page.getByRole('button', { name: 'Change preset 1' }).click();
+  let posts = 0;
+  page.on('request', (r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/presets' && posts++);
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click();
+  await expect.poll(() => posts).toBe(1);
+  // The list still holds a preset 1, as when another page stored one there.
+  await page.getByRole('status').filter({ hasText: 'Preset 1 deleted.' }).getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Preset 1 was not put back: preset 1 is in its slot now.' })).toBeVisible();
+  expect(posts).toBe(1);
 });
 
 test('on a phone a stored preset\'s dialog has Delete and Cancel side by side, and Save across the row under them', async ({ page }, testInfo) => {
@@ -457,6 +481,7 @@ test('upload: merge or replace, the file sent as it is', async ({ page }) => {
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Upload mine.csv');
   const sent = nextPost(page, '/api/presets/import');
+  await expect(page.getByRole('dialog').getByRole('link', { name: 'Download the list as it is now' })).toHaveAttribute('href', '/api/presets.csv');
   await dialog.getByRole('button', { name: 'Merge' }).click();
   const req = await sent;
   expect(req.url).toContain('mode=merge');
