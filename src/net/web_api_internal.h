@@ -26,6 +26,10 @@ typedef enum {
 #define API_SETTLE_MS 500
 
 void apiFail(int code, const String &why);
+/* A 503 for a radio that is busy for a moment, with `Retry-After: 1`, so a
+ * script is told when to ask again. Not for a 503 that waiting a second
+ * does not clear, such as a store that did not start. */
+void apiBusy(const String &why);
 
 /* Refuse a width that is not one of the tuner's fixed FM widths, naming them
  * from the band plan's own list, so the reply cannot drift from the check. */

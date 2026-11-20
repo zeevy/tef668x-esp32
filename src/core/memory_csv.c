@@ -294,7 +294,7 @@ static bool nextField(const char **at, const char *end, char *out, size_t cap,
 }
 
 static bool parseLine(const char *line, size_t len, int *slot,
-                      MemoryChannel *out, bool *cut) {
+                      MemoryChannel *out, bool *cut, bool *nameNotAscii) {
   char field[MEMORY_CSV_LINE_MAX];
   const char *at = line;
   const char *end = line + len;
@@ -366,7 +366,22 @@ static bool parseLine(const char *line, size_t len, int *slot,
       out->savedUtc = 0;
     }
   }
-  return memoryChannelValid(out);
+  if (memoryChannelValid(out)) {
+    return true;
+  }
+  /* Refused. When the name alone is the reason and it holds a letter
+   * outside ASCII, that is noted for the reply: such a line looks right to
+   * the person who wrote it. */
+  MemoryChannel unnamed = *out;
+  unnamed.name[0] = '\0';
+  if (memoryChannelValid(&unnamed)) {
+    for (size_t i = 0; i < MEMORY_NAME_LEN && out->name[i] != '\0'; i++) {
+      if ((unsigned char)out->name[i] > 0x7E) {
+        *nameNotAscii = true;
+      }
+    }
+  }
+  return false;
 }
 
 static size_t lineLength(const char *text, size_t len) {
@@ -422,8 +437,10 @@ bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode,
       int slot = 0;
       MemoryChannel channel;
       bool cut = false;
-      bool readable = parseLine(line, length, &slot, &channel, &cut) &&
-                      memorySlotInRange(slot);
+      bool nameNotAscii = false;
+      bool readable =
+          parseLine(line, length, &slot, &channel, &cut, &nameNotAscii) &&
+          memorySlotInRange(slot);
       if (readable && mode == MEMORY_IMPORT_REPLACE) {
         /* A second line for a slot would be written over the first, and the
          * list would hold one channel fewer than the lines counted. Which of
@@ -439,14 +456,17 @@ bool memoryImportCsv(MemoryStore *m, MemoryImportMode mode,
         result.skipped++;
         if (result.firstBadLine == 0) {
           result.firstBadLine = lineNumber;
+          result.firstBadName = nameNotAscii;
         }
         if (mode == MEMORY_IMPORT_REPLACE) {
           /* Nothing has been written and nothing will be, so the counts from
            * the lines read so far would say channels were imported when none
            * were. Only the line to look at is worth reporting. */
-          uint16_t bad = result.firstBadLine;
+          const uint16_t bad = result.firstBadLine;
+          const bool badName = result.firstBadName;
           memset(&result, 0, sizeof(result));
           result.firstBadLine = bad;
+          result.firstBadName = badName;
           if (out != NULL) {
             *out = result;
           }

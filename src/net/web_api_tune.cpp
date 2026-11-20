@@ -386,7 +386,7 @@ static void handleApiBeep(void) {
     hz2 = hz;
   }
   if (!radioBeepAt((uint16_t)ms, (uint16_t)hz, (uint16_t)hz2)) {
-    apiFail(503, "The radio is busy. Try again in a moment.");
+    apiBusy("The radio is busy. Try again in a moment.");
     return;
   }
   sWeb->server.send(200, "text/plain", String("beeping for ") + ms + " ms\n");
@@ -422,7 +422,7 @@ static void handleApiSeek(void) {
   }
 
   if (!radioSeek(up)) {
-    apiFail(503, "The radio is busy. Try again in a moment.");
+    apiBusy("The radio is busy. Try again in a moment.");
     return;
   }
   String said = String("seeking ") + (up ? "up" : "down");
@@ -507,7 +507,7 @@ static void handleApiSave(void) {
    * one written. */
   Settings pending;
   if (!settingsBuildCandidate(sWeb->settings, &pending, NULL)) {
-    apiFail(503, "The radio is busy. Nothing was saved.");
+    apiBusy("The radio is busy. Nothing was saved.");
     return;
   }
 

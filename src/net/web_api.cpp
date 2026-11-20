@@ -17,6 +17,11 @@ void apiFail(int code, const String &why) {
   sWeb->server.send(code, "text/plain", why + "\n");
 }
 
+void apiBusy(const String &why) {
+  sWeb->server.sendHeader("Retry-After", "1");
+  apiFail(503, why);
+}
+
 /* Refuse a width that is not one of the tuner's fixed FM widths, naming them
  * from the band plan's own list, so the reply cannot drift from the check. */
 void apiFailFmWidth(const char *name) {
@@ -67,7 +72,7 @@ void apiSubmit(const RadioCommand *command, const String &said, ApiSay say) {
   RadioError why = RADIO_OK;
   RadioPostResult posted = radioPostAndSettle(command, API_SETTLE_MS, &why);
   if (posted == RADIO_POST_BUSY) {
-    apiFail(503, "The radio is busy. Try again in a moment.");
+    apiBusy("The radio is busy. Try again in a moment.");
     return;
   }
   if (posted == RADIO_POST_SLOW) {

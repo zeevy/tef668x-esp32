@@ -108,6 +108,9 @@ typedef struct {
   uint16_t unreachable;
   /* Which line was refused first, counted from 1 over the whole file. */
   uint16_t firstBadLine;
+  /* That line's name holds a letter outside ASCII, which a preset name
+   * cannot. The one reason worth saying apart: the line looks right. */
+  bool firstBadName;
 } MemoryImportResult;
 
 /* `plan` is the band plan in use, for `unreachable`. NULL leaves that count

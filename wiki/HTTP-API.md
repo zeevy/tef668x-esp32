@@ -65,7 +65,7 @@ Most answers are one line of plain text, ending in a newline. The status code sa
 | 429 | Too many wrong PINs |
 | 500 | It could not be stored |
 | 502 | `Not done: the tuner did not take it, and the radio is trying again.` |
-| 503 | `The radio is busy. Try again in a moment.` Nothing was taken |
+| 503 | `The radio is busy. Try again in a moment.` Nothing was taken. It carries `Retry-After: 1` |
 
 Every answer and every field is in English, whatever language the radio's screen shows, and so are the CSV files of the presets and the station log. Only [`GET /api/screen`](#get-apiscreen) gives the screen's own texts, in the screen's language, since it is a picture of the screen.
 
@@ -172,6 +172,7 @@ The `tun` object:
 | `vol`, `mut`, `tmd`, `pst` | The volume in dB, mute as it was asked for, the tuning mode (`Manual`, `Auto`, `Presets`, `Meter band`), and the preset number (0 for none) |
 | `mtb` | On SW, the metre band the dial is in, such as `22 m`, as the radio's header shows it. Left out on other bands and between two metre bands |
 | `seq` | Goes up with every new reading the radio task makes. It stops when the radio task has stalled |
+| `bsy` | `true` when the radio could not give its tuned values for this answer, which then has none of the keys from `bnd` to `qst`. Left out otherwise. Ask again |
 | `ims`, `eq`, `mno`, `dem` | iMS, the equaliser, forced mono, and de-emphasis in µs |
 | `fnb`, `anb`, `ahc`, `lhc`, `asm`, `lsm` | The noise blankers in per cent, the AM high cut and soft mute levels in dBµV |
 | `cut`, `bld`, `hbl` | The treble cut, the stereo blend and the combined blend the chip is applying now. They have no known unit. They are there only when the chip gave them |
@@ -429,6 +430,7 @@ Every preset slot is taken.                                           [409, do=a
 0 of 1 lines imported, 0 refused, 1 already taken, 0 names cut short  [200, merge into a used slot]
 3 of 3 lines imported, 0 refused, 0 already taken, 0 names cut short, 1 not on a band of this radio's band plan  [200, one line outside the band plan]
 Line 1 could not be read, or names a slot a line before it has, so nothing was changed.  [400, replace with a bad file]
+Line 2 has a name with a letter outside ASCII, which a preset name cannot hold, so nothing was changed.  [400, replace with such a name]
 A preset name has up to 16 letters.                                   [400, do=set or do=add with a longer name]
 Give bnd, one of FM MW SW LW, or leave it out for FM.                 [400, scan bnd=OIRT]
 ```
