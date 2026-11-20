@@ -281,6 +281,25 @@ typedef struct {
 uint8_t bandTypedReadings(const BandPlanConfig *config, uint32_t typed,
                           BandTypedReading *out, uint8_t max);
 
+/* What entering a typed number does. */
+typedef enum {
+  BAND_TYPED_NO_BAND, /* No band holds it. */
+  BAND_TYPED_TUNES,   /* It tunes, to `tunes`. */
+  BAND_TYPED_CHOICE   /* The person is asked which of `choices` readings. */
+} BandTypedOutcome;
+
+/*
+ * What entering `typed` does with the radio on `prefer`: it tunes when the
+ * band in use holds a reading of it, or when only one band does; it is a
+ * choice when the band in use holds none and more than one other does.
+ * `tunes` is written for BAND_TYPED_TUNES and BAND_TYPED_CHOICE, where it is
+ * the reading taken if nobody chooses; `choices` is how many readings there
+ * are. Either may be NULL.
+ */
+BandTypedOutcome bandTypedOutcome(const BandPlanConfig *config, uint32_t typed,
+                                  BandId prefer, BandTypedReading *tunes,
+                                  uint8_t *choices);
+
 /* A band's full name, "Medium Wave", for a list that names bands. */
 const char *bandLongName(BandId band);
 

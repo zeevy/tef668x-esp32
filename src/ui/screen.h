@@ -909,6 +909,7 @@ typedef struct {
   const char *context; /* "FM \xC2\xB7 MHz", the band typed for. */
   const char *clock;   /* Local, or NULL. */
   const char *typed;   /* The digits so far, "104", or NULL. */
+  const char *result;  /* What OK will do, "= FM 104.00 MHz", or NULL. */
 } ScreenKeypad;
 
 /* Put the keypad up, fill it in and take it down, as the bandwidth page. */
@@ -1067,7 +1068,9 @@ void screenEnd(void);
  * For the moments before there is any state worth showing, and for a tuner
  * that did not answer.
  */
-void screenMessage(const char *line1, const char *line2);
+/* `line3`, when given, is a third and smaller line under the detail. */
+void screenMessage(const char *line1, const char *line2,
+                   const char *line3 = NULL);
 
 /*
  * A firmware write, in progress, across the middle of the screen.

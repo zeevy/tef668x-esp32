@@ -1822,7 +1822,7 @@ static void enterTyped(void) {
 
   /* A number the band in use does not hold, but more than one other band
    * does, is a choice for the person who typed it, not the radio. */
-  if (band != prefer) {
+  if (bandTypedOutcome(&plan, typed, prefer, NULL, NULL) == BAND_TYPED_CHOICE) {
     BandTypedReading readings[BAND_TYPED_READINGS_MAX];
     const uint8_t count =
         bandTypedReadings(&plan, typed, readings, BAND_TYPED_READINGS_MAX);

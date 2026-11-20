@@ -607,3 +607,22 @@ uint8_t bandTypedReadings(const BandPlanConfig *config, uint32_t typed,
   }
   return n;
 }
+
+BandTypedOutcome bandTypedOutcome(const BandPlanConfig *config, uint32_t typed,
+                                  BandId prefer, BandTypedReading *tunes,
+                                  uint8_t *choices) {
+  BandTypedReading one = {BAND_COUNT, 0};
+  BandTypedReading all[BAND_TYPED_READINGS_MAX];
+  const uint8_t count =
+      bandTypedReadings(config, typed, all, BAND_TYPED_READINGS_MAX);
+  if (choices != NULL) {
+    *choices = count;
+  }
+  if (!bandFromTypedNumber(config, typed, prefer, &one.freqKHz, &one.band)) {
+    return BAND_TYPED_NO_BAND;
+  }
+  if (tunes != NULL) {
+    *tunes = one;
+  }
+  return one.band != prefer && count > 1 ? BAND_TYPED_CHOICE : BAND_TYPED_TUNES;
+}

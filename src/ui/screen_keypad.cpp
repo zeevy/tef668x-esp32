@@ -2,8 +2,9 @@
  * The frequency keypad: digits, a backspace, Cancel and OK, for typing a
  * frequency by touch.
  *
- * The number being typed sits on a panel, the digits so far and nothing
- * more; the panel is empty before the first.
+ * The number being typed sits on a panel, the digits so far, with a small
+ * line under them saying what OK will do with them; the panel is empty
+ * before the first.
  * Each key is a plain tile, OK the filled one.
  *
  * It owns the panel on its own, like the bandwidth page, because the LVGL
@@ -24,7 +25,12 @@
 /* Three rows of five: the digits on two, then backspace, Cancel and OK. */
 #define PANEL_H 60
 #define NUMBER_FONT roboto_freq
-#define NUMBER_BASE 82
+/* The digits sit 8 rows higher than the panel's middle, which leaves room
+ * for the small line: 6 rows clear under the digits, 3 off the panel's
+ * foot. */
+#define NUMBER_BASE 74
+#define RESULT_BASE 89
+#define RESULT_FONT roboto_label
 #define KEY_TOP 98
 #define KEY_H 40
 #define KEY_GAP 4
@@ -50,6 +56,7 @@ typedef struct {
   lv_obj_t *root;
   UiFrame frame;
   lv_obj_t *number;
+  lv_obj_t *result;
   lv_obj_t *key[SCREEN_KEYPAD_KEYS];
   lv_obj_t *label[SCREEN_KEYPAD_KEYS];
 } KeypadUi;
@@ -75,6 +82,7 @@ bool screenKeypadBegin(void) {
   uiRound(sUi->root, t->radio, UI_MARGIN, PANEL_Y, KEYPAD_W - 2 * UI_MARGIN,
           PANEL_H, UI_RADIUS);
   sUi->number = uiLabel(sUi->root, &NUMBER_FONT, t->ground);
+  sUi->result = uiLabel(sUi->root, &RESULT_FONT, t->ground);
   for (uint8_t i = 0; i < SCREEN_KEYPAD_KEYS; i++) {
     const bool ok = i == SCREEN_KEYPAD_OK;
     sUi->key[i] = uiRound(sUi->root, ok ? t->radio : t->rule, kBox[i].x,
@@ -120,6 +128,12 @@ void screenKeypadShow(const ScreenKeypad *k) {
   const int16_t w = uiTextWidth(sUi->number, &NUMBER_FONT);
   uiBaseline(sUi->number, &NUMBER_FONT, (int16_t)((KEYPAD_W - w) / 2),
              NUMBER_BASE);
+  uiSetOrHide(sUi->result, k->result);
+  if (k->result != NULL) {
+    const int16_t rw = uiTextWidth(sUi->result, &RESULT_FONT);
+    uiBaseline(sUi->result, &RESULT_FONT, (int16_t)((KEYPAD_W - rw) / 2),
+               RESULT_BASE);
+  }
 }
 
 void screenKeypadEnd(void) {

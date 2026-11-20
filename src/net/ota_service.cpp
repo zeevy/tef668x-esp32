@@ -69,7 +69,7 @@ void otaBegin(uint32_t pin) {
 
   ArduinoOTA.onEnd([]() {
     sInProgress = false;
-    firmwareWriteEnd(true);
+    firmwareWriteEnd(FIRMWARE_END_OK);
     /* ArduinoOTA restarts the radio itself the moment this returns, so the
      * note has to be left here. Without it the one restart a person is
      * certain to have caused reports the same bare "software" as the ones
@@ -89,7 +89,9 @@ void otaBegin(uint32_t pin) {
     bool wasRunning = sInProgress;
     sInProgress = false;
     if (wasRunning) {
-      firmwareWriteEnd(false);
+      firmwareWriteEnd(error == OTA_BEGIN_ERROR ? FIRMWARE_END_WRITE
+                       : error == OTA_END_ERROR ? FIRMWARE_END_FILE
+                                                : FIRMWARE_END_DOWNLOAD);
     }
     const char *reason = "unknown";
     switch (error) {

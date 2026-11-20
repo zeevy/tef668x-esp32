@@ -323,6 +323,9 @@
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \
   X(RADIO_PRESS_KNOB_TO_WAKE, "Press the knob to wake", "Detail line of that message: the only way to wake the radio") \
   X(RADIO_OLD_IMAGE_KEPT, "Previous firmware kept", "Detail line of that message") \
+  X(UPDATE_WHY_DOWNLOAD, "Download did not finish", "Third line of that message: the file did not all arrive") \
+  X(UPDATE_WHY_FILE, "Not a firmware file for this radio", "Third line of that message: the file arrived and was refused") \
+  X(UPDATE_WHY_WRITE, "Could not write the file", "Third line of that message: the flash did not take it") \
   X(RDS_STEREO, "Stereo", "RDS page 1 header, the station says stereo") \
   X(RDS_MONO, "Mono", "RDS page 1 header, the station says mono") \
   X(COMMON_FMT_TWO_WORDS, "%s %s", "ECC and its code on RDS page 1; tile text for the iMS and EQ switches, name and state") \
@@ -434,6 +437,9 @@
   X(KEYPAD_TITLE, "Frequency", "Title of the frequency keypad") \
   X(KEYPAD_CANCEL, "Cancel", "Frequency keypad key: drops the number typed") \
   X(KEYPAD_OK, "OK", "Frequency keypad key: tunes the number typed") \
+  X(KEYPAD_FMT_TUNES, "= %s %s", "Frequency keypad, small line under the digits: the band and frequency OK will tune") \
+  X(KEYPAD_FMT_CHOICE, "= a choice of %u bands", "Frequency keypad, small line under the digits: OK will ask which band") \
+  X(KEYPAD_NO_BAND, "In no band", "Frequency keypad, small line under the digits: no band holds the number") \
   X(DX_CATCHES_EMPTY_TITLE, "No Catches Yet", "Empty state title on the Catches page") \
   X(DX_CATCHES_EMPTY_NOTE, "Confirmed stations from this session appear here", "Empty state note on the Catches page") \
   X(DX_TITLE_CATCHES, "Catches", "Title of the Catches page") \

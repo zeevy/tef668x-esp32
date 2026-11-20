@@ -40,6 +40,7 @@ static int16_t sVeilFill;
 
 #define MESSAGE_TITLE_BASE 128
 #define MESSAGE_DETAIL_BASE 152
+#define MESSAGE_REASON_BASE 176
 #define VEIL_PANEL_Y 32
 #define VEIL_PANEL_H 100
 #define VEIL_CAPTION_BASE 56
@@ -249,7 +250,7 @@ static void centre(lv_obj_t *o, const lv_font_t *font, int16_t base) {
   uiBaseline(o, font, (int16_t)((w - uiTextWidth(o, font)) / 2), base);
 }
 
-void screenMessage(const char *line1, const char *line2) {
+void screenMessage(const char *line1, const char *line2, const char *line3) {
   if (!sReady) {
     return;
   }
@@ -270,6 +271,14 @@ void screenMessage(const char *line1, const char *line2) {
   /* The percentage shape is the other thing this veil can show. If a write
    * failed or finished while it was up, this is what takes it back down. */
   showVeilParts(false);
+  /* The third line borrows the write screen's foot line, which is hidden
+   * here anyway: the pool has no room for a label of its own. */
+  if (line3 != NULL && line3[0] != '\0') {
+    uiSetText(sVeilFoot, line3);
+    uiSetColour(sVeilFoot, themeCurrent()->dead);
+    centre(sVeilFoot, &roboto_small, MESSAGE_REASON_BASE);
+    uiShowIf(sVeilFoot, true);
+  }
 }
 
 void screenUpdateVeilShow(int percent) {
@@ -305,6 +314,8 @@ void screenUpdateVeilShow(int percent) {
   uiBaseline(sVeilPercentSign, &roboto_title,
              (int16_t)(left + digitsW + UI_UNIT_GAP), VEIL_PERCENT_BASE);
   centre(sVeilCaption, &roboto_small, VEIL_CAPTION_BASE);
+  uiSetText(sVeilFoot, txt(STR_RADIO_VEIL_KEEP_POWER));
+  uiSetColour(sVeilFoot, themeCurrent()->measurement);
   centre(sVeilFoot, &roboto_small, VEIL_FOOT_BASE);
 
   lv_obj_clear_flag(sVeil, LV_OBJ_FLAG_HIDDEN);

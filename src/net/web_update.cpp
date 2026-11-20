@@ -211,11 +211,17 @@ static void handleUploadData(void) {
       /* So the next upload starts from a clean state rather than on top of a
        * half written one. `hasError` stays true through it, which is what
        * tells the browser the image was refused. */
+      /* Read before the abort, which puts its own error in its place. A
+       * first byte that is not an image's is the file's fault; the rest is
+       * the flash's. */
+      const FirmwareEnd why = Update.getError() == UPDATE_ERROR_MAGIC_BYTE
+                                  ? FIRMWARE_END_FILE
+                                  : FIRMWARE_END_WRITE;
       if (Update.isRunning()) {
         Update.abort();
       }
       shaLetGo();
-      firmwareWriteEnd(false);
+      firmwareWriteEnd(why);
       return;
     }
     if (sUploadShaOpen) {
@@ -228,7 +234,7 @@ static void handleUploadData(void) {
         DebugLog.println(F("[web] upload refused: sha256 differs"));
         sUploadShaWrong = kShaDiffers;
         Update.abort();
-        firmwareWriteEnd(false);
+        firmwareWriteEnd(FIRMWARE_END_FILE);
         return;
       }
     }
@@ -238,10 +244,11 @@ static void handleUploadData(void) {
       /* Held until the reboot, which `handleUploadDone` asks for once the
        * reply is out. */
       sUploadWritten = true;
-      firmwareWriteEnd(true);
+      firmwareWriteEnd(FIRMWARE_END_OK);
     } else {
+      /* The whole file came and is not an image the radio can start. */
       Update.printError(DebugLog);
-      firmwareWriteEnd(false);
+      firmwareWriteEnd(FIRMWARE_END_FILE);
     }
     return;
   }
@@ -263,7 +270,7 @@ static void handleUploadData(void) {
     Update.abort();
     shaLetGo();
     DebugLog.println("[web] upload aborted");
-    firmwareWriteEnd(false);
+    firmwareWriteEnd(FIRMWARE_END_DOWNLOAD);
   }
 }
 

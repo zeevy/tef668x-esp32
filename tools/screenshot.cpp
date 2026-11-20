@@ -1738,7 +1738,8 @@ int main(int argc, char **argv) {
 
   /* What is left when a firmware write fails, in screen_task.cpp's words.
    * The write itself is the veil, veil-start.bmp and veil.bmp below. */
-  screenMessage(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT));
+  screenMessage(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT),
+                txt(STR_UPDATE_WHY_DOWNLOAD));
   saveShot("%s/update-failed.bmp", dir);
 
   /*
@@ -2753,6 +2754,7 @@ int main(int argc, char **argv) {
     pad.context = "FM \xC2\xB7 MHz";
     pad.clock = "19:32";
     pad.typed = "104";
+    pad.result = "= FM 104.00 MHz";
     screenKeypadShow(&pad);
     saveShot("%s/keypad.bmp", dir);
     TouchZone zones[TOUCH_ZONES_MAX];
