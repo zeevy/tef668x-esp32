@@ -3,6 +3,7 @@
  * shows, its keys and its touch screen.
  */
 #include "web_api_internal.h"
+#include "web_chunked.h"
 #include "web_internal.h"
 
 #include "board/board.h"
@@ -20,8 +21,10 @@ static void hexColour(ThemeColour c, char *out) {
            (unsigned long)(lv_color_to_u32(uiColour(c)) & 0xFFFFFFUL));
 }
 
+/* Both take the reply as `ctx`, which collects the lines and hands them to
+ * the network 512 bytes at a time. */
 static void sendText(void *ctx, const UiText *t) {
-  (void)ctx;
+  ChunkedReply &out = *static_cast<ChunkedReply *>(ctx);
   /* Room for a role naming all nine, 62 characters, which a Custom theme
    * with one colour for every role gives. */
   char head[192];
@@ -33,15 +36,15 @@ static void sendText(void *ctx, const UiText *t) {
            "\"text\":",
            (int)t->x, (int)t->y, (int)t->w, (int)t->h, colour, t->role,
            t->font);
-  sWeb->server.sendContent(head);
-  sWeb->server.sendContent("\"" + jsonEscape(t->text) + "\"}\n");
+  out += head;
+  out += "\"" + jsonEscape(t->text) + "\"}\n";
 }
 
 /* A box's line has `fill` and `fillRole` when its background shows, and
  * `border`, its width, with `borderC` and `borderRole` when its border
  * does. No `text`, which is how a reader tells the two kinds apart. */
 static void sendBox(void *ctx, const UiBox *b) {
-  (void)ctx;
+  ChunkedReply &out = *static_cast<ChunkedReply *>(ctx);
   /* Room for both roles naming all nine, as for a text, and each part is
    * added only while there is room, so a line can come out short but never
    * runs past the end. */
@@ -66,7 +69,7 @@ static void sendBox(void *ctx, const UiBox *b) {
   if (at < sizeof(line)) {
     snprintf(line + at, sizeof(line) - at, "}\n");
   }
-  sWeb->server.sendContent(line);
+  out += line;
 }
 
 /*
@@ -82,8 +85,8 @@ static void sendBox(void *ctx, const UiBox *b) {
  * editor, comes here as stars.
  */
 static void handleApiScreenGet(void) {
-  sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  sWeb->server.send(200, "application/x-ndjson", "");
+  ChunkedReply out(sWeb->server);
+  out.begin(200, "application/x-ndjson");
   uint8_t page = 0;
   const char *screen = screenTaskShowing(&page);
   char line[160];
@@ -92,7 +95,7 @@ static void handleApiScreenGet(void) {
            screen, (unsigned)page,
            screenTaskBacklightState(NULL) ? "true" : "false",
            themeCurrent()->name);
-  sWeb->server.sendContent(line);
+  out += line;
   /* Then the parts a touch acts on, before what is drawn. */
   InputZone zones[TOUCH_ZONES_MAX];
   const int n = inputScreenZones(zones, TOUCH_ZONES_MAX);
@@ -101,10 +104,9 @@ static void handleApiScreenGet(void) {
              "{\"zone\":\"%s\",\"x\":%d,\"y\":%d,\"w\":%d,\"h\":%d}\n",
              zones[i].name, zones[i].zone.x, zones[i].zone.y, zones[i].zone.w,
              zones[i].zone.h);
-    sWeb->server.sendContent(line);
+    out += line;
   }
-  uiReadPanel(sendText, sendBox, NULL);
-  sWeb->server.sendContent("");
+  uiReadPanel(sendText, sendBox, &out);
 }
 
 /*

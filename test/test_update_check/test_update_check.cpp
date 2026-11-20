@@ -480,6 +480,46 @@ static void the_due_rule_does_nothing_with_a_null(void) {
   TEST_ASSERT_FALSE(updateDueStep(&due, NULL));
 }
 
+/* ----------------------------------------------------------- the sha256 */
+
+static void a_sha256_is_read_from_64_hex_digits_in_either_case(void) {
+  uint8_t out[32];
+  memset(out, 0xEE, sizeof(out));
+  TEST_ASSERT_TRUE(updateParseSha256(
+      "00ff10AB9c000000000000000000000000000000000000000000000000000fE1", out));
+  TEST_ASSERT_EQUAL_HEX8(0x00, out[0]);
+  TEST_ASSERT_EQUAL_HEX8(0xFF, out[1]);
+  TEST_ASSERT_EQUAL_HEX8(0x10, out[2]);
+  TEST_ASSERT_EQUAL_HEX8(0xAB, out[3]);
+  TEST_ASSERT_EQUAL_HEX8(0x9C, out[4]);
+  TEST_ASSERT_EQUAL_HEX8(0x0F, out[30]);
+  TEST_ASSERT_EQUAL_HEX8(0xE1, out[31]);
+}
+
+static void a_sha256_of_the_wrong_shape_is_refused_and_writes_nothing(void) {
+  uint8_t out[32];
+  memset(out, 0xEE, sizeof(out));
+  TEST_ASSERT_FALSE(updateParseSha256(NULL, out));
+  TEST_ASSERT_FALSE(updateParseSha256("", out));
+  /* 63 and 65 digits. */
+  TEST_ASSERT_FALSE(updateParseSha256(
+      "00ff10ab9c000000000000000000000000000000000000000000000000000fe", out));
+  TEST_ASSERT_FALSE(updateParseSha256(
+      "00ff10ab9c000000000000000000000000000000000000000000000000000fe1a",
+      out));
+  /* 64 letters, one of them a space, then one past f. */
+  char text[65];
+  strcpy(text,
+         "00ff10ab9c000000000000000000000000000000000000000000000000000fe1");
+  text[40] = ' ';
+  TEST_ASSERT_FALSE(updateParseSha256(text, out));
+  text[40] = 'g';
+  TEST_ASSERT_FALSE(updateParseSha256(text, out));
+  for (size_t i = 0; i < sizeof(out); i++) {
+    TEST_ASSERT_EQUAL_HEX8(0xEE, out[i]);
+  }
+}
+
 /* ------------------------------------------------------------- the size */
 
 static void sizes_show_in_megabytes_with_one_decimal(void) {
@@ -540,6 +580,8 @@ int main(int, char **) {
   RUN_TEST(a_retry_waits_through_weeks_offline);
   RUN_TEST(a_failure_before_any_check_changes_nothing);
   RUN_TEST(the_due_rule_does_nothing_with_a_null);
+  RUN_TEST(a_sha256_is_read_from_64_hex_digits_in_either_case);
+  RUN_TEST(a_sha256_of_the_wrong_shape_is_refused_and_writes_nothing);
   RUN_TEST(sizes_show_in_megabytes_with_one_decimal);
   RUN_TEST(a_size_that_does_not_fit_writes_nothing);
   return UNITY_END();

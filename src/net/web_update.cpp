@@ -19,6 +19,9 @@
 #include "settings_task.h"
 
 #include <Update.h>
+#include <mbedtls/sha256.h>
+
+#include "core/update_check.h"
 
 static WebServer sServerItself(WEB_PORT);
 /* The one context every web file is handed; see web_internal.h. */
@@ -31,6 +34,32 @@ static bool sListening = false;
 
 /* Set while an upload is running and the client was not signed in. */
 static bool sUploadRejected = false;
+
+/* An upload may name the sha256 of its file, as `POST /update?sha256=`
+ * followed by 64 hex digits. The radio then works out the sha256 of what
+ * arrived and switches to the new image only when the two are the same, so
+ * a file damaged on the way is not started. In the address and not in the
+ * form, because a form's fields are only readable once the whole file has
+ * come. Without it the upload is taken as before. */
+static uint8_t sUploadSha[32];
+static mbedtls_sha256_context sUploadShaSum;
+/* Whether the sum is started and not yet let go. */
+static bool sUploadShaOpen = false;
+/* Why the sha256 stops this upload, or NULL when it does not. */
+static const char *sUploadShaWrong = NULL;
+static const char kShaBadShape[] =
+    "sha256 must be 64 hex digits. Nothing was written.";
+static const char kShaDiffers[] =
+    "The file is not the one that sha256 names. The radio is still running "
+    "the old one.";
+
+/* Lets the sum go, however the upload ended. */
+static void shaLetGo(void) {
+  if (sUploadShaOpen) {
+    mbedtls_sha256_free(&sUploadShaSum);
+    sUploadShaOpen = false;
+  }
+}
 
 /* Why the upload running may not write, or NULL when it may. Decided once,
  * as the image begins. */
@@ -83,6 +112,8 @@ static void handleUploadData(void) {
   if (upload.status == UPLOAD_FILE_START) {
     sUploadRejected = !signedIn();
     sUploadBlocked = NULL;
+    sUploadShaWrong = NULL;
+    shaLetGo();
     sUploadStarted = true;
     sUploadFailed = false;
     sUploadEnded = false;
@@ -101,8 +132,23 @@ static void handleUploadData(void) {
       DebugLog.println(F("[web] upload refused: on trial or scanning"));
       return;
     }
+    const bool hasSha = sWeb->server.hasArg("sha256");
+    /* The length is the argument's own: one with a NUL in it reads as 64
+     * letters to a text function and is not a sha256. */
+    const String sha = sWeb->server.arg("sha256");
+    if (hasSha &&
+        (sha.length() != 64 || !updateParseSha256(sha.c_str(), sUploadSha))) {
+      sUploadShaWrong = kShaBadShape;
+      DebugLog.println(F("[web] upload refused: sha256 is not 64 hex digits"));
+      return;
+    }
     DebugLog.printf("[web] upload started: %s\n", upload.filename.c_str());
     sUploadTotal = sWeb->server.clientContentLength();
+    if (hasSha) {
+      mbedtls_sha256_init(&sUploadShaSum);
+      mbedtls_sha256_starts(&sUploadShaSum, 0);
+      sUploadShaOpen = true;
+    }
     firmwareWriteBegin();
     if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_FLASH)) {
       Update.printError(DebugLog);
@@ -114,7 +160,8 @@ static void handleUploadData(void) {
     return;
   }
 
-  if (sUploadRejected || sUploadBlocked != NULL) {
+  if (sUploadRejected || sUploadBlocked != NULL ||
+      sUploadShaWrong == kShaBadShape) {
     /* Nothing was begun, so the rest of the body is taken and dropped. */
     return;
   }
@@ -127,6 +174,9 @@ static void handleUploadData(void) {
       /* Already dead. Take the rest of the body quietly rather than printing
        * an error line for every chunk of a large file. */
       return;
+    }
+    if (sUploadShaOpen) {
+      mbedtls_sha256_update(&sUploadShaSum, upload.buf, upload.currentSize);
     }
     if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
       Update.printError(DebugLog);
@@ -164,8 +214,23 @@ static void handleUploadData(void) {
       if (Update.isRunning()) {
         Update.abort();
       }
+      shaLetGo();
       firmwareWriteEnd(false);
       return;
+    }
+    if (sUploadShaOpen) {
+      /* Before `Update.end`, which is what makes the new image the one the
+       * radio starts next. */
+      uint8_t digest[32];
+      mbedtls_sha256_finish(&sUploadShaSum, digest);
+      shaLetGo();
+      if (memcmp(digest, sUploadSha, sizeof(digest)) != 0) {
+        DebugLog.println(F("[web] upload refused: sha256 differs"));
+        sUploadShaWrong = kShaDiffers;
+        Update.abort();
+        firmwareWriteEnd(false);
+        return;
+      }
     }
     if (Update.end(true)) {
       DebugLog.printf("[web] upload finished, %u bytes written\n",
@@ -196,6 +261,7 @@ static void handleUploadData(void) {
       return;
     }
     Update.abort();
+    shaLetGo();
     DebugLog.println("[web] upload aborted");
     firmwareWriteEnd(false);
   }
@@ -205,9 +271,11 @@ static void handleUploadDone(void) {
   bool rejected = sUploadRejected;
   bool sawImage = sUploadStarted;
   const char *blocked = sUploadBlocked;
+  const char *shaWrong = sUploadShaWrong;
   sUploadRejected = false;
   sUploadStarted = false;
   sUploadBlocked = NULL;
+  sUploadShaWrong = NULL;
 
   /* The PIN was checked as the image began. A session that ran out during
    * the transfer leaves it the signed in person's, and refusing here would
@@ -227,6 +295,11 @@ static void handleUploadDone(void) {
 
   if (blocked != NULL) {
     sendResult(409, blocked);
+    return;
+  }
+
+  if (shaWrong != NULL) {
+    sendResult(400, shaWrong);
     return;
   }
 
@@ -394,6 +467,7 @@ void webLoop(void) {
   sUploadStarted = false;
   sUploadRejected = false;
   sUploadBlocked = NULL;
+  sUploadShaWrong = NULL;
   radioSetNetServing(true);
   sWeb->server.handleClient();
   radioSetNetServing(false);
