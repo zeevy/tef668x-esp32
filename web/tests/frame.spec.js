@@ -456,7 +456,9 @@ test('a phone\'s header drops the screen name, and at 320 px keeps its keys a to
   }
   expect(mids[1] - mids[0]).toBeGreaterThanOrEqual(44);
   expect(mids[2] - mids[1]).toBeGreaterThanOrEqual(44);
-  // The link's mark, when the radio stops answering, still fits.
+  // Here the volume key is its icon alone.
+  await expect(header.getByRole('button', { name: /^Volume/ }).locator('span')).toBeHidden();
+  // The link's mark, when the radio stops answering, takes no room.
   await page.route('**/api/state', (route) => route.abort());
   await expect(page.getByTitle('No answer')).toBeVisible({ timeout: 20000 });
   expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true);

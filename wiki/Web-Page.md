@@ -31,7 +31,7 @@ The address is the part after `#`, so `http://tef668x.local:8080/#scope` opens t
 **The header**, from left to right:
 
 - **The name.** On a wide phone it is the name of the screen. Below 480 pixels it is left out, as the tab at the foot marks the screen. From tablet width it is **TEF668X**, because the menu shows the screen.
-- **The volume.** From tablet width it is a box with the mute key, a slim slider from -60 to 0 dB, and the volume in dB. On a phone the speaker button shows the volume in dB beside its icon, and opens the same box in a strip under the header, and closes it again.
+- **The volume.** From tablet width it is a box with the mute key, a slim slider from -60 to 0 dB, and the volume in dB. On a phone the speaker button shows the volume in dB beside its icon, from 380 pixels, and opens the same box in a strip under the header, and closes it again.
 - **The frequency**, in a box, with the preset number, such as `P09`, over the unit. Tap it to open the Radio screen. On a narrow phone the screen's name is cut short to leave room for it, and below 380 pixels the box shows the frequency alone, without the preset number and the unit.
 - **The link word.** It shows only when the link to the radio is not well. An orange dot is **Slow**: the last answer took more than 3 seconds. A red dot is **No answer**. The word shows next to the dot from tablet width. With no answer, a red bar also says "The radio is not answering. Trying again.", and the screen is dimmed. The bar is left out while the radio restarts at the page's own word.
 - **The sun or the moon** switches between the light and the dark look. Until you press it, the page follows your device's own setting. After you press it, this browser keeps your choice.

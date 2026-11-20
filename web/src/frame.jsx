@@ -165,7 +165,7 @@ function Header({ title }) {
     {/* Below 380 px the gaps and the boxes' sides are 4 px narrower, and the
         frequency box shows the frequency alone, so the frequency and the
         battery fit on a 320 px phone with room to spare whatever its fonts. */}
-    <header class={`${PAGE} flex h-14 items-center gap-2 max-[479px]:justify-between max-[379px]:gap-1`}>
+    <header class={`${PAGE} relative flex h-14 items-center gap-2 max-[479px]:justify-between max-[379px]:gap-1`}>
       <h1 class="mr-auto min-w-0 truncate text-base font-semibold max-[479px]:sr-only md:sr-only">{title}</h1>
       <span class="mr-auto hidden items-center gap-2 md:flex" aria-hidden="true">
         <span class="grid size-8 place-items-center rounded-ctl bg-accent text-on-accent">
@@ -198,13 +198,15 @@ function Header({ title }) {
             class={`hit relative flex h-9 shrink-0 items-center gap-1 rounded-ctl px-2 active:opacity-70 md:hidden ${BOX} ${tun.mut ? 'text-warn' : ''}`}
           >
             <Icon name={tun.mut ? 'volume-x' : 'volume-2'} />
-            {/* Below 380 px the number makes room for the link's mark, while
-                there is one. */}
-            <span class={`num text-sm ${link.value !== 'ok' ? 'max-[379px]:hidden' : ''}`}>{vol}</span>
+            {/* Below 380 px the key is the icon alone: with wide fonts and a
+                full battery the number does not fit. */}
+            <span class="num text-sm max-[379px]:hidden">{vol}</span>
           </button>
         )}
         {link.value !== 'ok' && (
-          <span class="flex items-center gap-1 px-1 text-xs text-muted" title={LINK[link.value][1]}>
+          // Below 380 px the dot sits in the header's top right corner and
+          // takes no room in the row, which is full.
+          <span class="flex items-center gap-1 px-1 text-xs text-muted max-[379px]:absolute max-[379px]:top-1 max-[379px]:right-1 max-[379px]:px-0" title={LINK[link.value][1]}>
             <span class={`size-2.5 rounded-full ${LINK[link.value][0]}`} />
             <span class="sr-only md:not-sr-only">{LINK[link.value][1]}</span>
           </span>
