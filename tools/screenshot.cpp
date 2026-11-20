@@ -503,6 +503,15 @@ static void sceneFmCheckingUpdates(ScreenState *s) {
   s->notice = txt(STR_RADIO_CHECKING_UPDATES);
 }
 
+/* The hotspot just up: the line under the panel says how to reach it. */
+static void sceneFmSetup(ScreenState *s) {
+  sceneFm(s);
+  s->wifi = SCREEN_WIFI_AP;
+  s->clock = NULL;
+  s->setup =
+      fmt(STR_RADIO_FMT_SETUP, "tef668x-setup-A1B2", "192.168.4.1", 8080u);
+}
+
 /* The longest name the stitching can produce. */
 static void sceneFmLongName(ScreenState *s) {
   sceneFm(s);
@@ -1625,6 +1634,7 @@ int main(int argc, char **argv) {
       {"fm", sceneFm},
       {"fm-logged", sceneFmLogged},
       {"fm-checking-updates", sceneFmCheckingUpdates},
+      {"fm-setup", sceneFmSetup},
       {"fm-no-band", sceneFmNoBand},
       {"mw-fm-first", sceneMwFmFirst},
       {"fm-longname", sceneFmLongName},

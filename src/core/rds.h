@@ -187,6 +187,10 @@ typedef struct {
 typedef struct {
   /* The tuner is locked to a bit stream, so this station carries RDS. */
   bool synchronised;
+  /* The `atMs` of the read that began this lock. Read only while
+   * `synchronised`. A page opened later can then say how long the lock has
+   * really held, not how long the page has been open. */
+  uint32_t syncSinceMs;
 
   bool hasPi;  /* A station identifier has been heard twice. */
   uint16_t pi; /* The identifier itself. Its top nibble is the country. */

@@ -845,6 +845,9 @@ void rdsFeed(Rds *rds, const RdsRead *read) {
     }
   } else {
     rds->syncMissed = 0;
+    if (!rds->info.synchronised) {
+      rds->info.syncSinceMs = read->atMs;
+    }
     rds->info.synchronised = true;
   }
 

@@ -171,7 +171,8 @@ int screenRadioZones(TouchZone *out, int max) {
   for (uint8_t i = 0; i < layout->count && n < max; i++) {
     const PanelPlacement *p = &layout->placements[i];
     if (p->panel->zones != NULL) {
-      n += p->panel->zones(&p->at, out + n, max - n);
+      const PanelRect *touch = p->touch.h > 0 ? &p->touch : &p->at;
+      n += p->panel->zones(touch, out + n, max - n);
     }
   }
   return n;

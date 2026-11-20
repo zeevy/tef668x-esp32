@@ -17,25 +17,7 @@
 #include <string.h>
 
 /*
- * The lock timer for the decoder page, kept here rather than in
- * `core/rds.c`, which knows nothing of how long a person has been looking.
- * `sRdsSyncSinceMs` marks the moment `synchronised` last turned true, so the
- * page can say how long the lock has held. The groups a second, the error
- * rate and the block levels come from the decoder's own last minute,
- * `RdsInfo.minute`.
- */
-static uint32_t sRdsSyncSinceMs = 0;
-static bool sRdsWasSynchronised = false;
-
-void screenTaskRdsRestart(void) {
-  sRdsWasSynchronised = false;
-}
-
-/*
  * Fill the RDS screen in from the radio, and draw it.
- *
- * The lock is timed here, since only this task knows how long a person has
- * been looking; everything else is screen_rds_state.cpp's.
  */
 void screenTaskRdsDraw(uint8_t page) {
   RadioSnapshot snap;
@@ -71,16 +53,11 @@ void screenTaskRdsDraw(uint8_t page) {
      * `rds` off the radio task stops feeding the decoder and every field
      * reads as it does on a station that carries nothing. */
     in.sync = txt(STR_COMMON_OFF);
-    sRdsWasSynchronised = false;
   } else if (!snap.rds.synchronised) {
     in.sync = txt(STR_COMMON_NO);
-    sRdsWasSynchronised = false;
   } else {
-    if (!sRdsWasSynchronised) {
-      sRdsSyncSinceMs = nowMs;
-      sRdsWasSynchronised = true;
-    }
-    const uint32_t heldMs = nowMs - sRdsSyncSinceMs;
+    /* Both are millis(), and the lock began before `nowMs` was read. */
+    const uint32_t heldMs = nowMs - snap.rds.syncSinceMs;
     if (heldMs < 60000UL) {
       snprintf(sync, sizeof(sync), txt(STR_RDS_FMT_SYNC_S),
                (unsigned)(heldMs / 1000UL));

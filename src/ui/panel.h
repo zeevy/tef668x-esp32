@@ -44,10 +44,12 @@ typedef struct {
   PanelZonesFn zones; /* NULL for a panel a touch does nothing on. */
 } Panel;
 
-/* One row of a layout table. */
+/* One row of a layout table. `touch` is a larger rectangle to cut the
+ * panel's zones from, or `at` when left out. */
 typedef struct {
   const Panel *panel;
   PanelRect at;
+  PanelRect touch;
 } PanelPlacement;
 
 typedef struct {
