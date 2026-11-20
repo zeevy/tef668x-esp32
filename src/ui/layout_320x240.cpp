@@ -14,6 +14,7 @@
 #include "panel.h"
 
 #define W 320
+#define H 240
 
 #define HEADER_Y 0
 #define HEADER_H 28
@@ -26,6 +27,14 @@
 #define TILES_Y 204
 #define TILES_H 28
 
+/* A 28 px row is about 5 mm on this panel, less than a finger tip. The
+ * header's touch area takes the 4 rows of air under it, 32 px, and the
+ * tiles' takes the air on both sides, from the scale's last row to the
+ * bottom edge, 40 px. Nothing drawn moves. */
+#define HEADER_TOUCH_H (LCD_Y - HEADER_Y)
+#define TILES_TOUCH_Y (SCALE_Y + SCALE_H)
+#define TILES_TOUCH_H (H - TILES_TOUCH_Y)
+
 /*
  * One table for every band. FM, OIRT, LW, MW and SW differ in what the
  * station sends, not in where it goes: on AM there is no name and no radio
@@ -33,11 +42,15 @@
  * the date.
  */
 static const PanelPlacement kAll[] = {
-    {&panelHeader, {0, HEADER_Y, W, HEADER_H}},
+    {&panelHeader,
+     {0, HEADER_Y, W, HEADER_H},
+     {0, HEADER_Y, W, HEADER_TOUCH_H}},
     {&panelLcd, {0, LCD_Y, W, LCD_H}},
     {&panelTextLine, {0, TEXT_Y, W, TEXT_H}},
     {&panelScale, {0, SCALE_Y, W, SCALE_H}},
-    {&panelTiles, {0, TILES_Y, W, TILES_H}},
+    {&panelTiles,
+     {0, TILES_Y, W, TILES_H},
+     {0, TILES_TOUCH_Y, W, TILES_TOUCH_H}},
 };
 
 static const Layout kLayout = {kAll, (uint8_t)(sizeof(kAll) / sizeof(kAll[0]))};

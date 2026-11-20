@@ -51,6 +51,7 @@ typedef struct {
   const char *fault;       /* What the tuner last refused, or NULL. */
   const char *logConfirm;  /* "Logged 106.40" while it holds, or NULL. */
   const char *notice;      /* The line under the panel's message, or NULL. */
+  const char *setup;       /* How to reach the hotspot, or NULL. */
   uint32_t nowMs;          /* The time, for the modulation meter's fall. */
 } ScreenInputs;
 

@@ -16,9 +16,4 @@
  * be read. */
 void screenTaskRdsDraw(uint8_t page);
 
-/* Start the lock timer again, for a screen that has just been opened: a
- * station looked at, left, and looked at again should not report a lock
- * held since the first visit. */
-void screenTaskRdsRestart(void);
-
 #endif /* SCREEN_TASK_RDS_H */

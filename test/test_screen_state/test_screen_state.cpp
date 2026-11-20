@@ -417,18 +417,21 @@ static void the_clock_date_fault_and_log_confirm_are_null_until_set(void) {
   TEST_ASSERT_NULL(state.fault);
   TEST_ASSERT_NULL(state.logConfirm);
   TEST_ASSERT_NULL(state.notice);
+  TEST_ASSERT_NULL(state.setup);
 
   in.clock = "05:09";
   in.date = "Wednesday, 30th September 2026";
   in.fault = "TUNE REFUSED";
   in.logConfirm = "LOGGED";
   in.notice = "CHECKING";
+  in.setup = "Wi-Fi: tef668x-setup-A1B2   Open 192.168.4.1:8080";
   buildNow();
   TEST_ASSERT_EQUAL_PTR(in.clock, state.clock);
   TEST_ASSERT_EQUAL_PTR(in.date, state.date);
   TEST_ASSERT_EQUAL_PTR(in.fault, state.fault);
   TEST_ASSERT_EQUAL_PTR(in.logConfirm, state.logConfirm);
   TEST_ASSERT_EQUAL_PTR(in.notice, state.notice);
+  TEST_ASSERT_EQUAL_PTR(in.setup, state.setup);
 
   /* And back to NULL when the caller has nothing again. */
   in.clock = NULL;

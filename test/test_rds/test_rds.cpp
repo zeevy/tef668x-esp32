@@ -117,6 +117,34 @@ static void the_lock_survives_one_read_without_it(void) {
   TEST_ASSERT_FALSE(rds.info.synchronised);
 }
 
+static void the_lock_is_timed_from_the_read_that_began_it(void) {
+  RdsRead locked;
+  memset(&locked, 0, sizeof(locked));
+  locked.synchronised = true;
+  locked.atMs = 5000;
+  rdsFeed(&rds, &locked);
+  locked.atMs = 9000;
+  rdsFeed(&rds, &locked);
+  TEST_ASSERT_EQUAL_UINT32(5000, rds.info.syncSinceMs);
+
+  /* One read without it does not end the lock, so it does not start the
+   * count again either. */
+  RdsRead lost;
+  memset(&lost, 0, sizeof(lost));
+  lost.atMs = 9100;
+  rdsFeed(&rds, &lost);
+  locked.atMs = 9200;
+  rdsFeed(&rds, &locked);
+  TEST_ASSERT_EQUAL_UINT32(5000, rds.info.syncSinceMs);
+
+  /* Two do, and the next lock is a new one. */
+  rdsFeed(&rds, &lost);
+  rdsFeed(&rds, &lost);
+  locked.atMs = 12000;
+  rdsFeed(&rds, &locked);
+  TEST_ASSERT_EQUAL_UINT32(12000, rds.info.syncSinceMs);
+}
+
 static void one_locked_read_brings_the_lock_straight_back(void) {
   RdsRead lost;
   memset(&lost, 0, sizeof(lost));
@@ -1985,6 +2013,7 @@ int main(int, char **) {
 
   RUN_TEST(a_read_with_a_lock_and_no_group_is_still_a_lock);
   RUN_TEST(the_lock_survives_one_read_without_it);
+  RUN_TEST(the_lock_is_timed_from_the_read_that_began_it);
   RUN_TEST(one_locked_read_brings_the_lock_straight_back);
 
   RUN_TEST(the_identifier_waits_for_a_second_reception);

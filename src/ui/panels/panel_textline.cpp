@@ -3,7 +3,9 @@
  *
  * For the few seconds the radio itself is busy with something a person
  * should know about, such as an update check, it says so here instead, in
- * `radio`, since it is the radio doing it and not the station.
+ * `radio`, since it is the radio doing it and not the station. The same
+ * goes for the line that says how to reach the radio's own hotspot, which
+ * scrolls, being longer than the line.
  *
  * Radio text in `broadcast`, scrolling inside the margins when it is longer
  * than the line, which a station's 64 characters always are. With no radio
@@ -60,11 +62,13 @@ static void show(const ScreenState *s) {
   const int16_t x = (int16_t)(sAt.x + UI_MARGIN);
   const int16_t base = (int16_t)(sAt.y + LINE_BASE);
   const bool notice = s->notice != NULL;
+  const bool setup = !notice && s->setup != NULL;
   const bool haveText =
-      !notice && s->radioText != NULL && s->radioText[0] != '\0';
+      setup || (!notice && s->radioText != NULL && s->radioText[0] != '\0');
   uiShowIf(sText, haveText);
   if (haveText) {
-    uiSetText(sText, s->radioText);
+    uiSetColour(sText, setup ? t->radio : t->broadcast);
+    uiSetText(sText, setup ? s->setup : s->radioText);
     uiBaseline(sText, &roboto_text, x, base);
   }
   /* The notice takes the date's label, which does not scroll. */

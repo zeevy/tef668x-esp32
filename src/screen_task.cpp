@@ -35,6 +35,7 @@
 #include "net/ntp.h"
 #include "net/rollback.h"
 #include "net/update_check.h"
+#include "net/web_update.h"
 #include "net/wifi_manager.h"
 #include "net/xdr_server.h"
 #include "radio_task.h"
@@ -62,6 +63,8 @@
 
 /* How long a failed write stays on the panel before the radio comes back. */
 #define UPDATE_FAILED_HOLD_MS 4000UL
+/* How long the line under the panel says how to reach the hotspot. */
+#define SETUP_LINE_MS 30000UL
 
 /*
  * How long the boot screen stays up after start up has finished, in ms.
@@ -731,6 +734,12 @@ bool screenTaskMenuBegin(void) {
   if (sMenuUp) {
     return true;
   }
+  if (sSwap != BOOT_SWAP_NONE) {
+    /* The start up fade is still running. One screen change at a time, or the
+     * light ends up driven by two things at once. Asked first, so a refusal
+     * closes nothing. */
+    return false;
+  }
   /* The DX page, the bandwidth page or the RDS screen goes first if it is
    * up. One screen in the pool. DX mode first: closing it ends a bandwidth
    * page or an RDS screen held over it without building the DX page back for
@@ -743,12 +752,8 @@ bool screenTaskMenuBegin(void) {
   screenTaskKeypadClose();
   if (!sReady) {
     /* No radio layout means the panel never came up, and a menu drawn on a
-     * panel nobody can see is settings changed blind. */
-    return false;
-  }
-  if (sSwap != BOOT_SWAP_NONE) {
-    /* The start up fade is still running. One screen change at a time, or the
-     * light ends up driven by two things at once. */
+     * panel nobody can see is settings changed blind. Asked after the close
+     * calls, since closing a page builds the layout back. */
     return false;
   }
   /* At once, with no fade. The caller draws as soon as this returns. */
@@ -1549,11 +1554,8 @@ void screenTaskRdsToggle(void) {
     return;
   }
   sRdsUp = true;
-  /* Always opens on page one, and its own timers start fresh: a station
-   * looked at, left, and looked at again should not report a lock held
-   * since the first visit. */
+  /* Always opens on page one. */
   sRdsPage = 0;
-  screenTaskRdsRestart();
   screenTaskRdsDraw(sRdsPage);
   lvglPortRefreshNow();
 }
@@ -2293,6 +2295,26 @@ void screenTaskPoll(void) {
             : link == WIFI_STATE_JOINING      ? SCREEN_WIFI_TRYING
             : link == WIFI_STATE_ACCESS_POINT ? SCREEN_WIFI_AP
                                               : SCREEN_WIFI_NONE;
+  /* The hotspot's name and the setup page's address are nowhere else on
+   * the radio screen, so the line under the panel scrolls both for the
+   * first 30 seconds this screen is drawn with the hotspot up. */
+  static bool sApSeen = false;
+  static uint32_t sApSeenMs = 0;
+  char setupText[96] = "";
+  if (link != WIFI_STATE_ACCESS_POINT) {
+    sApSeen = false;
+  } else {
+    const uint32_t now = millis();
+    if (!sApSeen) {
+      sApSeen = true;
+      sApSeenMs = now;
+    }
+    if (now - sApSeenMs < SETUP_LINE_MS) {
+      snprintf(setupText, sizeof(setupText), txt(STR_RADIO_FMT_SETUP),
+               wifiNetworkName(), wifiAddress(), (unsigned)WEB_PORT);
+      in.setup = setupText;
+    }
+  }
   int8_t rssi = 0;
   in.rssiValid = wifiRssiDbm(&rssi);
   in.rssiDbm = rssi;

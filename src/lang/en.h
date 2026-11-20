@@ -317,6 +317,7 @@
   X(RADIO_PRODUCT_NAME, "TEF668X", "Boot screen title (product); title of the message screen when the boot screen could not be built") \
   X(RADIO_FMT_LOGGED, "Logged %s", "Confirm text after a logbook write, %s is the frequency: on the name line of the radio screen, in the header of a DX page") \
   X(RADIO_CHECKING_UPDATES, "CHECKING FOR UPDATES\xE2\x80\xA6", "Line under the frequency panel, in place of the radio text, while the update check runs") \
+  X(RADIO_FMT_SETUP, "Wi-Fi: %s   Open %s:%u", "Line under the frequency panel, scrolling, for the first 30 seconds the hotspot is up: the hotspot's name, then the address and port of the setup page") \
   X(RADIO_FMT_SCANNING, "Scanning %s %u/%u", "Line under the frequency panel, in place of the radio text, while a station scan runs: band, done, total") \
   X(RADIO_UPDATE_FAILED, "Update Failed", "Title of the message screen after a failed OTA") \
   X(RADIO_GOING_TO_SLEEP, "Going to Sleep", "Title of the message screen shown for a moment before the radio sleeps") \

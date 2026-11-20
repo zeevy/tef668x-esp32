@@ -128,6 +128,10 @@ typedef struct {
    * updates...", in `radio` in place of the radio text and the date, or
    * NULL. */
   const char *notice;
+  /* The hotspot's name and the setup page's address, in `radio`, scrolling
+   * in place of the radio text and the date, or NULL. A notice goes over
+   * it. */
+  const char *setup;
   const char *radioText; /* Or NULL. */
   /* "WEDNESDAY, 30th September 2026", or NULL until a server has answered.
    * Shown when there is no radio text. */

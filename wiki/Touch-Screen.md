@@ -23,6 +23,8 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | The filter width tile, with the up and down arrow | Tap | Opens the bandwidth page, as BW held |
 | The volume tile, with the speaker | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
 
+The touch areas of the top line and of the tiles are taller than what is drawn, so a finger need not land on the drawing itself. The top line's area is 32 pixels high, and the tiles' area runs from under the scale to the bottom edge of the screen, 40 pixels.
+
 The line of radio text under the frequency panel is too thin to be a target, and does nothing.
 
 ## The frequency keypad

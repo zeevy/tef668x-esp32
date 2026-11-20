@@ -39,6 +39,8 @@ flowchart TD
     H -- "every 5 minutes,<br/>when details are stored" --> J
 ```
 
+For the first 30 seconds the radio screen is up with the hotspot on, the line under the frequency scrolls the hotspot's name and the address, such as `Wi-Fi: tef668x-setup-A1B2   Open 192.168.4.1:8080`. After that the same two are in the menu under **Connectivity**, **Network Info**.
+
 1. On a phone or a computer, join the Wi-Fi network named `tef668x-setup-XXXX`. `XXXX` is four characters, 0 to 9 and A to F, from the radio's Wi-Fi address, so two radios get different names. The hotspot has no password.
 2. Open `http://192.168.4.1:8080` in a browser. Type the address in yourself: the page does not open on its own when you join.
 3. The page opens on its [First start](Web-Page.md#first-start-on-the-hotspot) screen, **Set up Wi-Fi**. Enter your **Network name** and **Passphrase**. For an open network, turn on **This network has no passphrase**. No PIN is needed here, on the setup hotspot.
