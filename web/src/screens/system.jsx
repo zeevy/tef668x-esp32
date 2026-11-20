@@ -2,7 +2,7 @@
 // restarting and sleep, and the radio's health. As Network: a status card,
 // a card of rows, then the health figures.
 import { useEffect, useState } from 'preact/hooks';
-import { state, upload } from '../data/radio.js';
+import { restarting, state, upload } from '../data/radio.js';
 import { useStoredSettings } from '../data/reads.js';
 import { duration } from '../data/format.js';
 import { LIVE_PAGES_MAX, LOG_MAX, PC_LINK_MAX, PRESET_SLOTS } from '../data/limits.js';
@@ -38,7 +38,10 @@ export function System() {
       say(`The radio is back, version ${s.ver}.`);
     }
   }, [s.up]);
-  const goneFor = (why) => setAway({ up: s.up, why });
+  const goneFor = (why) => {
+    setAway({ up: s.up, why });
+    restarting();
+  };
   const found = s.upd?.st === 'found';
   const asks = {
     install: ['Install the newer version?', `Version ${s.upd?.ver} is downloaded from GitHub and written, then the radio restarts into it. If it does not join the Wi-Fi after, it goes back to this version.`, 'Install', () => act('/update/install', {}).then((ok) => ok && goneFor('Downloading and installing. The radio restarts when it is done.'))],

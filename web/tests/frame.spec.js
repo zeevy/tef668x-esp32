@@ -432,3 +432,90 @@ test('on a 320 and a 360 px phone the header keeps the frequency and the battery
   }
 });
 
+test('a phone\'s header drops the screen name, and at 320 px keeps its keys a touch apart', async ({ page }) => {
+  const title = page.getByRole('heading', { level: 1 });
+  // Whole from 480 px, where it fits beside the volume; left out below.
+  await page.setViewportSize({ width: 480, height: 800 });
+  await page.goto('/#radio');
+  await expect(title).toHaveText('Radio');
+  expect(await title.evaluate((h) => h.scrollWidth <= h.clientWidth && h.clientWidth > 30)).toBe(true);
+  await page.setViewportSize({ width: 390, height: 800 });
+  expect((await title.boundingBox()).width).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto('/');
+  await expect(title).toHaveText('Home');
+  expect((await title.boundingBox()).width).toBeLessThanOrEqual(1);
+  const header = page.locator('header').first();
+  expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true);
+  // Each key's touch area is 44 px, so the keys' middles are 44 px apart
+  // or more.
+  const mids = [];
+  for (const name of [/^Volume/, /theme$/, /^Sign/]) {
+    const box = await header.getByRole('button', { name }).boundingBox();
+    mids.push(box.x + box.width / 2);
+  }
+  expect(mids[1] - mids[0]).toBeGreaterThanOrEqual(44);
+  expect(mids[2] - mids[1]).toBeGreaterThanOrEqual(44);
+  // The link's mark, when the radio stops answering, still fits.
+  await page.route('**/api/state', (route) => route.abort());
+  await expect(page.getByTitle('No answer')).toBeVisible({ timeout: 20000 });
+  expect(await header.evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true);
+});
+
+test('on a phone the volume key shows the volume, and says muted', async ({ page }, testInfo) => {
+  test.skip(!phone(testInfo), 'the slider is in the header from tablet width');
+  const live = await liveRadio(page, (s) => Object.assign(s.tun, { vol: -12, mut: false }));
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Volume, -12 dB', exact: true })).toHaveText('-12');
+  live.push((s) => (s.tun.mut = true));
+  await expect(page.getByRole('button', { name: 'Volume, -12 dB, muted' })).toBeVisible();
+});
+
+test('the back key closes the More sheet, and a screen picked from it is one step from the screen before', async ({ page }, testInfo) => {
+  test.skip(!phone(testInfo), 'More is on a phone');
+  await page.goto('/#radio');
+  const more = page.getByRole('button', { name: 'More', exact: true });
+  await more.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).toHaveURL(/#radio$/);
+  await more.click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await more.click();
+  await page.getByRole('dialog').getByRole('link', { name: 'System' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('System');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Radio');
+});
+
+test('a refusal stays until it is closed; a success goes by itself', async ({ page }) => {
+  await stopClock(page);
+  await liveRadio(page);
+  await page.route('**/api/band', (route) => route.fulfill({ status: 400, body: 'That is not a band.' }));
+  await page.goto('/#radio');
+  await page.getByRole('radio', { name: 'MW' }).click();
+  const note = page.getByRole('status').filter({ hasText: 'That is not a band.' });
+  await expect(note).toBeVisible();
+  await page.clock.runFor(10000);
+  await expect(note).toBeVisible();
+  await note.getByRole('button', { name: 'Close' }).click();
+  await expect(note).toHaveCount(0);
+});
+
+test('a press that starts in a dialog and ends outside does not close it', async ({ page }, testInfo) => {
+  test.skip(phone(testInfo), 'a drag with a mouse');
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Sign/ }).click();
+  const dialog = page.getByRole('dialog');
+  const field = await dialog.getByRole('heading').boundingBox();
+  await page.mouse.move(field.x + 10, field.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(5, 5);
+  await page.mouse.up();
+  await expect(dialog).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(dialog).toHaveCount(0);
+});

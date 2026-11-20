@@ -312,6 +312,11 @@ test('a dot on the scale for each preset on this band; a tap recalls it', async 
   // Before the radio answers.
   await expect(reading(page)).toContainText('98.30');
   answer();
+  // The dot's name stays in view after the tap, as a phone has no hover.
+  const dot = reading(page).getByRole('button', { name: 'Preset 5, MIRCHI, 98.30 MHz' });
+  await page.mouse.move(0, 0);
+  await dot.blur();
+  await expect(dot.locator('span').last()).toBeVisible();
 });
 
 test('no preset dots on a band with no presets', async ({ page }) => {
@@ -561,3 +566,13 @@ test('a card\'s picture fades out over the card\'s left part, where its text is'
   expect(mask).toContain('linear-gradient');
 });
 
+
+test('the station is copied from Home and from Radio, as from DX', async ({ page }) => {
+  const copied = page.getByRole('status').filter({ hasText: /^Copied: 106\.40 MHz PI 1064 PS MAGIC/ });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Copy the station' }).click();
+  await expect(copied).toHaveCount(1);
+  await page.goto('/#radio');
+  await page.getByRole('button', { name: 'Copy the station' }).click();
+  await expect(copied).toHaveCount(2);
+});

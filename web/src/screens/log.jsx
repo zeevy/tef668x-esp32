@@ -66,7 +66,7 @@ export function StationLog({ tabs }) {
             Download
           </Button>
         </div>
-        <input aria-label="Search" type="search" placeholder="Search name, frequency, note" value={query} onInput={(e) => setQuery(e.currentTarget.value)} class={INPUT} />
+        <input aria-label="Search" type="search" placeholder="Search" value={query} onInput={(e) => setQuery(e.currentTarget.value)} class={INPUT} />
         {tabs}
       </LiveStation>
       {!logFits.value ? (

@@ -58,15 +58,12 @@ export function Presets({ tabs }) {
       {lost > 0 && <Banner>{lost === 1 ? '1 preset' : `${lost} presets`} could not be read at start up and {lost === 1 ? 'was' : 'were'} left out.</Banner>}
       <StationNow s={s} back={<Stars />} presetName={on?.name?.trim()} sub={list && `${list.length} of ${PRESET_SLOTS} slots used`}>
         {/* On a phone the four tools are two by two, with no icons, so they
-            fit at 320 px. Save current station, the radio's own words, is
-            cut to Save current where the tools have less than 448 px, as on
-            a phone, so it stays on one line. */}
-        <div class="@container grid grid-cols-2 gap-2">
-          <Button aria-label="Save current station" class="px-3 text-sm sm:text-base" onClick={() => s && storeStation(s.tun)}>
+            fit at 320 px. Save current station, the radio's own words, takes
+            two lines where one does not hold it. */}
+        <div class="grid grid-cols-2 gap-2">
+          <Button class="px-3 text-sm leading-tight sm:text-base" onClick={() => s && storeStation(s.tun)}>
             <Icon name="star" class="hidden sm:block" />
-            <span>
-              Save current<span class="hidden @md:inline"> station</span>
-            </span>
+            Save current station
           </Button>
           <Button kind="secondary" class="px-3 text-sm sm:text-base" disabled={!list} onClick={() => setEditing({ slot: firstFreeSlot(list) ?? 1, isNew: true, offered: true })}>
             <Icon name="plus" class="hidden sm:block" />
@@ -159,7 +156,9 @@ function StationScan({ t }) {
         </Button>
       </div>
       <div class="mt-4 grid gap-1">
-        <p class={`truncate text-sm leading-5 text-muted ${running || t.scc != null ? 'num' : ''}`}>{line}</p>
+        {/* Two lines high on a phone, where the longest line takes two, so
+            nothing below moves. */}
+        <p class={`min-h-10 text-sm leading-5 text-muted sm:min-h-5 ${running || t.scc != null ? 'num' : ''}`}>{line}</p>
         <Bar pct={running ? (t.sct ? (t.scd / t.sct) * 100 : 0) : t.scc === true ? 100 : 0} label="Scan progress" />
       </div>
     </Card>

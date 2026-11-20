@@ -59,11 +59,16 @@ test('save current station: the radio picks the slot, and its answer is said', a
   await expect(page.getByRole('status').filter({ hasText: 'Preset 3 is FM 101.90 MHz' })).toBeVisible();
 });
 
-test('save current station: the radio\'s own words where they fit, Save current on a phone', async ({ page }, testInfo) => {
+test('at 320 px Save current station and the scan\'s line are whole, on two lines', async ({ page }) => {
   await radio(page);
+  await page.setViewportSize({ width: 320, height: 640 });
   await page.goto('/#presets');
-  const said = testInfo.project.name === 'phone' ? 'Save current' : 'Save current station';
-  await expect(page.getByRole('button', { name: 'Save current station' })).toHaveText(said, { useInnerText: true });
+  const key = page.getByRole('button', { name: 'Save current station' });
+  await expect(key).toHaveText('Save current station', { useInnerText: true });
+  expect(await key.evaluate((b) => b.scrollWidth <= b.clientWidth && b.scrollHeight <= b.clientHeight)).toBe(true);
+  // The scan's line is whole too: it takes a second line and is not cut.
+  const line = page.getByText('Saves new stations in empty slots only.');
+  expect(await line.evaluate((p) => p.scrollWidth <= p.clientWidth)).toBe(true);
 });
 
 test('save current station: a station already stored is refused by the radio, and said', async ({ page }) => {

@@ -26,14 +26,14 @@ The address is the part after `#`, so `http://tef668x.local:8080/#scope` opens t
 
 ![The Home screen on a phone, with the volume strip open and the tabs at the foot](images/web-phone.png)
 
-**The menu.** On a phone, four tabs sit at the foot of the screen: **Home**, **Radio**, **Presets & Log** and **DX**. A fifth tab, **More**, opens a list with **Band scope**, **Settings**, **Network** and **System**. From tablet width, every screen is in one menu across the top, and from laptop width each name has its icon.
+**The menu.** On a phone, four tabs sit at the foot of the screen: **Home**, **Radio**, **Presets & Log** and **DX**. A fifth tab, **More**, opens a list with **Band scope**, **Settings**, **Network** and **System**. The phone's back key closes the list. From tablet width, every screen is in one menu across the top, and from laptop width each name has its icon.
 
 **The header**, from left to right:
 
-- **The name.** On a phone it is the name of the screen. From tablet width it is **TEF668X**, because the menu shows the screen.
-- **The volume.** From tablet width it is a box with the mute key, a slim slider from -60 to 0 dB, and the volume in dB. On a phone the speaker button opens the same box in a strip under the header, and closes it again.
+- **The name.** On a wide phone it is the name of the screen. Below 480 pixels it is left out, as the tab at the foot marks the screen. From tablet width it is **TEF668X**, because the menu shows the screen.
+- **The volume.** From tablet width it is a box with the mute key, a slim slider from -60 to 0 dB, and the volume in dB. On a phone the speaker button shows the volume in dB beside its icon, and opens the same box in a strip under the header, and closes it again.
 - **The frequency**, in a box, with the preset number, such as `P09`, over the unit. Tap it to open the Radio screen. On a narrow phone the screen's name is cut short to leave room for it, and below 380 pixels the box shows the frequency alone, without the preset number and the unit.
-- **The link word.** It shows only when the link to the radio is not well. An orange dot is **Slow**: the last answer took more than 3 seconds. A red dot is **No answer**. The word shows next to the dot from tablet width. With no answer, a red bar also says "The radio is not answering. Trying again.", and the screen is dimmed.
+- **The link word.** It shows only when the link to the radio is not well. An orange dot is **Slow**: the last answer took more than 3 seconds. A red dot is **No answer**. The word shows next to the dot from tablet width. With no answer, a red bar also says "The radio is not answering. Trying again.", and the screen is dimmed. The bar is left out while the radio restarts at the page's own word.
 - **The sun or the moon** switches between the light and the dark look. Until you press it, the page follows your device's own setting. After you press it, this browser keeps your choice.
 - **The lock** opens the PIN dialog. It shows open when this browser is signed in.
 - **The battery**, last, in a box: a small battery on its side, filled to its level, and the level beside it, in per cent or in volts as the radio's own **Battery** setting says, in the menu's Display group. With that setting Off, or on a radio with no battery, there is none. It is orange at 20 % or less and red at 10 % or less. The per cent is a straight line from 3.0 V, empty, to 4.2 V, full. While Wi-Fi runs the radio cannot read the battery, so it shows the reading taken at start, or, with [Battery Check](Display-and-Themes.md#battery-check) on, the newest reading it stopped Wi-Fi for. Point at it to see how old the reading is.
@@ -103,7 +103,7 @@ When you make a change without signing in, the page opens the PIN dialog: "Chang
 - If the live state goes quiet for 10 seconds, the page takes it that the radio has gone, and reads the state every 5 seconds until it is back.
 - Most changes you make show on the screen at once, before the radio answers.
 - If the radio refuses a change, a red note gives the radio's reason, and the page puts back what the radio has. A refusal for want of the PIN opens the PIN dialog instead. After you sign in there, the page says "Signed in. Do that again.", because the refused change was not made.
-- Some changes, such as saving a preset, show a short note when they work. Each note goes after 4 seconds. A warning that must be read stays until you press its **Close** key.
+- Some changes, such as saving a preset, show a short note when they work. Each note goes after 4 seconds. A refusal, or a warning that must be read, stays until you press its **Close** key.
 - After the radio restarts, the page reads again whether this browser is signed in, so the lock in the header is right.
 - The presets, the log, the DX catches, the sweeps and the stored settings are read once and kept. They are read again only when the radio says they changed. So a screen opened again shows them at once.
 - If one of these reads fails, the card says so, such as "The presets could not be read. Trying again.". The page tries again with the first state that comes at least 5 seconds later. A read refused for want of the PIN is tried again once you sign in.
@@ -144,13 +144,13 @@ Every dialog has the same look. The title is at the top and the buttons are in a
 
 ![The Radio screen](images/web-radio.png)
 
-**The reading**, on the left, has an old dial behind it. It shows the same chips, frequency, station name and radio text as Home. Tap the frequency to type another, as on Home.
+**The reading**, on the left, has an old dial behind it. It shows the same chips, frequency, station name and radio text as Home. Tap the frequency to type another, as on Home. The key beside the station name copies the station as one line, with its frequency, PI, name and level, on Home too.
 
 **The band scale**, at the foot of the reading, is drawn like the radio's own scale. It has a mark every 100 kHz on FM and every 10 kHz on AM, numbered every tenth mark.
 
 - Swipe it to look along the band. Each tune brings the dial back to the middle.
 - Tap it to tune there, to the nearest channel of the step in use.
-- A dot over the marks shows each preset of this band. The one on the dial is lit. Point at a dot to see its name, and tap it to recall it.
+- A dot over the marks shows each preset of this band. The one on the dial is lit. Point at a dot to see its name, and tap it to recall it. After a tap the name stays in view while the dial is on that preset.
 - Give it the focus with the Tab key, and ← and → step the dial.
 
 **The controls**, on the right, one row each:
@@ -159,7 +159,7 @@ Every dialog has the same look. The title is at the top and the buttons are in a
 - Two drop-downs. The tuning mode: **Tuning manual**, **Tuning auto**, **Tuning presets** or **Tuning meter band**. The squelch: **Squelch off**, **Squelch auto** or **Squelch manual**.
 - **Mono**, **iMS** and **EQ**, on FM only. Each is a key with a lamp, lit when on. They are the same switches as **Force mono**, **iMS** and **Equalizer** in the FM reception group of [Settings](#settings).
 - Two more drop-downs: the step, such as **Step 100 kHz**, and the filter, such as **Filter 114 kHz**, from what this band offers. **Filter auto** lets the tuner choose the width.
-- Four buttons: seek down, step down, step up, seek up.
+- Four buttons: seek down, step down, step up, seek up. Where the controls are under the reading, as on a phone, these four come first, directly under the scale.
 
 The volume is in the header. See [The frame](#the-frame).
 
@@ -182,7 +182,7 @@ The two tabs share the top card. It shows the station on the dial, with the band
 
 The line under the station says how many of the 99 slots are used. The presets show as keys, like the preset buttons on a radio. Each key has the band, the preset number, the frequency and the name. The preset on the dial is lit. Tap a key to recall it.
 
-- **Save current station**, **Save current** on a phone, saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
+- **Save current station** saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
 - **Add** opens a dialog for a new preset, in the first free slot.
 - **Download** gives the presets as a CSV file, `presets.csv`.
 - **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file. When a Merge leaves lines out, because they were refused, their slot was taken or a name was cut short, the answer shows as a warning that stays until you close it.
@@ -315,7 +315,7 @@ Then one row each:
 - **Hotspot**: Auto, On or Off. Auto brings up the radio's own hotspot only when the Wi-Fi cannot be joined. A choice that takes the radio off the network this page reaches it on asks first. See [Wi-Fi and Hotspot](Wi-Fi-and-Hotspot.md).
 - **PC Link**: opens port 7373 for XDR-GTK and FM-DX Webserver. The row lists the address of each PC connected. See [PC Tools](PC-Tools.md).
 - **Access PIN**: **Change** opens a dialog. Type the new PIN under **New PIN** and **Again**, then press **Change PIN**. It works at once and signs every browser and every PC out, so the page asks you to sign in with the new PIN.
-- **Wi-Fi** and **Web server**: **Turn off**. Each asks first, with **Keep it on** or **Turn off**. Only the radio's own menu, Connectivity, turns them on again.
+- **Wi-Fi** and **Web server**: **Turn off**. Each asks first, with **Keep it on** or **Turn off**. Only the radio's own menu, Connectivity, turns them on again. After the web server is turned off, the page says "The web server is off" and stops asking the radio; load the page again once it is on.
 
 ## System
 
@@ -326,7 +326,7 @@ Then one row each:
 - The version, the build, the board and the slot it runs from.
 - A chip says what the update check found, such as "Up to date" or "0.3.0 is out". While a new firmware is on trial, another chip says "On trial until it joins the Wi-Fi".
 - **Check for updates** turns the check at each start on or off.
-- **Restart**: asks first, then restarts the radio. It is refused while a new firmware is on trial.
+- **Restart**: asks first, then restarts the radio, and the card says the page waits for it. It is refused while a new firmware is on trial.
 - **Sleep**: asks first, then puts the radio to sleep. Press the tuning knob on the radio to wake it. The page cannot wake it. See [Sleep and Auto Off](Sleep-and-Auto-Off.md).
 
 **Running** and **Stores and links**: the radio's health, in two cards.

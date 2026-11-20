@@ -2,8 +2,8 @@
 // theme switch, the way between screens, the PIN prompt, the notes, and the
 // footer.
 import { computed } from '@preact/signals';
-import { useState } from 'preact/hooks';
-import { link, pinAsked, signedIn, signIn, state } from './data/radio.js';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import { gone, link, pinAsked, signedIn, signIn, state, volHeld } from './data/radio.js';
 import { notes, say, unsay } from './data/act.js';
 import { presetTag } from './data/format.js';
 import { Banner, Button, Card, Dialog, Icon, IconButton, Modal, Toast } from './ui/kit.jsx';
@@ -26,7 +26,31 @@ const waiting = computed(() => !state.value);
 // top from tablet width up.
 export function Frame({ screens, here, children }) {
   const [more, setMore] = useState(false);
-  const close = () => setMore(false);
+  // The phone's back key closes the More sheet: opening it adds a step to
+  // the history, and going back over that step closes it, however it is
+  // closed. A screen picked from it takes that step's place, so one press of
+  // back from the new screen returns to the screen before.
+  const closing = useRef(false);
+  useEffect(() => {
+    if (!more) return;
+    closing.current = false;
+    history.pushState({ more: true }, '');
+    const back = () => setMore(false);
+    addEventListener('popstate', back);
+    return () => removeEventListener('popstate', back);
+  }, [more]);
+  // Going back takes a moment, and a second tap in it must not go back a
+  // second step, out of the page.
+  const close = () => {
+    if (closing.current) return;
+    closing.current = true;
+    history.back();
+  };
+  const pick = (e) => {
+    e.preventDefault();
+    setMore(false);
+    location.replace(e.currentTarget.href);
+  };
   const tabs = screens.filter((s) => s.tab);
   const rest = screens.filter((s) => !s.tab);
   const lost = link.value === 'lost';
@@ -52,7 +76,13 @@ export function Frame({ screens, here, children }) {
       </div>
       <main class={`${PAGE} grid grid-cols-1 gap-4 py-4`}>
         {RECORDED && <Banner tone="off" icon="info">Recorded data. A change is not sent to any radio.</Banner>}
-        {lost && <Banner tone="bad">The radio is not answering. Trying again.</Banner>}
+        {/* While the radio restarts at this page's word, System says so and
+            waits; with the web server off there is nothing to try again. */}
+        {gone.value === 'web-off' ? (
+          <Banner tone="off" icon="info">The web server is off. Turn it on from the radio's menu, Connectivity, then load this page again.</Banner>
+        ) : (
+          lost && gone.value !== 'restart' && <Banner tone="bad">The radio is not answering. Trying again.</Banner>
+        )}
         {/* Every screen waits here for the radio's first state, so none
             has to. */}
         <div class={`grid grid-cols-1 gap-4 ${lost ? 'opacity-60' : ''}`}>{waiting.value ? <Card>Waiting for the radio…</Card> : children}</div>
@@ -75,7 +105,7 @@ export function Frame({ screens, here, children }) {
       {more && (
         <Dialog onClose={close} class="mb-0 mt-auto w-full max-w-none rounded-t-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
           <nav class="grid gap-1">
-            <Links screens={rest} here={here} cls="flex h-11 items-center gap-2 rounded-ctl px-3" on="bg-accent/15 font-semibold text-accent-ink" off="hover:bg-raised" onPick={close} />
+            <Links screens={rest} here={here} cls="flex h-11 items-center gap-2 rounded-ctl px-3" on="bg-accent/15 font-semibold text-accent-ink" off="hover:bg-raised" onPick={pick} />
           </nav>
         </Dialog>
       )}
@@ -119,21 +149,24 @@ const LINK = {
   lost: ['bg-bad', 'No answer'],
 };
 
-// The screen's name on a phone, cut short before the frequency is; the
-// radio's name from tablet width up, where the menu shows which screen is
-// open. The volume on every screen: mute and
-// the slider in the header from tablet width up; on a phone the speaker opens
-// them in a strip under the header. The battery last, at the right end.
+// The screen's name on a wide phone, cut short before the frequency is, and
+// left out below 480 px, where only its first letter would fit beside the
+// volume and the tab at the foot already marks the screen; the radio's name from tablet width up, where
+// the menu shows which screen is open. The volume on every screen: mute and
+// the slider in the header from tablet width up; on a phone the speaker key
+// shows the volume and opens them in a strip under the header. The battery
+// last, at the right end.
 function Header({ title }) {
   const tun = state.value?.tun;
+  const vol = volHeld.value ?? tun?.vol;
   const [sound, setSound] = useState(false);
   return (
     <>
     {/* Below 380 px the gaps and the boxes' sides are 4 px narrower, and the
         frequency box shows the frequency alone, so the frequency and the
         battery fit on a 320 px phone with room to spare whatever its fonts. */}
-    <header class={`${PAGE} flex h-14 items-center gap-2 max-[379px]:gap-1`}>
-      <h1 class="mr-auto min-w-0 truncate text-base font-semibold md:sr-only">{title}</h1>
+    <header class={`${PAGE} flex h-14 items-center gap-2 max-[479px]:justify-between max-[379px]:gap-1`}>
+      <h1 class="mr-auto min-w-0 truncate text-base font-semibold max-[479px]:sr-only md:sr-only">{title}</h1>
       <span class="mr-auto hidden items-center gap-2 md:flex" aria-hidden="true">
         <span class="grid size-8 place-items-center rounded-ctl bg-accent text-on-accent">
           <Icon name="radio" size={18} />
@@ -153,11 +186,22 @@ function Header({ title }) {
           </span>
         </a>
       )}
-      <span class="flex items-center gap-1">
+      {/* 8 px apart, so the keys' 44 px touch areas do not overlap. */}
+      <span class="flex items-center gap-2">
         {tun && (
-          <span class="md:hidden">
-            <IconButton small kind="quiet" class={BOX} icon={tun.mut ? 'volume-x' : 'volume-2'} label="Volume" aria-expanded={sound} onClick={() => setSound(!sound)} />
-          </span>
+          <button
+            type="button"
+            aria-label={`Volume, ${vol} dB${tun.mut ? ', muted' : ''}`}
+            title="Volume"
+            aria-expanded={sound}
+            onClick={() => setSound(!sound)}
+            class={`hit relative flex h-9 shrink-0 items-center gap-1 rounded-ctl px-2 active:opacity-70 md:hidden ${BOX} ${tun.mut ? 'text-warn' : ''}`}
+          >
+            <Icon name={tun.mut ? 'volume-x' : 'volume-2'} />
+            {/* Below 380 px the number makes room for the link's mark, while
+                there is one. */}
+            <span class={`num text-sm ${link.value !== 'ok' ? 'max-[379px]:hidden' : ''}`}>{vol}</span>
+          </button>
         )}
         {link.value !== 'ok' && (
           <span class="flex items-center gap-1 px-1 text-xs text-muted" title={LINK[link.value][1]}>

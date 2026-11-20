@@ -504,12 +504,22 @@ export function Banner({ tone = 'warn', icon = 'triangle-alert', children, actio
 // close it.
 export function Dialog({ onClose, class: cls = '', children }) {
   const ref = useRef();
+  // A press that starts inside, such as a text selection dragged out of a
+  // field, ends as a click on the dark area and must not close the dialog.
+  // Null when a click comes with no press before it, as from a screen
+  // reader, which closes it.
+  const outside = useRef(null);
   useEffect(() => ref.current.showModal(), []);
   return (
     <dialog
       ref={ref}
       onClose={onClose}
-      onClick={(e) => e.target === ref.current && onClose()}
+      onPointerDown={(e) => (outside.current = e.target === ref.current)}
+      onClick={(e) => {
+        const inside = outside.current === false;
+        outside.current = null;
+        if (e.target === ref.current && !inside) onClose();
+      }}
       class={`bg-surface text-ink shadow-xl backdrop:bg-black/50 motion-safe:animate-rise ${cls}`}
     >
       {children}
