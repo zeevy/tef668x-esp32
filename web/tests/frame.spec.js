@@ -483,6 +483,8 @@ test('the back key closes the More sheet, and a screen picked from it is one ste
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL(/#radio$/);
   await more.click();
+  // Seen open first: Escape pressed before it is drawn would do nothing.
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await more.click();
