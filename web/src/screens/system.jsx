@@ -96,6 +96,7 @@ export function System() {
 function FromFile({ onSent }) {
   const [file, setFile] = useState(null);
   const [sent, setSent] = useState(null);
+  const [asking, setAsking] = useState(false);
   // A refusal for the PIN opens the PIN prompt; any other shows the radio's
   // words.
   async function send() {
@@ -115,7 +116,8 @@ function FromFile({ onSent }) {
     return (
       <div class="grid gap-1">
         <Bar pct={sent * 100} label="Sent" />
-        <span class="num text-sm text-muted">{Math.round(sent * 100)} % sent</span>
+        {/* All sent, the radio still checks and writes the last of it. */}
+        <span class="num text-sm text-muted">{sent < 1 ? `${Math.round(sent * 100)} % sent` : 'Writing. Do not switch the radio off.'}</span>
       </div>
     );
   }
@@ -125,9 +127,19 @@ function FromFile({ onSent }) {
         <span class="truncate">{file ? file.name : 'Choose a file'}</span>
       </FileButton>
       {file && (
-        <Button icon="upload" onClick={send}>
+        <Button icon="upload" onClick={() => setAsking(true)}>
           Install this file
         </Button>
+      )}
+      {asking && (
+        <Ask
+          title="Install this file?"
+          text={`${file.name}, ${(file.size / 1048576).toFixed(1)} MB, is written to the radio, then the radio restarts into it. Keep the radio on until it is back.`}
+          no="Not now"
+          yes="Install"
+          onYes={send}
+          onClose={() => setAsking(false)}
+        />
       )}
     </div>
   );

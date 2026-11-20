@@ -106,8 +106,16 @@ test('a firmware file is sent as the form field firmware', async ({ page }) => {
   await page.goto('/#system');
   await page.getByLabel('Firmware file').setInputFiles({ name: 'firmware.bin', mimeType: 'application/octet-stream', buffer: Buffer.alloc(4096, 7) });
   await expect(page.getByText('firmware.bin')).toBeVisible();
+  await page.getByRole('button', { name: 'Install this file' }).click();
+  // It asks first, with the file and its size, and Not now sends nothing.
+  const ask = page.getByRole('dialog');
+  await expect(ask).toContainText('Install this file?');
+  await expect(ask).toContainText('firmware.bin, 0.0 MB');
+  await ask.getByRole('button', { name: 'Not now' }).click();
+  await expect(page.getByText('firmware.bin')).toBeVisible();
   const sent = nextPost(page, '/update');
   await page.getByRole('button', { name: 'Install this file' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Install' }).click();
   const req = await sent;
   expect(req.headers()['content-type']).toContain('multipart/form-data');
   expect(req.postDataBuffer().toString('latin1')).toContain('name="firmware"; filename="firmware.bin"');
@@ -118,6 +126,7 @@ const firmware = { name: 'firmware.bin', mimeType: 'application/octet-stream', b
 async function install(page) {
   await page.getByLabel('Firmware file').setInputFiles(firmware);
   await page.getByRole('button', { name: 'Install this file' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Install' }).click();
 }
 
 test('a firmware file refused for the PIN opens the sign-in box with its PIN field', async ({ page }) => {
@@ -152,7 +161,7 @@ test('a firmware file that does not reach the radio says so', async ({ page }) =
   await expect(page.getByRole('button', { name: 'Install this file' })).toBeVisible();
 });
 
-test('the bar shows how much of the file has gone, 0 to 100 %', async ({ page }) => {
+test('the bar shows how much of the file has gone, 0 to 100 %, then that the radio is writing', async ({ page }) => {
   await radio(page);
   await page.goto('/#system');
   // Every value the bar takes. The file goes to the dev server itself, as
@@ -162,6 +171,7 @@ test('the bar shows how much of the file has gone, 0 to 100 %', async ({ page })
     new MutationObserver(() => {
       const v = document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow');
       if (v != null && window.seen.at(-1) !== +v) window.seen.push(+v);
+      window.writing ||= document.body.textContent.includes('Writing. Do not switch the radio off.');
     }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-valuenow'] });
   });
   await install(page);
@@ -170,6 +180,8 @@ test('the bar shows how much of the file has gone, 0 to 100 %', async ({ page })
   const seen = await page.evaluate(() => window.seen);
   expect(seen[0]).toBe(0);
   expect(seen.at(-1)).toBe(100);
+  // With all of it sent, the page said the radio was writing, until it answered.
+  expect(await page.evaluate(() => window.writing)).toBe(true);
 });
 
 test('the health figures', async ({ page }) => {

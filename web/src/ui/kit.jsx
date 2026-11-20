@@ -477,12 +477,14 @@ export function Modal({ title, size = 'sm', onClose, onSubmit, danger, cancel = 
   );
 }
 
-// A short note that the last action worked or did not.
-export function Toast({ tone = 'good', children }) {
+// A short note that the last action worked or did not. With onClose it
+// stays until its Close key is pressed.
+export function Toast({ tone = 'good', onClose, children }) {
   return (
     <div role="status" class="flex items-center gap-2 rounded-ctl border border-line bg-surface px-4 py-2 shadow-lg motion-safe:animate-rise">
-      <Icon name={tone === 'good' ? 'circle-check' : 'triangle-alert'} class={tone === 'good' ? 'text-good' : 'text-bad'} />
+      <Icon name={tone === 'good' ? 'circle-check' : 'triangle-alert'} class={{ good: 'text-good', warn: 'text-warn', bad: 'text-bad' }[tone]} />
       <span class="flex-1 text-sm">{children}</span>
+      {onClose && <IconButton icon="x" label="Close" kind="quiet" onClick={onClose} />}
     </div>
   );
 }

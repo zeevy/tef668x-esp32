@@ -10,8 +10,8 @@ export const state = signal(null);
 export const link = signal('ok');
 // Signed in with the PIN: a write the radio refused for the PIN sets it false.
 export const signedIn = signal(null);
-// True while the PIN prompt should be open: the owner asked for it, or the
-// radio refused a change for want of the PIN.
+// Set while the PIN prompt should be open: true when the owner asked for
+// it, 'refused' when the radio refused a change for want of the PIN.
 export const pinAsked = signal(false);
 // The volume under a finger or the arrow keys, drawn by every volume control
 // until it is sent; null otherwise, so the radio's own reading shows.
@@ -117,7 +117,7 @@ function wordsOf(text, type = '') {
 function denied(status) {
   if (status !== 403) return;
   signedIn.value = false;
-  pinAsked.value = true;
+  pinAsked.value = 'refused';
 }
 
 // POST a body as it is, such as a CSV file, answered as post is.
@@ -215,6 +215,9 @@ const station = (s) => s && `${s.tun?.bnd} ${s.tun?.khz} ${s.tun?.pst} ${s.tun?.
 function take(s, at) {
   if (!s?.tun || at < newest) return;
   newest = at;
+  // A radio that started again has ended every session, so the lock in the
+  // header is read again and is right before the first tap.
+  if (fromRadio && s.up < fromRadio.up) checkSignIn();
   const was = station(state.value);
   fromRadio = s;
   drawn = drawn.filter((d) => at < d.takenAt + SETTLE_MS);
