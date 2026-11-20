@@ -1,0 +1,3 @@
+# Versions the build platform's own Python environment is held to.
+# tools/check.sh hands this file to uv through UV_CONSTRAINT.
+pioarduino==6.2.0

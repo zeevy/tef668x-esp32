@@ -27,6 +27,12 @@ NODE_VERSION=24.21.0
 
 cd "$(dirname "$0")/.." || exit 1
 
+# The build platform installs a PlatformIO core of its own, and asks for it
+# with no upper limit on the version. It is held to the version this tree is
+# built with: 6.2.0.post1 refuses the platform on a clean machine, part way
+# through the build, and removes it.
+export UV_CONSTRAINT="$PWD/tools/pio-constraints.txt"
+
 # Find a clang-format that is the pinned version, and only that version. Every
 # match on PATH is tried, not just the first, because a different version
 # earlier on PATH must not hide the right one further along.

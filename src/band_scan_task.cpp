@@ -32,6 +32,9 @@ typedef struct {
   uint16_t found;
   uint16_t added;
   uint16_t noRoom;
+  /* Channels the tuner gave no reading for. They are walked past, and a scan
+   * with any of them did not cover the band. */
+  uint16_t unread;
 } BandScanState;
 
 static BandScanState sScan;
@@ -67,7 +70,8 @@ bool bandScanLastResult(BandScanResult *out) {
 }
 
 BandScanStartResult bandScanStart(BandId band) {
-  if (sScan.active || updateCheckRunning()) {
+  if (sScan.active || updateCheckRunning() || radioSweepBusy() ||
+      radioAfBusy()) {
     return BAND_SCAN_BUSY;
   }
   BandPlanConfig plan;
@@ -218,6 +222,12 @@ void bandScanTaskPoll(void) {
      * to be wrong. */
     sScan.dialKHz = sScan.atKHz;
   }
+  if (probed != RADIO_PROBE_OK) {
+    /* No reading is not the same as no station. The walk goes on, since one
+     * channel missed is no reason to lose the rest, and the count keeps the
+     * result from saying the whole band was looked at. */
+    sScan.unread++;
+  }
 
   /* The same sensitivity the seek uses, so one setting decides what counts
    * as a station for both. */
@@ -250,7 +260,7 @@ void bandScanTaskPoll(void) {
 
   sScan.done++;
   if (sScan.done >= sScan.walk.channels) {
-    finish(true, true);
+    finish(true, sScan.unread == 0);
     return;
   }
   sScan.atKHz = bandScanNext(&sScan.walk, &sScan.plan, sScan.atKHz);

@@ -235,6 +235,13 @@ static void setting_wifi_with_no_ssid_is_refused(void) {
   TEST_ASSERT_FALSE(settingsSetWifi(&s, NULL, "anything"));
   TEST_ASSERT_EQUAL_STRING("Keep", s.wifiSsid);
   TEST_ASSERT_EQUAL_STRING("ThisOne", s.wifiPass);
+  /* An empty name too, with the hotspot left as it was set. */
+  s.hotspot = WIFI_HOTSPOT_ON;
+  TEST_ASSERT_FALSE(settingsSetWifi(&s, "", "anything"));
+  TEST_ASSERT_EQUAL_STRING("Keep", s.wifiSsid);
+  TEST_ASSERT_EQUAL_STRING("ThisOne", s.wifiPass);
+  TEST_ASSERT_EQUAL_INT(WIFI_HOTSPOT_ON, s.hotspot);
+  TEST_ASSERT_TRUE(settingsHasWifi(&s));
 }
 
 static void an_unterminated_string_is_rejected(void) {

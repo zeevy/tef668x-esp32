@@ -201,8 +201,8 @@ size_t memoryStoreLine(int slot, RdsRegion region, char *out, size_t cap) {
   return n;
 }
 
-bool memoryStoreImport(MemoryImportMode mode, const char *text, size_t len,
-                       MemoryImportResult *out) {
+bool memoryStoreImport(MemoryImportMode mode, const BandPlanConfig *plan,
+                       const char *text, size_t len, MemoryImportResult *out) {
   MemoryImportResult counts;
   memset(&counts, 0, sizeof(counts));
   if (out != NULL) {
@@ -211,7 +211,7 @@ bool memoryStoreImport(MemoryImportMode mode, const char *text, size_t len,
   if (!lock()) {
     return false;
   }
-  bool ok = memoryImportCsv(&sStore, mode, text, len, &counts);
+  bool ok = memoryImportCsv(&sStore, mode, plan, text, len, &counts);
   /* A merge whose every line named a taken slot changed nothing, and so did
    * an empty file. Marking those would spend a flash write on a request that
    * did nothing. A replace always counts, because wiping the list is a

@@ -58,6 +58,7 @@ Use your own PIN in place of `000000`, and the path to your own build in place o
 | 200, `The radio is rebooting into the new image.` | The image is written. The radio restarts into it |
 | 403, `Enter the access PIN first.` | Not signed in. Run the `/auth` line again |
 | 400, `No firmware file was sent.` | The request had no file in it |
+| 409 | A new firmware is still on trial, or a station scan is running. Nothing was written. Wait until `cnf` in `/api/state` is true, or the scan ends, and send it again |
 | 500, `The image was not accepted. The radio is still running the old one.` | The image was not accepted |
 
 The session is lost when the radio restarts, so sign in again before the next update.

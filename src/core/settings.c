@@ -636,7 +636,9 @@ bool settingsHasWifi(const Settings *s) {
 }
 
 bool settingsSetWifi(Settings *s, const char *ssid, const char *pass) {
-  if (ssid == NULL) {
+  /* An empty name is what "no network stored" looks like, so taking one
+   * would forget the network in use while saying a new one was saved. */
+  if (ssid == NULL || ssid[0] == '\0') {
     return false;
   }
   if (pass == NULL) {

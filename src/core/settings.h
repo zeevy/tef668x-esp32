@@ -497,7 +497,8 @@ bool settingsHasWifi(const Settings *s);
 /*
  * Store a network to join. A hotspot set On goes back to Auto, since new
  * network details are given to be joined, and On never tries the stored
- * network. False, and nothing changed, for a name or passphrase too long.
+ * network. False, and nothing changed, for an empty name, or a name or
+ * passphrase too long.
  */
 bool settingsSetWifi(Settings *s, const char *ssid, const char *pass);
 

@@ -353,7 +353,7 @@ typedef enum {
   RADIO_OK = 0,        /* It was applied. */
   RADIO_ERR_BAND,      /* Not a band this radio has. */
   RADIO_ERR_FM_ONLY,   /* The band is real, the feature is FM only. */
-  RADIO_ERR_FREQUENCY, /* Not inside any band. */
+  RADIO_ERR_FREQUENCY, /* Not inside any band, or not a place the tuner has. */
   RADIO_ERR_STEP,      /* Not a step size that band offers. */
   RADIO_ERR_BANDWIDTH, /* Out of range, or not allowed on this band. */
   RADIO_ERR_VOLUME,    /* Outside what the chip takes. */

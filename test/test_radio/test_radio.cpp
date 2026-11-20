@@ -49,6 +49,39 @@ static void tuning_somewhere_that_is_in_no_band_is_refused(void) {
   TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
 }
 
+static void an_fm_frequency_between_two_tuner_places_is_refused(void) {
+  /* The tuner has FM only at multiples of 10 kHz. One either side of a
+   * place is refused, by both ways of tuning, and the dial stays. */
+  RadioCommand c = {};
+  c.kind = RADIO_TUNE;
+  c.freqKHz = 98250;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  const RadioCommandKind kinds[] = {RADIO_TUNE, RADIO_TUNE_IN_BAND};
+  const uint32_t off[] = {98249, 98251, 98255};
+  for (size_t k = 0; k < 2; k++) {
+    c.kind = kinds[k];
+    for (size_t i = 0; i < 3; i++) {
+      c.freqKHz = off[i];
+      TEST_ASSERT_EQUAL_INT(RADIO_ERR_FREQUENCY, apply(c));
+      TEST_ASSERT_EQUAL_UINT32(98250, r.freqKHz);
+    }
+    c.freqKHz = 98260;
+    TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+    c.freqKHz = 98250;
+    TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  }
+}
+
+static void an_am_frequency_between_two_channels_is_still_tuned(void) {
+  /* AM goes to the tuner in single kilohertz, so 737 is a real place. */
+  RadioCommand c = {};
+  c.kind = RADIO_TUNE;
+  c.freqKHz = 737;
+  TEST_ASSERT_EQUAL_INT(RADIO_OK, apply(c));
+  TEST_ASSERT_EQUAL_INT(BAND_MW, r.band);
+  TEST_ASSERT_EQUAL_UINT32(737, r.freqKHz);
+}
+
 static void tuning_across_a_band_edge_brings_the_step_size_with_it(void) {
   RadioCommand c = {};
   c.kind = RADIO_TUNE;
@@ -2199,6 +2232,8 @@ int main(int, char **) {
   RUN_TEST(a_new_radio_comes_up_on_fm_at_the_bottom_of_the_band);
   RUN_TEST(tuning_to_a_frequency_works);
   RUN_TEST(tuning_somewhere_that_is_in_no_band_is_refused);
+  RUN_TEST(an_fm_frequency_between_two_tuner_places_is_refused);
+  RUN_TEST(an_am_frequency_between_two_channels_is_still_tuned);
   RUN_TEST(tuning_across_a_band_edge_brings_the_step_size_with_it);
   RUN_TEST(tuning_in_band_keeps_the_band);
   RUN_TEST(changing_band_lands_somewhere_inside_it);

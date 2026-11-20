@@ -71,8 +71,10 @@ int memoryStoreNthUsed(int n, MemoryChannel *out);
 
 size_t memoryStoreLine(int slot, RdsRegion region, char *out, size_t cap);
 
-bool memoryStoreImport(MemoryImportMode mode, const char *text, size_t len,
-                       MemoryImportResult *out);
+/* `plan` is the band plan in use, or NULL when it is not known, as
+ * memoryImportCsv takes it. */
+bool memoryStoreImport(MemoryImportMode mode, const BandPlanConfig *plan,
+                       const char *text, size_t len, MemoryImportResult *out);
 
 int memoryStoreStep(const BandPlanConfig *plan, int from, bool up, int moves);
 

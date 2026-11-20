@@ -179,7 +179,7 @@ The `tun` object:
 | `sig`, `sav` | The signal level now and its average, in tenths of a dBµV |
 | `usn`, `wam` | Noise, and on FM multipath or on AM co-channel, in tenths of a per cent |
 | `off`, `bw`, `mod` | The offset in tenths of a kHz, the filter width the tuner reports in kHz, and the modulation in per cent |
-| `snr` | Signal to noise in dB, worked out by the firmware |
+| `snr` | Signal to noise in dB, worked out by the firmware. Left out, with the other readings, while the tuner has given none |
 | `st`, `plt` | Stereo heard, and the stereo pilot |
 | `qst` | The quality status word as the chip sent it. It carries the time stamp that says whether the readings have settled |
 | `sql`, `sqo`, `sqa` | The squelch mode (`Off`, `Auto` or `Manual`), whether the squelch is open, and the Manual threshold in tenths of a dBµV. `sqa` is there only in Manual, once the volume knob has set it since the radio started |
@@ -189,7 +189,7 @@ The `tun` object:
 | `bep` | A beep is sounding now |
 | `agc` | The volume AGC: `on`, `gn` the gain now in dB, `avg` the running average of the modulation it works from in tenths of a per cent, and `set` whether that average has seen enough of this station to act on |
 | `rds` | RDS, on FM only, below |
-| `scn`, `scd`, `sct`, `scf`, `sca`, `scr`, `scc` | A station scan: running, channels done and in total, then stations found, stations added to a free slot, new stations with no free slot left, and whether it covered the whole band (false when a tune stopped it, null until a scan has finished) |
+| `scn`, `scd`, `sct`, `scf`, `sca`, `scr`, `scc` | A station scan: running, channels done and in total, then stations found, stations added to a free slot, new stations with no free slot left, and whether it covered the whole band (false when a tune stopped it or the tuner gave no reading for a channel, null until a scan has finished) |
 
 When the tuner did not start, `tun` holds why, so a fault can be read without a cable:
 
@@ -317,6 +317,7 @@ Refusals, as the radio sent them:
 
 ```
 That frequency is in no band.                         [400, khz=200000]
+The tuner cannot reach that. FM tunes in steps of 10 kHz.  [400, khz=98255]
 That is not a band. Use one of LW MW SW OIRT FM.      [400, bnd=AIR]
 That is not a direction. Use up or down.              [400, dir=sideways]
 ```
@@ -402,7 +403,7 @@ See [Presets and Station Scan](Presets-and-Station-Scan.md) for the CSV format.
 
 | Route | PIN | Fields | Sample answer |
 |---|---|---|---|
-| `POST /api/presets` | Yes | `do=set` with `slot`, `khz`, and `bw` and `name` if wanted | `Preset 50 is FM 98.30 MHz` |
+| `POST /api/presets` | Yes | `do=set` with `slot`, `khz`, and `bw` and `name` if wanted. A name of more than 16 letters is refused, as for `do=add` | `Preset 50 is FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=add` with `khz`, and `bw` and `name` if wanted. The radio stores it in the lowest free slot, with the time and, when it is on that station, the PI, programme type and ECC it has confirmed. It refuses a station that is a preset already, and a frequency the band plan puts on another band | `Preset 6 is FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=recall` with `slot` | `FM 98.30 MHz` |
 | `POST /api/presets` | Yes | `do=move` with `slot` and `to`. The two swap when `to` holds a preset | `Preset 3 moved to 10.`, `Presets 3 and 10 swapped.` |
@@ -426,7 +427,9 @@ do has to be set, add, recall, clear or move.                         [400, do=e
 98.30 MHz is already preset 5.                                        [409, do=add khz=98300]
 Every preset slot is taken.                                           [409, do=add with all 99 slots used]
 0 of 1 lines imported, 0 refused, 1 already taken, 0 names cut short  [200, merge into a used slot]
-Line 1 could not be read, so nothing was changed.                     [400, replace with a bad file]
+3 of 3 lines imported, 0 refused, 0 already taken, 0 names cut short, 1 not on a band of this radio's band plan  [200, one line outside the band plan]
+Line 1 could not be read, or names a slot a line before it has, so nothing was changed.  [400, replace with a bad file]
+A preset name has up to 16 letters.                                   [400, do=set or do=add with a longer name]
 Give bnd, one of FM MW SW LW, or leave it out for FM.                 [400, scan bnd=OIRT]
 ```
 
@@ -514,13 +517,17 @@ $ curl -s -b jar -d blt=90 $R/api/settings
 Saved and in use now.
 $ curl -s -b jar -d rot=90 $R/api/settings
 The rotation is 0 or 180.                                   [400]
+$ curl -s -b jar -d blt=90 -d bltt=50 $R/api/settings
+bltt is not a setting this route takes.                     [400]
 ```
+
+A request with a key the route does not take is refused whole, so a mistyped key is not read as saved. `pwd` without `sid` is refused too.
 
 A setting read at start up answers `Read at start up, so reboot for that to take effect.`
 
 | Key | Values | What it is |
 |---|---|---|
-| `sid`, `pwd` | Text | The Wi-Fi network name and passphrase. The radio moves to that network at once |
+| `sid`, `pwd` | Text | The Wi-Fi network name and passphrase. The radio moves to that network at once. An empty `sid` is refused |
 | `pin` | Six digits | A new access PIN. It ends the session |
 | `tzo` | `+05:30` style, `-12:00` to `+14:00` | The clock's offset from UTC |
 | `ntp` | 0, 1 | Network time |
@@ -569,12 +576,12 @@ Saved. It will come up on 106.40 MHz, squelch Off.
 | Route | PIN | What it does |
 |---|---|---|
 | `GET /` | No | The [web page](Web-Page.md), one file, gzipped, with an `ETag` and `Cache-Control: no-cache`. A browser that sends the same ETag in `If-None-Match` gets 304 with no body, so the page is downloaded again only when a new firmware brings a new page |
-| `POST /update` | Yes | Installs a firmware, sent as the form field `firmware`. See [Updating](Updating.md) |
+| `POST /update` | Yes | Installs a firmware, sent as the form field `firmware`. Answers 409, with nothing written, while a new firmware is on trial or during a station scan. See [Updating](Updating.md) |
 | `POST /update/install` | Yes | Installs the newer release the update check found, from GitHub. Answers 202, then downloads and writes it and restarts into it. A failed download or sha256 leaves the old firmware running, with the update still offered. Answers 409 when nothing newer was found, while a new firmware is on trial, or during a station scan |
 | `POST /reboot` | Yes | Restarts the radio. Refused with 409 while a new firmware is on trial |
 | `POST /api/sleep` | Yes | Puts the radio to sleep. Answers `Going to sleep. Press the knob to wake the radio.` Refused with 409 while a new firmware is written or on trial |
 | `POST /setpin` | Yes | Sets a new PIN, field `pin`. Ends the session |
-| `POST /wifi` | Yes, except on the setup hotspot | Saves a network, fields `sid` and `pwd` |
+| `POST /wifi` | Yes, except on the setup hotspot | Saves a network, fields `sid` and `pwd`. Answers 400 for a missing or empty `sid` |
 
 `/auth`, `/update`, `/update/install`, `/reboot`, `/setpin` and `/wifi` answer as the API does: one line of plain text, with the status code saying how it went. A right PIN on `/auth` gets 200 `Signed in.` with the session cookie, and a call without a session gets 403 `Enter the access PIN first.`
 

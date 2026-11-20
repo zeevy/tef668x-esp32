@@ -523,7 +523,6 @@ static void appendRadioState(String &out) {
       jsonNum(out, "lhc", snap.settings.lwHighCutStart);
       jsonNum(out, "asm", snap.settings.amSoftMuteStart);
       jsonNum(out, "lsm", snap.settings.lwSoftMuteStart);
-      jsonNum(out, "snr", snap.quality.snrDb);
       if (snap.processingValid) {
         /* What the chip is applying now, not what it was told. */
         jsonNum(out, "cut", snap.processing.highCut);
@@ -579,6 +578,9 @@ static void appendRadioState(String &out) {
                (q.stereo && !snap.settings.forcedMono) ? "true" : "false",
                q.stereo ? "true" : "false", (unsigned)q.status);
       out += sig;
+      /* With the readings it is worked out from, so a tuner that gave none
+       * does not show a number left from the station before. */
+      jsonNum(out, "snr", q.snrDb);
     }
 
     /*

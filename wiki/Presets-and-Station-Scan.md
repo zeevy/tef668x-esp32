@@ -71,7 +71,9 @@ OIRT is not scanned.
 
 To stop a scan, press the same row again: the radio goes back to where it was. Tuning, seeking or changing the band also stops it, and the radio stays where you put it. The presets found up to then are kept either way.
 
-When it ends, the row shows `Saved 12`, `Stopped, 3 saved`, or `Full, 5 not saved` when stations were found after all 99 slots were in use.
+When it ends, the row shows `Saved 12`, `Stopped, 3 saved`, or `Full, 5 not saved` when stations were found after all 99 slots were in use. `Stopped` also shows when the scan reached the end but the tuner gave no reading for one or more channels, so the band was not fully covered. Run the scan again.
+
+A scan does not start while a band scope sweep or a series of AF checks is running.
 
 ## Presets as a CSV file
 
@@ -123,13 +125,15 @@ curl -s -b jar --data-binary @presets.csv -H 'Content-Type: text/csv' \
 | Mode | What it does |
 |---|---|
 | `merge`, the default | Fills only the empty slots named in the file. A slot already in use is left as it is. Lines that cannot be read are counted and skipped |
-| `replace` | Replaces every preset with the file. It is all or nothing: if one line cannot be read, nothing changes and the answer names the line |
+| `replace` | Replaces every preset with the file. It is all or nothing: if one line cannot be read, or two lines name the same slot, nothing changes and the answer names the line |
 
 The answer says what happened, for example `12 of 12 lines imported, 0 refused, 0 already taken, 0 names cut short`.
 
 A `replace` with only the header line clears every preset. It is the only way to clear them.
 
-The import does not check the band plan. A preset outside the band plan in use is stored, but cannot be tuned until the band plan allows it.
+A preset outside the band plan in use is stored, but cannot be tuned until the band plan allows it. The answer counts these at its end, for example `, 2 not on a band of this radio's band plan`.
+
+An FM frequency that is not a multiple of 10 kHz, such as 98255, is a line that cannot be read: the tuner has no place for it.
 
 ## One preset from the HTTP API
 

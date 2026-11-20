@@ -57,6 +57,17 @@ static void sayPreset(int slot, BandId band, uint32_t khz) {
                         " " + text + "\n");
 }
 
+/* Refused rather than cut short, so a name that does not fit is not stored
+ * as a different one without a word. False once the refusal is sent. */
+static bool nameFits(const String &name) {
+  if (name.length() > MEMORY_NAME_LEN - 1) {
+    apiFail(400, String("A preset name has up to ") + (MEMORY_NAME_LEN - 1) +
+                     " letters.");
+    return false;
+  }
+  return true;
+}
+
 /*
  * POST /api/presets. What to do comes in `do`.
  *
@@ -84,12 +95,8 @@ static void handleAdd(void) {
   if (sWeb->server.hasArg("bw") && !apiNumber("bw", &bw, 0, 400)) {
     return;
   }
-  /* Refused rather than cut short, so a name that does not fit is not
-   * stored as a different one without a word. */
   const String name = sWeb->server.arg("name");
-  if (name.length() > MEMORY_NAME_LEN - 1) {
-    apiFail(400, String("A preset name has up to ") + (MEMORY_NAME_LEN - 1) +
-                     " letters.");
+  if (!nameFits(name)) {
     return;
   }
   int slot = MEMORY_NO_SLOT;
@@ -250,6 +257,9 @@ static void handleApiMemoryPost(void) {
 
   if (sWeb->server.hasArg("name")) {
     String name = sWeb->server.arg("name");
+    if (!nameFits(name)) {
+      return;
+    }
     strncpy(c.name, name.c_str(), MEMORY_NAME_LEN - 1);
     c.name[MEMORY_NAME_LEN - 1] = '\0';
   }
@@ -298,15 +308,25 @@ static void handleApiMemoryImport(void) {
   }
   String body = sWeb->server.arg("plain");
   MemoryImportResult result;
-  if (!memoryStoreImport(mode, body.c_str(), body.length(), &result)) {
+  BandPlanConfig plan;
+  const bool havePlan = radioTaskPlan(&plan);
+  if (!memoryStoreImport(mode, havePlan ? &plan : NULL, body.c_str(),
+                         body.length(), &result)) {
     apiFail(400, String("Line ") + result.firstBadLine +
-                     " could not be read, so nothing was changed.");
+                     " could not be read, or names a slot a line before it "
+                     "has, so nothing was changed.");
     return;
   }
   String said = String(result.imported) + " of " + result.lines +
                 " lines imported, " + result.skipped + " refused, " +
                 result.kept + " already taken, " + result.truncated +
                 " names cut short";
+  if (result.unreachable > 0) {
+    /* Said only when there are some, so the usual answer stays the one
+     * scripts already read. */
+    said += String(", ") + result.unreachable +
+            " not on a band of this radio's band plan";
+  }
   DebugLog.printf("[api] %s\n", said.c_str());
   sWeb->server.send(200, "text/plain", said + "\n");
 }

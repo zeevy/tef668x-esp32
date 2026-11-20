@@ -13,10 +13,14 @@
 #define DX_SWEEP_BASE_PATH "/dxbase.bin"
 
 /* Read the file at `path`. A file that is not there, or that this format
- * did not write, reads as an empty history, and so does one that could not
- * be read: the sweeps are a record of the band, not data a person entered,
- * and the next sweep starts a new one. */
-void dxSweepFsLoad(const char *path, DxSweepHistory *out);
+ * did not write, reads as an empty history: the sweeps are a record of the
+ * band, not data a person entered, and the next sweep starts a new one.
+ *
+ * False, with an empty history, when the file is there and its bytes could
+ * not be fetched: it would not open, the heap had no room for it, or the
+ * read came back short. The file may be good, so a caller about to write a
+ * history back must not write this empty one over it. */
+bool dxSweepFsLoad(const char *path, DxSweepHistory *out);
 
 /* Write the history whole. False when it did not reach flash. */
 bool dxSweepFsSave(const char *path, const DxSweepHistory *h);
