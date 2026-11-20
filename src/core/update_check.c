@@ -249,6 +249,28 @@ static bool isHex(char ch) {
          (ch >= 'A' && ch <= 'F');
 }
 
+static uint8_t hexValue(char ch) {
+  if (ch >= '0' && ch <= '9') {
+    return (uint8_t)(ch - '0');
+  }
+  return (uint8_t)((ch >= 'a' ? ch - 'a' : ch - 'A') + 10);
+}
+
+bool updateParseSha256(const char *hex, uint8_t out[32]) {
+  if (hex == NULL || strlen(hex) != 64) {
+    return false;
+  }
+  for (int i = 0; i < 64; i++) {
+    if (!isHex(hex[i])) {
+      return false;
+    }
+  }
+  for (int i = 0; i < 32; i++) {
+    out[i] = (uint8_t)((hexValue(hex[i * 2]) << 4) | hexValue(hex[i * 2 + 1]));
+  }
+  return true;
+}
+
 static bool tagChar(char ch) {
   return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') ||
          (ch >= 'A' && ch <= 'Z') || ch == '.' || ch == '_' || ch == '-';

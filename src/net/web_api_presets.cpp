@@ -4,6 +4,7 @@
  */
 #include "debug_log.h"
 #include "web_api_internal.h"
+#include "web_chunked.h"
 #include "web_internal.h"
 
 #include "memory_store.h"
@@ -26,9 +27,12 @@ static bool apiSlot(int *out) {
 static void handleApiMemoryCsv(void) {
   sWeb->server.sendHeader("Content-Disposition",
                           "attachment; filename=\"presets.csv\"");
-  sWeb->server.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  sWeb->server.send(200, "text/csv", "");
-  sWeb->server.sendContent(memoryCsvHeader());
+  /* Sent 512 bytes at a time and not a line at a time: each piece handed
+   * to the network took about 7 ms on the radio, which is 0.7 s of the
+   * loop for a full list sent line by line. */
+  ChunkedReply out(sWeb->server);
+  out.begin(200, "text/csv");
+  out += memoryCsvHeader();
   char line[MEMORY_CSV_LINE_MAX];
   for (int i = 0; i < MEMORY_SLOT_COUNT; i++) {
     size_t need = memoryStoreLine(i, (RdsRegion)sWeb->settings->rdsRegion, line,
@@ -36,9 +40,8 @@ static void handleApiMemoryCsv(void) {
     if (need == 0 || need >= sizeof(line)) {
       continue;
     }
-    sWeb->server.sendContent(line);
+    out += line;
   }
-  sWeb->server.sendContent("");
 }
 
 /* Only the name and the width can be wrong in a preset built from a frequency

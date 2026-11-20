@@ -98,6 +98,13 @@ UpdateManifestResult updateParseManifest(const char *json, size_t len,
  */
 bool updateUrlAllowed(const char *url);
 
+/*
+ * Reads a sha256 written as 64 hex digits, in either case, into its 32
+ * bytes. False, with `out` untouched, for anything else: a missing text, a
+ * wrong length, or a letter that is not a hex digit.
+ */
+bool updateParseSha256(const char *hex, uint8_t out[32]);
+
 /* What the caller can see about the radio right now. */
 typedef struct {
   bool enabled; /* The Check for Updates setting is on. */

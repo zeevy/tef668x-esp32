@@ -61,6 +61,17 @@ Use your own PIN in place of `000000`, and the path to your own build in place o
 | 409 | A new firmware is still on trial, or a station scan is running. Nothing was written. Wait until `cnf` in `/api/state` is true, or the scan ends, and send it again |
 | 500, `The image was not accepted. The radio is still running the old one.` | The image was not accepted |
 
+To have the radio check the file before it switches to it, add the file's sha256 to the address. The page of each release shows it, and `sha256sum` works it out for your own build:
+
+```bash
+curl -s -b jar -F firmware=@firmware-ats125.bin "$R/update?sha256=$(sha256sum firmware-ats125.bin | cut -d' ' -f1)"
+```
+
+| Answer | What it means |
+|---|---|
+| 400, `sha256 must be 64 hex digits. Nothing was written.` | The value is not a sha256 |
+| 400, `The file is not the one that sha256 names. The radio is still running the old one.` | The file was damaged on the way, or is another file. Send it again |
+
 The session is lost when the radio restarts, so sign in again before the next update.
 
 ## What the screen shows
