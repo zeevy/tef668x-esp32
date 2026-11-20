@@ -4,8 +4,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { dateLine, dbuv, freq, presetTag, typedKhz, unit } from '../data/format.js';
 import { say } from '../data/act.js';
-import { tune } from '../data/commands.js';
-import { Card, Chip } from './kit.jsx';
+import { copy, stationLine, tune } from '../data/commands.js';
+import { Card, Chip, IconButton } from './kit.jsx';
 
 // The number's and the unit's sizes.
 const SIZES = {
@@ -116,9 +116,15 @@ export function StationText({ s, presets }) {
   const r = t.rds ?? {};
   return (
     <>
-      <p class="mt-2 truncate text-2xl leading-8 font-semibold" style={{ viewTransitionName: 'station-name' }}>
-        {r.ps?.trim() || presets?.find((p) => p.slot === t.pst)?.name?.trim() || '---'}
-      </p>
+      {/* The row keeps the height of the name's line. The copy key is 4 px
+          taller and reaches 2 px over each side, so the lines below stay
+          where they were. */}
+      <div class="mt-2 flex h-8 items-center gap-2">
+        <p class="min-w-0 truncate text-2xl leading-8 font-semibold" style={{ viewTransitionName: 'station-name' }}>
+          {r.ps?.trim() || presets?.find((p) => p.slot === t.pst)?.name?.trim() || '---'}
+        </p>
+        <IconButton small kind="quiet" class="shrink-0 text-muted" icon="copy" label="Copy the station" onClick={() => copy(stationLine(t))} />
+      </div>
       <p class="truncate text-sm leading-5 text-muted">
         {[r.pty > 0 && r.ptn, r.pi && `PI ${r.pi}`].filter(Boolean).join(' · ') || (s.clk.syn ? dateLine(new Date()) : '\u00a0')}
       </p>

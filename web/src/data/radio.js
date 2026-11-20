@@ -8,6 +8,17 @@ import { withMotion } from './motion.js';
 export const state = signal(null);
 // 'ok', 'slow' (an answer is late), or 'lost' (the radio stopped answering).
 export const link = signal('ok');
+// What this page itself did that takes the radio away: 'restart' while the
+// radio restarts, 'web-off' once its web server is switched off. Null
+// otherwise.
+export const gone = signal(null);
+// A restart takes about 10 s. A radio still away after this long has not
+// come back from it, and the page says so again.
+const RESTART_MS = 60000;
+export function restarting() {
+  gone.value = 'restart';
+  setTimeout(() => gone.value === 'restart' && (gone.value = null), RESTART_MS);
+}
 // Signed in with the PIN: a write the radio refused for the PIN sets it false.
 export const signedIn = signal(null);
 // Set while the PIN prompt should be open: true when the owner asked for
@@ -217,7 +228,10 @@ function take(s, at) {
   newest = at;
   // A radio that started again has ended every session, so the lock in the
   // header is read again and is right before the first tap.
-  if (fromRadio && s.up < fromRadio.up) checkSignIn();
+  if (fromRadio && s.up < fromRadio.up) {
+    checkSignIn();
+    if (gone.value === 'restart') gone.value = null;
+  }
   const was = station(state.value);
   fromRadio = s;
   drawn = drawn.filter((d) => at < d.takenAt + SETTLE_MS);
@@ -229,7 +243,7 @@ function take(s, at) {
 // live state needs no asking: the next one comes within half a second.
 async function poll() {
   waiting = false;
-  if (live()) return;
+  if (live() || gone.value === 'web-off') return;
   if (open) {
     again = true;
     return;
@@ -239,7 +253,9 @@ async function poll() {
   const started = now();
   try {
     take(await getJson('/api/state'), started);
-    link.value = now() - started > 3000 ? 'slow' : 'ok';
+    // An answer that was on its way when the web server was switched off
+    // does not say the link is well.
+    if (gone.value !== 'web-off') link.value = now() - started > 3000 ? 'slow' : 'ok';
   } catch {
     link.value = 'lost';
   }
@@ -342,6 +358,7 @@ export function change(path, fields, expect) {
 // retry wait longer than the first shows, gets its state by polling, so it
 // reads at once.
 function resume() {
+  if (gone.value === 'web-off') return;
   const turnedAway = retryMs > LIVE_RETRY_MS;
   retryMs = LIVE_RETRY_MS;
   openLive();
@@ -353,6 +370,16 @@ function resume() {
   }
 }
 
+// The web server was switched off from this page. Nothing answers from now
+// on, so the page stops asking; a reload starts it again.
+export function webOff() {
+  gone.value = 'web-off';
+  running = false;
+  clearTimeout(timer);
+  closeLive();
+  link.value = 'lost';
+}
+
 // The state while the page is in view; a hidden tab asks nothing of the
 // radio and holds no socket.
 export function startLive() {
@@ -361,6 +388,7 @@ export function startLive() {
   resume();
   checkSignIn();
   document.addEventListener('visibilitychange', () => {
+    if (gone.value === 'web-off') return;
     running = !document.hidden;
     clearTimeout(timer);
     if (running) {

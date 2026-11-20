@@ -2,7 +2,7 @@
 // PC Link, the access PIN, and switching Wi-Fi or the web server off. The
 // connection large on top, then a card of rows.
 import { useState } from 'preact/hooks';
-import { pinAsked, signedIn, state } from '../data/radio.js';
+import { pinAsked, signedIn, state, webOff } from '../data/radio.js';
 import { useStoredSettings } from '../data/reads.js';
 import { say } from '../data/act.js';
 import { Ask, Banner, Button, Card, Chip, INPUT, Loading, Modal, PinNeeded, Segmented, SettingRow, StatusHead, Switch, Unread } from '../ui/kit.jsx';
@@ -66,7 +66,9 @@ function StatusAndRows({ s, stored, set }) {
       yes: 'Turn off',
       kind: 'danger',
       go: async () => {
-        if (await set({ [key]: 0 })) say(`${what[key][0][0].toUpperCase()}${what[key][0].slice(1)} is off.`);
+        if (!(await set({ [key]: 0 }))) return;
+        if (key === 'web') webOff();
+        else say('Wi-Fi is off.');
       },
     });
   return (

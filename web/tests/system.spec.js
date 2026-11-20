@@ -79,6 +79,23 @@ test('restart asks first, then waits for the radio to come back', async ({ page 
   await expect(page.getByText('The radio is back, version 0.2.0.')).toBeVisible();
 });
 
+test('while the radio restarts the page does not also say it is not answering', async ({ page }) => {
+  await radio(page);
+  // No live socket, so the page polls, and the test can take the radio away.
+  await page.routeWebSocket('**/api/live', (ws) => ws.close());
+  let down = false;
+  await page.route('**/api/state', (route) => (down ? route.abort() : route.fallback()));
+  await page.goto('/#system');
+  await page.getByRole('button', { name: 'Restart' }).click();
+  const sent = nextPost(page, '/reboot');
+  await page.getByRole('dialog').getByRole('button', { name: 'Restart' }).click();
+  await sent;
+  down = true;
+  await expect(page.getByTitle('No answer')).toBeVisible({ timeout: 15000 });
+  await expect(card(page, 'Firmware')).toContainText('Restarting. This page waits for it.');
+  await expect(page.getByText('The radio is not answering')).toHaveCount(0);
+});
+
 test('a refusal in an HTML page shows the radio\'s own words', async ({ page }) => {
   await radio(page);
   await page.route('**/reboot', (route) => route.fulfill({ status: 409, contentType: 'text/html', body: '<!doctype html><html><head><style>p{}</style></head><body><h3>Not now</h3><p>A new firmware is on trial.</p></body></html>' }));

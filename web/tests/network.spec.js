@@ -205,3 +205,19 @@ test('a refused hotspot change puts back the hotspot alone, not a PC Link change
   await expect(hotspot.getByRole('radio', { name: 'Auto' })).toHaveAttribute('aria-checked', 'true');
   await expect(pcl).toHaveAttribute('aria-checked', 'true');
 });
+
+test('the web server turned off from here: the page says so and stops asking', async ({ page }) => {
+  await radio(page);
+  await page.goto('/#network');
+  await page.locator('main').getByRole('button', { name: 'Turn off' }).nth(1).click();
+  const sent = nextPost(page, '/api/settings');
+  await page.getByRole('dialog').getByRole('button', { name: 'Turn off' }).click();
+  await sent;
+  await expect(page.getByText('The web server is off.')).toBeVisible();
+  await expect(page.getByText('Trying again')).toHaveCount(0);
+  let asked = 0;
+  page.on('request', (r) => r.url().includes('/api/') && asked++);
+  page.on('websocket', () => asked++);
+  await page.waitForTimeout(3000);
+  expect(asked).toBe(0);
+});

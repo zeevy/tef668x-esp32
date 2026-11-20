@@ -1,6 +1,6 @@
 // Radio: the reading with the band scale and the radio's controls, then RDS
 // and the signal.
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { state } from '../data/radio.js';
 import { presets as presetsRead } from '../data/reads.js';
 import { bandOf } from '../data/bands.js';
@@ -77,7 +77,8 @@ function Reading({ s, presets }) {
 // steps do not start at 0 kHz. It is a slider for the keys: once it has
 // focus, Left and Right step the dial, as this screen's keys do anywhere on
 // it. Over the marks a dot for each preset on this band, a button: its name
-// shows on hover and focus, and a tap recalls it.
+// shows on hover and focus, and a tap recalls it and shows its name while
+// the dial stays on it, as a phone has no hover.
 const TICK_PX = 8;
 // Room at each end for the end number: SW's 27000 is 32 px wide.
 const END_PX = 16;
@@ -90,6 +91,7 @@ function Scale({ s, presets }) {
   const x = (k) => END_PX + ((k - band.low) * TICK_PX) / tick;
   const box = useRef();
   const shown = useRef(false);
+  const [named, setNamed] = useState(null);
   useEffect(() => {
     if (!band || !box.current) return;
     const row = box.current;
@@ -151,12 +153,15 @@ function Scale({ s, presets }) {
                 type="button"
                 aria-label={`${name}, ${freq(p.khz, p.band)} ${unit(p.band)}`}
                 aria-pressed={p.slot === t.pst}
-                onClick={() => recall(p)}
+                onClick={() => {
+                  recall(p);
+                  setNamed(p.slot);
+                }}
                 class="group hit absolute top-0 flex size-5 -translate-x-1/2 items-center justify-center"
                 style={{ left: `${x(p.khz)}px` }}
               >
                 <span class={`size-2 rounded-full ${p.slot === t.pst ? 'bg-accent' : 'bg-muted'}`} />
-                <span class="pointer-events-none absolute top-full left-1/2 z-10 hidden -translate-x-1/2 rounded-ctl bg-ink px-2 py-1 text-xs whitespace-nowrap text-surface group-hover:block group-focus-visible:block">
+                <span class={`pointer-events-none absolute top-full left-1/2 z-10 -translate-x-1/2 rounded-ctl bg-ink px-2 py-1 text-xs whitespace-nowrap text-surface group-hover:block group-focus-visible:block ${named === p.slot && p.khz === t.khz ? 'block' : 'hidden'}`}>
                   {name}
                 </span>
               </button>
@@ -170,7 +175,8 @@ function Scale({ s, presets }) {
 // The radio's controls, beside the reading, one row each and no labels: the
 // bands and the icons name themselves, and the drop-downs say what they are
 // in their own text. Step and filter, then seek and step, at the foot. The
-// rows spread to the reading's height.
+// rows spread to the reading's height. In one column, as on a phone, seek
+// and step come first, directly under the scale they move.
 function Controls({ s }) {
   const t = s.tun;
   // The steps and filter widths this band offers; 0 is the tuner's own
@@ -221,7 +227,7 @@ function Controls({ s }) {
           ))}
         </Select>
       </div>
-      <div class="grid grid-cols-4 gap-2">
+      <div class="-order-1 grid grid-cols-4 gap-2 @3xl:order-none">
         {[
           ['skip-back', 'Seek down', () => seek(false)],
           ['chevron-left', 'Step down', () => step(-1)],
