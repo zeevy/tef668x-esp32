@@ -135,6 +135,8 @@ A preset outside the band plan in use is stored, but cannot be tuned until the b
 
 An FM frequency that is not a multiple of 10 kHz, such as 98255, is a line that cannot be read: the tuner has no place for it.
 
+A preset name holds plain ASCII letters only. A line whose name has any other letter, such as `Rádio`, is refused, and the answer names that line and says so.
+
 ## One preset from the HTTP API
 
 `POST /api/presets` needs the access PIN.

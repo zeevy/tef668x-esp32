@@ -1442,6 +1442,15 @@ static void forgetReadings(void) {
  * the mute with no command having arrived at all, and a push that only
  * happens when something was drained would never act on it. Comparing the two
  * is the whole test. */
+/* A push that keeps failing is a tuner that is not answering. Sent again in
+ * full on every round, as often as every 43 ms, it holds the bus and the
+ * round for nothing. After this many failures in a row it is tried once in
+ * this long; a new command is still pushed at once. */
+#define PUSH_FAILS_BEFORE_WAIT 3
+#define PUSH_RETRY_MS 1000
+static uint8_t sPushFails = 0;
+static uint32_t sPushTriedMs = 0;
+
 static void roundPush(RadioRound *r) {
   if (sHushed) {
     /* On the way to a reboot. radioHush has taken the audio down and is
@@ -1453,13 +1462,28 @@ static void roundPush(RadioRound *r) {
     r->push.features = false;
     r->pushFailed = false;
   }
+  if (!r->pushFailed) {
+    /* Cleared since the last round, here or by a push made elsewhere, so
+     * the next failure is a new one and is tried again at once. */
+    sPushFails = 0;
+  }
   const RadioPush push = r->push;
-  if (push.retune || push.bandwidth || push.volume || push.mute ||
-      push.features || r->pushFailed) {
+  const bool asked = push.retune || push.bandwidth || push.volume ||
+                     push.mute || push.features;
+  const bool waiting = !asked && r->pushFailed &&
+                       sPushFails >= PUSH_FAILS_BEFORE_WAIT &&
+                       (uint32_t)(millis() - sPushTriedMs) < PUSH_RETRY_MS;
+  if (!waiting && (asked || r->pushFailed)) {
     /* After a failure the tuner's state is not known, so everything goes
      * again rather than only what the settings say moved. */
     r->lastError = pushToTuner(r->pushFailed ? NULL : &r->wasHeard, &r->heard);
     r->pushFailed = r->lastError != TEF668X_OK;
+    if (r->pushFailed) {
+      sPushTriedMs = millis();
+      if (sPushFails < PUSH_FAILS_BEFORE_WAIT) {
+        sPushFails++;
+      }
+    }
     if (r->pushFailed) {
       /* The commands drained this round are in what did not reach the
        * chip, so a caller waiting on one is not told it was done. Those

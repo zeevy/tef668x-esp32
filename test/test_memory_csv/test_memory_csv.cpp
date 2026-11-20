@@ -286,6 +286,41 @@ static void channels_the_band_plan_has_no_place_for_are_counted(void) {
   TEST_ASSERT_EQUAL_UINT16(0, result.unreachable);
 }
 
+static void a_name_outside_ascii_is_refused_and_said(void) {
+  /* "Rádio" in UTF-8: the line looks right, so the result says why. */
+  const char *text =
+      "1,FM,92700,0,Good\n2,FM,93500,0,R\xC3\xA1"
+      "dio\n";
+  TEST_ASSERT_TRUE(import(text, MEMORY_IMPORT_MERGE));
+  TEST_ASSERT_EQUAL_UINT16(1, result.imported);
+  TEST_ASSERT_EQUAL_UINT16(1, result.skipped);
+  TEST_ASSERT_EQUAL_UINT16(2, result.firstBadLine);
+  TEST_ASSERT_TRUE(result.firstBadName);
+
+  memoryInit(&store);
+  TEST_ASSERT_FALSE(import(text, MEMORY_IMPORT_REPLACE));
+  TEST_ASSERT_EQUAL_UINT16(2, result.firstBadLine);
+  TEST_ASSERT_TRUE(result.firstBadName);
+  TEST_ASSERT_EQUAL_INT(0, memoryCount(&store));
+
+  /* Any other refusal is not put down to the name, nor is a later line's
+   * name when an earlier line was the first refused. */
+  TEST_ASSERT_TRUE(
+      import("rubbish\n2,FM,93500,0,R\xC3\xA1"
+             "dio\n",
+             MEMORY_IMPORT_MERGE));
+  TEST_ASSERT_EQUAL_UINT16(1, result.firstBadLine);
+  TEST_ASSERT_FALSE(result.firstBadName);
+  /* Nor a line with another fault as well: mending the name would not
+   * make it readable. */
+  TEST_ASSERT_TRUE(
+      import("2,FM,98255,0,R\xC3\xA1"
+             "dio\n",
+             MEMORY_IMPORT_MERGE));
+  TEST_ASSERT_EQUAL_UINT16(1, result.skipped);
+  TEST_ASSERT_FALSE(result.firstBadName);
+}
+
 static void merge_keeps_going_past_a_line_it_cannot_read(void) {
   TEST_ASSERT_TRUE(import("1,FM,92700,0,Good\nrubbish\n3,SW,9420,0,Also\n",
                           MEMORY_IMPORT_MERGE));
@@ -593,6 +628,7 @@ int main(int, char **) {
   RUN_TEST(replace_changes_nothing_when_a_line_cannot_be_read);
   RUN_TEST(replace_refuses_a_file_that_names_a_slot_twice);
   RUN_TEST(channels_the_band_plan_has_no_place_for_are_counted);
+  RUN_TEST(a_name_outside_ascii_is_refused_and_said);
   RUN_TEST(merge_keeps_going_past_a_line_it_cannot_read);
   RUN_TEST(blank_lines_and_comments_are_not_data);
   RUN_TEST(the_header_is_skipped_whatever_its_case);

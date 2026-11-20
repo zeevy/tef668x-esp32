@@ -393,6 +393,8 @@ static void appendRdsState(String &out, const RadioSnapshot &snap) {
  *          header shows it. Left out on other bands and between metre bands.
  *   `pst`  The preset the radio is on, counted from 1, 0 for none.
  *   `seq`  Goes up with every new snapshot. A stalled radio task stops it.
+ *   `bsy`  True when the snapshot could not be taken for this answer, which
+ *          then has none of the tuned values or readings. Left out otherwise.
  *   `ims`  Multipath suppression, iMS on the old radio.
  *   `eq`   Channel equalizer.
  *   `mno`  Stereo refused on purpose.
@@ -482,7 +484,11 @@ static void appendRadioState(String &out) {
      * from here would also mean two tasks on one I2C bus. */
     RadioSnapshot snap;
     bool haveSnap = radioGetSnapshot(&snap);
-    if (haveSnap) {
+    if (!haveSnap) {
+      /* The radio task held its state for the moment this asked, so the
+       * tuned values and the readings are missing from this answer. */
+      jsonBool(out, "bsy", true);
+    } else {
       char freqText[16];
       if (bandFormatFrequency(snap.settings.band, snap.settings.freqKHz,
                               freqText, sizeof(freqText))) {

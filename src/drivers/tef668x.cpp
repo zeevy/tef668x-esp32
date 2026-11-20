@@ -1318,6 +1318,11 @@ Tef668xError tef668xReadQuality(bool fm, Tef668xQuality *quality) {
     if (err != TEF668X_OK) {
       return err;
     }
+    if ((word16(buf) & QUALITY_AF_DATA) != 0) {
+      /* Still the other channel's reading. Decoded, it would go to the
+       * meter, the squelch and the volume AGC as this channel's. */
+      return TEF668X_ERR_NOT_READY;
+    }
   }
   tef668xDecodeQuality(buf, fm, quality);
 

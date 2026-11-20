@@ -312,15 +312,23 @@ static void handleApiMemoryImport(void) {
   const bool havePlan = radioTaskPlan(&plan);
   if (!memoryStoreImport(mode, havePlan ? &plan : NULL, body.c_str(),
                          body.length(), &result)) {
-    apiFail(400, String("Line ") + result.firstBadLine +
-                     " could not be read, or names a slot a line before it "
-                     "has, so nothing was changed.");
+    apiFail(400, result.firstBadName
+                     ? String("Line ") + result.firstBadLine +
+                           " has a name with a letter outside ASCII, which a "
+                           "preset name cannot hold, so nothing was changed."
+                     : String("Line ") + result.firstBadLine +
+                           " could not be read, or names a slot a line "
+                           "before it has, so nothing was changed.");
     return;
   }
   String said = String(result.imported) + " of " + result.lines +
                 " lines imported, " + result.skipped + " refused, " +
                 result.kept + " already taken, " + result.truncated +
                 " names cut short";
+  if (result.firstBadName) {
+    said += String(", line ") + result.firstBadLine +
+            " has a name with a letter outside ASCII";
+  }
   if (result.unreachable > 0) {
     /* Said only when there are some, so the usual answer stays the one
      * scripts already read. */
