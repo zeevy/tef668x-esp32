@@ -37,6 +37,11 @@
 #define LCD_NAME_TO_METER 6
 /* An unlit segment is 30 % ground laid over the panel's `radio`, out of 255. */
 #define LCD_METER_UNLIT_GROUND 77
+/* The bar a resting finger fills on its way to a hold: 3 rows, with 3 rows
+ * of the panel under it so it reads as a bar and not as a bite out of the
+ * edge, between the round corners. */
+#define LCD_HOLD_H 3
+#define LCD_HOLD_UP 3
 
 static PanelRect sAt;
 static lv_obj_t *sName;
@@ -50,6 +55,7 @@ static lv_obj_t *sFrequency;
 static lv_obj_t *sUnit;
 static lv_obj_t *sLevel;
 static lv_obj_t *sLevelUnit;
+static lv_obj_t *sHold;
 /* The name as it fits the line. A station name is at most 32 characters. */
 static char sNameFit[48];
 
@@ -91,9 +97,18 @@ static void begin(lv_obj_t *parent, const PanelRect *at) {
   lv_obj_add_event_cb(sMeter, onMeterDraw, LV_EVENT_DRAW_MAIN, NULL);
   sMeterLit = 0;
   sMeterPeak = -1;
+
+  sHold = uiBlock(parent, t->ground, (int16_t)(at->x + UI_MARGIN + UI_RADIUS),
+                  (int16_t)(at->y + at->h - LCD_HOLD_UP - LCD_HOLD_H), 0,
+                  LCD_HOLD_H);
+  uiShowIf(sHold, false);
 }
 
 static void show(const ScreenState *s) {
+  const int16_t holdRoom = (int16_t)(sAt.w - 2 * (UI_MARGIN + UI_RADIUS));
+  uiShowIf(sHold, s->holdPermille > 0);
+  lv_obj_set_width(sHold, (int32_t)holdRoom * s->holdPermille / 1000);
+
   const int16_t left = (int16_t)(sAt.x + UI_MARGIN + UI_PAD);
   const int16_t right = (int16_t)(sAt.x + sAt.w - UI_MARGIN - UI_PAD);
 

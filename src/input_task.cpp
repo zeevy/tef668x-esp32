@@ -1805,10 +1805,14 @@ static void enterTyped(void) {
   }
 
   char text[INPUT_EVENT_MAX];
-  uint32_t khz = 0;
-  BandId band = BAND_COUNT;
-  if (!radioTaskPlan(&plan) ||
-      !bandFromTypedNumber(&plan, typed, prefer, &khz, &band)) {
+  BandTypedReading tunes = {BAND_COUNT, 0};
+  const BandTypedOutcome outcome =
+      radioTaskPlan(&plan)
+          ? bandTypedOutcome(&plan, typed, prefer, &tunes, NULL)
+          : BAND_TYPED_NO_BAND;
+  const uint32_t khz = tunes.freqKHz;
+  const BandId band = tunes.band;
+  if (outcome == BAND_TYPED_NO_BAND) {
     /* In English for the API's last input, and said on the panel too, in
      * its language, or the digits would just vanish. */
     snprintf(text, sizeof(text), txtIn(TXT_ENGLISH, STR_RADIO_FMT_NO_BAND),
@@ -1822,11 +1826,11 @@ static void enterTyped(void) {
 
   /* A number the band in use does not hold, but more than one other band
    * does, is a choice for the person who typed it, not the radio. */
-  if (bandTypedOutcome(&plan, typed, prefer, NULL, NULL) == BAND_TYPED_CHOICE) {
+  if (outcome == BAND_TYPED_CHOICE) {
     BandTypedReading readings[BAND_TYPED_READINGS_MAX];
     const uint8_t count =
         bandTypedReadings(&plan, typed, readings, BAND_TYPED_READINGS_MAX);
-    if (count > 1 && menuTaskOpenChoice(sTyped, readings, count)) {
+    if (menuTaskOpenChoice(sTyped, readings, count)) {
       snprintf(text, sizeof(text), "%s, a choice of %u bands", sTyped,
                (unsigned)count);
       note(text);
@@ -2263,6 +2267,15 @@ static bool sGestureSpent = false;
  * until it lifts, the way a key held at start up is: it went down for none
  * of what is on screen now. */
 static bool sTouchHeldOver = false;
+
+uint16_t inputHoldPermille(void) {
+  bool dxUnder = false;
+  if (inputTop(&dxUnder) != TOP_RADIO ||
+      (sGesture.zone != RADIO_ZONE_NAME && sGesture.zone != RADIO_ZONE_FREQ)) {
+    return 0;
+  }
+  return touchGestureHoldPermille(&sGesture, &kGesture, millis());
+}
 
 /* Drop the gesture under way, if any, with nothing reported. */
 static void touchRest(void) {

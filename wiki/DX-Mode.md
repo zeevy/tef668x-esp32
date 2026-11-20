@@ -32,7 +32,7 @@ Turn the knob to tune by the step size. Press it for the RDS pages. Hold it to l
 |---|---|
 | Header | `DX`, a stereo mark when there is a pilot, `1/4` and the clock |
 | Station panel | The station name, filled in a character at a time as it arrives, the programme type when the station names one, and the frequency |
-| PI | Filled, with a tick: confirmed. A clock mark: heard, but not confirmed as this channel's own. A `?` digit: some digits not yet sure. `0000` with `NO ID`: the station sends zero. A plain tile: nothing heard |
+| PI | Filled, with a tick: confirmed. A clock mark: heard, but not confirmed as this channel's own. A `?` digit: some digits not yet sure. `0000` with `NO ID`: the station sends zero. A plain tile: nothing heard. While the left of the signal graph is still empty, in the first seconds on a channel, the graph lists what the tick, the clock and the `?` mark mean |
 | Country | Two letters, worked out from the ECC and the PI, once the PI is confirmed. `?` with no ECC. In North America mode, the call letters |
 | Preset line | `P05` when this is the station stored in that preset. `not P05` in the theme's fault colour when another station is confirmed there |
 | Six readings | LEVEL in dBµV, USN (noise) in %, WAM (multipath) in %, OFFSET in kHz, BW (the tuner's own filter reading) in kHz, and MOD (modulation) in % |

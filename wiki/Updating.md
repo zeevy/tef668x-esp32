@@ -80,7 +80,13 @@ When the upload starts, the radio saves what it is tuned to, turns the sound dow
 
 ![The update screen: UPDATING FIRMWARE, 62 %, Do not remove power](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/veil.png)
 
-Keep the radio powered until it restarts. If the write fails, the screen shows **Update Failed** and **Previous firmware kept** for a few seconds, and the radio goes back to playing with the old firmware.
+Keep the radio powered until it restarts. If the write fails, the screen shows **Update Failed** and **Previous firmware kept** for a few seconds, and the radio goes back to playing with the old firmware. A third line says why:
+
+| Line | What happened | What to do |
+|---|---|---|
+| Download did not finish | The file did not all arrive | Try again, closer to the router |
+| Not a firmware file for this radio | The whole file came, and it is not an image the radio can start, or its sha256 did not match | Get `firmware-ats125.bin` from a release again |
+| Could not write the file | The radio's flash did not take it | Try again. If it keeps failing, update over USB |
 
 ![Update Failed, Previous firmware kept](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/update-failed.png)
 

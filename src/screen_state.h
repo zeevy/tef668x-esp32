@@ -52,6 +52,7 @@ typedef struct {
   const char *logConfirm;  /* "Logged 106.40" while it holds, or NULL. */
   const char *notice;      /* The line under the panel's message, or NULL. */
   const char *setup;       /* How to reach the hotspot, or NULL. */
+  uint16_t holdPermille;   /* A finger's way to a hold on the panel, or 0. */
   uint32_t nowMs;          /* The time, for the modulation meter's fall. */
 } ScreenInputs;
 

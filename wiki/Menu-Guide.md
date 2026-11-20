@@ -220,3 +220,4 @@ All read only.
 | Developer | zeevy |
 | License | GPLv3 |
 | GitHub | github.com/zeevy/tef668x-esp32 |
+| Keys | Opens a list of what each key does: the knob press and hold, BAND, BW and MODE tapped and held, the digits and ENTER, DX, and how to go back in the menu and leave DX mode. Nothing in it can be changed |

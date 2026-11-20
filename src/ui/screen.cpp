@@ -220,6 +220,9 @@ void screenShow(const ScreenState *state) {
   lv_obj_add_flag(sMessage, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(sDetail, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(sVeil, LV_OBJ_FLAG_HIDDEN);
+  /* A message's third line is the veil's foot line, which is not a part of
+   * the veil. */
+  lv_obj_add_flag(sVeilFoot, LV_OBJ_FLAG_HIDDEN);
 
   const Layout *want = layoutFor();
   if (want != sBuilt || themeGeneration() != sBuiltThemeGen) {

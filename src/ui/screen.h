@@ -132,6 +132,10 @@ typedef struct {
    * in place of the radio text and the date, or NULL. A notice goes over
    * it. */
   const char *setup;
+  /* How far a finger resting on the frequency panel is on its way to a
+   * hold, in thousandths, drawn as a bar along the panel's foot; 0 for no
+   * bar. */
+  uint16_t holdPermille;
   const char *radioText; /* Or NULL. */
   /* "WEDNESDAY, 30th September 2026", or NULL until a server has answered.
    * Shown when there is no radio text. */
@@ -1066,9 +1070,9 @@ void screenEnd(void);
  * Say something across the middle of the screen, on its own.
  *
  * For the moments before there is any state worth showing, and for a tuner
- * that did not answer.
+ * that did not answer. `line3`, when given, is a third and smaller line
+ * under the detail.
  */
-/* `line3`, when given, is a third and smaller line under the detail. */
 void screenMessage(const char *line1, const char *line2,
                    const char *line3 = NULL);
 

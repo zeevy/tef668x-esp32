@@ -306,6 +306,7 @@ void screenStateBuild(ScreenBuild *b, const ScreenInputs *in,
    * in place of the radio text. */
   state.notice = in->notice;
   state.setup = in->setup;
+  state.holdPermille = in->holdPermille;
 }
 
 void screenTypedText(const char *typed, char *out, size_t len) {

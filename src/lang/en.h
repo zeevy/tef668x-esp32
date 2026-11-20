@@ -194,6 +194,33 @@
   X(ABOUT_GITHUB, "github.com/zeevy/tef668x-esp32", "About group, value of the GitHub row") \
   X(ABOUT_BUILD_UNKNOWN, "unknown", "About group, value of the Build row when the firmware was built without git") \
   X(ABOUT_LICENSE, "GPLv3", "About group, value of the License row") \
+  X(MENU_KEY_GUIDE, "Keys", "Sub-group name, About > Keys: what each key does, read only") \
+  X(KEYS_KNOB_PRESS, "Knob press", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_KNOB_PRESS_DOES, "Menu", "About > Keys, value of that row: what the key does") \
+  X(KEYS_KNOB_HOLD, "Knob hold", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_KNOB_HOLD_DOES, "Log the station", "About > Keys, value of that row: what the key does") \
+  X(KEYS_BAND, "BAND", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_BAND_DOES, "Next band", "About > Keys, value of that row: what the key does") \
+  X(KEYS_BAND_HOLD, "BAND hold", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_BAND_HOLD_DOES, "RDS pages", "About > Keys, value of that row: what the key does") \
+  X(KEYS_BW, "BW", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_BW_DOES, "Next filter width", "About > Keys, value of that row: what the key does") \
+  X(KEYS_BW_HOLD, "BW hold", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_BW_HOLD_DOES, "Bandwidth page", "About > Keys, value of that row: what the key does") \
+  X(KEYS_MODE, "MODE", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_MODE_DOES, "Next tuning mode", "About > Keys, value of that row: what the key does") \
+  X(KEYS_MODE_HOLD, "MODE hold", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_MODE_HOLD_DOES, "Menu", "About > Keys, value of that row: what the key does") \
+  X(KEYS_DIGITS, "0 to 9, ENTER", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_DIGITS_DOES, "Tune a frequency", "About > Keys, value of that row: what the key does") \
+  X(KEYS_ENTER_HOLD, "ENTER hold", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_ENTER_HOLD_DOES, "Log the station", "About > Keys, value of that row: what the key does") \
+  X(KEYS_DX, "DX", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_DX_DOES, "DX mode or scope", "About > Keys, value of that row: what the key does") \
+  X(KEYS_MENU_MODE, "In menu: MODE", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_MENU_MODE_DOES, "Back", "About > Keys, value of that row: what the key does") \
+  X(KEYS_DX_LEAVE, "In DX mode: DX", "About > Keys, row name: a key, and how it is pressed") \
+  X(KEYS_DX_LEAVE_DOES, "Leave DX mode", "About > Keys, value of that row: what the key does") \
   X(MENU_GO_TO, "Go To", "Menu group name, first in the list: the screens and actions the panel keys reach, for the knob alone") \
   X(MENU_GO_TO_BANDWIDTH, "Bandwidth", "Menu row name, Go To group: opens the bandwidth page") \
   X(MENU_GO_TO_RDS, "RDS", "Menu row name, Go To group: opens the RDS screen") \
@@ -204,6 +231,8 @@
   X(MENU_GO_TO_SAVE, "Save Current Station", "Menu row name, Go To group: saves the station on the dial to the lowest empty preset slot") \
   X(MENU_FMT_SAVED_AS, "Saved as P%02d", "Radio screen, in the station name's place for a moment after Go To > Save Current Station saved the station") \
   X(MENU_FMT_ALREADY_PRESET, "Already P%02d", "Menu, note on the Save Current Station row when the station is a preset already") \
+  X(MENU_NOTE_NO_PRESETS, "No presets yet", "Menu, note after pressing the Presets row while no preset is stored") \
+  X(MENU_NOTE_NO_LOG, "Nothing logged yet", "Menu, note after pressing the Station Log row while the log is empty") \
   X(MENU_NOTE_PRESETS_FULL, "Every slot is taken", "Menu, note on the Save Current Station row when all 99 preset slots hold a station") \
   X(MENU_GO_TO_SLEEP, "Sleep", "Menu row name, Go To group: the radio fades and sleeps until the knob is pressed") \
   X(MENU_STATIONS, "Stations", "Menu group name: the presets, the station scans and the station log") \

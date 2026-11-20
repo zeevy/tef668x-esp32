@@ -1187,7 +1187,7 @@ static void keypadDraw(void) {
   view.result = NULL;
   BandPlanConfig plan;
   const uint32_t typed = (uint32_t)strtoul(input.typed, NULL, 10);
-  if (typed != 0 && radioTaskPlan(&plan)) {
+  if (input.typed[0] != '\0' && radioTaskPlan(&plan)) {
     BandTypedReading tunes;
     uint8_t choices = 0;
     char freq[24];
@@ -2390,6 +2390,7 @@ void screenTaskPoll(void) {
   in.fault =
       snap.lastError != TEF668X_OK ? tef668xErrorText(snap.lastError) : NULL;
   in.logConfirm = screenTaskLogConfirmText();
+  in.holdPermille = inputHoldPermille();
   /* A station scan walks the dial for up to about four minutes, so the line
    * says why the dial jumps. The update check does not start while a scan
    * runs, and a scan does not start while the check runs, so only one of
