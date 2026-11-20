@@ -460,6 +460,22 @@ test('upload: merge or replace, the file sent as it is', async ({ page }) => {
   await expect(page.getByRole('status').filter({ hasText: '3 of 3 lines imported' })).toBeVisible();
 });
 
+test('upload: a merge with lines that did not land is a warning that stays until closed', async ({ page }) => {
+  await radio(page);
+  await page.route('**/api/presets/import**', (route) => route.fulfill({ body: '7 of 10 lines imported, 3 refused, 0 already taken, 0 names cut short' }));
+  await page.goto('/#presets');
+  await page.locator('input[type=file]').setInputFiles({ name: 'mine.csv', mimeType: 'text/csv', buffer: Buffer.from(CSV) });
+  await page.getByRole('dialog').getByRole('button', { name: 'Merge' }).click();
+  const note = page.getByRole('status').filter({ hasText: '7 of 10 lines imported, 3 refused' });
+  await expect(note).toBeVisible();
+  await expect(note.locator('svg').first()).toHaveClass(/text-warn/);
+  // Still there after the four seconds a plain note lasts.
+  await page.waitForTimeout(4500);
+  await expect(note).toBeVisible();
+  await note.getByRole('button', { name: 'Close' }).click();
+  await expect(note).toHaveCount(0);
+});
+
 test('the four buttons fit on one line each, down to 320 px', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone', 'a phone only');
   await page.setViewportSize({ width: 320, height: 700 });

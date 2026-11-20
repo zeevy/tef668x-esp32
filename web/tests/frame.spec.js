@@ -1,7 +1,7 @@
 // The frame: the way between screens, the header's status, the PIN prompt,
 // the theme, and that nothing reloads the page.
 import { expect, test } from '@playwright/test';
-import { countReads, stopClock } from './radio.js';
+import { countReads, liveRadio, stopClock } from './radio.js';
 
 const phone = (testInfo) => testInfo.project.name === 'phone';
 
@@ -235,6 +235,51 @@ test.describe('the PIN', () => {
     expect(refused).toBe('Sign in first');
     await expect(page.getByRole('dialog').getByLabel('PIN')).toBeVisible();
   });
+
+  // Signs in through the prompt a refusal opened.
+  async function signInAt(page) {
+    await page.route('**/auth', (route) => route.fulfill({ status: 200, body: '' }));
+    const dialog = page.getByRole('dialog');
+    await dialog.getByLabel('PIN').fill('123456');
+    await dialog.getByRole('button', { name: 'Sign in' }).click();
+    await expect(dialog).toBeHidden();
+  }
+
+  test('after a sign in a refusal asked for, the page says to do the change again, and sends nothing itself', async ({ page }) => {
+    let posts = 0;
+    await page.route('**/api/mute', (route) => {
+      posts++;
+      route.fulfill({ status: 403, body: 'Sign in first' });
+    });
+    await page.goto('/');
+    await page.evaluate(() => import('/src/data/act.js').then((m) => m.act('/api/mute', { on: 1 })));
+    await signInAt(page);
+    await expect(page.getByRole('status').filter({ hasText: 'Signed in. Do that again.' })).toBeVisible();
+    expect(posts).toBe(1);
+  });
+
+  test('a sign in from the header, after a refusal was closed, says nothing', async ({ page }) => {
+    await page.route('**/api/mute', (route) => route.fulfill({ status: 403, body: 'Sign in first' }));
+    await page.goto('/');
+    await page.evaluate(() => import('/src/data/act.js').then((m) => m.act('/api/mute', { on: 1 })));
+    await page.getByRole('dialog').getByRole('button', { name: 'Not now' }).click();
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await signInAt(page);
+    await expect(page.getByRole('button', { name: 'Signed in' })).toBeVisible();
+    await expect(page.getByRole('status')).toHaveCount(0);
+  });
+});
+
+test('a radio that started again has its sign in read again', async ({ page }) => {
+  let signedIn = true;
+  await page.route('**/api/settings', (route) => (signedIn ? route.fulfill({ json: {} }) : route.fulfill({ status: 403, body: 'Sign in first' })));
+  const radio = await liveRadio(page);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Signed in' })).toBeVisible();
+  signedIn = false;
+  radio.push((s) => (s.up = 3));
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 for (const device of ['light', 'dark']) {

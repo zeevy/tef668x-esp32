@@ -102,8 +102,9 @@ When you make a change without signing in, the page opens the PIN dialog: "Chang
 - A browser tab that is hidden asks the radio nothing, and holds no connection.
 - If the live state goes quiet for 10 seconds, the page takes it that the radio has gone, and reads the state every 5 seconds until it is back.
 - Most changes you make show on the screen at once, before the radio answers.
-- If the radio refuses a change, a red note gives the radio's reason, and the page puts back what the radio has. A refusal for want of the PIN opens the PIN dialog instead.
-- Some changes, such as saving a preset, show a short note when they work. Each note goes after 4 seconds.
+- If the radio refuses a change, a red note gives the radio's reason, and the page puts back what the radio has. A refusal for want of the PIN opens the PIN dialog instead. After you sign in there, the page says "Signed in. Do that again.", because the refused change was not made.
+- Some changes, such as saving a preset, show a short note when they work. Each note goes after 4 seconds. A warning that must be read stays until you press its **Close** key.
+- After the radio restarts, the page reads again whether this browser is signed in, so the lock in the header is right.
 - The presets, the log, the DX catches, the sweeps and the stored settings are read once and kept. They are read again only when the radio says they changed. So a screen opened again shows them at once.
 - If one of these reads fails, the card says so, such as "The presets could not be read. Trying again.". The page tries again with the first state that comes at least 5 seconds later. A read refused for want of the PIN is tried again once you sign in.
 - There is no save button. The radio stores the station and its settings by itself 10 seconds after the last change.
@@ -184,7 +185,7 @@ The line under the station says how many of the 99 slots are used. The presets s
 - **Save current station**, **Save current** on a phone, saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
 - **Add** opens a dialog for a new preset, in the first free slot.
 - **Download** gives the presets as a CSV file, `presets.csv`.
-- **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file.
+- **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file. When a Merge leaves lines out, because they were refused, their slot was taken or a name was cut short, the answer shows as a warning that stays until you close it.
 - **The band filter**: with presets on more than one band, **All** and each band with presets. The card title says how many are shown.
 - **Change** puts the keys in Change mode. It shows every slot up to one past the last used, the empty ones dashed. Tap a key to change it, or tap an empty slot to add one there. Drag a key onto another slot to move it: onto another preset the two swap, onto an empty slot it goes there. Dragging works with a finger too. **Done** leaves Change mode.
 
@@ -344,7 +345,7 @@ Then one row each:
 **Updates**:
 
 - While a newer release is known, it shows its version and size. **Install** with its version asks first, then downloads it from GitHub, writes it and restarts the radio. If the radio does not join the Wi-Fi after that, it goes back to the version before. See [Updating](Updating.md).
-- **Update firmware**: **Choose a file** picks a firmware `.bin` built for this radio, and **Install this file** sends it. The page shows how much has been sent.
+- **Update firmware**: **Choose a file** picks a firmware `.bin` built for this radio, and **Install this file** asks first, with the file's name and size, then sends it. The page shows how much has been sent, then "Writing. Do not switch the radio off." until the radio answers.
 
 After an install or a restart, the page waits for the radio and says when it is back, with its version.
 

@@ -399,7 +399,11 @@ function UploadDialog({ upload, close, saved }) {
   async function send(mode) {
     setBusy(true);
     try {
-      say(await postBody(`/api/presets/import?mode=${mode}`, upload.text, 'text/csv'));
+      const said = await postBody(`/api/presets/import?mode=${mode}`, upload.text, 'text/csv');
+      // A count after the first comma that is not 0 is a line that did not
+      // land as written: a warning, kept until it is closed.
+      const short = /, [1-9]/.test(said);
+      say(said, short ? 'warn' : 'good', short);
       saved();
       close();
     } catch (e) {

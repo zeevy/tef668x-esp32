@@ -3,12 +3,14 @@
 import { signal } from '@preact/signals';
 import { change } from './radio.js';
 
-// Short notes over the screen, each gone after four seconds.
+// Short notes over the screen. Each goes after four seconds; one that must
+// be read, `kept`, stays until it is closed.
 export const notes = signal([]);
-export function say(text, tone = 'good') {
-  const note = { text, tone };
+export const unsay = (note) => (notes.value = notes.value.filter((n) => n !== note));
+export function say(text, tone = 'good', kept = false) {
+  const note = { text, tone, kept };
   notes.value = [...notes.value, note];
-  setTimeout(() => (notes.value = notes.value.filter((n) => n !== note)), 4000);
+  if (!kept) setTimeout(() => unsay(note), 4000);
 }
 
 // A refusal, said in the radio's own words. One for the PIN opens the PIN

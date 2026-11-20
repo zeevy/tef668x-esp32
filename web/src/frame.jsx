@@ -4,7 +4,7 @@
 import { computed } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import { link, pinAsked, signedIn, signIn, state } from './data/radio.js';
-import { notes } from './data/act.js';
+import { notes, say, unsay } from './data/act.js';
 import { presetTag } from './data/format.js';
 import { Banner, Button, Card, Dialog, Icon, IconButton, Modal, Toast } from './ui/kit.jsx';
 import { dark, flipTheme } from './ui/theme.js';
@@ -67,7 +67,9 @@ export function Frame({ screens, here, children }) {
       {/* One live region, so a reader hears each note as it comes. */}
       <div aria-live="polite" class="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 grid gap-2 md:bottom-4 md:left-auto md:w-96">
         {notes.value.map((n) => (
-          <Toast tone={n.tone}>{n.text}</Toast>
+          <Toast tone={n.tone} onClose={n.kept && (() => unsay(n))}>
+            {n.text}
+          </Toast>
         ))}
       </div>
       {more && (
@@ -198,6 +200,9 @@ function PinDialog() {
     setError('');
     try {
       await signIn(pin);
+      // Opened by a refusal: that change was not made, and is not sent
+      // again from here, where what follows it on its screen would be lost.
+      if (pinAsked.value === 'refused') say('Signed in. Do that again.');
       close();
     } catch (x) {
       setError(x.message);
