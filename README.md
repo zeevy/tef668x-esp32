@@ -139,7 +139,7 @@ The radio saves its state, shows the progress on the screen and restarts. If the
 | DX | DX mode, on FM | |
 | Volume knob | Volume. In Manual squelch, the squelch level | |
 
-The menu has twelve groups. Every row writes through the same call the HTTP API uses, so the panel and the web page always agree. After a minute with no input, the menu and the bandwidth page go back to the radio screen.
+The menu has twelve groups. Every row writes through the same call the HTTP API uses, so the panel and the web page always agree. With no input for 60 seconds, or the time set in Controls > Menu Timeout, the menu and the bandwidth page go back to the radio screen.
 
 ## Control API
 

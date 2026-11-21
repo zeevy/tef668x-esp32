@@ -110,6 +110,7 @@ typedef enum {
   ROW_KEY_BEEPS,
   ROW_EDGE_BEEP,
   ROW_KEYPAD_TIMEOUT,
+  ROW_MENU_TIMEOUT,
   ROW_TOUCH,
   ROW_CALIBRATE_TOUCH,
   ROW_NETWORK_TIME,
@@ -694,6 +695,8 @@ static const MenuRow kControlRows[] = {
      true, false, NULL, "bps"},
     {STR_MENU_KEYPAD_TIMEOUT, ROW_KEYPAD_TIMEOUT, SRC_STORED, TABLE_RANGE, 5,
      NOLIST, true, false, false, NULL, "kpt"},
+    {STR_MENU_MENU_TIMEOUT, ROW_MENU_TIMEOUT, SRC_STORED, TABLE_RANGE, 10,
+     NOLIST, true, false, false, NULL, "mto"},
     /* Off leaves the touch screen unread at once, for a panel that touches
      * itself. Recovery has the same row, for when this menu cannot be
      * reached. */
@@ -2028,6 +2031,7 @@ static void textOf(const MenuRow *row, int32_t v, char *out, size_t len) {
       snprintf(out, len, txt(STR_MENU_FMT_MS), (int)v);
       return;
     case ROW_KEYPAD_TIMEOUT:
+    case ROW_MENU_TIMEOUT:
       snprintf(out, len, txt(STR_MENU_FMT_SECONDS), (int)v);
       return;
     case ROW_AUTO_OFF:
@@ -2162,6 +2166,7 @@ static const char *unitOf(const MenuRow *row) {
       return txt(STR_COMMON_UNIT_PERCENT);
     case ROW_DIM_AFTER:
     case ROW_KEYPAD_TIMEOUT:
+    case ROW_MENU_TIMEOUT:
       return txt(STR_COMMON_UNIT_S);
     case ROW_AUTO_OFF:
       return txt(STR_COMMON_UNIT_MIN);
@@ -3351,7 +3356,7 @@ bool menuTaskOpenChoice(const char *typed, const BandTypedReading *readings,
  * The offer of a newer release: at start, when the check finds one, and from
  * the System row. From the row it takes over the menu's screen, so the menu
  * shuts and the offer is drawn where it was, with no fade between them.
- * Later, or a minute with no answer, leaves it in the System group.
+ * Later, or the menu left alone for its time, leaves it in the System group.
  */
 bool menuTaskOpenUpdateOffer(void) {
   if (sLive == NULL || sChoice.active || updateCheckVersion() == NULL) {
