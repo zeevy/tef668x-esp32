@@ -42,6 +42,10 @@ static bool sPresent = false;
 static LogbookRing sRing;
 /* Counts every change, so a screen that keeps rows knows to read them again. */
 static uint32_t sGeneration = 0;
+/* Band, frequency and PI of every stored entry, so an append finds the same
+ * station without reading the file. Filled at start up and after a delete,
+ * which moves the entries to other slots. */
+static LogbookIndex sIndex;
 
 static uint32_t recordAt(uint16_t slot) {
   return (uint32_t)LOGBOOK_HEADER_SIZE + (uint32_t)slot * LOGBOOK_RECORD_SIZE;
@@ -205,6 +209,19 @@ static void keepMark(const uint8_t *mark, size_t len) {
   }
 }
 
+static void noteInIndex(uint16_t slot, const LogbookEntry *e, void *ctx) {
+  (void)ctx;
+  logbookIndexPut(&sIndex, slot, e);
+}
+
+/* Fill sIndex from the file, one pass. A record that cannot be read stays
+ * out of it, so the log is still written to and that record never stops an
+ * entry. */
+static void loadIndex(void) {
+  logbookIndexClear(&sIndex);
+  logbookFsEach(noteInIndex, NULL);
+}
+
 /*
  * The partition's own name in partitions.csv, not LittleFS.begin's default
  * of "spiffs". That default matches a partition literally named `spiffs`,
@@ -257,6 +274,7 @@ bool logbookFsBegin(void) {
     ok = createEmpty();
   }
   sPresent = ok;
+  loadIndex();
   return ok;
 }
 
@@ -268,26 +286,6 @@ uint32_t logbookFsGeneration(void) {
   return sGeneration;
 }
 
-/* Whether the open log holds the same station as `e`. A record that cannot
- * be read is passed over: a log that cannot be read in full is still
- * written to, rather than refusing every entry after it. */
-static bool holdsSameStation(File &f, const LogbookEntry *e) {
-  uint8_t record[LOGBOOK_RECORD_SIZE];
-  LogbookEntry stored;
-  for (uint16_t i = 0; i < sRing.count; i++) {
-    const uint16_t slot = logbookRingSlotAt(&sRing, i);
-    if (!f.seek(recordAt(slot)) ||
-        f.read(record, sizeof(record)) != (int)sizeof(record) ||
-        !logbookDecode(record, sizeof(record), &stored)) {
-      continue;
-    }
-    if (logbookSameStation(&stored, e)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 LogbookWrite logbookFsAppend(const LogbookEntry *e) {
   if (!sPresent || e == NULL) {
     return LOGBOOK_NOT_WRITTEN;
@@ -297,6 +295,9 @@ LogbookWrite logbookFsAppend(const LogbookEntry *e) {
     return LOGBOOK_NOT_WRITTEN;
   }
 
+  if (logbookIndexHolds(&sIndex, &sRing, e)) {
+    return LOGBOOK_ALREADY_THERE;
+  }
   /*
    * Worked out against a copy first, and only written into `sRing` once
    * the record and the header it depends on are both actually on flash.
@@ -311,10 +312,6 @@ LogbookWrite logbookFsAppend(const LogbookEntry *e) {
   if (!f) {
     return LOGBOOK_NOT_WRITTEN;
   }
-  if (holdsSameStation(f, e)) {
-    f.close();
-    return LOGBOOK_ALREADY_THERE;
-  }
   f.seek(recordAt(slot));
   bool ok = f.write(record, sizeof(record)) == sizeof(record);
   /*
@@ -328,6 +325,7 @@ LogbookWrite logbookFsAppend(const LogbookEntry *e) {
   f.close();
   if (ok) {
     sRing = trial;
+    logbookIndexPut(&sIndex, slot, e);
     sGeneration++;
   }
   return ok ? LOGBOOK_WRITTEN : LOGBOOK_NOT_WRITTEN;
@@ -502,6 +500,7 @@ LogbookChange logbookFsDelete(uint16_t slot, uint32_t timeValue,
     return LOGBOOK_NOT_SAVED;
   }
   sRing = after;
+  loadIndex();
   sGeneration++;
   return LOGBOOK_CHANGED;
 }

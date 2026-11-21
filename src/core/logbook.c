@@ -20,12 +20,68 @@ void logbookRingInit(LogbookRing *ring) {
   ring->count = 0;
 }
 
-bool logbookSameStation(const LogbookEntry *a, const LogbookEntry *b) {
-  if (a == NULL || b == NULL || a->band != b->band ||
-      a->freqKHz != b->freqKHz) {
+/* The bits of LogbookKey.flags. */
+#define LOGBOOK_KEY_USED 0x01
+#define LOGBOOK_KEY_HAS_PI 0x02
+
+/* The fields the same station rule looks at, packed small. */
+static LogbookKey keyOf(const LogbookEntry *e) {
+  LogbookKey k;
+  k.freqKHz = e->freqKHz;
+  k.pi = e->hasPi ? e->pi : 0;
+  k.band = e->band;
+  k.flags = (uint8_t)(LOGBOOK_KEY_USED | (e->hasPi ? LOGBOOK_KEY_HAS_PI : 0));
+  return k;
+}
+
+static bool sameKey(const LogbookKey *a, const LogbookKey *b) {
+  if (a->band != b->band || a->freqKHz != b->freqKHz) {
     return false;
   }
-  return !(a->hasPi && b->hasPi) || a->pi == b->pi;
+  const bool bothHavePi = (a->flags & b->flags & LOGBOOK_KEY_HAS_PI) != 0;
+  return !bothHavePi || a->pi == b->pi;
+}
+
+bool logbookSameStation(const LogbookEntry *a, const LogbookEntry *b) {
+  if (a == NULL || b == NULL) {
+    return false;
+  }
+  const LogbookKey ka = keyOf(a);
+  const LogbookKey kb = keyOf(b);
+  return sameKey(&ka, &kb);
+}
+
+void logbookIndexClear(LogbookIndex *index) {
+  if (index != NULL) {
+    memset(index, 0, sizeof(*index));
+  }
+}
+
+void logbookIndexPut(LogbookIndex *index, uint16_t slot,
+                     const LogbookEntry *e) {
+  if (index == NULL || slot >= LOGBOOK_MAX_ENTRIES) {
+    return;
+  }
+  if (e == NULL) {
+    memset(&index->key[slot], 0, sizeof(index->key[slot]));
+  } else {
+    index->key[slot] = keyOf(e);
+  }
+}
+
+bool logbookIndexHolds(const LogbookIndex *index, const LogbookRing *ring,
+                       const LogbookEntry *e) {
+  if (index == NULL || ring == NULL || e == NULL) {
+    return false;
+  }
+  const LogbookKey wanted = keyOf(e);
+  for (uint16_t i = 0; i < ring->count; i++) {
+    const LogbookKey *k = &index->key[logbookRingSlotAt(ring, i)];
+    if ((k->flags & LOGBOOK_KEY_USED) != 0 && sameKey(k, &wanted)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 uint16_t logbookRingAppend(LogbookRing *ring) {

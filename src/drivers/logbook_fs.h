@@ -48,8 +48,8 @@ bool logbookFsPresent(void);
  *
  * Nothing is written when the log already holds the same station,
  * logbookSameStation, anywhere in it: the log keeps one entry a station, and
- * every writer comes through here. That reads every stored entry, one file
- * open for all of them, on the loop task.
+ * every writer comes through here. The stored stations are looked up in a
+ * list kept in RAM, so this reads nothing from the file.
  *
  * `e` is copied through logbookEncode before anything touches the file, so
  * a caller that filled in an entry does not have to know the store is a
