@@ -512,6 +512,13 @@ static void sceneFmSetup(ScreenState *s) {
       fmt(STR_RADIO_FMT_SETUP, "tef668x-setup-A1B2", "192.168.4.1", 8080u);
 }
 
+/* A finger resting on the frequency panel, two thirds of the way to the
+ * hold that logs the station. */
+static void sceneFmHold(ScreenState *s) {
+  sceneFm(s);
+  s->holdPermille = 660;
+}
+
 /* The longest name the stitching can produce. */
 static void sceneFmLongName(ScreenState *s) {
   sceneFm(s);
@@ -699,6 +706,12 @@ static void sceneMwFmFirst(ScreenState *s) {
 static void sceneFmNoBand(ScreenState *s) {
   sceneFm(s);
   s->logConfirm = fmt(STR_RADIO_FMT_NO_BAND, "123");
+}
+
+/* The menu shut by itself on a value that was changed and not kept. */
+static void sceneFmNotSaved(ScreenState *s) {
+  sceneFm(s);
+  s->logConfirm = fmt(STR_RADIO_FMT_NOT_SAVED, txt(STR_MENU_BRIGHTNESS));
 }
 
 /* Medium wave on 10 kHz spacing, where the band ends at 1710. */
@@ -1635,7 +1648,9 @@ int main(int argc, char **argv) {
       {"fm-logged", sceneFmLogged},
       {"fm-checking-updates", sceneFmCheckingUpdates},
       {"fm-setup", sceneFmSetup},
+      {"fm-hold", sceneFmHold},
       {"fm-no-band", sceneFmNoBand},
+      {"fm-not-saved", sceneFmNotSaved},
       {"mw-fm-first", sceneMwFmFirst},
       {"fm-longname", sceneFmLongName},
       {"fm-bare", sceneFmBare},
@@ -1738,7 +1753,8 @@ int main(int argc, char **argv) {
 
   /* What is left when a firmware write fails, in screen_task.cpp's words.
    * The write itself is the veil, veil-start.bmp and veil.bmp below. */
-  screenMessage(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT));
+  screenMessage(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT),
+                txt(STR_UPDATE_WHY_DOWNLOAD));
   saveShot("%s/update-failed.bmp", dir);
 
   /*
@@ -1896,6 +1912,29 @@ int main(int argc, char **argv) {
     menu.total = 7;
     screenMenuShow(&menu);
     saveShot("%s/menu-note.bmp", dir);
+
+    /* A new radio's Station group: no preset and nothing logged. Neither
+     * list opens, and a press on one says why. */
+    for (int which = 0; which < 2; which++) {
+      memset(&menu, 0, sizeof(menu));
+      menu.title = txt(STR_MENU_STATIONS);
+      menu.note =
+          txt(which == 0 ? STR_MENU_NOTE_NO_PRESETS : STR_MENU_NOTE_NO_LOG);
+      static const StrId kStation[] = {
+          STR_MENU_MEMORY,  STR_MENU_SCAN_FM_FOR_STATIONS, STR_MENU_SCAN_MW,
+          STR_MENU_SCAN_SW, STR_MENU_SCAN_LW,              STR_MENU_STATION_LOG};
+      for (int i = 0; i < 6; i++) {
+        menu.rows[i].name = txt(kStation[i]);
+      }
+      menu.rows[0].value = "0";
+      menu.rows[0].opens = true;
+      menu.rows[5].value = "0";
+      menu.rows[5].opens = true;
+      menu.rows[which == 0 ? 0 : 5].selected = true;
+      screenMenuShow(&menu);
+      saveShot(which == 0 ? "%s/menu-no-presets.bmp" : "%s/menu-no-log.bmp",
+               dir);
+    }
 
     /* Save Current Station on a station that is a preset already: its note,
      * and the menu still open, on Go To's six rows with the keypad. */
@@ -2149,6 +2188,24 @@ int main(int argc, char **argv) {
     }
     screenMenuShow(&menu);
     saveShot("%s/menu-about.bmp", dir);
+
+    /* About > Keys, its first six rows: a key and what it does. */
+    memset(&menu, 0, sizeof(menu));
+    menu.title = txt(STR_MENU_KEY_GUIDE);
+    static const StrId kKeyRows[][2] = {
+        {STR_KEYS_KNOB_PRESS, STR_KEYS_KNOB_PRESS_DOES},
+        {STR_KEYS_KNOB_HOLD, STR_KEYS_KNOB_HOLD_DOES},
+        {STR_KEYS_BAND, STR_KEYS_BAND_DOES},
+        {STR_KEYS_BAND_HOLD, STR_KEYS_BAND_HOLD_DOES},
+        {STR_KEYS_BW, STR_KEYS_BW_DOES},
+        {STR_KEYS_BW_HOLD, STR_KEYS_BW_HOLD_DOES}};
+    for (int i = 0; i < 6; i++) {
+      menu.rows[i].name = txt(kKeyRows[i][0]);
+      menu.rows[i].value = txt(kKeyRows[i][1]);
+      menu.rows[i].selected = i == 0;
+    }
+    screenMenuShow(&menu);
+    saveShot("%s/menu-keys.bmp", dir);
 
     /* The Diagnostics group's readings, with the widest value each row can
      * show: the battery read at start up, a reset reason of 13 letters, and
@@ -2753,6 +2810,7 @@ int main(int argc, char **argv) {
     pad.context = "FM \xC2\xB7 MHz";
     pad.clock = "19:32";
     pad.typed = "104";
+    pad.result = "= FM 104.00 MHz";
     screenKeypadShow(&pad);
     saveShot("%s/keypad.bmp", dir);
     TouchZone zones[TOUCH_ZONES_MAX];

@@ -2,10 +2,11 @@
  * The four tiles along the bottom: what the radio is set to.
  *
  * The same four on every band, in `rule` with a radius of 6, UI_GAP apart
- * and each as wide as a quarter of the row. The tuning mode is a value on
- * its own. The squelch, the filter width and the volume each have a symbol
- * in `dead`, waves, an up and down arrow and a speaker, then the value in
- * `radio` after it, centred together in the tile by the symbol's ink. When a person has muted
+ * and each as wide as a quarter of the row. Each has a symbol in `dead`,
+ * two arrows for the tuning mode, which is what a turn of the knob does,
+ * waves for the squelch, an up and down arrow for the filter width and a
+ * speaker for the volume, then the value in `radio` after it, centred
+ * together in the tile by the symbol's ink. When a person has muted
  * the radio, the speaker gets a cross, the value reads MUTE and both turn
  * `fault`; while the squelch holds the sound, the volume turns `dead`. The
  * tile stays the same grey, so nothing but the symbol and the words change.
@@ -71,7 +72,7 @@ static void placeTile(int i, const char *symbol, const char *value,
 
 static void show(const ScreenState *s) {
   const Theme *t = themeCurrent();
-  placeTile(0, NULL, s->tuneMode, t->dead, t->radio);
+  placeTile(0, ICON_TUNE_MODE, s->tuneMode, t->dead, t->radio);
   placeTile(1, ICON_SQUELCH, s->squelchMode, t->dead, t->radio);
   placeTile(2, ICON_WIDTH, s->filter, t->dead, t->radio);
   const bool muted = s->audio == SCREEN_AUDIO_MUTED;

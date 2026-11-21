@@ -425,3 +425,22 @@ bool touchFilterFeed(TouchFilter *f, const TouchReading *r, TouchPoint *at,
   }
   return true;
 }
+
+uint16_t touchGestureHoldPermille(const TouchGesture *g,
+                                  const TouchGestureConfig *cfg,
+                                  uint32_t nowMs) {
+  if (g == NULL || cfg == NULL || !g->on || !g->touching || g->done ||
+      !g->settled || g->moved || g->offZone || g->repeats ||
+      cfg->holdMs <= TOUCH_HOLD_SHOWN_MS) {
+    return 0;
+  }
+  const uint32_t heldMs = nowMs - g->startMs;
+  if (heldMs <= TOUCH_HOLD_SHOWN_MS) {
+    return 0;
+  }
+  if (heldMs >= cfg->holdMs) {
+    return 1000;
+  }
+  return (uint16_t)(((heldMs - TOUCH_HOLD_SHOWN_MS) * 1000U) /
+                    (cfg->holdMs - TOUCH_HOLD_SHOWN_MS));
+}

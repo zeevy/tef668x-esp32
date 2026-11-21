@@ -486,8 +486,9 @@ int16_t screenTaskSignalShown(void) {
  * poll's 16 ms period the second one would be dropped and the panel would sit
  * on the wrong screen until the hold ran out.
  */
-static void updateScreenShow(const char *line1, const char *line2) {
-  screenMessage(line1, line2);
+static void updateScreenShow(const char *line1, const char *line2,
+                             const char *line3 = NULL) {
+  screenMessage(line1, line2, line3);
   lvglPortRefreshNow();
 }
 
@@ -619,7 +620,7 @@ bool screenTaskUpdateHolding(void) {
   return updateScreenHolds(&sUpdate, millis());
 }
 
-void screenTaskUpdateEnd(bool ok) {
+void screenTaskUpdateEnd(bool ok, const char *why) {
   if (!sReady) {
     return;
   }
@@ -632,7 +633,8 @@ void screenTaskUpdateEnd(bool ok) {
      * `ESP.restart()` fires said nothing the veil had not already. */
     return;
   }
-  updateScreenShow(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT));
+  updateScreenShow(txt(STR_RADIO_UPDATE_FAILED), txt(STR_RADIO_OLD_IMAGE_KEPT),
+                   why);
 }
 
 void screenTaskBootStep(BootStep step, bool ok, const char *value) {
@@ -1162,8 +1164,10 @@ static void keypadDraw(void) {
   /* Kept from the last read, so a lock the radio task holds a moment longer
    * does not blank the band for a frame. */
   static char context[48];
+  static BandId band = BAND_COUNT;
   RadioSettings now;
   if (radioGetSettings(&now)) {
+    band = now.band;
     snprintf(context, sizeof(context), txt(STR_KEYPAD_FMT_CONTEXT),
              bandName(now.band), bandFrequencyUnit(now.band));
   }
@@ -1177,6 +1181,32 @@ static void keypadDraw(void) {
   /* The digits alone: the keys under the panel already say where the next
    * one comes from, so the radio screen's dash for it is left off here. */
   view.typed = input.typed;
+  /* What OK will do with them, so 104 is seen to mean 104.00 MHz before it
+   * is tuned. */
+  char result[48] = "";
+  view.result = NULL;
+  BandPlanConfig plan;
+  const uint32_t typed = (uint32_t)strtoul(input.typed, NULL, 10);
+  if (input.typed[0] != '\0' && radioTaskPlan(&plan)) {
+    BandTypedReading tunes;
+    uint8_t choices = 0;
+    char freq[24];
+    switch (bandTypedOutcome(&plan, typed, band, &tunes, &choices)) {
+      case BAND_TYPED_TUNES:
+        bandFormatWithUnit(tunes.band, tunes.freqKHz, freq, sizeof(freq));
+        snprintf(result, sizeof(result), txt(STR_KEYPAD_FMT_TUNES),
+                 bandName(tunes.band), freq);
+        break;
+      case BAND_TYPED_CHOICE:
+        snprintf(result, sizeof(result), txt(STR_KEYPAD_FMT_CHOICE),
+                 (unsigned)choices);
+        break;
+      default:
+        snprintf(result, sizeof(result), "%s", txt(STR_KEYPAD_NO_BAND));
+        break;
+    }
+    view.result = result;
+  }
   screenKeypadShow(&view);
 }
 
@@ -2360,6 +2390,7 @@ void screenTaskPoll(void) {
   in.fault =
       snap.lastError != TEF668X_OK ? tef668xErrorText(snap.lastError) : NULL;
   in.logConfirm = screenTaskLogConfirmText();
+  in.holdPermille = inputHoldPermille();
   /* A station scan walks the dial for up to about four minutes, so the line
    * says why the dial jumps. The update check does not start while a scan
    * runs, and a scan does not start while the check runs, so only one of

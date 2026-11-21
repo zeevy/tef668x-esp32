@@ -137,6 +137,7 @@ LV_FONT_DECLARE(roboto_icons)
 #define ICON_VOLUME "\xEE\x81\x8D"       /* U+E04D volume_down */
 #define ICON_VOLUME_OFF "\xEE\x9C\x90"   /* U+E710 no_sound */
 #define ICON_SLEEP "\xEE\x94\xBA"        /* U+E53A hotel, filled */
+#define ICON_TUNE_MODE "\xEE\xA3\x94"    /* U+E8D4 swap_horiz */
 
 #ifdef __cplusplus
 }

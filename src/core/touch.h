@@ -358,6 +358,25 @@ TouchGestureEvent touchGestureFeed(TouchGesture *g,
                                    const TouchGestureConfig *cfg,
                                    const TouchSample *s, uint32_t nowMs);
 
+/*
+ * A resting finger says nothing for this long before its way to a hold is
+ * shown, so that a quick tap shows nothing. A slow tap shows the start of
+ * it, which is true: it was a fifth of the way to a hold.
+ */
+#define TOUCH_HOLD_SHOWN_MS 300
+
+/*
+ * How far a touch is on its way to a hold, in thousandths: 0 until
+ * TOUCH_HOLD_SHOWN_MS after its first contact, then rising evenly to 1000
+ * at the hold time. 0 as well for no touch, one lifted, moved, off its
+ * zone, in a zone that repeats, which has no hold, or one whose hold has
+ * been reported already. For a screen to draw, so a person sees that
+ * resting the finger is doing something.
+ */
+uint16_t touchGestureHoldPermille(const TouchGesture *g,
+                                  const TouchGestureConfig *cfg,
+                                  uint32_t nowMs);
+
 #ifdef __cplusplus
 }
 #endif

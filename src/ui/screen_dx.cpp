@@ -76,6 +76,14 @@
 #define HIST_BAR_W 3
 #define HIST_PITCH 4
 #define HIST_FIRST 1
+/* What the marks beside the PI mean, on the graph while its left is still
+ * empty: three lines 17 rows apart, a mark and its meaning, and 8 clear
+ * columns kept between the longest and the first bar. */
+#define MARKS_X 8
+#define MARKS_BASE 19
+#define MARKS_PITCH 17
+#define MARKS_TEXT_GAP 4
+#define MARKS_CLEAR 8
 
 /* The blocks: four columns of 13 px, each four segments of 9 by 10 on a
  * 12 px pitch from the top, the letter under them, level with the foot of
@@ -167,6 +175,56 @@ static void onHistoryDraw(lv_event_t *e) {
     const uint8_t h = dxHistoryBarHeight(sHistTenths[i], inner);
     uiFillRect(layer, &area, (int16_t)(HIST_FIRST + i * HIST_PITCH),
                (int16_t)(bottom - h), HIST_BAR_W, h, bar);
+  }
+
+  /* The bars come in from the right, so for the first part of a minute on
+   * a channel the left of the graph is bare. It explains the marks until a
+   * bar reaches it. */
+  int16_t firstBar = HIST_W;
+  for (uint8_t i = 0; i < SCREEN_DX_HISTORY; i++) {
+    if (sHistHave[i]) {
+      firstBar = (int16_t)(HIST_FIRST + i * HIST_PITCH);
+      break;
+    }
+  }
+  static const struct {
+    const char *mark;
+    StrId means;
+  } kMarks[] = {{ICON_CHECK_CIRCLE, STR_DX_MARK_CONFIRMED},
+                {ICON_SCHEDULE, STR_DX_MARK_SEEN},
+                {ICON_HELP, STR_DX_MARK_PARTIAL}};
+  const uint8_t count = sizeof(kMarks) / sizeof(kMarks[0]);
+  const int16_t textX = MARKS_X + UI_ICON_SIZE + MARKS_TEXT_GAP;
+  int16_t right = 0;
+  for (uint8_t i = 0; i < count; i++) {
+    lv_point_t size;
+    lv_text_get_size(&size, txt(kMarks[i].means), &roboto_label, 0, 0,
+                     LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    if (textX + size.x > right) {
+      right = (int16_t)(textX + size.x);
+    }
+  }
+  if (right + MARKS_CLEAR > firstBar) {
+    return;
+  }
+  lv_draw_label_dsc_t line;
+  lv_draw_label_dsc_init(&line);
+  line.color = uiColour(t->dead);
+  for (uint8_t i = 0; i < count; i++) {
+    const int16_t base = (int16_t)(MARKS_BASE + i * MARKS_PITCH);
+    line.font = &roboto_icons;
+    line.text = kMarks[i].mark;
+    const int32_t iconTop = area.y1 + uiIconTop(base);
+    const lv_area_t icon = {area.x1 + MARKS_X, iconTop,
+                            area.x1 + MARKS_X + UI_ICON_SIZE - 1,
+                            iconTop + UI_ICON_SIZE - 1};
+    lv_draw_label(layer, &line, &icon);
+    line.font = &roboto_label;
+    line.text = txt(kMarks[i].means);
+    const int32_t top = area.y1 + uiRowTop(&roboto_label, base);
+    const lv_area_t words = {area.x1 + textX, top, area.x1 + right - 1,
+                             top + lv_font_get_line_height(&roboto_label) - 1};
+    lv_draw_label(layer, &line, &words);
   }
 }
 

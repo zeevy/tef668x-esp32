@@ -266,12 +266,17 @@ static void takeCheck(void) {
 
 /* Write the image as it arrives, hashing it on the way, and keep it only if
  * the size and the sha256 both match the manifest. */
-static bool download(HTTPClient &http, uint8_t *buf) {
+static FirmwareEnd download(HTTPClient &http, uint8_t *buf) {
   NetworkClient *stream = http.getStreamPtr();
   const uint32_t size = sManifest.size;
-  if (stream == NULL || http.getSize() != (int)size ||
-      !Update.begin(size, U_FLASH)) {
-    return false;
+  if (stream == NULL) {
+    return FIRMWARE_END_DOWNLOAD;
+  }
+  if (http.getSize() != (int)size) {
+    return FIRMWARE_END_FILE;
+  }
+  if (!Update.begin(size, U_FLASH)) {
+    return FIRMWARE_END_WRITE;
   }
   mbedtls_sha256_context sha;
   mbedtls_sha256_init(&sha);
@@ -279,6 +284,7 @@ static bool download(HTTPClient &http, uint8_t *buf) {
   uint32_t got = 0;
   uint32_t lastByte = millis();
   bool broken = false;
+  bool flashRefused = false;
   while (got < size && !broken) {
     feedLoopWDT();
     const int avail = stream->available();
@@ -301,6 +307,7 @@ static bool download(HTTPClient &http, uint8_t *buf) {
       continue;
     }
     if (Update.write(buf, n) != n) {
+      flashRefused = true;
       broken = true;
       break;
     }
@@ -322,9 +329,13 @@ static bool download(HTTPClient &http, uint8_t *buf) {
                     (unsigned long)got, (unsigned long)size,
                     strcmp(hex, sManifest.sha256) == 0 ? "matches" : "differs");
     Update.abort();
-    return false;
+    /* A write that broke is the flash's; too few bytes is the download's;
+     * all of them with another sha256 is the file's. */
+    return flashRefused  ? FIRMWARE_END_WRITE
+           : got != size ? FIRMWARE_END_DOWNLOAD
+                         : FIRMWARE_END_FILE;
   }
-  return Update.end(true);
+  return Update.end(true) ? FIRMWARE_END_OK : FIRMWARE_END_FILE;
 }
 
 static void install(void) {
@@ -339,14 +350,16 @@ static void install(void) {
   }
   firmwareWriteBegin();
   radioSetNetServing(true);
-  bool ok = false;
+  FirmwareEnd how = FIRMWARE_END_DOWNLOAD;
   {
     NetworkClientSecure client;
     useCaBundle(client);
     client.setHandshakeTimeout(UPDATE_HANDSHAKE_S);
     HTTPClient http;
     const int code = openFollowing(http, client, sManifest.url);
-    ok = code == 200 && download(http, buf);
+    if (code == 200) {
+      how = download(http, buf);
+    }
     if (code != 200) {
       DebugLog.printf("[update] download failed, status %d\n", code);
     }
@@ -355,8 +368,8 @@ static void install(void) {
   }
   radioSetNetServing(false);
   free(buf);
-  firmwareWriteEnd(ok);
-  if (!ok) {
+  firmwareWriteEnd(how);
+  if (how != FIRMWARE_END_OK) {
     /* The old image keeps running, and the update stays offered in System
      * so it can be tried again. */
     return;

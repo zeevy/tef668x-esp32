@@ -149,6 +149,13 @@ uint32_t inputActivity(void);
  */
 void inputStatusGet(InputStatus *out);
 
+/*
+ * How far a finger resting on the radio screen's frequency panel is on its
+ * way to the hold that logs the station, in thousandths, or 0. Loop task
+ * only.
+ */
+uint16_t inputHoldPermille(void);
+
 void inputSetPotConfig(const PotConfig *cfg);
 
 /*

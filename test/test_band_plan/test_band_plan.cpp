@@ -806,6 +806,30 @@ static void a_step_the_band_does_not_offer_changes_nothing(void) {
   TEST_ASSERT_EQUAL_UINT32(738, bandNearestChannel(BAND_COUNT, &c, 738, 9));
 }
 
+/* What ENTER does with a typed number, which the keypad says before it is
+ * pressed. */
+static void entering_a_typed_number_tunes_asks_or_finds_no_band(void) {
+  BandTypedReading r;
+  uint8_t n = 0;
+  /* The band in use holds it: it tunes there, whatever else could. */
+  TEST_ASSERT_EQUAL_INT(BAND_TYPED_TUNES,
+                        bandTypedOutcome(&cfg, 1000, BAND_FM, &r, &n));
+  TEST_ASSERT_EQUAL_INT(BAND_FM, r.band);
+  TEST_ASSERT_EQUAL_UINT32(100000, r.freqKHz);
+  TEST_ASSERT_EQUAL_UINT8(3, n);
+  /* The band in use does not, and two others do: a choice. */
+  TEST_ASSERT_EQUAL_INT(BAND_TYPED_CHOICE,
+                        bandTypedOutcome(&cfg, 123, BAND_FM, &r, &n));
+  TEST_ASSERT_EQUAL_UINT8(2, n);
+  /* No band holds it. */
+  TEST_ASSERT_EQUAL_INT(BAND_TYPED_NO_BAND,
+                        bandTypedOutcome(&cfg, 98255, BAND_FM, &r, &n));
+  TEST_ASSERT_EQUAL_UINT8(0, n);
+  /* The outputs may be left out. */
+  TEST_ASSERT_EQUAL_INT(BAND_TYPED_TUNES,
+                        bandTypedOutcome(&cfg, 1000, BAND_FM, NULL, NULL));
+}
+
 /* Every band a typed number lands in, lowest first, for a person to choose
  * from: 123 is medium wave 1230 and shortwave 12300, 1000 is medium wave,
  * shortwave and FM. */
@@ -910,6 +934,7 @@ int main(int, char **) {
   RUN_TEST(it_never_leaves_the_band);
   RUN_TEST(the_answer_is_always_on_the_grid);
   RUN_TEST(a_step_the_band_does_not_offer_changes_nothing);
+  RUN_TEST(entering_a_typed_number_tunes_asks_or_finds_no_band);
 
   return UNITY_END();
 }

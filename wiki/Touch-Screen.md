@@ -15,10 +15,10 @@ While Touch is On, a `<` before a screen's title marks that a tap on the title g
 | The rest of the top line: the status marks and the clock | Tap | Nothing |
 | The station name, the upper part of the frequency panel | Tap | Opens the RDS screen, as BAND held. On FM only; on AM it does nothing |
 | The frequency, the lower part of the frequency panel, from the top of its digits | Tap | Opens the [frequency keypad](#the-frequency-keypad) |
-| Either part of the frequency panel | Hold | Logs the station, as the tuning knob held |
+| Either part of the frequency panel | Hold | Logs the station, as the tuning knob held. After 0.3 s a bar starts to fill along the foot of the panel, and the hold is done when it is full |
 | The scale | Drag | Tunes as the scale moves with your finger: one mark for every 8 pixels, 100 kHz on FM and 10 kHz on AM, onto the nearest channel of the band, and never onto another band where two bands overlap. Drag to the left to go up, as when you slide a dial strip under a fixed pointer. Past the end of the band it goes round to the other end |
 | The scale | Tap | Opens the [band scope](Band-Scope.md) |
-| The tuning mode tile | Tap | The next tuning mode, as a tap of MODE |
+| The tuning mode tile, with the two arrows | Tap | The next tuning mode, as a tap of MODE |
 | The squelch tile, with the waves | Tap | Opens **Squelch Mode** straight away. Save a choice with the knob, or go back, and you are on the radio screen again |
 | The filter width tile, with the up and down arrow | Tap | Opens the bandwidth page, as BW held |
 | The volume tile, with the speaker | Tap | Mutes the sound, and a second tap unmutes it. The tile reads MUTE while muted |
@@ -31,7 +31,7 @@ The line of radio text under the frequency panel is too thin to be a target, and
 
 ![The frequency keypad, and the parts a touch acts on](https://raw.githubusercontent.com/zeevy/tef668x-esp32/master/assets/screens/touch-keypad.png)
 
-A tap on the frequency opens the keypad, to type a frequency by touch. The panel at the top shows the digits typed so far, and is empty before the first. The top line shows the band and its unit, and the clock.
+A tap on the frequency opens the keypad, to type a frequency by touch. The panel at the top shows the digits typed so far, and is empty before the first. A small line under the digits says what **OK** will do with them: `= FM 104.00 MHz`, `= a choice of 2 bands` when the number fits more than one other band, or `In no band`. The top line shows the band and its unit, and the clock.
 
 | Where | Touch | Does |
 |---|---|---|

@@ -1,5 +1,7 @@
 #include "firmware_write.h"
 
+#include "core/strings.h"
+
 #include "memory_store.h"
 #include "radio_task.h"
 #include "screen_task.h"
@@ -43,8 +45,13 @@ void firmwareWriteProgress(int percent) {
   screenTaskUpdateProgress(percent);
 }
 
-void firmwareWriteEnd(bool ok) {
-  screenTaskUpdateEnd(ok);
+void firmwareWriteEnd(FirmwareEnd how) {
+  const bool ok = how == FIRMWARE_END_OK;
+  screenTaskUpdateEnd(
+      ok, how == FIRMWARE_END_DOWNLOAD ? txt(STR_UPDATE_WHY_DOWNLOAD)
+          : how == FIRMWARE_END_FILE   ? txt(STR_UPDATE_WHY_FILE)
+          : how == FIRMWARE_END_WRITE  ? txt(STR_UPDATE_WHY_WRITE)
+                                       : NULL);
   if (ok) {
     return;
   }

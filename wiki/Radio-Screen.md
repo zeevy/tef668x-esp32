@@ -12,7 +12,7 @@ From top to bottom:
 2. **Frequency panel**, the large filled box: the station name, the frequency, the preset number, the modulation meter and the signal level.
 3. **Text line:** the radio text, or the date.
 4. **Tuning scale.**
-5. **Four tiles:** tuning mode, squelch, filter width and volume.
+5. **Four tiles:** tuning mode, squelch, filter width and volume. Each has a symbol before its value: two arrows, waves, an up and down arrow and a speaker.
 
 ## 1. Header
 

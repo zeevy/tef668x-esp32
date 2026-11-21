@@ -8,6 +8,12 @@
 
 #define RGB(v) {(uint8_t)((v) >> 16), (uint8_t)((v) >> 8), (uint8_t)(v)}
 
+/*
+ * On the four with a light ground, Daylight, Paper, LCD and Clear Day,
+ * `dead` is 8:1 or more on the ground and 6.8:1 or more on a tile. The
+ * 4.5:1 that is enough indoors left the 13 px labels hard to read in the
+ * sun, which is where these four are used.
+ */
 static const Palette kPalettes[PALETTE_COUNT] = {
     /* Indoors and the evening. Amber on near black. */
     {STR_THEME_NIGHTWATCH,
@@ -19,7 +25,7 @@ static const Palette kPalettes[PALETTE_COUNT] = {
      * reflections off the glass, where light type on black washes out. */
     {STR_THEME_DAYLIGHT,
      {RGB(0xF4F1E8), RGB(0xE9E4D6), RGB(0xE4DECF), RGB(0x9C4C00), RGB(0x005A96),
-      RGB(0x101418), RGB(0x0A7050), RGB(0xB8231A), RGB(0x565F6C)},
+      RGB(0x101418), RGB(0x0A7050), RGB(0xB8231A), RGB(0x3F4752)},
      PALETTE_GOOD,
      128},
     /* A dark sky. Only red and orange, light above about 620 nm, which
@@ -57,7 +63,7 @@ static const Palette kPalettes[PALETTE_COUNT] = {
      * shows dead. */
     {STR_THEME_PAPER,
      {RGB(0xFFFFFF), RGB(0xF4F4F4), RGB(0xE0E0E0), RGB(0x000000), RGB(0x404040),
-      RGB(0x000000), RGB(0x000000), RGB(0xA8002A), RGB(0x5C5C5C)},
+      RGB(0x000000), RGB(0x000000), RGB(0xA8002A), RGB(0x444444)},
      PALETTE_DEAD,
      128},
     /* Shade and bright rooms. A backlit segment LCD: dark ink on grey green,
@@ -65,7 +71,7 @@ static const Palette kPalettes[PALETTE_COUNT] = {
      * from the dark ink where a dark red would not be. */
     {STR_THEME_LCD,
      {RGB(0xCED8BC), RGB(0xC2CCAE), RGB(0xB8C4A2), RGB(0x2C3A24), RGB(0x1E3250),
-      RGB(0x101810), RGB(0x1E4A10), RGB(0x7A1060), RGB(0x4A4A4A)},
+      RGB(0x101810), RGB(0x1E4A10), RGB(0x7A1060), RGB(0x343434)},
      PALETTE_GOOD,
      128},
     /* The bedside. No blue but in the fault colour, and a panel giving about
@@ -81,7 +87,7 @@ static const Palette kPalettes[PALETTE_COUNT] = {
      * reads on a white ground. */
     {STR_THEME_CLEAR_DAY,
      {RGB(0xFFFFFF), RGB(0xF0F2F4), RGB(0xE4E8EC), RGB(0x0062A0), RGB(0x8A3A6C),
-      RGB(0x101418), RGB(0x006E50), RGB(0xA33200), RGB(0x5A6470)},
+      RGB(0x101418), RGB(0x006E50), RGB(0xA33200), RGB(0x414A55)},
      PALETTE_GOOD,
      128},
     /* Low vision and older eyes. Yellow on black, every pair 7:1 or more,

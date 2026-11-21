@@ -279,9 +279,9 @@ void screenTaskUpdateProgress(int percent);
  * The write finished. `ok` true means a reboot is coming and the screen stays
  * as it is until it happens; false puts up a failure for a few seconds and
  * then gives the panel back, because the radio carries on running the image
- * it already had.
+ * it already had. `why` is one more line under the failure, or NULL.
  */
-void screenTaskUpdateEnd(bool ok);
+void screenTaskUpdateEnd(bool ok, const char *why);
 
 /*
  * Whether the battery is shown, and as what. One of BatteryShow.

@@ -147,6 +147,8 @@ ICON_CODEPOINTS = (
     ("height", 0xEA16, "the filter width tile on the radio screen"),
     ("volume_down", 0xE04D, "the volume tile on the radio screen"),
     ("no_sound", 0xE710, "the volume tile while the radio is muted"),
+    ("swap_horiz", 0xE8D4, "the tuning mode tile on the radio screen: what the"
+                           " knob does when it is turned"),
 )
 ICONS = ",".join("0x%04X" % c for _, c, _ in ICON_CODEPOINTS)
 

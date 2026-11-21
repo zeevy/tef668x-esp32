@@ -201,6 +201,20 @@ typedef enum {
   /* A row that opens a sub-group. Never read or written: what it shows is
    * how many rows the sub-group holds. */
   ROW_SUB,
+  /* The rows of About > Keys, in KEY_ROWS's order, one after the other. */
+  ROW_KEY_KNOB_PRESS,
+  ROW_KEY_KNOB_HOLD,
+  ROW_KEY_BAND,
+  ROW_KEY_BAND_HOLD,
+  ROW_KEY_BW,
+  ROW_KEY_BW_HOLD,
+  ROW_KEY_MODE,
+  ROW_KEY_MODE_HOLD,
+  ROW_KEY_DIGITS,
+  ROW_KEY_ENTER_HOLD,
+  ROW_KEY_DX,
+  ROW_KEY_MENU_MODE,
+  ROW_KEY_DX_LEAVE,
 } RowId;
 
 typedef struct MenuGroup MenuGroup;
@@ -723,12 +737,41 @@ static const MenuRow kDiagnosticRows[] = {
     INFO(STR_MENU_FLASH_SIZE, ROW_SYSTEM_FLASH),
 };
 
+/*
+ * What each key does, to read on the radio itself: the holds are printed on
+ * no key. One row a key, its name the key and its value what it does, in the
+ * order the keys sit. KEY_ROWS is the one list of them.
+ */
+#define KEY_ROWS(X) \
+  X(KNOB_PRESS)     \
+  X(KNOB_HOLD)      \
+  X(BAND)           \
+  X(BAND_HOLD)      \
+  X(BW)             \
+  X(BW_HOLD)        \
+  X(MODE)           \
+  X(MODE_HOLD)      \
+  X(DIGITS)         \
+  X(ENTER_HOLD)     \
+  X(DX)             \
+  X(MENU_MODE)      \
+  X(DX_LEAVE)
+
+#define X(key) INFO(STR_KEYS_##key, ROW_KEY_##key),
+static const MenuRow kKeysRows[] = {KEY_ROWS(X)};
+#undef X
+#define X(key) STR_KEYS_##key##_DOES,
+static const StrId kKeyDoes[] = {KEY_ROWS(X)};
+#undef X
+static const MenuGroup kKeysGroup = GROUP(STR_MENU_KEY_GUIDE, kKeysRows);
+
 static const MenuRow kAboutRows[] = {
     INFO(STR_MENU_VERSION, ROW_ABOUT_VERSION),
     INFO(STR_MENU_BUILD, ROW_ABOUT_BUILD),
     INFO(STR_MENU_DEVELOPER, ROW_ABOUT_DEVELOPER),
     INFO(STR_MENU_LICENSE, ROW_ABOUT_LICENSE),
     INFO(STR_MENU_GITHUB, ROW_ABOUT_GITHUB),
+    SUB(STR_MENU_KEY_GUIDE, kKeysGroup),
 };
 
 /*
@@ -1559,6 +1602,10 @@ static StrId resetReasonId(void) {
 }
 
 static void infoText(RowId id, char *out, size_t len) {
+  if (id >= ROW_KEY_KNOB_PRESS && id <= ROW_KEY_DX_LEAVE) {
+    putText(out, len, kKeyDoes[id - ROW_KEY_KNOB_PRESS]);
+    return;
+  }
   switch (id) {
     case ROW_SQUELCH_LEVEL: {
       /* The Manual threshold, which the knob sets while the squelch is in
@@ -3443,11 +3490,23 @@ void menuTaskClose(void) {
     keepWhereLeft();
   }
   sOneEdit = false;
+  /* Read before the close, which makes the two the same. A question left
+   * at No changed nothing. */
+  const bool changed = sMenu.level == MENU_EDIT && sMenu.value != sMenu.was &&
+                       row != NULL && !row->confirm;
   if (menuClose(&sMenu) == MENU_EDIT_UNDONE) {
     /* The value was never accepted, so the radio goes back to what it was. */
     undoEdit(row);
   }
   screenTaskMenuEnd();
+  if (changed) {
+    /* Said on the radio screen for a moment, or a value that was turned and
+     * left, and put back when the menu shut by itself, is lost with no
+     * word. */
+    char text[64];
+    snprintf(text, sizeof(text), txt(STR_RADIO_FMT_NOT_SAVED), txt(row->name));
+    screenTaskLogConfirm(text);
+  }
 }
 
 void menuTaskTurn(int32_t clicks) {
@@ -3588,6 +3647,23 @@ uint32_t menuTaskPlace(void) {
          (uint32_t)sMenu.inSub << 6 | (uint32_t)(sMenu.sub & 0x1F) << 7;
 }
 
+/* Put the cursor on the Restart row, wherever the tables hold it. False when
+ * no group has it as a row of its own. */
+static bool goToRestartRow(void) {
+  for (uint8_t g = 0; g < GROUP_COUNT; g++) {
+    for (uint8_t r = 0; r < sGroups[g].count; r++) {
+      if (sGroups[g].rows[r].id == ROW_RESTART) {
+        sMenu.level = MENU_ROWS;
+        sMenu.group = g;
+        sMenu.inSub = false;
+        sMenu.row = r;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 void menuTaskPress(void) {
   gestureBegins();
   if (sChoice.active && sChoice.update) {
@@ -3631,6 +3707,9 @@ void menuTaskPress(void) {
   }
   const MenuShape shape = shapeNow();
   const MenuRow *row = rowAt(sMenu.row);
+  /* Read before the press, which makes the two the same. */
+  const bool newLanguage = row != NULL && row->id == ROW_LANGUAGE &&
+                           sMenu.level == MENU_EDIT && sMenu.value != sMenu.was;
   const MenuResult what = menuPress(&sMenu, &shape);
   switch (what) {
     case MENU_EDIT_STARTED: {
@@ -3682,12 +3761,28 @@ void menuTaskPress(void) {
       logRowsForget();
       break;
     case MENU_NOTHING:
+      /* An empty list does not open. Said, or the press on Presets or
+       * Station Log of a new radio looks like a key that did nothing. */
+      if (row != NULL && row->opens != NULL && row->opens->count == 0 &&
+          sMenu.level == MENU_ROWS) {
+        sNote = txt(row->opens == &sLogGroup ? STR_MENU_NOTE_NO_LOG
+                                             : STR_MENU_NOTE_NO_PRESETS);
+        draw();
+      }
       return;
     default:
       break;
   }
   if (sOneEdit && what == MENU_EDIT_KEPT) {
     closeOneEdit();
+    return;
+  }
+  /* A new language shows only after a restart, so the radio offers one,
+   * with the question the Restart row asks. Not when the language was not
+   * stored, and not when a restart would be refused. */
+  if (newLanguage && what == MENU_EDIT_KEPT && sNote == NULL &&
+      !rollbackPending() && goToRestartRow()) {
+    menuTaskPress();
     return;
   }
   /* An action can leave the menu, Learn locals for DX mode, and then there

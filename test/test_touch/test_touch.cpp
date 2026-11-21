@@ -515,6 +515,52 @@ static TouchGestureEvent feed(bool down, int x, int y, int zone, bool drags,
 /* Every touch below goes down at 1000. */
 #define START_MS 1000u
 
+/* The way to a hold, for the bar a screen draws under a resting finger. */
+static void a_resting_finger_shows_its_way_to_a_hold(void) {
+  gestureSetUp();
+  TEST_ASSERT_EQUAL_UINT16(
+      0, touchGestureHoldPermille(&gesture, &GESTURE, START_MS));
+  feed(true, 50, 50, 3, false, 1, START_MS);
+  /* Nothing for the first 300 ms, so a quick tap shows nothing. */
+  TEST_ASSERT_EQUAL_UINT16(
+      0, touchGestureHoldPermille(&gesture, &GESTURE,
+                                  START_MS + TOUCH_HOLD_SHOWN_MS));
+  /* Half way from there to the hold time. */
+  const uint32_t half = (TOUCH_HOLD_SHOWN_MS + TOUCH_HOLD_MS) / 2;
+  feed(true, 50, 50, 3, false, 1, START_MS + half);
+  TEST_ASSERT_EQUAL_UINT16(
+      500, touchGestureHoldPermille(&gesture, &GESTURE, START_MS + half));
+  /* Once the hold is reported there is nothing more to show. */
+  TEST_ASSERT_EQUAL_INT(
+      TOUCH_HOLD, feed(true, 50, 50, 3, false, 1, START_MS + TOUCH_HOLD_MS));
+  TEST_ASSERT_EQUAL_UINT16(
+      0,
+      touchGestureHoldPermille(&gesture, &GESTURE, START_MS + TOUCH_HOLD_MS));
+
+  /* A finger that moved is not on its way to a hold. */
+  gestureSetUp();
+  feed(true, 50, 50, 3, false, 1, START_MS);
+  feed(true, 90, 50, 3, false, 1, START_MS + half);
+  TEST_ASSERT_EQUAL_UINT16(
+      0, touchGestureHoldPermille(&gesture, &GESTURE, START_MS + half));
+
+  /* Nor one lifted, nor one on a zone that repeats and has no hold. */
+  gestureSetUp();
+  feed(true, 50, 50, 3, false, 1, START_MS);
+  feed(false, 0, 0, 0, false, 1, START_MS + half);
+  TEST_ASSERT_EQUAL_UINT16(
+      0, touchGestureHoldPermille(&gesture, &GESTURE, START_MS + half));
+  gestureSetUp();
+  feedRepeat(true, 50, 50, 3, START_MS);
+  TEST_ASSERT_EQUAL_UINT16(
+      0, touchGestureHoldPermille(&gesture, &GESTURE, START_MS + 400));
+
+  TEST_ASSERT_EQUAL_UINT16(0,
+                           touchGestureHoldPermille(NULL, &GESTURE, START_MS));
+  TEST_ASSERT_EQUAL_UINT16(0,
+                           touchGestureHoldPermille(&gesture, NULL, START_MS));
+}
+
 /* The finger off at `ms`; what the lift reports once it has lasted the
  * bridge. Nothing before that. */
 static TouchGestureEvent lift(uint32_t ms) {
@@ -1242,6 +1288,7 @@ int main(int, char **) {
   RUN_TEST(the_point_is_the_median_of_the_latest_three);
   RUN_TEST(a_missing_filter_or_reading_is_no_contact);
   RUN_TEST(the_owners_taps_holds_and_swipes_come_out_as_made);
+  RUN_TEST(a_resting_finger_shows_its_way_to_a_hold);
   RUN_TEST(the_chip_answers_inside_its_temperature_band);
   return UNITY_END();
 }
