@@ -154,7 +154,16 @@ function EntryDialog({ entry: e, close, saved }) {
       close();
     }
   }
+  // The radio cannot put a deleted entry back, so Delete asks once more:
+  // the key reads "Press again" for five seconds, as on the radio's panel, and only a tap on that
+  // deletes.
+  const [sure, setSure] = useState(false);
   async function remove() {
+    if (!sure) {
+      setSure(true);
+      setTimeout(() => setSure(false), 5000);
+      return;
+    }
     if (await act('/api/log', { do: 'delete', id: e.id, time: e.time, khz: e.khz })) {
       say('Entry deleted.');
       saved();
@@ -168,7 +177,7 @@ function EntryDialog({ entry: e, close, saved }) {
       size="lg"
       onClose={close}
       onSubmit={save}
-      danger={editable && <Button kind="danger" icon="trash" onClick={remove}>Delete</Button>}
+      danger={editable && <Button kind="danger" icon="trash" onClick={remove}>{sure ? 'Press again' : 'Delete'}</Button>}
       actions={
         <>
           <Button kind="secondary" icon="radio" onClick={tuneHere}>Tune</Button>

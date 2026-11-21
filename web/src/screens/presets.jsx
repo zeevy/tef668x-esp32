@@ -3,7 +3,7 @@
 // preset buttons, and under them the station scan, which a person uses far
 // less. Recall, add, change, rename, delete, download, upload and scan.
 import { useRef, useState } from 'preact/hooks';
-import { change, postBody, state } from '../data/radio.js';
+import { change, getPresets, postBody, state } from '../data/radio.js';
 import { presets } from '../data/reads.js';
 import { bandAt, bandOf } from '../data/bands.js';
 import { BANDS, country, freq, printable, typedKhz, unit, when } from '../data/format.js';
@@ -336,7 +336,26 @@ function PresetDialog({ preset, list, close, saved }) {
   }
   async function remove() {
     if (await act('/api/presets', { do: 'clear', slot: preset.slot })) {
-      say(`Preset ${preset.slot} deleted.`);
+      // Undo writes the station back to its slot. What the radio had learnt
+      // of it since, such as its PI, it learns again when it is next tuned.
+      const { slot, khz, band, bw: width, name: was } = preset;
+      const back = async () => {
+        // Not over a preset stored in the slot since, and not as a second
+        // preset of a station saved again elsewhere.
+        let now;
+        try {
+          now = await getPresets();
+        } catch (x) {
+          return refused(x);
+        }
+        const other = now.find((p) => p.slot === slot || (p.band === band && p.khz === khz));
+        if (other) return say(`Preset ${slot} was not put back: preset ${other.slot} is ${other.slot === slot ? 'in its slot' : 'the same station'} now.`, 'warn', true);
+        if (await act('/api/presets', { do: 'set', slot, khz, ...(band && { bnd: band }), bw: width ?? 0, name: was ?? '' })) {
+          say(`Preset ${slot} is back.`);
+          saved();
+        }
+      };
+      say(`Preset ${slot} deleted.`, 'good', false, back);
       saved();
       close();
     }
@@ -417,7 +436,10 @@ function UploadDialog({ upload, close, saved }) {
       danger={<Button kind="danger" busy={busy} onClick={() => send('replace')}>Replace</Button>}
       actions={<Button busy={busy} onClick={() => send('merge')}>Merge</Button>}
     >
-      <p class="text-sm text-muted">Merge adds its presets into empty slots and keeps the rest. Replace makes the list exactly the file.</p>
+      <p class="text-sm text-muted">Merge adds its presets into empty slots and keeps the rest. Replace makes the list exactly the file, and the presets not in the file are gone.</p>
+      <Button kind="secondary" icon="download" href="/api/presets.csv" download="presets.csv" class="justify-self-start">
+        Download the list as it is now
+      </Button>
     </Modal>
   );
 }

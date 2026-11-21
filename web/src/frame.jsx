@@ -97,7 +97,7 @@ export function Frame({ screens, here, children }) {
       {/* One live region, so a reader hears each note as it comes. */}
       <div aria-live="polite" class="fixed inset-x-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 grid gap-2 md:bottom-4 md:left-auto md:w-96">
         {notes.value.map((n) => (
-          <Toast tone={n.tone} onClose={n.kept && (() => unsay(n))}>
+          <Toast tone={n.tone} onClose={n.kept && (() => unsay(n))} onUndo={n.undo && (() => (unsay(n), n.undo()))}>
             {n.text}
           </Toast>
         ))}

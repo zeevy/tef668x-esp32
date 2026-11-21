@@ -102,6 +102,7 @@ When you make a change without signing in, the page opens the PIN dialog: "Chang
 - A browser tab that is hidden asks the radio nothing, and holds no connection.
 - If the live state goes quiet for 10 seconds, the page takes it that the radio has gone, and reads the state every 5 seconds until it is back.
 - Most changes you make show on the screen at once, before the radio answers.
+- If the radio does not answer a change, the page reads the radio's state before it says so. When the state shows the change, it stands. When the state does not come either, the changes waiting behind it are taken back at once.
 - If the radio refuses a change, a red note gives the radio's reason, and the page puts back what the radio has. A refusal for want of the PIN opens the PIN dialog instead. After you sign in there, the page says "Signed in. Do that again.", because the refused change was not made.
 - Some changes, such as saving a preset, show a short note when they work. Each note goes after 4 seconds. A refusal, or a warning that must be read, stays until you press its **Close** key.
 - After the radio restarts, the page reads again whether this browser is signed in, so the lock in the header is right.
@@ -185,7 +186,7 @@ The line under the station says how many of the 99 slots are used. The presets s
 - **Save current station** saves the station on the dial as a new preset, with its RDS name. The radio picks the slot: the lowest free one, from its own list. So a preset stored on the radio after the page opened is never written over. A station that is a preset already is refused, and the note says which preset it is.
 - **Add** opens a dialog for a new preset, in the first free slot.
 - **Download** gives the presets as a CSV file, `presets.csv`.
-- **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file. When a Merge leaves lines out, because they were refused, their slot was taken or a name was cut short, the answer shows as a warning that stays until you close it.
+- **Upload** reads a CSV file of up to 16 KB and asks how to use it. **Merge** adds its presets into empty slots and keeps the rest. **Replace** makes the list exactly the file, so the dialog has a key to download the list as it is now first. When a Merge leaves lines out, because they were refused, their slot was taken or a name was cut short, the answer shows as a warning that stays until you close it.
 - **The band filter**: with presets on more than one band, **All** and each band with presets. The card title says how many are shown.
 - **Change** puts the keys in Change mode. It shows every slot up to one past the last used, the empty ones dashed. Tap a key to change it, or tap an empty slot to add one there. Drag a key onto another slot to move it: onto another preset the two swap, onto an empty slot it goes there. Dragging works with a finger too. **Done** leaves Change mode.
 
@@ -199,7 +200,7 @@ The line under the station says how many of the 99 slots are used. The presets s
 - **Name**, up to 16 letters.
 - **Bandwidth**: **The radio chooses**, or a width of the band.
 - For a stored preset, what the radio knows of the station, each when it has it: **PI**, **Programme type**, **Country** and **Saved**, the time it was saved.
-- **Save** stores it. **Delete** deletes a stored preset.
+- **Save** stores it. **Delete** deletes a stored preset. The note that says so has an **Undo** key for 8 seconds, which writes the station back to its slot.
 
 The CSV format is in [Presets and Station Scan](Presets-and-Station-Scan.md#presets-as-a-csv-file).
 
@@ -213,7 +214,7 @@ The [station log](Station-Log.md), newest first, in one card for each day: Today
 - **Download** gives the log as a CSV file, `logbook.csv`.
 - **The search box** finds entries by frequency, band, name, PI, note or radio text. A line over the cards says how many entries match.
 - Each entry shows the frequency, the name or the PI, and the time. "renamed" marks a name you typed. A chip shows each reading: Band, Level, SNR, Noise on FM, Multipath on FM or Co-channel on AM, Width, Sound (Stereo or Mono) and PI. The note shows under them.
-- **Tap an entry** to open it. It shows when it was logged, the radio text, every reading, and the programme type and the country when the radio kept them. You can change the **Name**, up to 8 letters, and write a **Note**, up to 32 letters, then press **Save**. **Tune** tunes the radio to it. **Delete** deletes it.
+- **Tap an entry** to open it. It shows when it was logged, the radio text, every reading, and the programme type and the country when the radio kept them. You can change the **Name**, up to 8 letters, and write a **Note**, up to 32 letters, then press **Save**. **Tune** tunes the radio to it. **Delete** deletes it: the first press changes the button to `Press again`, and a second press within 5 seconds deletes the entry. A deleted entry cannot be put back.
 
 ## DX
 

@@ -335,6 +335,47 @@ test('a change the radio does not answer, or refuses with no words, is said in p
   await expect(page.getByRole('status').filter({ hasText: 'The radio refused it (500).' })).toBeVisible();
 });
 
+test('a change whose answer is lost stands when the state shows the radio took it', async ({ page }) => {
+  let muted = false;
+  await page.route('**/api/state', (route) => route.fulfill({ json: { ...recorded, tun: { ...recorded.tun, mut: muted } } }));
+  await page.route('**/api/mute', (route) => {
+    muted = true;
+    return route.abort();
+  });
+  await page.goto('/');
+  await page.locator('main').getByRole('button', { name: 'Mute' }).click();
+  const on = page.locator('main').getByRole('button', { name: 'Sound on' });
+  await expect(on).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(on).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'The radio did not answer.' })).toHaveCount(0);
+});
+
+test('with the radio away, the taps waiting behind a lost change are taken back and not sent', async ({ page }) => {
+  await page.goto('/');
+  const key = page.locator('main').getByRole('button', { name: /^(Mute|Sound on)$/ });
+  await expect(key).toBeVisible();
+  let sent = 0;
+  let fail;
+  const failed = new Promise((done) => (fail = done));
+  await page.route('**/api/mute', async (route) => {
+    sent++;
+    await failed;
+    await route.abort();
+  });
+  await page.route('**/api/state', (route) => route.abort());
+  await key.click();
+  await key.click();
+  await key.click();
+  fail();
+  await expect(page.getByRole('status').filter({ hasText: 'The radio did not answer.' })).toBeVisible();
+  await page.waitForTimeout(300);
+  expect(sent).toBe(1);
+  // A tap made after that is sent again.
+  await key.click();
+  await expect.poll(() => sent).toBe(2);
+});
+
 test('a state with no tuner part is dropped, so the page waits for one it can draw', async ({ page }) => {
   const radio = await liveRadio(page, (s) => delete s.tun);
   await page.goto('/');

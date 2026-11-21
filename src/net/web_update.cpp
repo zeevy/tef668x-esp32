@@ -75,6 +75,12 @@ static const char kScanRunning[] =
 /* Set once a multipart part carrying a file has actually been seen. */
 static bool sUploadStarted = false;
 
+/* Set while a second file part of the same request is coming. It is taken
+ * and dropped, and the request is answered for its first file. Written as a
+ * second image it would go over the slot the first one was just made the
+ * start of, and could fail there with no restart to follow. */
+static bool sUploadExtra = false;
+
 /* Set on the first write failure, so the rest of the body is taken quietly. */
 static bool sUploadFailed = false;
 
@@ -110,6 +116,12 @@ static void handleUploadData(void) {
   HTTPUpload &upload = sWeb->server.upload();
 
   if (upload.status == UPLOAD_FILE_START) {
+    if (sUploadStarted) {
+      sUploadExtra = true;
+      DebugLog.println(F("[web] a second file in one upload, dropped"));
+      return;
+    }
+    sUploadExtra = false;
     sUploadRejected = !signedIn();
     sUploadBlocked = NULL;
     sUploadShaWrong = NULL;
@@ -157,6 +169,12 @@ static void handleUploadData(void) {
        * branch below. */
       sUploadFailed = true;
     }
+    return;
+  }
+
+  if (sUploadExtra && upload.status != UPLOAD_FILE_ABORTED) {
+    /* A client that goes away during the dropped file is still the first
+     * file's client going away, so that one is dealt with below. */
     return;
   }
 

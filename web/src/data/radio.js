@@ -49,6 +49,7 @@ const SILENCE_MS = 10000;
 // before it: the radio task takes a command within its 100 ms round.
 const SETTLE_MS = 300;
 const TIMEOUT_MS = 10000;
+const NO_ANSWER = 'The radio did not answer.';
 
 // Asks the radio and reads its whole answer, within TIMEOUT_MS. When it
 // does not answer, says so in plain words: the browser's own, such as
@@ -60,7 +61,7 @@ async function call(path, init = {}) {
     const res = await fetch(path, { credentials: 'same-origin', ...init, signal: ctrl.signal });
     return { res, text: await res.text() };
   } catch {
-    throw new Error('The radio did not answer.');
+    throw new Error(NO_ANSWER);
   } finally {
     clearTimeout(timer);
   }
@@ -319,13 +320,50 @@ function closeLive() {
 }
 
 let queue = Promise.resolve();
+// When a change last found the radio away: it gave no answer, and no state
+// after it either.
+let away = -Infinity;
+
+// A state without its RDS, which a tune empties and the station fills
+// again by itself.
+const settled = (s) => JSON.stringify(s, (key, v) => (key === 'rds' ? undefined : v));
+
+// Whether the radio's state now is what a change with no answer was to make
+// it. A radio that took the change and lost only the answer has made it.
+async function made(expect) {
+  const started = now();
+  let s;
+  try {
+    s = await getJson('/api/state');
+  } catch {
+    away = now();
+    return false;
+  }
+  try {
+    const after = structuredClone(s);
+    expect(after);
+    if (settled(after) !== settled(s)) return false;
+  } catch {
+    // A state the change cannot be drawn on says nothing either way.
+    return false;
+  }
+  take(s, started);
+  return true;
+}
 
 // Sends a change, after any sent before it, so taps reach the radio in the
 // order they were made. expect, when the result is known, draws it at once
 // over the radio's last state, so the state that confirms it changes nothing
 // on the screen. Without expect the state is read at once. A refusal takes
 // the drawing back off, reads the state again, and throws as post does.
+//
+// A change with no answer is not yet a failed one: the call waits up to
+// 10 s, and the radio may have taken it. With expect, the state is read, and
+// the change stands when the state shows it. When the state does not come
+// either, the radio is away, and the changes asked before that moment are
+// taken back at once, not after 10 s each.
 export function change(path, fields, expect) {
+  const asked = now();
   let mark = null;
   if (expect && fromRadio) {
     mark = { patch: expect, takenAt: Infinity };
@@ -333,16 +371,20 @@ export function change(path, fields, expect) {
     withMotion(show);
   }
   const sent = queue.then(async () => {
-    let said;
+    let said = '';
     try {
+      if (asked < away) throw new Error(NO_ANSWER);
       said = await post(path, fields);
     } catch (e) {
-      if (mark) {
-        drawn = drawn.filter((d) => d !== mark);
-        withMotion(show);
+      const stands = e.status === undefined && asked >= away && expect && (await made(expect));
+      if (!stands) {
+        if (mark) {
+          drawn = drawn.filter((d) => d !== mark);
+          withMotion(show);
+        }
+        poll();
+        throw e;
       }
-      poll();
-      throw e;
     }
     if (mark) mark.takenAt = now();
     else poll();
