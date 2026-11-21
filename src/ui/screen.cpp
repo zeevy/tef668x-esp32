@@ -147,6 +147,13 @@ static void buildLayout(const Layout *layout) {
   uiSetTextStatic(sVeilFoot, txt(STR_RADIO_VEIL_KEEP_POWER));
   lv_obj_add_flag(sVeilFoot, LV_OBJ_FLAG_HIDDEN);
 
+  /* Out of sight until the first call that fills it. A freshly built page
+   * has every label with a fixed text still at the top left corner, where
+   * LVGL puts a new object, and LVGL can draw a frame between the build and
+   * the fill. That frame showed a small dark patch in the corner each time
+   * the radio screen came back from the menu or another page. */
+  lv_obj_add_flag(sPage, LV_OBJ_FLAG_HIDDEN);
+
   sBuilt = layout;
   sBuiltThemeGen = themeGeneration();
 }
@@ -236,6 +243,7 @@ void screenShow(const ScreenState *state) {
   if (!state->tunerReady && state->fault != NULL) {
     screenMessage(txt(STR_COMMON_TUNER), state->fault);
   }
+  lv_obj_clear_flag(sPage, LV_OBJ_FLAG_HIDDEN);
 }
 
 /* Show or hide the firmware write's own set of objects. */
@@ -282,6 +290,8 @@ void screenMessage(const char *line1, const char *line2, const char *line3) {
     centre(sVeilFoot, &roboto_small, MESSAGE_REASON_BASE);
     uiShowIf(sVeilFoot, true);
   }
+  /* The veil covers the whole page, so a page not filled yet can show. */
+  lv_obj_clear_flag(sPage, LV_OBJ_FLAG_HIDDEN);
 }
 
 void screenUpdateVeilShow(int percent) {
@@ -325,6 +335,7 @@ void screenUpdateVeilShow(int percent) {
   lv_obj_add_flag(sMessage, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(sDetail, LV_OBJ_FLAG_HIDDEN);
   showVeilParts(true);
+  lv_obj_clear_flag(sPage, LV_OBJ_FLAG_HIDDEN);
   uiShowIf(sVeilPercent, known);
   uiShowIf(sVeilPercentSign, known);
 }
