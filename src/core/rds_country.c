@@ -17,6 +17,8 @@
  * country table. Where two of the three agree and the third does not, the
  * two are taken: Nigeria at D1 F, and Tajikistan, Uzbekistan, Turkmenistan
  * and Puerto Rico, which one list leaves empty.
+ * Tanzania is there twice on purpose: D1 D is the mainland and D2 D is
+ * Zanzibar, which is part of Tanzania and has no code of its own.
  * Kosovo and DR Congo carry today's codes, XK and CD. An empty cell is one
  * no list agrees on, and it names no country rather than a guessed one.
  */
