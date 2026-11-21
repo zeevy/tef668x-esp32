@@ -17,7 +17,7 @@ Once the radio is on your Wi-Fi, it looks once on GitHub for a newer release, an
 Turn the knob to move between the two buttons, and press it to take the one that is lit.
 
 - **Update** downloads the new firmware from GitHub, writes it, and restarts into it. The screen shows the progress.
-- **Later**, or a hold of the knob, or MODE, closes the offer. After one minute with no answer it closes by itself.
+- **Later**, or a hold of the knob, or MODE, closes the offer. After 60 seconds with no answer, or the [Menu Timeout](Menu-Guide.md#controls) time, it closes by itself.
 
 After Later, the update stays in the menu: **System** then shows a row **Update to** and the version, with the size. Press it for the same offer. While nothing newer is known, the row is called **Firmware Update** and says why: `Up to date`, `Not checked`, `Checking`, `Check failed`, or `Off`.
 

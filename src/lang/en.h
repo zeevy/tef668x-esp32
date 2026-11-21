@@ -116,6 +116,7 @@
   X(MENU_BAND_EDGE_BEEP, "Band Edge Beep", "Menu row name, Controls group") \
   X(MENU_START_CHIME, "Startup Chime", "Menu row name, Controls group") \
   X(MENU_KEYPAD_TIMEOUT, "Keypad Timeout", "Menu row name, Controls group: seconds a part typed number waits for the next key") \
+  X(MENU_MENU_TIMEOUT, "Menu Timeout", "Menu row name, Controls group: seconds the menu or the bandwidth page stays up with no input") \
   X(MENU_TOUCH, "Touch", "Menu row name, Controls group: Off stops the radio reading the touch screen") \
   X(MENU_CALIBRATE_TOUCH, "Calibrate Touch", "Menu row name, Controls group: opens the touch calibration screen") \
   X(MENU_CLOCK_FROM_NETWORK, "Network Time", "Menu row name, Connectivity group: Off, or the offset from UTC") \

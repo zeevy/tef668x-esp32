@@ -15,7 +15,7 @@ Open the menu with a press of the tuning knob on the radio screen, or hold MODE 
 | Hold the knob, hold ENTER, or tap MODE | Goes back one level |
 | Hold MODE | Closes the menu |
 
-The group list shows how many rows each group has. A row that opens a sub-group shows its row count and an arrow. A value too long for its row, such as a long Wi-Fi name, is cut short with `…`, so the row's name stays readable. Inside a sub-group, the title shows the path, for example `Audio > Squelch`. The menu opens again where you left it, until the radio restarts. With no input for one minute it closes, except while a station scan runs.
+The group list shows how many rows each group has. A row that opens a sub-group shows its row count and an arrow. A value too long for its row, such as a long Wi-Fi name, is cut short with `…`, so the row's name stays readable. Inside a sub-group, the title shows the path, for example `Audio > Squelch`. The menu opens again where you left it, until the radio restarts. With no input for 60 seconds it closes, except while a station scan runs. [Menu Timeout](#controls) sets another time.
 
 ### Changing a value
 
@@ -182,6 +182,7 @@ See [First Start and Wi-Fi](First-Start-and-Wi-Fi.md). All but Network Time act 
 | Band Edge Beep | Off, On | Off | Beeps when the knob steps over a band edge |
 | Startup Chime | Off, On | On | A tone at start, once the tuner is ready. **After restart** |
 | Keypad Timeout | 5 s to 60 s in steps of 5 s | 20 s | How long a number part typed on the keys or the [frequency keypad](Touch-Screen.md#the-frequency-keypad) waits for the next key. Then the number is dropped and the keypad closes |
+| Menu Timeout | 10 s to 120 s in steps of 10 s | 60 s | How long the menu or the bandwidth page stays up with no key, knob or touch. Then it goes back to the radio screen, and a value still being changed is put back |
 | Touch | Off, On | On | Whether the radio reads the touch screen. Off leaves it alone, for a screen that touches itself; only the calibration screen still reads it. The [recovery screen](Recovery-Screen.md) has the same switch |
 | Calibrate Touch | | | Opens the touch calibration: five rings to hold, then a dot to tap. See [Touch Screen](Touch-Screen.md#calibrate-the-touch-screen) |
 

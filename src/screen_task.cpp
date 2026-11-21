@@ -155,6 +155,8 @@ static bool sLastWrittenKnown = false;
 static uint32_t sLastActivity = 0;
 /* When it last changed, for closing a page left alone. */
 static uint32_t sLastActivityMs = 0;
+/* How long the menu or the bandwidth page stays up with no input. */
+static uint32_t sPageIdleMs = SETTINGS_MENU_TIMEOUT_DEFAULT_S * 1000UL;
 
 /*
  * Whether the loop has run once yet.
@@ -433,6 +435,10 @@ bool screenTaskBacklightState(uint8_t *percent) {
     *percent = backlightLevel(&sBacklight);
   }
   return backlightDimmed(&sBacklight);
+}
+
+void screenTaskSetPageIdle(uint8_t seconds) {
+  sPageIdleMs = (uint32_t)seconds * 1000UL;
 }
 
 void screenTaskLogConfirm(const char *text) {
@@ -760,7 +766,7 @@ bool screenTaskMenuBegin(void) {
   }
   /* At once, with no fade. The caller draws as soon as this returns. */
   const uint32_t began = millis();
-  /* The menu's minute alone starts now, and the light comes up. A menu a
+  /* The menu's time alone starts now, and the light comes up. A menu a
    * person opened was opened by a key, which did both already; the offer of
    * a newer release opens by itself, maybe long after the last key, and
    * would otherwise shut again at once, or sit on a dimmed panel. */
@@ -2152,7 +2158,7 @@ void screenTaskPoll(void) {
    * screen the way Back would, an edit nobody accepted undone. Not while a
    * band scan runs, which the menu shows. */
   if ((sMenuUp || sBw != NULL) && !bandScanActive() &&
-      inputPageIdle(sLastActivityMs, nowMs)) {
+      inputPageIdle(sLastActivityMs, nowMs, sPageIdleMs)) {
     menuTaskClose();
     screenTaskBwClose();
   }

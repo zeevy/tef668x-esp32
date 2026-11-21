@@ -789,14 +789,17 @@ static void back_gestures_rest_just_after_the_menu_shuts(void) {
   TEST_ASSERT_FALSE(inputAfterMenuQuiet(true, UINT32_MAX - 100, 2000));
 }
 
-/* A page goes back after a minute with no input, not before; the time is
+/* A page goes back after its time with no input, not before; the time is
  * read the right way across the counter's wrap. */
 static void a_page_left_alone_for_a_minute_is_idle(void) {
-  TEST_ASSERT_FALSE(inputPageIdle(1000, 1000));
-  TEST_ASSERT_FALSE(inputPageIdle(1000, 1000 + INPUT_PAGE_IDLE_MS - 1));
-  TEST_ASSERT_TRUE(inputPageIdle(1000, 1000 + INPUT_PAGE_IDLE_MS));
-  TEST_ASSERT_FALSE(inputPageIdle(UINT32_MAX - 100, 200));
-  TEST_ASSERT_TRUE(inputPageIdle(UINT32_MAX - 100, INPUT_PAGE_IDLE_MS));
+  TEST_ASSERT_FALSE(inputPageIdle(1000, 1000, 60000));
+  TEST_ASSERT_FALSE(inputPageIdle(1000, 1000 + 60000 - 1, 60000));
+  TEST_ASSERT_TRUE(inputPageIdle(1000, 1000 + 60000, 60000));
+  TEST_ASSERT_FALSE(inputPageIdle(UINT32_MAX - 100, 200, 60000));
+  TEST_ASSERT_TRUE(inputPageIdle(UINT32_MAX - 100, 60000, 60000));
+  /* The time is the caller's: ten seconds closes sooner than a minute. */
+  TEST_ASSERT_TRUE(inputPageIdle(1000, 11000, 10000));
+  TEST_ASSERT_FALSE(inputPageIdle(1000, 11000, 120000));
 }
 
 int main(void) {

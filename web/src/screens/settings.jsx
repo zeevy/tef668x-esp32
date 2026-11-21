@@ -17,6 +17,7 @@ import { SCAN_RANGE } from './dx.jsx';
 
 // Values from `from` to `to` in `step`s, with `off` first when it has one.
 const range = (from, to, step = 1, off) => [...(off !== undefined ? [off] : []), ...Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, i) => from + i * step)];
+const LANGUAGES = ['English', '简体中文', 'Deutsch', 'Русский', 'Nederlands', 'Français', 'Español', 'Italiano', 'Português', 'Polski', 'Čeština', 'Hrvatski', 'Srpski', 'Română', 'Magyar', 'Dansk', 'Norsk', 'Svenska', 'Suomi', 'Gaeilge', 'Ελληνικά', 'Български', 'Українська'];
 const THEMES = ['Nightwatch', 'Daylight', 'Red Night', 'Phosphor', 'Clear', 'Custom', 'Slate', 'Paper', 'LCD', 'Ember', 'Clear Day', 'High Contrast', 'Mono', 'Hi-Fi', 'Violet', 'Blossom'];
 const two = (n) => String(n).padStart(2, '0');
 // Every UTC offset the clock takes, -12:00 to +14:00 in quarters of an hour.
@@ -93,6 +94,7 @@ const GROUPS = [
       { label: 'Display rotation', key: 'rot', kind: 'pair', values: [0, 180], say: (v) => (v ? 'Upside down' : 'Normal') },
       { label: 'Battery', key: 'bat', kind: 'pair', values: [0, 1, 2], say: (v) => ['Off', 'Percent', 'Volts'][v] },
       { label: 'Battery check', key: 'bck', kind: 'switch', note: 'Every 5 min while nobody uses the radio, Wi-Fi stops for a moment to read the battery' },
+      { label: 'Screen language', key: 'plg', kind: 'list', values: range(0, 22), say: (v) => LANGUAGES[v], restart: true },
     ],
     extra: Colours,
   },
@@ -102,6 +104,7 @@ const GROUPS = [
     rows: [
       { label: 'Key beeps', key: 'bpk', kind: 'list', values: [0, 1, 2, 3], say: (v) => ['Off', 'Keypad only', 'Short and long', 'Every press'][v] },
       { label: 'Keypad timeout', key: 'kpt', kind: 'steps', values: range(5, 60, 5), say: (v) => `${v} s` },
+      { label: 'Menu timeout', key: 'mto', kind: 'steps', values: range(10, 120, 10), say: (v) => `${v} s` },
       { label: 'Band edge beep', key: 'bpe', kind: 'switch' },
       { label: 'Start chime', key: 'bps', kind: 'switch', restart: true },
       { label: 'Encoder type', key: 'enc', kind: 'pair', values: [0, 1], say: (v) => ['Standard', 'Optical'][v], restart: true },

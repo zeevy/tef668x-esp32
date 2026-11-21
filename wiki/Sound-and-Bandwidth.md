@@ -31,7 +31,7 @@ Hold BW on the radio screen, the RDS pages or DX mode. On a radio without the BW
 - The width in use, and a switch that is on, are filled in the theme's main colour. A ring marks the cursor, which starts on the width in use.
 - While AUTO is in use, a note under the tiles says which width the tuner picked, for example `Auto: 217 kHz`.
 
-Turn the knob to move between tiles. Press the knob or ENTER to use that width at once, or to turn iMS or EQ on or off. The page stays open, so you can try the next one. Press the knob on **Close**, hold the knob, or tap BW or MODE, to close it. It also closes after one minute with no input, and when the band changes.
+Turn the knob to move between tiles. Press the knob or ENTER to use that width at once, or to turn iMS or EQ on or off. The page stays open, so you can try the next one. Press the knob on **Close**, hold the knob, or tap BW or MODE, to close it. It also closes after 60 seconds with no input, or the [Menu Timeout](Menu-Guide.md#controls) time, and when the band changes.
 
 Over DX mode there is no AUTO tile, and the width you pick is DX mode's own, which is not saved.
 

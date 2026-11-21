@@ -72,7 +72,8 @@ static const uint16_t kSizeOfVersion[SETTINGS_VERSION + 1] = {
     [29] = 272,
     [30] = 272,
     [31] = 276,
-    [32] = (uint16_t)sizeof(Settings)};
+    [32] = 280,
+    [33] = (uint16_t)sizeof(Settings)};
 
 /*
  * Where the fields of each version end, which is not the same as its size.
@@ -127,7 +128,8 @@ static const size_t kFieldEndOfVersion[SETTINGS_VERSION + 1] = {
     [29] = offsetof(Settings, autoOffMinutesV30), /* padding */
     [30] = offsetof(Settings, autoOffMinutes),
     [31] = offsetof(Settings, keypadTimeoutS),
-    [32] = sizeof(Settings)};
+    [32] = offsetof(Settings, menuTimeoutS),
+    [33] = sizeof(Settings)};
 
 static bool startLevelOk(uint8_t level) {
   return level == 0 || (level >= 20 && level <= 60);
@@ -292,6 +294,8 @@ void settingsDefaults(Settings *s) {
   s->pcLink = 0;
   s->batteryCheck = 0;
   s->language = TXT_ENGLISH;
+  /* Version 33. */
+  s->menuTimeoutS = SETTINGS_MENU_TIMEOUT_DEFAULT_S;
   /*
    * The custom slot's own starting colours, so picking it before ever
    * touching a colour wheel still shows a considered theme rather than a

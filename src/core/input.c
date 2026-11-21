@@ -312,8 +312,8 @@ bool inputAfterMenuQuiet(bool shut, uint32_t shutMs, uint32_t nowMs) {
   return shut && (uint32_t)(nowMs - shutMs) < INPUT_AFTER_MENU_QUIET_MS;
 }
 
-bool inputPageIdle(uint32_t lastMs, uint32_t nowMs) {
-  return (uint32_t)(nowMs - lastMs) >= INPUT_PAGE_IDLE_MS;
+bool inputPageIdle(uint32_t lastMs, uint32_t nowMs, uint32_t idleMs) {
+  return (uint32_t)(nowMs - lastMs) >= idleMs;
 }
 
 void buttonStartHeld(Button *b, uint32_t nowMs) {

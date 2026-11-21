@@ -340,15 +340,12 @@ bool inputKeyTakesLong(InputKey key);
 bool inputAfterMenuQuiet(bool shut, uint32_t shutMs, uint32_t nowMs);
 
 /*
- * How long the menu or the bandwidth page stays up with no key, knob or
- * touch before it goes back to the radio screen, so the radio is not found
- * later on a page nobody remembers opening. Long enough to read the longest
- * page, the diagnostics, without being cut off.
+ * Whether the menu or the bandwidth page has been up for `idleMs` with no
+ * key, knob or touch since the last input at `lastMs`. It then goes back to
+ * the radio screen, so the radio is not found later on a page nobody
+ * remembers opening.
  */
-#define INPUT_PAGE_IDLE_MS 60000
-
-/* Whether that time has passed since the last input at `lastMs`. */
-bool inputPageIdle(uint32_t lastMs, uint32_t nowMs);
+bool inputPageIdle(uint32_t lastMs, uint32_t nowMs, uint32_t idleMs);
 
 /* ------------------------------------------------------------ keypad hold */
 

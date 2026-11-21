@@ -37,7 +37,7 @@ extern "C" {
  * version left keeps the version, since that firmware reads the byte as
  * padding.
  */
-#define SETTINGS_VERSION 32
+#define SETTINGS_VERSION 33
 
 /* Room for a 32 character SSID and its terminator. */
 #define SETTINGS_SSID_LEN 33
@@ -465,6 +465,11 @@ typedef struct {
    * English. Put in force as the boot screen hands over, so the boot and
    * recovery screens are always English. */
   uint8_t language;
+
+  /* Version 33. Past the end of version 32's 280 bytes. How many seconds the
+   * menu or the bandwidth page stays up with no key, knob or touch before
+   * it goes back to the radio screen. */
+  uint8_t menuTimeoutS;
 } Settings;
 
 /* Keypad Timeout's limits and the value a new radio starts with. Five
@@ -473,6 +478,13 @@ typedef struct {
 #define SETTINGS_KEYPAD_TIMEOUT_MIN_S 5
 #define SETTINGS_KEYPAD_TIMEOUT_MAX_S 60
 #define SETTINGS_KEYPAD_TIMEOUT_DEFAULT_S 20
+
+/* Menu Timeout's limits and the value a new radio starts with. Ten seconds
+ * is enough to turn to the next row; two minutes is for reading a long page
+ * such as the diagnostics without it closing. */
+#define SETTINGS_MENU_TIMEOUT_MIN_S 10
+#define SETTINGS_MENU_TIMEOUT_MAX_S 120
+#define SETTINGS_MENU_TIMEOUT_DEFAULT_S 60
 
 void settingsDefaults(Settings *s);
 

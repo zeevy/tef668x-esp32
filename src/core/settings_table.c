@@ -76,6 +76,8 @@ static const SettingRow kRows[] = {
     ROW("tof", touchOff, 0, 1, NOW),
     ROW("kpt", keypadTimeoutS, SETTINGS_KEYPAD_TIMEOUT_MIN_S,
         SETTINGS_KEYPAD_TIMEOUT_MAX_S, NOW),
+    ROW("mto", menuTimeoutS, SETTINGS_MENU_TIMEOUT_MIN_S,
+        SETTINGS_MENU_TIMEOUT_MAX_S, NOW),
     ROW("pcl", pcLink, 0, 1, NOW),
     ROW("bck", batteryCheck, 0, 1, NOW),
     /* Put in force as the boot screen hands over, so a change waits for a

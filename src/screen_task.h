@@ -313,6 +313,10 @@ void screenTaskBatteryTake(uint16_t milliVolts);
  * woke by itself: at start up, or for an update offer. */
 uint32_t screenTaskLastInputMs(void);
 
+/* How many seconds the menu or the bandwidth page stays up with no key,
+ * knob or touch before it goes back to the radio screen. */
+void screenTaskSetPageIdle(uint8_t seconds);
+
 /*
  * Show `text` in the station name band for a second and a half, then let it
  * go back to the station or memory name.

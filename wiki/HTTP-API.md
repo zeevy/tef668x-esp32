@@ -256,7 +256,7 @@ curl -s -b jar $R/api/settings
 ```
 
 ```json
-{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":3,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":10,"bds":90,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"kpt":15,"pcl":0,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
+{"sid":"MyNetwork","pss":true,"dpn":true,"ldd":true,"sql":"Off","sbd":4,"sfq":106400,"svl":-20,"ims":1,"eq":1,"mno":0,"cut":0,"bld":0,"hbl":0,"fnb":0,"anb":100,"ahc":47,"lhc":52,"asm":28,"lsm":34,"dem":50,"abw":4,"tzo":"+05:30","rgn":3,"spc":0,"enc":0,"edr":0,"fsn":4,"asn":4,"smu":120,"bpk":3,"bpe":1,"bps":1,"sqf":12,"blt":90,"bdm":10,"bds":90,"rds":1,"ntp":1,"bat":1,"agt":70,"agb":0,"thm":10,"thn":0,"rot":0,"dst":0,"dsc":0,"dmf":50,"dml":99,"dlp":0,"dmu":0,"dal":1,"ddw":25,"dbw":114,"rrg":0,"drt":1,"dwt":1,"hsp":0,"web":1,"wif":1,"slp":0,"upc":1,"tof":0,"kpt":15,"mto":60,"plg":0,"pcl":0,"cst":["#141415","#09121a","#1b2a36","#d3d9de","#b78624","#0d567d","#e51f33","#270602","#ebe5e5"]}
 ```
 
 Most keys are the same as for [POST /api/settings](#post-apisettings) below. `sid` is the network name and `pss` says whether a passphrase is stored; the passphrase itself is never sent. `tzo` is the UTC offset and `cst` the custom theme's colours. The rest (`sql`, `sbd`, `sfq`, `svl`, `ims` and the other reception keys, `abw`) are the stored radio settings, which are changed with the tuning and sound routes and kept with `/api/save`.
@@ -554,6 +554,7 @@ A setting read at start up answers `Read at start up, so reboot for that to take
 | `upc` | 0, 1 | Check for Updates. Turned on, the radio looks in this start too |
 | `tof` | 0, 1 | Touch off: 1 stops the radio reading the touch screen, 0 reads it. Controls > Touch shows 0 as On |
 | `kpt` | 5 to 60 | Keypad Timeout: seconds a part typed number waits for the next key |
+| `mto` | 10 to 120 | Menu Timeout: seconds the menu or the bandwidth page stays up with no input |
 | `pcl` | 0, 1 | PC Link: 1 opens port 7373 for XDR-GTK and FM-DX Webserver |
 | `enc`, `edr` | 0, 1 | Encoder type and direction. After a restart |
 | `dst`, `dsc` | 0 to 2 | DX stop condition; DX scan range |

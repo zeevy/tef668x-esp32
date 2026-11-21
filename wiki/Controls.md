@@ -55,7 +55,7 @@ The menu has three levels: the groups, the rows of a group, and some rows that o
 | BAND, BW | Nothing | Nothing |
 | Keypad | Nothing, except the digits of the Web PIN | |
 
-Most values change as you turn, so you hear or see the result at once. A few act only when you press to save them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without saving a value, the old value comes back, and a bar row whose value you moved shows `Not saved`. With no input for one minute, the menu closes and the radio screen comes back. If a value was changed and not saved when the menu closed, the name line says so for 1.5 seconds, for example `Brightness not saved`.
+Most values change as you turn, so you hear or see the result at once. A few act only when you press to save them: the themes, Display Rotation, Wi-Fi, Hotspot, Web Server and Web PIN. If you go back without saving a value, the old value comes back, and a bar row whose value you moved shows `Not saved`. With no input for 60 seconds, the menu closes and the radio screen comes back. **Controls > Menu Timeout** sets another time, 10 s to 120 s. If a value was changed and not saved when the menu closed, the name line says so for 1.5 seconds, for example `Brightness not saved`.
 
 **About > Keys** lists what each key does, on the radio itself.
 
@@ -129,7 +129,7 @@ Hold BW to open it. It shows a tile for each filter width of the band, and on FM
 | MODE | Closes the page | The menu |
 | BAND, keypad | Nothing | |
 
-With no input for one minute, the page closes. It also closes if the band changes.
+With no input for 60 seconds, or the Menu Timeout time, the page closes. It also closes if the band changes.
 
 ## The volume knob
 
