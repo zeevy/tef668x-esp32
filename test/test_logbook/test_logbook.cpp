@@ -154,6 +154,83 @@ static void a_pi_on_one_side_only_leaves_the_channel_to_decide(void) {
   TEST_ASSERT_TRUE(logbookSameStation(&a, &b));
 }
 
+static void the_index_finds_a_stored_station_by_the_same_rule(void) {
+  static LogbookIndex index;
+  LogbookRing ring;
+  logbookRingInit(&ring);
+  logbookIndexClear(&index);
+  LogbookEntry a = sampleWithNameAndPi();
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &a));
+
+  logbookIndexPut(&index, logbookRingAppend(&ring), &a);
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &ring, &a));
+
+  LogbookEntry b = sampleWithNameAndPi();
+  b.pi = 0x1065;
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &b));
+  /* With no PI on the new entry the channel decides, as for two entries. */
+  b.hasPi = false;
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &ring, &b));
+  b = sampleWithNameAndPi();
+  b.freqKHz += 100;
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &b));
+  b = sampleWithNameAndPi();
+  b.band = 3;
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &b));
+}
+
+static void the_index_looks_only_at_slots_the_ring_holds(void) {
+  static LogbookIndex index;
+  LogbookRing ring;
+  logbookRingInit(&ring);
+  logbookIndexClear(&index);
+  LogbookEntry first = sampleWithNameAndPi();
+  logbookIndexPut(&index, logbookRingAppend(&ring), &first);
+  /* Fill the ring, then one more: the first entry's slot is taken over. */
+  LogbookEntry e = sampleWithNameAndPi();
+  for (uint16_t i = 1; i <= LOGBOOK_MAX_ENTRIES; i++) {
+    e.freqKHz = first.freqKHz + 100u * i;
+    logbookIndexPut(&index, logbookRingAppend(&ring), &e);
+  }
+  TEST_ASSERT_EQUAL_UINT16(LOGBOOK_MAX_ENTRIES, ring.count);
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &first));
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &ring, &e));
+
+  /* A slot left in the index past the ring's count is not looked at. */
+  LogbookRing one;
+  logbookRingInit(&one);
+  logbookRingAppend(&one);
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &one, &e));
+  e.freqKHz = first.freqKHz + 100u;
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &ring, &e));
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &one, &e));
+}
+
+static void an_emptied_slot_and_bad_arguments_match_nothing(void) {
+  static LogbookIndex index;
+  LogbookRing ring;
+  logbookRingInit(&ring);
+  logbookIndexClear(&index);
+  LogbookEntry a = sampleWithNameAndPi();
+  const uint16_t slot = logbookRingAppend(&ring);
+  logbookIndexPut(&index, slot, &a);
+  logbookIndexPut(&index, slot, NULL);
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &a));
+  /* A zeroed entry is band 0 on 0 kHz, and still not an emptied slot. */
+  LogbookEntry zero;
+  memset(&zero, 0, sizeof(zero));
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, &zero));
+
+  logbookIndexPut(&index, slot, &a);
+  logbookIndexPut(&index, LOGBOOK_MAX_ENTRIES, &a);
+  logbookIndexPut(NULL, slot, &a);
+  logbookIndexClear(NULL);
+  TEST_ASSERT_FALSE(logbookIndexHolds(NULL, &ring, &a));
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, NULL, &a));
+  TEST_ASSERT_FALSE(logbookIndexHolds(&index, &ring, NULL));
+  TEST_ASSERT_TRUE(logbookIndexHolds(&index, &ring, &a));
+}
+
 static void a_missing_entry_is_never_the_same_station(void) {
   LogbookEntry a = sampleWithNameAndPi();
   TEST_ASSERT_FALSE(logbookSameStation(&a, NULL));
@@ -731,6 +808,9 @@ int main(void) {
   RUN_TEST(two_pis_on_one_channel_are_two_stations);
   RUN_TEST(a_pi_on_one_side_only_leaves_the_channel_to_decide);
   RUN_TEST(a_missing_entry_is_never_the_same_station);
+  RUN_TEST(the_index_finds_a_stored_station_by_the_same_rule);
+  RUN_TEST(the_index_looks_only_at_slots_the_ring_holds);
+  RUN_TEST(an_emptied_slot_and_bad_arguments_match_nothing);
 
   RUN_TEST(a_record_encodes_to_the_fixed_size);
   RUN_TEST(a_record_round_trips_every_field);

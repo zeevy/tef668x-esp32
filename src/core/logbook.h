@@ -136,6 +136,35 @@ typedef enum {
 bool logbookSameStation(const LogbookEntry *a, const LogbookEntry *b);
 
 /*
+ * What tells one stored station from another, kept in RAM for every slot of
+ * the log, so adding an entry does not read all 250 records from flash to
+ * look for the same station. 8 bytes a slot, 2000 bytes in all.
+ */
+typedef struct {
+  uint32_t freqKHz;
+  uint16_t pi;
+  uint8_t band;
+  uint8_t flags; /* 0 is a slot with no readable entry. */
+} LogbookKey;
+
+typedef struct {
+  LogbookKey key[LOGBOOK_MAX_ENTRIES];
+} LogbookIndex;
+
+/* Every slot empty. */
+void logbookIndexClear(LogbookIndex *index);
+
+/* Note what `slot` holds. A NULL entry empties the slot. A slot past the
+ * last one, or a NULL index, is left alone. */
+void logbookIndexPut(LogbookIndex *index, uint16_t slot, const LogbookEntry *e);
+
+/* Whether one of the entries `ring` holds is the same station as `e`, by
+ * the rule of logbookSameStation. An emptied slot matches nothing. False
+ * for NULL. */
+bool logbookIndexHolds(const LogbookIndex *index, const LogbookRing *ring,
+                       const LogbookEntry *e);
+
+/*
  * Where the next entry goes.
  *
  * Grows the ring while there is room. Once full, the oldest entry is
